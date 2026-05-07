@@ -96,7 +96,7 @@ Grant application (in `APGameInfo.ApplyGrant`):
 ### Next milestones
 
 - **M6 — Logic + seed gen.** Author `data/logic.yaml`, regenerate apworld with proper region connections + access rules. Resolve the spell-mapping question. Run `start_inventory_from_pool: all` seed test, then play a real seed solo. Logic iteration is the long pole of the project — budget extra time.
-- **M7 — Goal detection.** Hook Great Hall post-Basilisk entry (the speedrun endpoint that triggers credits), send `goal_complete`. Not the Basilisk death function.
+- **M7 — Goal detection.** Add `bInEndGame` poll to `APCardWatcher`: read `HPConsole(PlayerHarry.Player.Console).menuBook.bInEndGame`, fire `GOAL_COMPLETE` over IPC on False → True. Sidecar handler sends `{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}`. Full plan + alternatives considered: `docs/MOD_TODO.md` "Goal-complete hook" entry. Not the Basilisk death function.
 - **M8 — UX polish.** HUD toast, pickup FX on grants, vendor disable, etc.
 
 ## Setup on Stefan's machine
