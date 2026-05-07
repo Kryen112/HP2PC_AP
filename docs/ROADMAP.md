@@ -43,21 +43,22 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **De-risks:** AP framework integration.
 
-## M5 — Items: full pool ⏳ in progress
+## M5 — Items: full pool ✅ (commits 91ddc48, a167dfa, fcd68a5)
 
-**Goal:** all 111 items + locations addressable in code.
+**Goal:** all 111 items + locations addressable in code, both directions wired.
 
 **Done:**
-- `data/items.yaml` (114 entries: 7 spells + 3 key items + 101 cards + 3 filler tiers).
-- `data/locations.yaml` (117 entries: 4 classrooms + 12 level completions + 101 card locations).
+- `data/items.yaml` (114 entries: 7 spells + 3 key items + 101 cards + 3 filler tiers) and `data/locations.yaml` (117 entries: 4 classrooms + 12 level completions + 101 card locations).
 - `scripts/gen_apworld.py` — reads `data/*.yaml`, validates uniqueness + cross-references, emits `apworld/items.py` and `apworld/locations.py`. Includes hardcoded `CARD_GAME_ID_TO_CLASS` map extracted from `StatusItemWizardCards.GetCardClassFromId`.
 - `apworld/__init__.py` refactored to consume the generated modules; full pool seeds generate cleanly under AP 0.6.5.
-- Sidecar (`client/hp2_ap_client.py`) uses real `card_game_id → AP location` and `AP item name → UScript class` mappings, with grant-echo deduplication so a sidecar GRANT doesn't trigger an infinite cascade via the watcher's re-detection.
+- Sidecar uses real `card_game_id → AP location` and `AP item name → UScript class` mappings, with grant-echo deduplication so a sidecar GRANT doesn't trigger an infinite cascade via the watcher's re-detection.
+- `APCardWatcher` polls cards (via `IsOwnedByHarry`), spells (via `harry.IsInSpellBook`), and key items (via `StatusItemBoomslang/Bicorn/BitOGoyle.nCount` in `StatusGroupPolyIngr`). Initial-snapshot baselines starter spells (Lumos/Flipendo/Alohomora) so cutscene-grants don't fire as fake CHECKs.
+- `APIPCActor` sends differentiated `CHECK <int>` (cards), `CHECK_SPELL <name>`, `CHECK_KEYITEM <name>`.
+- `APGameInfo.ApplyGrant` handles four grant types: cards (via `Spawn`+`Touch` chain), spells (via `harry.AddToSpellBookByString`), key items (via `managerStatus.AddBoomslang/AddBicorn` and `IncrementCount` for BitOGoyle), and filler beans (via `managerStatus.AddBeans` with 25/50/100 per tier).
 
-**Still TODO:**
-- Spell-tutorial completion hook (`APSpellHook.uc` or extend `APCardWatcher` to poll spell ownership). Suppress the auto-transition into the matching challenge level.
-- Key-item pickup hook (`APKeyItemHook.uc` or watcher extension): Boomslang / Bicorn / BitOGoyle.
-- Decide and implement spell-start-state policy (DESIGN.md open question 7).
+**Deferred to M6:**
+- AP location mapping for `CHECK_SPELL` (which classroom location does each spell-tutorial map to?) and `CHECK_KEYITEM` (which level location holds each key item?). Sidecar logs these but doesn't yet send `LocationChecks` for them — the mapping needs playtest data.
+- Spell-start-state policy (DESIGN.md open question 7).
 
 **De-risks:** the data pipeline. After M5, adding/changing items is a YAML edit + regen.
 

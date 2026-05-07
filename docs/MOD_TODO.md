@@ -5,18 +5,18 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 ## Hooks (intercept vanilla events to send AP `check_sent`)
 
 - [x] **Card pickup hook (M3, 2026-05-07)** — implemented as `APCardWatcher`, a polling Actor spawned from `APGameInfo.InitGame()`. It binds to `harry.managerStatus`'s bronze/silver/gold StatusItems and polls `IsOwnedByHarry(id)` for ids 1–101 every 0.25s. On diff, fires `CHECK <id>` over IPC. Catches every grant pathway including cutscene-script and chest grants — broader coverage than the original Touch-override plan. Subclassing `BronzeCards`/etc. proved unnecessary.
-- [ ] **Spell-tutorial completion hook** — find the trigger that fires when a spell tutorial completes; fire `check_sent` with the tutorial location ID; **suppress the auto-transition into the matching challenge level**. Player remains in the classroom / hub.
-- [ ] **Key-item pickup hook** — Boomslang, Bicorn, BitOGoyle. Same pattern as cards. Subclass the relevant `StatusItem*` or pickup actor, fire `check_sent`, then Super.
+- [~] **Spell-tutorial completion hook (M5, partial)** — `APCardWatcher` polls `harry.IsInSpellBook` and fires `CHECK_SPELL <name>` on diff. Detects all 7 user spells. Initial snapshot baselines starter spells (Lumos/Flipendo/Alohomora). **Still TODO:** map detected spell to a specific classroom location (M6 + playtest data) so the sidecar can send `LocationChecks`. Also unsolved: suppress the auto-transition into the matching challenge level (DESIGN open #7).
+- [x] **Key-item pickup hook (M5, fcd68a5)** — `APCardWatcher` polls `StatusItemBoomslang/Bicorn/BitOGoyle.nCount` in `StatusGroupPolyIngr` (all three are in PolyIngr — confirmed at runtime). Fires `CHECK_KEYITEM <name>` on transition from 0 → 1. Sidecar logs but doesn't yet send `LocationChecks` (location mapping → M6).
 - [ ] **Level completion hook** — find the level-end trigger fired at the end of each level; fire `check_sent` with the level ID. Allow the level to end normally.
 - [ ] **Basilisk death hook** — subclass `Basilisk` (`HGame/Classes/Bosses/Basilisk.uc`), override its death function, fire `goal_complete`, then call Super.
 
 ## Inbound (apply items granted by the AP server)
 
-- [ ] **`APItemReceiver`** — handles `grant_item` messages. Maps item names to apply-functions. **All apply functions must be idempotent** (re-applying does nothing if Harry already has the item).
-- [ ] **Apply spell** — add to spellbook (find vanilla "learn spell" path used by tutorials). Spawn 10-card-set celebration FX (`BronzeStamina` for normal, `SilverUnlock` for fancy) — see `WizardCardIcon.uc:104,117`.
+- [x] **`APItemReceiver` (M3+M5)** — implemented inside `APGameInfo.ApplyGrant`. Dispatches by item name: spells, key items, beans, cards. Spell + key item + bean apply functions are naturally idempotent (`AddToSpellBookByString` no-ops if already known; key item adds increase nCount but the watcher's snapshot baselines starter state; beans just increment).
+- [x] **Apply spell (M5, a167dfa)** — `harry.AddToSpellBookByString(name)`. Idempotent per HP2's own `AddToSpellBook` guard (`SpellBook[type] == None` check). Celebration FX not added; deferred to M8 polish.
 - [~] **Apply card** — partial (M3, 2026-05-07). `APGameInfo.ApplyGrant` spawns the card class at harry's location and calls `Touch(harry)`, invoking the full vanilla `WizardCardIcon.Touch` chain (`SetCardOwner` + `RemoveHarryOwnedCardsFromLevel` + `Super.Touch` → `DoPickupProp` → `managerStatus.PickupItem`). The watcher confirms the SetCardOwner write succeeds in-memory. **However** HP2 wipes `WizardCards[]` between operations and the album does not reflect AP-granted cards. Open M212 Discord question — see `docs/DESIGN.md` open question 6. Also note: the grant arrives at the mod via `GRANT <UScriptClassName>` from the sidecar (M5 wired the real `AP item name → UScript class` mapping; sidecar deduplicates the watcher echo so the grant doesn't trigger an infinite cascade).
-- [ ] **Apply key item** — set the corresponding StatusItem flag. Silent + toast.
-- [ ] **Apply filler (beans)** — add N beans to the player's bean count.
+- [x] **Apply key item (M5, fcd68a5)** — Boomslang/Bicorn via `managerStatus.AddBoomslang(1)` / `AddBicorn(1)` helpers; BitOGoyle via explicit `IncrementCount(StatusGroupPolyIngr, StatusItemBitOGoyle, 1)` (no helper exists). Silent (no toast yet — M8).
+- [x] **Apply filler (beans) (M5, fcd68a5)** — `managerStatus.AddBeans(N)` with 25/50/100 for Small/Medium/Large tiers. Silent (no toast yet — M8).
 
 ## Item delivery queue
 
