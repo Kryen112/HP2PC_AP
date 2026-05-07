@@ -6,7 +6,17 @@ This file is for the next Claude that boots into this repo. Read it top-to-botto
 
 ## ⚠️ IN-FLIGHT, UNTESTED — read before touching anything
 
-Two changes landed end-of-day 2026-05-07 on a Python-less laptop with no game install. Neither has been compiled or playtested. Before doing anything else next session, work through both.
+Two code changes landed end-of-day 2026-05-07 on a Python-less laptop with no game install. Neither has been compiled or playtested. Before doing anything else next session, work through both.
+
+### Game-machine boot checklist (do these in order)
+
+1. `git pull origin main` — should fast-forward to `223403d` (or later if newer commits exist).
+2. `py -3.12 scripts\gen_apworld.py` from the repo root — regenerates `apworld/items.py` + `apworld/locations.py` from the YAML. The `mklink /J` junction at `Archipelago\worlds\harry_potter_2\` propagates the change to the AP framework.
+3. `ucc make` in `Modded\System` — compiles the new `APGameInfo.uc` (and any other UScript edits). If errors, scroll up in the output for the first one and fix; subsequent errors usually cascade.
+4. Generate a fresh test seed against the apworld (any standard `Archipelago.exe` generation flow you used before for this project).
+5. Boot game + sidecar + AP MultiServer, connect everything, and walk through the verification steps for both changes below.
+
+The two changes are independent. If `ucc make` fails on Change 1, Change 2 is still testable (it only affects the sidecar + apworld); skip past Change 1's playtest until the build is fixed.
 
 ### Change 1: M3 card-album persistence fix (`mod/HPArchipelago/Classes/APGameInfo.uc`)
 
@@ -90,8 +100,9 @@ Grant application (in `APGameInfo.ApplyGrant`):
 
 ### Open questions
 
-1. **Spell-start-state policy.** When AP grants a spell, what about the level that *teaches* that spell? Auto-skip? Replay? Open question for M6 — see DESIGN.md open question 7.
-2. **Spell + key-item location mapping.** The mod *detects* spells and key items learned/picked up, but the sidecar currently only **logs** them — it doesn't yet send `LocationChecks` because we don't know which AP location each one maps to. That mapping needs playtest data (which classroom teaches which spell, which level holds which key item). Lands in M6.
+(M3 album persistence, Q7 spell-start policy, and the spell/key-item location mapping all resolved 2026-05-07. Remaining open questions live in `docs/DESIGN.md` "Open questions to resolve in playtest" — mostly per-card vanilla-location cataloguing for M6.)
+
+The big M6-blocker now is **authoring `data/logic.yaml`** with per-region access rules. The story-progression memory has the canonical level/spell flow; the per-card vanilla locations still need cataloguing during playtest.
 
 ### Next milestones
 
@@ -146,13 +157,15 @@ The DESIGN doc has a **v2 parking lot** at the bottom. Anything not in v1 lives 
 
 ## Memory pointers
 
-The `memory/` directory under `~/.claude/projects/.../` already has entries for:
+The `memory/` directory under `~/.claude/projects/.../` should auto-load via `MEMORY.md` and includes:
 - Stefan's role and skill profile (user memory)
 - Don't-stop-recommending feedback
 - Short-commit-message feedback
 - No-AI-attribution feedback
+- **HP2 AP Randomizer — v2 parking lot** (entrance shuffle, alt goal modes, Tier-3 check expansion deferred from v1)
+- **HP2 AP Randomizer — v1 vanilla story progression** (canonical level/spell flow; load-bearing for M6 logic authoring)
 
-When you start the session, those should auto-load via `MEMORY.md`. If they don't appear, something's wrong with the memory system.
+If those don't appear in your initial context, the memory system is broken — flag it.
 
 ## First sanity check on resume
 
@@ -160,7 +173,7 @@ When you start the session, those should auto-load via `MEMORY.md`. If they don'
 git log --oneline -5
 ```
 
-Should show `f978109` or later as HEAD on `main`. If it's older, Stefan has either reset or you're on a stale checkout — ask before doing anything.
+Should show `223403d` or later as HEAD on `main`. If it's older, Stefan has either reset or you're on a stale checkout — ask before doing anything.
 
 ```powershell
 ls docs/
