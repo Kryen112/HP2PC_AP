@@ -43,18 +43,23 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **De-risks:** AP framework integration.
 
-## M5 — Items: full pool
+## M5 — Items: full pool ⏳ in progress
 
 **Goal:** all 111 items + locations addressable in code.
 
-- Author `data/items.yaml` (101 cards + 7 spells + 3 key items, each with stable AP item ID, classification = progression / useful / filler).
-- Author skeleton `data/locations.yaml` (~117 entries, region = Unknown until playtest).
-- Implement `scripts/gen_apworld.py` — reads `data/*.yaml`, emits `apworld/items.py` and `apworld/locations.py`.
-- Implement spell hooks (`APSpellHook.uc`): spell-tutorial completion fires `check_sent`, blocks the post-tutorial level transition.
-- Implement key-item hooks (`APKeyItemHook.uc`): Boomslang/Bicorn/BitOGoyle pickups fire `check_sent`.
-- Beans filler items added.
+**Done:**
+- `data/items.yaml` (114 entries: 7 spells + 3 key items + 101 cards + 3 filler tiers).
+- `data/locations.yaml` (117 entries: 4 classrooms + 12 level completions + 101 card locations).
+- `scripts/gen_apworld.py` — reads `data/*.yaml`, validates uniqueness + cross-references, emits `apworld/items.py` and `apworld/locations.py`. Includes hardcoded `CARD_GAME_ID_TO_CLASS` map extracted from `StatusItemWizardCards.GetCardClassFromId`.
+- `apworld/__init__.py` refactored to consume the generated modules; full pool seeds generate cleanly under AP 0.6.5.
+- Sidecar (`client/hp2_ap_client.py`) uses real `card_game_id → AP location` and `AP item name → UScript class` mappings, with grant-echo deduplication so a sidecar GRANT doesn't trigger an infinite cascade via the watcher's re-detection.
 
-**De-risks:** the data pipeline. After M5, adding/changing items is a YAML edit.
+**Still TODO:**
+- Spell-tutorial completion hook (`APSpellHook.uc` or extend `APCardWatcher` to poll spell ownership). Suppress the auto-transition into the matching challenge level.
+- Key-item pickup hook (`APKeyItemHook.uc` or watcher extension): Boomslang / Bicorn / BitOGoyle.
+- Decide and implement spell-start-state policy (DESIGN.md open question 7).
+
+**De-risks:** the data pipeline. After M5, adding/changing items is a YAML edit + regen.
 
 ## M6 — Logic and seed generation
 

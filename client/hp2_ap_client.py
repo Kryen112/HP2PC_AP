@@ -56,6 +56,26 @@ import CommonClient
 from CommonClient import CommonContext, ClientCommandProcessor, get_base_parser, server_loop, gui_enabled
 from NetUtils import ClientStatus
 
+# Pull data tables from our apworld so the sidecar uses the same canonical
+# mappings as the AP framework / generator.
+from worlds.harry_potter_2.locations import (
+    CARD_CLASS_TO_LOCATION_NAME,
+    CARD_GAME_ID_TO_LOCATION_NAME,
+    LOCATION_NAME_TO_ID,
+)
+from worlds.harry_potter_2.items import CARD_CLASS_TO_ITEM_NAME
+
+ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
+
+# Build UScript class → game-side card Id by composing the two maps:
+#   CARD_GAME_ID_TO_LOCATION_NAME  (game_id → "Card_Foo")
+#   CARD_CLASS_TO_LOCATION_NAME    ("WCFoo" → "Card_Foo")
+_LOC_NAME_TO_CLASS = {loc: cls for cls, loc in CARD_CLASS_TO_LOCATION_NAME.items()}
+CARD_CLASS_TO_GAME_ID = {
+    _LOC_NAME_TO_CLASS[loc_name]: game_id
+    for game_id, loc_name in CARD_GAME_ID_TO_LOCATION_NAME.items()
+}
+
 GAME_NAME = "Harry Potter 2"
 GAME_TCP_HOST = "127.0.0.1"
 GAME_TCP_PORT = 38281
@@ -78,6 +98,10 @@ class HP2Context(CommonContext):
         self.game_writer: Optional[asyncio.StreamWriter] = None
         self.tcp_server_task: Optional[asyncio.Task] = None
         self.checked_locations_seen: set[int] = set()
+        # Card game-Ids the sidecar has just GRANTed to the mod; the mod's
+        # watcher will see those cards become Harry-owned and echo CHECK back.
+        # We swallow those echoes so they don't trigger another LocationCheck.
+        self.granted_card_game_ids: set[int] = set()
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -93,8 +117,20 @@ class HP2Context(CommonContext):
                 # item is a NetworkItem namedtuple: (item, location, player, flags)
                 item_id = item.item
                 item_name = self.item_names.lookup_in_game(item_id, GAME_NAME) or f"item_id_{item_id}"
-                logger.info(f"Received item: {item_name} (id={item_id})")
-                self._send_to_game(f"GRANT {item_name}")
+                # Cards: forward as 'GRANT <UScriptClassName>' so mod's ApplyGrant
+                # can DynamicLoadObject and Spawn-Touch the card. Non-cards get
+                # the raw item name; mod's ApplyGrant ignores those for now.
+                ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
+                payload = ucls if ucls else item_name
+                if ucls:
+                    game_id = CARD_CLASS_TO_GAME_ID.get(ucls)
+                    if game_id is not None:
+                        # Tell ourselves: when the mod echoes CHECK <game_id>
+                        # back (because its watcher sees Harry now owns this
+                        # card), do NOT treat it as a real check.
+                        self.granted_card_game_ids.add(game_id)
+                logger.info(f"Received item: {item_name} (id={item_id}) → forwarding as GRANT {payload}")
+                self._send_to_game(f"GRANT {payload}")
 
     def run_gui(self) -> None:
         # CLI-only for now; CommonContext supports GUI but we keep it minimal.
@@ -139,22 +175,25 @@ class HP2Context(CommonContext):
             except ValueError:
                 logger.warning(f"Unparseable CHECK: {line!r}")
                 return
-            # M4 minimal: forward as a single-location LocationChecks. The
-            # in-game id (card Id) won't match our minimal apworld's location
-            # id space yet — that mapping lands in M5. For the M4 smoke test,
-            # treat any CHECK as 'the player did the test location'.
             if not self.server or self.slot is None:
                 logger.warning(f"AP server not connected (slot={self.slot}), dropping CHECK {check_id}")
                 return
-            location_id = next(iter(self.missing_locations), None) if self.missing_locations else None
+            if check_id in self.granted_card_game_ids:
+                logger.info(f"Ignoring CHECK {check_id} — sidecar just GRANTed this card; watcher echo")
+                return
+            location_name = CARD_GAME_ID_TO_LOCATION_NAME.get(check_id)
+            if location_name is None:
+                logger.warning(f"Game CHECK {check_id} doesn't map to a known card location; dropping")
+                return
+            location_id = LOCATION_NAME_TO_ID.get(location_name)
             if location_id is None:
-                logger.info(f"No missing locations to send for CHECK {check_id} (already done?)")
+                logger.warning(f"Card location {location_name!r} has no AP id; dropping")
                 return
             if location_id in self.checked_locations_seen:
                 return
             self.checked_locations_seen.add(location_id)
             await self.send_msgs([{"cmd": "LocationChecks", "locations": [location_id]}])
-            logger.info(f"Sent LocationChecks for {location_id} (in response to game CHECK {check_id})")
+            logger.info(f"Sent LocationChecks for {location_name} (id={location_id}, game CHECK {check_id})")
 
     async def run_tcp_server(self) -> None:
         server = await asyncio.start_server(
