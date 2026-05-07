@@ -2,7 +2,7 @@
 
 An Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secrets* (PC, 2002 EA / KnowWonder release).
 
-**Status:** pre-alpha. M0–M5 done. Mod toolchain proven (M1), bidirectional TCP IPC (M2), card-pickup detection + grant round-trip wire (M3, with one open question on album persistence pending an M212 Discord answer), real Archipelago integration via WebSocket sidecar (M4), full 114-item / 117-location apworld with cards + spells + key items + beans hooked both ways (M5). Next up: M6 (logic + seed gen). See `docs/ROADMAP.md` for the full milestone status and `docs/DESIGN.md#open-questions-to-resolve-in-playtest` for the active blockers.
+**Status:** pre-alpha. M0–M5 done. Mod toolchain proven (M1), bidirectional TCP IPC (M2), card-pickup detection + grant round-trip with album persistence (M3), real Archipelago integration via WebSocket sidecar (M4), full 114-item / 117-location apworld with cards + spells + key items + beans hooked both ways (M5). Next up: M6 (logic + seed gen). See `docs/ROADMAP.md` for the full milestone status and `docs/DESIGN.md#open-questions-to-resolve-in-playtest` for the active blockers.
 
 ## Architecture (one-liner)
 

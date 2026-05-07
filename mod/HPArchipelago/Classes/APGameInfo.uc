@@ -47,6 +47,62 @@ function bool IsKnownSpellName(string Name)
         || Name == "Spongify";
 }
 
+function bool TryApplyCard(string ItemName, harry h)
+{
+    local class<WizardCardIcon> cardClass;
+    local class<StatusItemWizardCards> siClass;
+    local StatusGroupWizardCards sgCards;
+    local StatusItemWizardCards siCard;
+
+    cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ ItemName, class'Class'));
+    if (cardClass == None)
+    {
+        return False;
+    }
+
+    if (ClassIsChildOf(cardClass, class'BronzeCards'))
+    {
+        siClass = class'StatusItemBronzeCards';
+    }
+    else if (ClassIsChildOf(cardClass, class'SilverCards'))
+    {
+        siClass = class'StatusItemSilverCards';
+    }
+    else if (ClassIsChildOf(cardClass, class'Goldcards'))
+    {
+        siClass = class'StatusItemGoldCards';
+    }
+    else
+    {
+        Log("[Archipelago] ApplyGrant: " $ ItemName $ " is not a recognized card tier");
+        return False;
+    }
+
+    if (h.managerStatus == None)
+    {
+        Log("[Archipelago] ApplyGrant: harry.managerStatus is None, cannot grant card");
+        return False;
+    }
+    sgCards = StatusGroupWizardCards(h.managerStatus.GetStatusGroup(class'StatusGroupWizardCards'));
+    if (sgCards == None)
+    {
+        Log("[Archipelago] ApplyGrant: StatusGroupWizardCards not found");
+        return False;
+    }
+    siCard = StatusItemWizardCards(sgCards.GetStatusItem(siClass));
+    if (siCard == None)
+    {
+        Log("[Archipelago] ApplyGrant: StatusItem for " $ string(siClass) $ " not found");
+        return False;
+    }
+
+    siCard.SetCardOwner(cardClass.default.Id, siCard.ECardOwner.CardOwner_Harry);
+    sgCards.RemoveHarryOwnedCardsFromLevel(None);
+
+    Log("[Archipelago] ApplyGrant: granted card " $ ItemName $ " (Id=" $ cardClass.default.Id $ ") via SetCardOwner+RemoveHarryOwnedCardsFromLevel");
+    return True;
+}
+
 function bool TryApplyKeyItem(string Name, harry h)
 {
     if (h == None || h.managerStatus == None) return False;
@@ -73,12 +129,8 @@ function bool TryApplyKeyItem(string Name, harry h)
 
 function ApplyGrant(string ItemName)
 {
-    local class<WizardCardIcon> cardClass;
-    local WizardCardIcon cardActor;
     local harry h;
     local PlayerPawn pp;
-    local Vector spawnLoc;
-    local int attempt;
 
     Log("[Archipelago] APGameInfo.ApplyGrant: " $ ItemName);
 
@@ -134,54 +186,10 @@ function ApplyGrant(string ItemName)
         return;
     }
 
-    cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ ItemName, class'Class'));
-    if (cardClass == None)
+    if (TryApplyCard(ItemName, h))
     {
-        Log("[Archipelago] ApplyGrant: unknown class HGame." $ ItemName);
         return;
     }
 
-    foreach AllActors(class'PlayerPawn', pp)
-    {
-        if (pp.bIsPlayer && pp.IsA('harry'))
-        {
-            h = harry(pp);
-            break;
-        }
-    }
-    if (h == None)
-    {
-        foreach AllActors(class'harry', h)
-        {
-            break;
-        }
-    }
-    if (h == None)
-    {
-        Log("[Archipelago] ApplyGrant: no harry to deliver to");
-        return;
-    }
-
-    for (attempt = 0; attempt < 4; attempt++)
-    {
-        spawnLoc = h.Location + vect(0, 0, 1) * (100 + attempt * 200);
-        cardActor = Spawn(cardClass, , , spawnLoc);
-        if (cardActor != None)
-        {
-            break;
-        }
-    }
-    if (cardActor == None)
-    {
-        Log("[Archipelago] ApplyGrant: Spawn failed for " $ ItemName $ " after retries");
-        return;
-    }
-
-    Log("[Archipelago] ApplyGrant: spawned " $ ItemName $ " (Id=" $ cardActor.Id $ "), firing Touch");
-    cardActor.Touch(h);
-    // NOTE: SetCardOwner state writes here are observed by the watcher (CHECK fires
-    // for the granted Id), but HP2 has internal logic that periodically resets
-    // WizardCards[] and only re-applies its own "official" pickups. Album does not
-    // reflect AP-granted cards yet. Open question for M212 Discord: where does HP2
-    // store the canonical card-ownership list, and what's the right hook?
+    Log("[Archipelago] ApplyGrant: unknown item " $ ItemName);
 }

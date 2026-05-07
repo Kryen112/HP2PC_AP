@@ -80,6 +80,31 @@ GAME_NAME = "Harry Potter 2"
 GAME_TCP_HOST = "127.0.0.1"
 GAME_TCP_PORT = 38281
 
+# Map UScript spell name (as fired by APCardWatcher's CHECK_SPELL) to the
+# AP location it represents. Lumos/Flipendo/Alohomora are starter cutscene
+# spells with no classroom — they get placed as start-inventory by the seed
+# and never fire CHECK_SPELL after the initial-snapshot baseline. The 4
+# below are the non-starter spells, each taught after its classroom's spell
+# challenge. Story order: Rictusempra (Lockhart#1) → Skurge (Flitwick) →
+# Diffindo (Sprout) → Spongify (Lockhart#2). See data/locations.yaml.
+SPELL_TO_LOCATION_NAME = {
+    "Rictusempra": "Classroom_Lockhart_Rictusempra",
+    "Skurge":      "Classroom_Flitwick_Skurge",
+    "Diffindo":    "Classroom_Sprout_Diffindo",
+    "Spongify":    "Classroom_Lockhart_Spongify",
+}
+
+# Map UScript key-item name to the AP location it represents. Per design:
+# the key-item pickup IS the level-end (you finish the level by grabbing
+# the ingredient), so we collapse pickup + level-clear into a single check
+# rather than firing two. The other 9 level-clears (non-key-item levels)
+# still need their own level-completion hook — see MOD_TODO.md.
+KEYITEM_TO_LOCATION_NAME = {
+    "Boomslang": "LevelClear_BoomslangLevel",
+    "Bicorn":    "LevelClear_BicornLevel",
+    "BitOGoyle": "LevelClear_GoyleLevel",
+}
+
 logger = logging.getLogger("HP2Client")
 
 
@@ -171,16 +196,19 @@ class HP2Context(CommonContext):
             return
         if line.startswith("CHECK_SPELL "):
             spell_name = line[len("CHECK_SPELL "):].strip()
-            # M5: spells detected but no AP location mapping yet (classroom →
-            # spell mapping needs playtest data; lands in M6). Just log and
-            # ignore for now.
-            logger.info(f"Game learned spell {spell_name!r} — no AP location mapping yet, not sending LocationChecks")
+            await self._send_named_location_check(
+                kind="spell",
+                game_name=spell_name,
+                name_to_location=SPELL_TO_LOCATION_NAME,
+            )
             return
         if line.startswith("CHECK_KEYITEM "):
             key_item_name = line[len("CHECK_KEYITEM "):].strip()
-            # Same story as spells: location mapping (which level the key item
-            # is in) needs playtest data, M6.
-            logger.info(f"Game picked up key item {key_item_name!r} — no AP location mapping yet, not sending LocationChecks")
+            await self._send_named_location_check(
+                kind="key item",
+                game_name=key_item_name,
+                name_to_location=KEYITEM_TO_LOCATION_NAME,
+            )
             return
         if line.startswith("CHECK "):
             try:
@@ -207,6 +235,24 @@ class HP2Context(CommonContext):
             self.checked_locations_seen.add(location_id)
             await self.send_msgs([{"cmd": "LocationChecks", "locations": [location_id]}])
             logger.info(f"Sent LocationChecks for {location_name} (id={location_id}, game CHECK {check_id})")
+
+    async def _send_named_location_check(self, kind: str, game_name: str, name_to_location: dict[str, str]) -> None:
+        if not self.server or self.slot is None:
+            logger.warning(f"AP server not connected (slot={self.slot}), dropping {kind} {game_name!r}")
+            return
+        location_name = name_to_location.get(game_name)
+        if location_name is None:
+            logger.info(f"Game {kind} {game_name!r} has no AP location mapping (likely starter / non-progression); skipping")
+            return
+        location_id = LOCATION_NAME_TO_ID.get(location_name)
+        if location_id is None:
+            logger.warning(f"{kind.capitalize()} location {location_name!r} has no AP id; dropping")
+            return
+        if location_id in self.checked_locations_seen:
+            return
+        self.checked_locations_seen.add(location_id)
+        await self.send_msgs([{"cmd": "LocationChecks", "locations": [location_id]}])
+        logger.info(f"Sent LocationChecks for {location_name} (id={location_id}, {kind} {game_name!r})")
 
     async def run_tcp_server(self) -> None:
         server = await asyncio.start_server(

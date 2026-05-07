@@ -1,6 +1,39 @@
-# Handoff — written 2026-05-07
+# Handoff — written 2026-05-07 (updated end-of-day 2026-05-07)
 
 This file is for the next Claude that boots into this repo. Read it top-to-bottom before doing anything else. The previous Claude wrote it after a long session that took the project from M0 design docs to a working M5 with end-to-end Archipelago integration.
+
+---
+
+## ⚠️ IN-FLIGHT, UNTESTED — read before touching anything
+
+Two changes landed end-of-day 2026-05-07 on a Python-less laptop with no game install. Neither has been compiled or playtested. Before doing anything else next session, work through both.
+
+### Change 1: M3 card-album persistence fix (`mod/HPArchipelago/Classes/APGameInfo.uc`)
+
+M212 Discord pointed at `WizardCardIcon.uc:131`. Card-grant path was rewritten from `Spawn(class) + cardActor.Touch(harry)` to a direct `siCard.SetCardOwner(cardClass.default.Id, CardOwner_Harry)` + `sgCards.RemoveHarryOwnedCardsFromLevel(None)`.
+
+Verification:
+
+1. `ucc make` in `Modded\System` — confirm the new `TryApplyCard` and the trimmed `ApplyGrant` compile cleanly. Locals removed from `ApplyGrant`: `cardClass`, `cardActor`, `spawnLoc`, `attempt`. Class refs needed: `WizardCardIcon`, `StatusItemWizardCards`, `StatusGroupWizardCards`, `StatusItemBronzeCards`, `StatusItemSilverCards`, `StatusItemGoldcards`, `BronzeCards`, `SilverCards`, `Goldcards`. If `ucc` complains about unresolved class refs, add the appropriate package to `EditPackages=` or fully-qualify with `HGame.<Class>`.
+2. Run a real seed and have AP grant a card. Open the album. **Confirm the granted card actually appears.** If yes, this milestone closes; commit the changes (commit message ≤25 words, no AI attribution). If no, the fix is wrong — the grant log line `[Archipelago] ApplyGrant: granted card …` should still appear but the album won't update. In that case re-open DESIGN open question 6.
+3. Side-effect to watch for: `RemoveHarryOwnedCardsFromLevel(None)` walks all `WizardCardIcon` actors in the current level and destroys Harry-owned ones. That's the same call `harry.uc:977` makes on level entry, so it should be safe — but if a player picks up a vanilla card and *then* AP grants a different card, other in-level card icons Harry already owns will vanish. Check the play feel.
+
+### Change 2: spell + key-item → AP location wiring (`data/locations.yaml`, `client/hp2_ap_client.py`, `docs/MOD_TODO.md`)
+
+Stefan provided the v1 story progression. Mapping authored:
+- `data/locations.yaml` classroom entries renamed to one per non-starter spell: `Classroom_Lockhart_Rictusempra` (offset 1), `Classroom_Flitwick_Skurge` (offset 2), `Classroom_Sprout_Diffindo` (offset 3), `Classroom_Lockhart_Spongify` (offset 4). The previous `Classroom_Snape` (Potions) was dropped — Snape teaches Wiggenweld brewing, not a spell. Total location count unchanged at 117.
+- `client/hp2_ap_client.py` got `SPELL_TO_LOCATION_NAME` (4 entries) and `KEYITEM_TO_LOCATION_NAME` (3 entries: Boomslang/Bicorn/BitOGoyle → respective `LevelClear_*Level`). The two `CHECK_SPELL` / `CHECK_KEYITEM` handlers now route through a shared `_send_named_location_check` helper that mirrors the existing card-CHECK flow (validate AP connection, look up location id, dedupe via `checked_locations_seen`, send `LocationChecks`).
+- Lumos/Flipendo/Alohomora intentionally have no entry in `SPELL_TO_LOCATION_NAME` — they're starter cutscene spells, baselined in the watcher's initial snapshot, never fire `CHECK_SPELL`. They must be placed as start-inventory by the seed (intersects open question 7 — make the call before M6 logic).
+- The 3 ingredient levels (Boomslang/Bicorn/Goyle) get their `LevelClear_*` checks via the key-item pickup hook — design call from Stefan: pickup IS level-end, one check not two. The other 9 level-clears still need a dedicated hook (now a fresh open todo at `MOD_TODO.md`).
+
+Verification:
+
+1. **Regen the apworld:** `py -3.12 scripts\gen_apworld.py` from the repo root. Should succeed; the validator will catch any duplicate ids/names. The 4 renamed classrooms keep their original `id_offset` values (1–4), so existing test seeds remain compatible.
+2. **Test seed:** generate a fresh seed, connect both clients. Walk Harry through Lockhart's first class to learn Rictusempra. Sidecar should log `Sent LocationChecks for Classroom_Lockhart_Rictusempra` and the AP server should mark that location collected.
+3. **Repeat** for Flitwick (Skurge), Sprout (Diffindo), Lockhart#2 (Spongify), and the 3 ingredient pickups.
+4. **Watch for** `Game spell 'Lumos' has no AP location mapping (likely starter / non-progression); skipping` — that line firing means the starter-spell snapshot is somehow leaking; investigate the `APCardWatcher` baseline if so. It should normally never appear.
+
+If both changes pass, delete this entire `IN-FLIGHT` section and let the rest of the doc stand.
 
 ---
 
@@ -32,7 +65,7 @@ The project is **HP2PC_AP**, an Archipelago multiworld randomizer for *Harry Pot
 | M0 — Bootstrap | `48e3cac` | Repo + design docs |
 | M1 — Hello-world mod | `929c493` | UScript toolchain works; `DefaultGame=` in `Game.ini` is the canonical entry point |
 | M2 — TcpLink ping/pong | `cddb73f` | UScript ↔ Python bidirectional IPC over localhost:38281 |
-| M3 — Card pickup round-trip | `5cedc10` | Watcher detects pickups, sidecar replies, mod applies — wire end-to-end. Album persistence is an open question (see below). |
+| M3 — Card pickup round-trip | `5cedc10` | Watcher detects pickups, sidecar replies, mod applies — wire end-to-end. Album-persistence fix coded 2026-05-07 (direct `SetCardOwner` + `RemoveHarryOwnedCardsFromLevel`, not Spawn+Touch) — **untested, see in-flight section above.** |
 | M4 — Real AP integration | `302b27d` | Sidecar subclasses `CommonContext`; speaks real AP WebSocket protocol against MultiServer |
 | M5 — Full pool + hooks | `91ddc48`, `a167dfa`, `fcd68a5` | 114 items, 117 locations, gen pipeline, all four grant types (cards/spells/key items/beans) wired both ways |
 
@@ -48,7 +81,7 @@ Detection:
 - **Key items**: same watcher polls `nCount` on `StatusItemBoomslang/Bicorn/BitOGoyle` (all in `StatusGroupPolyIngr`)
 
 Grant application (in `APGameInfo.ApplyGrant`):
-- **Cards** → `Spawn(class)` + `Touch(harry)` chain (works in-memory, but album-persistence is unresolved — see open question)
+- **Cards** → `siCard.SetCardOwner(cardClass.default.Id, CardOwner_Harry)` + `sgCards.RemoveHarryOwnedCardsFromLevel(None)`. Direct write to the canonical `WizardCards[50]` store; level-side cleanup destroys duplicate `WizardCardIcon` actors and replaces chest contents. Bypasses Spawn+Touch (whose `CanPickupNow` guard short-circuited for runtime-spawned actors).
 - **Spells** → `harry.AddToSpellBookByString(name)`
 - **Key items** → `managerStatus.AddBoomslang(1)` / `AddBicorn(1)` / `IncrementCount(StatusGroupPolyIngr, StatusItemBitOGoyle, 1)`
 - **Beans** → `managerStatus.AddBeans(25/50/100)` for Small/Medium/Large
@@ -57,9 +90,8 @@ Grant application (in `APGameInfo.ApplyGrant`):
 
 ### Open questions
 
-1. **Card album persistence (M3 open).** AP-granted cards don't show in the album. HP2 wipes `WizardCards[]` between operations. Stefan still needs to post the question to the M212 Discord — `task #23` is pending. Until answered, AP-granted cards work mechanically but visually don't show up in the album. Don't try to fix this without the Discord answer; the previous Claude went deep on diagnostics and concluded it needs M212 dev input.
-2. **Spell-start-state policy.** When AP grants a spell, what about the level that *teaches* that spell? Auto-skip? Replay? Open question for M6 — see DESIGN.md open question 7.
-3. **Spell + key-item location mapping.** The mod *detects* spells and key items learned/picked up, but the sidecar currently only **logs** them — it doesn't yet send `LocationChecks` because we don't know which AP location each one maps to. That mapping needs playtest data (which classroom teaches which spell, which level holds which key item). Lands in M6.
+1. **Spell-start-state policy.** When AP grants a spell, what about the level that *teaches* that spell? Auto-skip? Replay? Open question for M6 — see DESIGN.md open question 7.
+2. **Spell + key-item location mapping.** The mod *detects* spells and key items learned/picked up, but the sidecar currently only **logs** them — it doesn't yet send `LocationChecks` because we don't know which AP location each one maps to. That mapping needs playtest data (which classroom teaches which spell, which level holds which key item). Lands in M6.
 
 ### Next milestones
 
@@ -119,7 +151,6 @@ The `memory/` directory under `~/.claude/projects/.../` already has entries for:
 - Don't-stop-recommending feedback
 - Short-commit-message feedback
 - No-AI-attribution feedback
-- HP2 card-grant persistence open question (project memory)
 
 When you start the session, those should auto-load via `MEMORY.md`. If they don't appear, something's wrong with the memory system.
 

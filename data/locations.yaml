@@ -15,13 +15,28 @@
 
 base_id: 5760000
 
-# Sphere-0: 4 spell-teaching classrooms. Reachable with zero items.
-# Spell mapping (which classroom teaches which spell) needs cataloguing.
+# 4 spell-teaching classrooms. Each grants one of the 4 non-starter spells
+# (Rictusempra, Skurge, Diffindo, Spongify). Lumos/Flipendo/Alohomora are
+# starter cutscene spells and have no classroom location — they must be
+# placed as start-inventory by the seed (see DESIGN.md open question 7).
+#
+# v1 story-order in vanilla play: Lockhart#1 → Quidditch → Potions (Snape,
+# brews Wiggenweld but no spell) → Flitwick → Bicorn level → Dueling Club →
+# Sprout → Boomslang level → Dumbledore's study → Goyle level → Slytherin
+# Common → Lockhart#2 → Forbidden Forest → Chamber → Basilisk. Sphere-0 in
+# the open-hub model is "everything reachable from spawn"; the story-mode
+# variant (entrance-locked) is parked for v2. Snape's Potions class doesn't
+# teach a spell so it isn't a check in v1; the brew-Wiggenweld unlock and
+# other story beats (Quidditch practice, Dueling Club, Dumbledore's study)
+# are deferred to v2's Tier-3 check expansion.
+#
+# The mod fires `CHECK_SPELL <name>` when Harry first learns a spell; the
+# sidecar maps name → location_id via `SPELL_TO_LOCATION` in hp2_ap_client.py.
 classrooms:
-  - { id_offset: 1, name: "Classroom_Lockhart",   region: Hogwarts, group: Classrooms, notes: "Lockhart's class — vanilla teaches Flipendo (verify)" }
-  - { id_offset: 2, name: "Classroom_Sprout",     region: Greenhouses, group: Classrooms, notes: "Herbology — vanilla teaches Spongify? (verify)" }
-  - { id_offset: 3, name: "Classroom_Snape",      region: Dungeons, group: Classrooms, notes: "Potions — confirm if any spell taught here, else move to NPC list" }
-  - { id_offset: 4, name: "Classroom_TBD",        region: TBD, group: Classrooms, notes: "4th tutorial spot — confirm in playtest" }
+  - { id_offset: 1, name: "Classroom_Lockhart_Rictusempra", region: Hogwarts,    group: Classrooms, notes: "Lockhart's first class (story step 1) — teaches Rictusempra after the in-classroom spell challenge" }
+  - { id_offset: 2, name: "Classroom_Flitwick_Skurge",      region: Hogwarts,    group: Classrooms, notes: "Flitwick's class (story step 4) — teaches Skurge after the spell challenge" }
+  - { id_offset: 3, name: "Classroom_Sprout_Diffindo",      region: Greenhouses, group: Classrooms, notes: "Sprout's Herbology class (story step 7) — teaches Diffindo after the spell challenge" }
+  - { id_offset: 4, name: "Classroom_Lockhart_Spongify",    region: Hogwarts,    group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge" }
 
 # Level completion checks — one per level the player can clear.
 level_completions:

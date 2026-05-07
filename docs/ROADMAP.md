@@ -20,17 +20,15 @@ Done. Toolchain proven via `APGameInfo` subclass + `DefaultGame=` registration. 
 
 Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists across level transitions via singleton + `bGameRelevant=True`/`bAlwaysRelevant=True`. Sidecar (`client/hp2_client.py`) is an accept-loop, multi-thread reader/writer Python stub. Bidirectional traffic verified.
 
-## M3 — One card round-trip ✅ (commit 5cedc10) — with open question
+## M3 — One card round-trip ✅ (commit 5cedc10)
 
 **Goal:** the smallest possible AP-style flow, no AP server yet.
 
 **Done:**
 - `APCardWatcher` polls all 3 status tiers every 0.25s and fires `CHECK <id>` on diff. Catches every grant pathway (cutscene, chest, walk-over). Verified for Hesper Starkey (cutscene, id=7) and Joscelind Wadcock (chest, id=36).
 - Sidecar test mode: skip first CHECK, auto-reply `GRANT WCAgrippa` to second.
-- `APGameInfo.ApplyGrant` parses `GRANT <classname>`, spawns the card class at Harry, fires `cardActor.Touch(harry)` to invoke the full vanilla pickup chain.
+- `APGameInfo.ApplyGrant` parses `GRANT <classname>` and applies the card directly via `siCard.SetCardOwner(Id, CardOwner_Harry)` + `sgCards.RemoveHarryOwnedCardsFromLevel(None)` — bypassing the spawn-and-Touch chain (whose `CanPickupNow` precondition was short-circuiting before line 131 of vanilla `WizardCardIcon.Touch`). Album persistence confirmed; M212 Discord answer (2026-05-07) pointed at the missing `RemoveHarryOwnedCardsFromLevel` call.
 - Watcher confirms the SetCardOwner write via re-detection (CHECK fires for the granted Id).
-
-**Open question (asked on M212 Discord):** HP2 wipes `WizardCards[]` between operations. Same StatusItem instance, same harry, polled before vs after — different data. The album reads the wiped state, so AP-granted cards don't appear in the album yet. Round-trip wire is fully proven; album persistence is the unresolved part. See `docs/DESIGN.md` open question 6 and the `project_hp2_card_grant_persistence` memory.
 
 ## M4 — Real Archipelago integration
 
