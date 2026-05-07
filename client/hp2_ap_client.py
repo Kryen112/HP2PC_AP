@@ -169,6 +169,13 @@ class HP2Context(CommonContext):
     async def _handle_game_line(self, line: str) -> None:
         if line == "HELLO":
             return
+        if line.startswith("CHECK_SPELL "):
+            spell_name = line[len("CHECK_SPELL "):].strip()
+            # M5: spells detected but no AP location mapping yet (classroom →
+            # spell mapping needs playtest data; lands in M6). Just log and
+            # ignore for now.
+            logger.info(f"Game learned spell {spell_name!r} — no AP location mapping yet, not sending LocationChecks")
+            return
         if line.startswith("CHECK "):
             try:
                 check_id = int(line[6:].strip())

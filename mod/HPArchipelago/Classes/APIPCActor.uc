@@ -84,6 +84,12 @@ function SendCheck(int CardId)
     Log("[Archipelago] APIPCActor: sent CHECK " $ CardId);
 }
 
+function SendCheckSpell(string SpellName)
+{
+    SendText("CHECK_SPELL " $ SpellName $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent CHECK_SPELL " $ SpellName);
+}
+
 defaultproperties
 {
     LinkMode=MODE_Text

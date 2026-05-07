@@ -40,7 +40,14 @@ event InitGame(string Options, out string Error)
     }
 }
 
-function ApplyGrant(string CardName)
+function bool IsKnownSpellName(string Name)
+{
+    return Name == "Alohomora" || Name == "Diffindo" || Name == "Flipendo"
+        || Name == "Lumos" || Name == "Rictusempra" || Name == "Skurge"
+        || Name == "Spongify";
+}
+
+function ApplyGrant(string ItemName)
 {
     local class<WizardCardIcon> cardClass;
     local WizardCardIcon cardActor;
@@ -49,12 +56,40 @@ function ApplyGrant(string CardName)
     local Vector spawnLoc;
     local int attempt;
 
-    Log("[Archipelago] APGameInfo.ApplyGrant: " $ CardName);
+    Log("[Archipelago] APGameInfo.ApplyGrant: " $ ItemName);
 
-    cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ CardName, class'Class'));
+    foreach AllActors(class'PlayerPawn', pp)
+    {
+        if (pp.bIsPlayer && pp.IsA('harry'))
+        {
+            h = harry(pp);
+            break;
+        }
+    }
+    if (h == None)
+    {
+        foreach AllActors(class'harry', h)
+        {
+            break;
+        }
+    }
+    if (h == None)
+    {
+        Log("[Archipelago] ApplyGrant: no harry to deliver to");
+        return;
+    }
+
+    if (IsKnownSpellName(ItemName))
+    {
+        Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - calling AddToSpellBookByString");
+        h.AddToSpellBookByString(ItemName);
+        return;
+    }
+
+    cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ ItemName, class'Class'));
     if (cardClass == None)
     {
-        Log("[Archipelago] ApplyGrant: unknown card class HGame." $ CardName);
+        Log("[Archipelago] ApplyGrant: unknown class HGame." $ ItemName);
         return;
     }
 
@@ -90,11 +125,11 @@ function ApplyGrant(string CardName)
     }
     if (cardActor == None)
     {
-        Log("[Archipelago] ApplyGrant: Spawn failed for " $ CardName $ " after retries");
+        Log("[Archipelago] ApplyGrant: Spawn failed for " $ ItemName $ " after retries");
         return;
     }
 
-    Log("[Archipelago] ApplyGrant: spawned " $ CardName $ " (Id=" $ cardActor.Id $ "), firing Touch");
+    Log("[Archipelago] ApplyGrant: spawned " $ ItemName $ " (Id=" $ cardActor.Id $ "), firing Touch");
     cardActor.Touch(h);
     // NOTE: SetCardOwner state writes here are observed by the watcher (CHECK fires
     // for the granted Id), but HP2 has internal logic that periodically resets
