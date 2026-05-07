@@ -2,7 +2,7 @@
 
 An Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secrets* (PC, 2002 EA / KnowWonder release).
 
-**Status:** pre-alpha, design phase. Nothing playable yet.
+**Status:** pre-alpha. Mod toolchain proven (M1), bidirectional TCP IPC working (M2), card-pickup detection + grant round-trip wire end-to-end (M3, with one open question on album persistence pending an M212 Discord answer). See `docs/ROADMAP.md` for the full milestone status and `docs/DESIGN.md#open-questions-to-resolve-in-playtest` for the active blockers.
 
 ## Architecture (one-liner)
 

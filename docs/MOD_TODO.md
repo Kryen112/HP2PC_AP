@@ -4,7 +4,7 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 ## Hooks (intercept vanilla events to send AP `check_sent`)
 
-- [ ] **Card pickup hook** — override `Touch()` in `BronzeCards`, `SilverCards`, `Goldcards` (parent classes). Fire `check_sent` with the card's `Id`. Then call `Super.Touch()` so vanilla pickup proceeds (count increments, FX play, album updates).
+- [x] **Card pickup hook (M3, 2026-05-07)** — implemented as `APCardWatcher`, a polling Actor spawned from `APGameInfo.InitGame()`. It binds to `harry.managerStatus`'s bronze/silver/gold StatusItems and polls `IsOwnedByHarry(id)` for ids 1–101 every 0.25s. On diff, fires `CHECK <id>` over IPC. Catches every grant pathway including cutscene-script and chest grants — broader coverage than the original Touch-override plan. Subclassing `BronzeCards`/etc. proved unnecessary.
 - [ ] **Spell-tutorial completion hook** — find the trigger that fires when a spell tutorial completes; fire `check_sent` with the tutorial location ID; **suppress the auto-transition into the matching challenge level**. Player remains in the classroom / hub.
 - [ ] **Key-item pickup hook** — Boomslang, Bicorn, BitOGoyle. Same pattern as cards. Subclass the relevant `StatusItem*` or pickup actor, fire `check_sent`, then Super.
 - [ ] **Level completion hook** — find the level-end trigger fired at the end of each level; fire `check_sent` with the level ID. Allow the level to end normally.
@@ -14,7 +14,7 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 - [ ] **`APItemReceiver`** — handles `grant_item` messages. Maps item names to apply-functions. **All apply functions must be idempotent** (re-applying does nothing if Harry already has the item).
 - [ ] **Apply spell** — add to spellbook (find vanilla "learn spell" path used by tutorials). Spawn 10-card-set celebration FX (`BronzeStamina` for normal, `SilverUnlock` for fancy) — see `WizardCardIcon.uc:104,117`.
-- [ ] **Apply card** — call `siCard.SetCardOwner(Id, CardOwner_Harry)` on the relevant `StatusItemBronzeCards` / `StatusItemSilverCards` / `StatusItemGoldCards`. Spawn native pickup FX (`BronzePickup` / `SilverPickup` / `GoldPickup`).
+- [~] **Apply card** — partial (M3, 2026-05-07). `APGameInfo.ApplyGrant` spawns the card class at harry's location and calls `Touch(harry)`, invoking the full vanilla `WizardCardIcon.Touch` chain (`SetCardOwner` + `RemoveHarryOwnedCardsFromLevel` + `Super.Touch` → `DoPickupProp` → `managerStatus.PickupItem`). The watcher confirms the SetCardOwner write succeeds in-memory. **However** HP2 wipes `WizardCards[]` between operations and the album does not reflect AP-granted cards. Open M212 Discord question — see `docs/DESIGN.md` open question 6.
 - [ ] **Apply key item** — set the corresponding StatusItem flag. Silent + toast.
 - [ ] **Apply filler (beans)** — add N beans to the player's bean count.
 
@@ -41,9 +41,9 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 ## IPC
 
-- [ ] **`APIPCActor`** — wraps `class'IpDrv.TcpLink'`. Connects to `localhost:<port>`. Reads newline-delimited JSON. Writes newline-delimited JSON. Reconnect-on-disconnect with capped exponential backoff. **Spawned from `APGameInfo.InitGame()`** (not via `ServerActors=`).
-- [ ] **Boot sequence:** on level load, if not connected, attempt connect. On connect, request the items-received list from the sidecar (which got it from the AP server) and re-apply via `APItemReceiver` (idempotent).
-- [ ] **Persistence across levels:** `event InitGame()` fires every map load, so `APIPCActor` will be respawned per level. Decide v1 strategy: re-establish connection each level (simple, fine if AP sync is idempotent) vs. mark `bGameRelevant=True` / use a singleton check (more robust but adds state).
+- [x] **`APIPCActor` (M2/M3, 2026-05-07)** — extends `IpDrv.TcpLink`, connects to `localhost:38281` via `StringToIpAddr` (no DNS roundtrip). Persists across levels via `bGameRelevant=True` + `bAlwaysRelevant=True` + class-default singleton ref + per-instance check in `APGameInfo.InitGame`. Sidecar accept-loop tolerates per-level reconnects but the singleton means it doesn't churn unnecessarily. Currently uses simple `HELLO` / `CHECK <id>` / `GRANT <classname>` text protocol; will move to JSON in M4.
+- [ ] **Boot sequence:** on level load, if not connected, attempt connect. On connect, request the items-received list from the sidecar (which got it from the AP server) and re-apply via `APItemReceiver` (idempotent). *(Today: connect happens but no replay on connect — needs to be added in M4.)*
+- [x] **Persistence across levels** — solved with the singleton + `bGameRelevant`/`bAlwaysRelevant` pattern. One `APIPCActor`, one connection, lasts the whole game session.
 
 ## Config
 

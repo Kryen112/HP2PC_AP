@@ -4,43 +4,33 @@ Milestone-by-milestone plan toward shipping v1. Each milestone is a single demoa
 
 ---
 
-## M0 — Bootstrap (this commit)
+## M0 — Bootstrap ✅ (commit 48e3cac)
 
 Done. Repo, design docs, items catalog, location skeleton, mod TODO list.
 
-## M1 — Hello-World mod
+## M1 — Hello-World mod ✅ (commit 929c493)
 
 **Goal:** prove the toolchain works end-to-end with a trivial mod.
 
-- Install M212's HP2Engine on the dev machine and reproduce the `image_from_metellicafan.png` System folder.
-- Add a trivial `HPArchipelago/Classes/HelloMutator.uc` that prints `"Archipelago: hello"` to the log on level load.
-- Compile via `ucc make` against M212's engine. Get `HPArchipelago.u` built.
-- Add `HPArchipelago` to `EditPackages` in `default.ini`. Launch HP2, confirm the log line appears.
-- Document the build steps in `docs/DEV_SETUP.md`.
+Done. Toolchain proven via `APGameInfo` subclass + `DefaultGame=` registration. Stock UE1 hooks (`[Engine.GameEngine] ServerActors=`, `?Mutator=` URL) confirmed dead in HP2/M212; the working entry point is documented in `docs/DESIGN.md#mod-entry-point`. `docs/DEV_SETUP.md` covers the build/run loop and gotchas.
 
-**De-risks:** the entire UScript toolchain.
-
-## M2 — TcpLink ping/pong
+## M2 — TcpLink ping/pong ✅ (commit cddb73f)
 
 **Goal:** prove UScript can talk to a Python process.
 
-- Write `client/hp2_client.py` as a stub: opens TCP listener on `localhost:38281`, prints any line received, can send back a line on stdin.
-- Add `APIPCActor.uc` — uses `class'IpDrv.TcpLink'` to connect to localhost. On connect, sends `{"type":"hello"}\n`. On any received line, log it.
-- Test bidirectional: launch sidecar, launch game, confirm `hello` appears in sidecar, type a line in sidecar, confirm it appears in game log.
-- Add reconnect-on-disconnect with capped backoff.
+Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists across level transitions via singleton + `bGameRelevant=True`/`bAlwaysRelevant=True`. Sidecar (`client/hp2_client.py`) is an accept-loop, multi-thread reader/writer Python stub. Bidirectional traffic verified.
 
-**De-risks:** networking layer. Once this works, the rest is data plumbing.
-
-## M3 — One card round-trip
+## M3 — One card round-trip ✅ (commit 5cedc10) — with open question
 
 **Goal:** the smallest possible AP-style flow, no AP server yet.
 
-- Subclass `BronzeCards`/`SilverCards`/`Goldcards` in the mod. Override `Touch()` to send `{"type":"check_sent","card_id":<Id>}` over IPC, then call `Super.Touch()` so vanilla pickup proceeds.
-- Add a fake "AP server" mode in `hp2_client.py` that, on receiving `check_sent`, immediately replies `{"type":"grant_item","item":"WCAgrippa"}`.
-- In the mod, implement `APItemReceiver`. On `grant_item` for a card, call `siCard.SetCardOwner(Id, CardOwner_Harry)` for that card.
-- Test: pick up Card A in-game; sidecar logs the check; sidecar grants Card B; verify Card B appears in album.
+**Done:**
+- `APCardWatcher` polls all 3 status tiers every 0.25s and fires `CHECK <id>` on diff. Catches every grant pathway (cutscene, chest, walk-over). Verified for Hesper Starkey (cutscene, id=7) and Joscelind Wadcock (chest, id=36).
+- Sidecar test mode: skip first CHECK, auto-reply `GRANT WCAgrippa` to second.
+- `APGameInfo.ApplyGrant` parses `GRANT <classname>`, spawns the card class at Harry, fires `cardActor.Touch(harry)` to invoke the full vanilla pickup chain.
+- Watcher confirms the SetCardOwner write via re-detection (CHECK fires for the granted Id).
 
-**De-risks:** card-pickup hook + idempotent grant.
+**Open question (asked on M212 Discord):** HP2 wipes `WizardCards[]` between operations. Same StatusItem instance, same harry, polled before vs after — different data. The album reads the wiped state, so AP-granted cards don't appear in the album yet. Round-trip wire is fully proven; album persistence is the unresolved part. See `docs/DESIGN.md` open question 6 and the `project_hp2_card_grant_persistence` memory.
 
 ## M4 — Real Archipelago integration
 
