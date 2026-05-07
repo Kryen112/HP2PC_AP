@@ -176,6 +176,12 @@ class HP2Context(CommonContext):
             # ignore for now.
             logger.info(f"Game learned spell {spell_name!r} — no AP location mapping yet, not sending LocationChecks")
             return
+        if line.startswith("CHECK_KEYITEM "):
+            key_item_name = line[len("CHECK_KEYITEM "):].strip()
+            # Same story as spells: location mapping (which level the key item
+            # is in) needs playtest data, M6.
+            logger.info(f"Game picked up key item {key_item_name!r} — no AP location mapping yet, not sending LocationChecks")
+            return
         if line.startswith("CHECK "):
             try:
                 check_id = int(line[6:].strip())

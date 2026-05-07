@@ -90,6 +90,12 @@ function SendCheckSpell(string SpellName)
     Log("[Archipelago] APIPCActor: sent CHECK_SPELL " $ SpellName);
 }
 
+function SendCheckKeyItem(string KeyItemName)
+{
+    SendText("CHECK_KEYITEM " $ KeyItemName $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent CHECK_KEYITEM " $ KeyItemName);
+}
+
 defaultproperties
 {
     LinkMode=MODE_Text

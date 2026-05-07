@@ -47,6 +47,30 @@ function bool IsKnownSpellName(string Name)
         || Name == "Spongify";
 }
 
+function bool TryApplyKeyItem(string Name, harry h)
+{
+    if (h == None || h.managerStatus == None) return False;
+    if (Name == "Boomslang")
+    {
+        h.managerStatus.AddBoomslang(1);
+        Log("[Archipelago] ApplyGrant: granted Boomslang via AddBoomslang(1)");
+        return True;
+    }
+    if (Name == "Bicorn")
+    {
+        h.managerStatus.AddBicorn(1);
+        Log("[Archipelago] ApplyGrant: granted Bicorn via AddBicorn(1)");
+        return True;
+    }
+    if (Name == "BitOGoyle")
+    {
+        h.managerStatus.IncrementCount(class'StatusGroupPolyIngr', class'StatusItemBitOGoyle', 1);
+        Log("[Archipelago] ApplyGrant: granted BitOGoyle via IncrementCount(StatusGroupPolyIngr,StatusItemBitOGoyle,1)");
+        return True;
+    }
+    return False;
+}
+
 function ApplyGrant(string ItemName)
 {
     local class<WizardCardIcon> cardClass;
@@ -83,6 +107,30 @@ function ApplyGrant(string ItemName)
     {
         Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - calling AddToSpellBookByString");
         h.AddToSpellBookByString(ItemName);
+        return;
+    }
+
+    if (TryApplyKeyItem(ItemName, h))
+    {
+        return;
+    }
+
+    if (ItemName == "BeansSmall")
+    {
+        h.managerStatus.AddBeans(25);
+        Log("[Archipelago] ApplyGrant: granted BeansSmall (+25)");
+        return;
+    }
+    if (ItemName == "BeansMedium")
+    {
+        h.managerStatus.AddBeans(50);
+        Log("[Archipelago] ApplyGrant: granted BeansMedium (+50)");
+        return;
+    }
+    if (ItemName == "BeansLarge")
+    {
+        h.managerStatus.AddBeans(100);
+        Log("[Archipelago] ApplyGrant: granted BeansLarge (+100)");
         return;
     }
 
