@@ -2,19 +2,19 @@ class APGameInfo extends GameInfo;
 
 event InitGame(string Options, out string Error)
 {
-    local class<Mutator> mutClass;
+    local class<Actor> ipcClass;
 
     Super.InitGame(Options, Error);
     Log("[Archipelago] APGameInfo.InitGame - subclass active");
 
-    mutClass = class<Mutator>(DynamicLoadObject("HPArchipelago.HelloMutator", class'Class'));
-    if (mutClass != None)
+    ipcClass = class<Actor>(DynamicLoadObject("HPArchipelago.APIPCActor", class'Class'));
+    if (ipcClass != None)
     {
-        Log("[Archipelago] APGameInfo: HelloMutator class loaded, spawning");
-        Spawn(mutClass);
+        Log("[Archipelago] APGameInfo: APIPCActor class loaded, spawning");
+        Spawn(ipcClass);
     }
     else
     {
-        Log("[Archipelago] APGameInfo: HelloMutator class load FAILED");
+        Log("[Archipelago] APGameInfo: APIPCActor class load FAILED");
     }
 }

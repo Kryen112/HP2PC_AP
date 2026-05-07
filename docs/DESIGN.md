@@ -147,3 +147,8 @@ Features explicitly deferred from v1. Each of these came up during design and wa
 3. Per-card vanilla locations (which level each of the 101 cards lives in by default) — required for `data/locations.yaml`.
 4. Whether `start_inventory_from_pool: all` actually works as expected with this APWorld, or whether we need a custom "give everything" YAML option.
 5. Confirm that vanilla obstacles in HP2 really do hold the line in modded mode — i.e., a Flipendo block won't break for a player who lacks Flipendo just because the mod is loaded.
+6. **Save-load vs new-game distinction** (raised 2026-05-07 during M2 testing). Each level transition currently spawns a fresh `APIPCActor` and reconnects, regardless of whether it's a new game or a save load. The connection itself is cheap and always-on is correct. The real concern is **item state**: if the player loads a vanilla save (or a save from a *different* multiworld slot), the local save has items the AP server didn't grant, or is missing items the server *did* grant. Open sub-questions:
+    - Tag saves with the AP slot name on first connect, refuse to sync if the connected slot doesn't match the save's tag?
+    - Alternatively: trust local save state for "checks already collected" but still re-apply server's `grant_item` list (idempotent) on every level load. Combined-state model.
+    - What does the player see when they load a save that doesn't match the connected slot? Big toast, refuse to grant, refuse to send checks, just print a warning?
+    Decide before M3 (one-card round-trip) so the IPC protocol can carry the slot tag from the start.
