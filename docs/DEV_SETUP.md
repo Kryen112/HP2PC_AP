@@ -56,20 +56,19 @@ pip install pyyaml
 
 `.venv/` is already excluded by `.gitignore`.
 
-## Archipelago framework (separate clone)
+## Archipelago framework (existing install)
 
-The AP framework lives **outside** this repo. The HP2PC_AP `apworld/` is dropped into AP's `worlds/` directory at gen time.
+Stefan's existing AP framework is at `C:\Users\kryen\Documents\Archipelago-play\Archipelago\` — currently on `main` at `0.6.2-rc2-60-g5da059d9` (close to 0.6.7 release; world-building API has been stable across these versions). HP2PC_AP integrates with this existing install rather than maintaining a separate clone.
+
+For HP2PC_AP development, the repo's `apworld/` directory is the AP-world source. To make AP discover it during seed generation, we mirror it into `Archipelago/worlds/harry_potter_2/` via a directory junction:
 
 ```powershell
-cd "C:\Users\kryen\Documents\Archipelago-play"
-git clone --branch 0.6.7 --depth 1 https://github.com/ArchipelagoMW/Archipelago.git
-cd Archipelago
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+mklink /J "C:\Users\kryen\Documents\Archipelago-play\Archipelago\worlds\harry_potter_2" "C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP\apworld"
 ```
 
-Once HP2PC_AP gets a real `apworld/` (M5), drop or symlink it into `Archipelago/worlds/harry_potter_2/` to generate seeds.
+(One-time setup. Edits in the repo's `apworld/` are immediately visible to the AP framework via the junction. No copy step.)
+
+If Stefan ever needs to bump the AP framework version, do a controlled `git fetch && git checkout <tag>` in `Archipelago-play\Archipelago\`. Test that other AP projects still work, then test HP2PC_AP.
 
 ## One-time M212 engine prep (elevated PowerShell)
 
