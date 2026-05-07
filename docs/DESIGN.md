@@ -88,6 +88,24 @@ Lockhart's class and other spell tutorials become **AP checks**. Cutscene plays 
 - **Protocol:** newline-delimited JSON. Each message has `{type, payload}`. Types are minimal in v1: `hello`, `ack`, `check_sent` (game→Python), `grant_item` (Python→game), `goal_complete` (game→Python).
 - **Reconnection:** mod attempts reconnect on disconnect with exponential backoff. Items granted while disconnected are caught up on reconnect (the AP server is the source of truth — Python re-sends).
 
+### Mod entry point
+
+HP2/M212 do **not** honor stock UE1 mod hooks: `[Engine.GameEngine] ServerActors=` is silently ignored, and `?Mutator=` URL params are dropped during HP2's `Entry → gameplay-map` browse. The verified-working pattern (M1, 2026-05-07) is to subclass `Engine.GameInfo`:
+
+```uscript
+class APGameInfo extends GameInfo;
+
+event InitGame(string Options, out string Error)
+{
+    local class<Actor> ipcClass;
+    Super.InitGame(Options, Error);
+    ipcClass = class<Actor>(DynamicLoadObject("HPArchipelago.APIPCActor", class'Class'));
+    if (ipcClass != None) Spawn(ipcClass);
+}
+```
+
+and register it via `DefaultGame=HPArchipelago.APGameInfo` in `Documents\Harry - Coding Evolved\Game.ini` under `[Engine.Engine]`. `event InitGame()` then fires once per level transition, where we spawn the IPC actor (and any other mod actors). Note: HP2's `GameInfo` is missing the stock `AddMutator(string)` function — KnowWonder stripped it. Use `DynamicLoadObject` + `Spawn()` directly.
+
 ## Save game persistence
 
 - **AP server is source of truth.** When the Python client connects, it asks the server for the current items-received list and replays them to the mod via `grant_item`. The mod's `apply_item` is **idempotent** — granting Flipendo when Harry already has Flipendo is a no-op.

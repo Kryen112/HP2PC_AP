@@ -33,10 +33,17 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 - [ ] **Confirm levels are re-entrable** after completion. Vanilla HP2 might or might not lock you out of completed levels; investigate during playtest. If it does, patch the level-state flag check.
 
+## Mod entry point (verified M1, 2026-05-07)
+
+- [x] **`APGameInfo`** — subclass of `Engine.GameInfo`. Override `event InitGame(string Options, out string Error)` to call `Super.InitGame(...)` then spawn `APIPCActor` (and any other persistent mod actors) via `DynamicLoadObject` + `Spawn()`. Registered via `DefaultGame=HPArchipelago.APGameInfo` in `Game.ini` `[Engine.Engine]`. Fires once per level transition.
+
+  Stock UE1 hooks that **do not work** in HP2/M212: `[Engine.GameEngine] ServerActors=` (silently ignored), `?Mutator=` URL params (dropped by HP2's Browse), and `GameInfo.AddMutator(string)` (stripped by KnowWonder). See `docs/DESIGN.md#mod-entry-point` for the working pattern and the verified-dead alternatives.
+
 ## IPC
 
-- [ ] **`APIPCActor`** — wraps `class'IpDrv.TcpLink'`. Connects to `localhost:<port>`. Reads newline-delimited JSON. Writes newline-delimited JSON. Reconnect-on-disconnect with capped exponential backoff.
+- [ ] **`APIPCActor`** — wraps `class'IpDrv.TcpLink'`. Connects to `localhost:<port>`. Reads newline-delimited JSON. Writes newline-delimited JSON. Reconnect-on-disconnect with capped exponential backoff. **Spawned from `APGameInfo.InitGame()`** (not via `ServerActors=`).
 - [ ] **Boot sequence:** on level load, if not connected, attempt connect. On connect, request the items-received list from the sidecar (which got it from the AP server) and re-apply via `APItemReceiver` (idempotent).
+- [ ] **Persistence across levels:** `event InitGame()` fires every map load, so `APIPCActor` will be respawned per level. Decide v1 strategy: re-establish connection each level (simple, fine if AP sync is idempotent) vs. mark `bGameRelevant=True` / use a singleton check (more robust but adds state).
 
 ## Config
 
