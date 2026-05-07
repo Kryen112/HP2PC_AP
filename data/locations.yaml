@@ -1,0 +1,145 @@
+# HP2PC_AP location catalog — source of truth.
+#
+# A "location" is any in-game spot the seed places an AP item. When the player
+# reaches/triggers a location, the mod sends `check_sent` with the location's id.
+#
+# Schema:
+#   id_offset     unique within the file (final id = base_id + id_offset)
+#   name          stable string id (used in code; do NOT rename casually)
+#   region        which region this location belongs to (regions defined in regions.yaml or here later)
+#   group         grouping for YAML options (e.g. "Card Locations")
+#   notes         free text — vanilla item that lives there, route hints, etc.
+#
+# Many locations need vanilla-position cataloguing during playtest. Skeleton
+# entries below have `region: TBD` — fill in as you go.
+
+base_id: 5760000
+
+# Sphere-0: 4 spell-teaching classrooms. Reachable with zero items.
+# Spell mapping (which classroom teaches which spell) needs cataloguing.
+classrooms:
+  - { id_offset: 1, name: "Classroom_Lockhart",   region: Hogwarts, group: Classrooms, notes: "Lockhart's class — vanilla teaches Flipendo (verify)" }
+  - { id_offset: 2, name: "Classroom_Sprout",     region: Greenhouses, group: Classrooms, notes: "Herbology — vanilla teaches Spongify? (verify)" }
+  - { id_offset: 3, name: "Classroom_Snape",      region: Dungeons, group: Classrooms, notes: "Potions — confirm if any spell taught here, else move to NPC list" }
+  - { id_offset: 4, name: "Classroom_TBD",        region: TBD, group: Classrooms, notes: "4th tutorial spot — confirm in playtest" }
+
+# Level completion checks — one per level the player can clear.
+level_completions:
+  - { id_offset: 10, name: "LevelClear_WhompingWillow",     region: WhompingWillow,     group: LevelClears }
+  - { id_offset: 11, name: "LevelClear_RictusempraChallenge", region: RictusempraChallenge, group: LevelClears }
+  - { id_offset: 12, name: "LevelClear_SkurgeChallenge",    region: SkurgeChallenge,    group: LevelClears }
+  - { id_offset: 13, name: "LevelClear_DiffindoChallenge",  region: DiffindoChallenge,  group: LevelClears }
+  - { id_offset: 14, name: "LevelClear_SpongifyChallenge",  region: SpongifyChallenge,  group: LevelClears }
+  - { id_offset: 15, name: "LevelClear_ForbiddenForest",    region: ForbiddenForest,    group: LevelClears }
+  - { id_offset: 16, name: "LevelClear_Quidditch",          region: Quidditch,          group: LevelClears }
+  - { id_offset: 17, name: "LevelClear_BicornLevel",        region: BicornLevel,        group: LevelClears }
+  - { id_offset: 18, name: "LevelClear_BoomslangLevel",     region: BoomslangLevel,     group: LevelClears }
+  - { id_offset: 19, name: "LevelClear_GoyleLevel",         region: GoyleLevel,         group: LevelClears }
+  - { id_offset: 20, name: "LevelClear_SlytherinCommon",    region: SlytherinCommon,    group: LevelClears, notes: "Entry gated by BitOGoyle" }
+  - { id_offset: 21, name: "LevelClear_ChamberOfSecrets",   region: ChamberOfSecrets,   group: LevelClears, notes: "Goal location — entry gating TBD (all spells? challenges cleared?)" }
+
+# 101 card pickup locations. One per card. Region = vanilla level the card lives in.
+# `card_class` matches data/items.yaml `class` so the mod can use card.Id to
+# resolve location. Region is TBD until playtest catalogues each card's vanilla home.
+cards:
+  - { id_offset: 100, name: "Card_Agrippa",       card_class: WCAgrippa,       region: TBD, group: CardLocations }
+  - { id_offset: 101, name: "Card_Alderton",      card_class: WCAlderton,      region: TBD, group: CardLocations }
+  - { id_offset: 102, name: "Card_Barbary",       card_class: WCBarbary,       region: TBD, group: CardLocations }
+  - { id_offset: 103, name: "Card_Barkwith",      card_class: WCBarkwith,      region: TBD, group: CardLocations }
+  - { id_offset: 104, name: "Card_Belby",         card_class: WCBelby,         region: TBD, group: CardLocations }
+  - { id_offset: 105, name: "Card_Blane",         card_class: WCBlane,         region: TBD, group: CardLocations }
+  - { id_offset: 106, name: "Card_Bloxam",        card_class: WCBloxam,        region: TBD, group: CardLocations }
+  - { id_offset: 107, name: "Card_Bonham",        card_class: WCBonham,        region: TBD, group: CardLocations }
+  - { id_offset: 108, name: "Card_Catchlove",     card_class: WCCatchlove,     region: TBD, group: CardLocations }
+  - { id_offset: 109, name: "Card_Elphick",       card_class: WCElphick,       region: TBD, group: CardLocations }
+  - { id_offset: 110, name: "Card_Ethelred",      card_class: WCEthelred,      region: TBD, group: CardLocations }
+  - { id_offset: 111, name: "Card_Fancourt",      card_class: WCFancourt,      region: TBD, group: CardLocations }
+  - { id_offset: 112, name: "Card_Goshawk",       card_class: WCGoshawk,       region: TBD, group: CardLocations }
+  - { id_offset: 113, name: "Card_Graves",        card_class: WCGraves,        region: TBD, group: CardLocations }
+  - { id_offset: 114, name: "Card_Gunhilda",      card_class: WCGunhilda,      region: TBD, group: CardLocations }
+  - { id_offset: 115, name: "Card_Hipworth",      card_class: WCHipworth,      region: TBD, group: CardLocations }
+  - { id_offset: 116, name: "Card_Kegg",          card_class: WCKegg,          region: TBD, group: CardLocations }
+  - { id_offset: 117, name: "Card_Ketteridge",    card_class: WCKetteridge,    region: TBD, group: CardLocations }
+  - { id_offset: 118, name: "Card_Marjoribanks",  card_class: WCMarjoribanks,  region: TBD, group: CardLocations }
+  - { id_offset: 119, name: "Card_Merlin",        card_class: WCMerlin,        region: TBD, group: CardLocations }
+  - { id_offset: 120, name: "Card_Merwyn",        card_class: WCMerwyn,        region: TBD, group: CardLocations }
+  - { id_offset: 121, name: "Card_Muldoon",       card_class: WCMuldoon,       region: TBD, group: CardLocations }
+  - { id_offset: 122, name: "Card_Ollerton",      card_class: WCOllerton,      region: TBD, group: CardLocations }
+  - { id_offset: 123, name: "Card_Peakes",        card_class: WCPeakes,        region: TBD, group: CardLocations }
+  - { id_offset: 124, name: "Card_Pilliwickle",   card_class: WCPilliwickle,   region: TBD, group: CardLocations }
+  - { id_offset: 125, name: "Card_Platt",         card_class: WCPlatt,         region: TBD, group: CardLocations }
+  - { id_offset: 126, name: "Card_Plumpton",      card_class: WCPlumpton,      region: TBD, group: CardLocations }
+  - { id_offset: 127, name: "Card_Po",            card_class: WCPo,            region: TBD, group: CardLocations }
+  - { id_offset: 128, name: "Card_Pokeby",        card_class: WCPokeby,        region: TBD, group: CardLocations }
+  - { id_offset: 129, name: "Card_Sawbridge",     card_class: WCSawbridge,     region: TBD, group: CardLocations }
+  - { id_offset: 130, name: "Card_Scamander",     card_class: WCScamander,     region: TBD, group: CardLocations }
+  - { id_offset: 131, name: "Card_Starkey",       card_class: WCStarkey,       region: TBD, group: CardLocations }
+  - { id_offset: 132, name: "Card_Stroulger",     card_class: WCStroulger,     region: TBD, group: CardLocations }
+  - { id_offset: 133, name: "Card_Stump",         card_class: WCStump,         region: TBD, group: CardLocations }
+  - { id_offset: 134, name: "Card_Sweeting",      card_class: WCSweeting,      region: TBD, group: CardLocations }
+  - { id_offset: 135, name: "Card_Sykes",         card_class: WCSykes,         region: TBD, group: CardLocations }
+  - { id_offset: 136, name: "Card_Thruston",      card_class: WCThruston,      region: TBD, group: CardLocations }
+  - { id_offset: 137, name: "Card_Toke",          card_class: WCToke,          region: TBD, group: CardLocations }
+  - { id_offset: 138, name: "Card_Twonk",         card_class: WCTwonk,         region: TBD, group: CardLocations }
+  - { id_offset: 139, name: "Card_Ulric",         card_class: WCUlric,         region: TBD, group: CardLocations }
+  - { id_offset: 140, name: "Card_Vablatsky",     card_class: WCVablatsky,     region: TBD, group: CardLocations }
+  - { id_offset: 141, name: "Card_Waffling",      card_class: WCWaffling,      region: TBD, group: CardLocations }
+  - { id_offset: 142, name: "Card_Wagtail",       card_class: WCWagtail,       region: TBD, group: CardLocations }
+  - { id_offset: 143, name: "Card_Warbeck",       card_class: WCWarbeck,       region: TBD, group: CardLocations }
+  - { id_offset: 144, name: "Card_Wellbeloved",   card_class: WCWellbeloved,   region: TBD, group: CardLocations }
+  - { id_offset: 145, name: "Card_Wenlock",       card_class: WCWenlock,       region: TBD, group: CardLocations }
+  - { id_offset: 146, name: "Card_Whitehorn",     card_class: WCWhitehorn,     region: TBD, group: CardLocations }
+  - { id_offset: 147, name: "Card_Wintringham",   card_class: WCWintringham,   region: TBD, group: CardLocations }
+  - { id_offset: 148, name: "Card_Withers",       card_class: WCWithers,       region: TBD, group: CardLocations }
+  - { id_offset: 149, name: "Card_Woodcroft",     card_class: WCWoodcroft,     region: TBD, group: CardLocations }
+  - { id_offset: 150, name: "Card_Andros",        card_class: WCAndros,        region: TBD, group: CardLocations }
+  - { id_offset: 151, name: "Card_Beamish",       card_class: WCBeamish,       region: TBD, group: CardLocations }
+  - { id_offset: 152, name: "Card_Chittock",      card_class: WCChittock,      region: TBD, group: CardLocations }
+  - { id_offset: 153, name: "Card_Circe",         card_class: WCCirce,         region: TBD, group: CardLocations }
+  - { id_offset: 154, name: "Card_Clagg",         card_class: WCClagg,         region: TBD, group: CardLocations }
+  - { id_offset: 155, name: "Card_Cliodne",       card_class: WCCliodne,       region: TBD, group: CardLocations }
+  - { id_offset: 156, name: "Card_Cronk",         card_class: WCCronk,         region: TBD, group: CardLocations }
+  - { id_offset: 157, name: "Card_Crumb",         card_class: WCCrumb,         region: TBD, group: CardLocations }
+  - { id_offset: 158, name: "Card_Dodderidge",    card_class: WCDodderidge,    region: TBD, group: CardLocations }
+  - { id_offset: 159, name: "Card_Duke",          card_class: WCDuke,          region: TBD, group: CardLocations }
+  - { id_offset: 160, name: "Card_Fay",           card_class: WCFay,           region: TBD, group: CardLocations }
+  - { id_offset: 161, name: "Card_Fulbert",       card_class: WCFulbert,       region: TBD, group: CardLocations }
+  - { id_offset: 162, name: "Card_Furmage",       card_class: WCFurmage,       region: TBD, group: CardLocations }
+  - { id_offset: 163, name: "Card_Gregory",       card_class: WCGregory,       region: TBD, group: CardLocations }
+  - { id_offset: 164, name: "Card_Grunnion",      card_class: WCGrunnion,      region: TBD, group: CardLocations }
+  - { id_offset: 165, name: "Card_Jones",         card_class: WCJones,         region: TBD, group: CardLocations }
+  - { id_offset: 166, name: "Card_Lufkin",        card_class: WCLufkin,        region: TBD, group: CardLocations }
+  - { id_offset: 167, name: "Card_Maeve",         card_class: WCMaeve,         region: TBD, group: CardLocations }
+  - { id_offset: 168, name: "Card_Montmorency",   card_class: WCMontmorency,   region: TBD, group: CardLocations }
+  - { id_offset: 169, name: "Card_Mopsus",        card_class: WCMopsus,        region: TBD, group: CardLocations }
+  - { id_offset: 170, name: "Card_Nutcombe",      card_class: WCNutcombe,      region: TBD, group: CardLocations }
+  - { id_offset: 171, name: "Card_Oglethorpe",    card_class: WCOglethorpe,    region: TBD, group: CardLocations }
+  - { id_offset: 172, name: "Card_Oldridge",      card_class: WCOldridge,      region: TBD, group: CardLocations }
+  - { id_offset: 173, name: "Card_Oliphant",      card_class: WCOliphant,      region: TBD, group: CardLocations }
+  - { id_offset: 174, name: "Card_Plunkett",      card_class: WCPlunkett,      region: TBD, group: CardLocations }
+  - { id_offset: 175, name: "Card_Rastrick",      card_class: WCRastrick,      region: TBD, group: CardLocations }
+  - { id_offset: 176, name: "Card_Shimpling",     card_class: WCShimpling,     region: TBD, group: CardLocations }
+  - { id_offset: 177, name: "Card_Shingleton",    card_class: WCShingleton,    region: TBD, group: CardLocations }
+  - { id_offset: 178, name: "Card_Smethwyck",     card_class: WCSmethwyck,     region: TBD, group: CardLocations }
+  - { id_offset: 179, name: "Card_Stalk",         card_class: WCStalk,         region: TBD, group: CardLocations }
+  - { id_offset: 180, name: "Card_Summerbee",     card_class: WCSummerbee,     region: TBD, group: CardLocations }
+  - { id_offset: 181, name: "Card_Thurkell",      card_class: WCThurkell,      region: TBD, group: CardLocations }
+  - { id_offset: 182, name: "Card_Toothill",      card_class: WCToothill,      region: TBD, group: CardLocations }
+  - { id_offset: 183, name: "Card_Tremlett",      card_class: WCTremlett,      region: TBD, group: CardLocations }
+  - { id_offset: 184, name: "Card_Tugwood",       card_class: WCTugwood,       region: TBD, group: CardLocations }
+  - { id_offset: 185, name: "Card_Wadcock",       card_class: WCWadcock,       region: TBD, group: CardLocations }
+  - { id_offset: 186, name: "Card_Wendelin",      card_class: WCWendelin,      region: TBD, group: CardLocations }
+  - { id_offset: 187, name: "Card_Wildsmith",     card_class: WCWildsmith,     region: TBD, group: CardLocations }
+  - { id_offset: 188, name: "Card_Wright",        card_class: WCWright,        region: TBD, group: CardLocations }
+  - { id_offset: 189, name: "Card_Youdle",        card_class: WCYoudle,        region: TBD, group: CardLocations }
+  - { id_offset: 190, name: "Card_Bott",          card_class: WCBott,          region: TBD, group: CardLocations }
+  - { id_offset: 191, name: "Card_Dumbledore",    card_class: WCDumbledore,    region: TBD, group: CardLocations }
+  - { id_offset: 192, name: "Card_Gryffindor",    card_class: WCGriffindor,    region: TBD, group: CardLocations }
+  - { id_offset: 193, name: "Card_Herpo",         card_class: WCHerpo,         region: TBD, group: CardLocations }
+  - { id_offset: 194, name: "Card_Hufflepuff",    card_class: WCHufflepuff,    region: TBD, group: CardLocations }
+  - { id_offset: 195, name: "Card_Knightley",     card_class: WCKnightley,     region: TBD, group: CardLocations }
+  - { id_offset: 196, name: "Card_Paracelsus",    card_class: WCParacelsus,    region: TBD, group: CardLocations }
+  - { id_offset: 197, name: "Card_Pinkstone",     card_class: WCPinkstone,     region: TBD, group: CardLocations }
+  - { id_offset: 198, name: "Card_Potter",        card_class: WCPotter,        region: TBD, group: CardLocations }
+  - { id_offset: 199, name: "Card_Ravenclaw",     card_class: WCRavenclaw,     region: TBD, group: CardLocations }
+  - { id_offset: 200, name: "Card_Slytherin",     card_class: WCSlytherin,     region: TBD, group: CardLocations }

@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# UnrealScript build artifacts
+*.u
+*.tmp
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# AP generation
+output/
+*.archipelago
+
+# Reference checkouts (kept outside repo)
+/uscript/
+/wiki-clone/
+
+# Local configs
+.env
+*.local.yaml

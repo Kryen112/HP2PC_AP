@@ -1,0 +1,110 @@
+# HP2PC_AP per-location access rules — source of truth.
+#
+# Every location in data/locations.yaml gets exactly one rule entry here.
+# Rules express: "you can reach this location if you have these items."
+#
+# Schema:
+#   <LocationName>:
+#     requires: <expr>          # required items expression (see grammar below)
+#     region:   <RegionName>    # what region you must be in (entry rule of region)
+#     notes:    <free text>     # optional, why this rule, playtest observations
+#
+# Grammar for `requires`:
+#   - "Flipendo"                       single item
+#   - "Flipendo & Lumos"               AND
+#   - "Flipendo | Alohomora"           OR
+#   - "(Flipendo & Lumos) | BitOGoyle" parens + mix
+#   - "true"                           always reachable from region (no extra requirement)
+#   - "false"                          never reachable (placeholder during scaffolding)
+#
+# Authoring approach:
+#   1. Generate a seed with `start_inventory_from_pool: all` (the AP "unlock everything"
+#      option) and play through. Note which locations were physically blocked by what.
+#   2. Encode each observation as a rule here.
+#   3. Re-run scripts/gen_apworld.py to project rules.yaml into apworld/rules.py.
+#   4. Generate a normal (non-unlock-all) seed; verify it's solvable.
+#   5. Iterate.
+
+# Regions — entry rules. Locations inherit region access; their own `requires`
+# adds extra requirements on top.
+regions:
+  Hub:                        # Hogwarts grounds / castle entrance — spawn
+    entry: "true"
+  Hogwarts:
+    entry: "true"             # the castle interior/hub, navigable from spawn
+    notes: "Refine — some hub-internal doors may need spells"
+  Greenhouses:
+    entry: "true"
+  Dungeons:
+    entry: "true"             # initial Snape encounter is reachable
+  WhompingWillow:
+    entry: "Lumos & Flipendo & Alohomora"
+    notes: "Per design conversation — verify in playtest"
+  RictusempraChallenge:
+    entry: "Rictusempra"
+  SkurgeChallenge:
+    entry: "Skurge"
+  DiffindoChallenge:
+    entry: "Diffindo"
+  SpongifyChallenge:
+    entry: "Spongify"
+  ForbiddenForest:
+    entry: "TBD"
+  Quidditch:
+    entry: "TBD"
+  BicornLevel:
+    entry: "TBD"              # what's the entry req? Bicorn-the-key or just walking in?
+  BoomslangLevel:
+    entry: "TBD"
+  GoyleLevel:
+    entry: "TBD"
+  SlytherinCommon:
+    entry: "BitOGoyle"
+  ChamberOfSecrets:
+    entry: "Flipendo & Lumos & Alohomora & Diffindo & Rictusempra & Skurge & Spongify"
+    notes: "Final goal region. All-spells gate is one option; 'all challenges cleared' is another. TBD."
+
+# Per-location rules. KEY = location.name from locations.yaml.
+# Default scaffolding sets `requires: true` (= just region access). Refine during playtest.
+locations:
+  # Sphere-0 — all classroom checks reachable with no items
+  Classroom_Lockhart:   { region: Hogwarts,    requires: "true" }
+  Classroom_Sprout:     { region: Greenhouses, requires: "true" }
+  Classroom_Snape:      { region: Dungeons,    requires: "true" }
+  Classroom_TBD:        { region: Hogwarts,    requires: "true",  notes: "4th tutorial — confirm location/region" }
+
+  # Level completions — assume completing requires being able to enter the region
+  # AND clear it. Refine clear-requirements per level during playtest.
+  LevelClear_WhompingWillow:     { region: WhompingWillow,     requires: "true" }
+  LevelClear_RictusempraChallenge: { region: RictusempraChallenge, requires: "true" }
+  LevelClear_SkurgeChallenge:    { region: SkurgeChallenge,    requires: "true" }
+  LevelClear_DiffindoChallenge:  { region: DiffindoChallenge,  requires: "true" }
+  LevelClear_SpongifyChallenge:  { region: SpongifyChallenge,  requires: "true" }
+  LevelClear_ForbiddenForest:    { region: ForbiddenForest,    requires: "true" }
+  LevelClear_Quidditch:          { region: Quidditch,          requires: "true" }
+  LevelClear_BicornLevel:        { region: BicornLevel,        requires: "true" }
+  LevelClear_BoomslangLevel:     { region: BoomslangLevel,     requires: "true" }
+  LevelClear_GoyleLevel:         { region: GoyleLevel,         requires: "true" }
+  LevelClear_SlytherinCommon:    { region: SlytherinCommon,    requires: "true" }
+  LevelClear_ChamberOfSecrets:   { region: ChamberOfSecrets,   requires: "true",  notes: "= goal location for goal=basilisk" }
+
+  # 101 card locations — region TBD per playtest, requires defaulted to region access.
+  # Add per-location overrides as observations come in.
+  # Format below is a placeholder; once regions are filled, refine `requires` for the
+  # cards behind extra obstacles.
+  #
+  # Example future entry:
+  #   Card_Agrippa: { region: ForbiddenForest, requires: "Diffindo", notes: "Behind a vine wall" }
+  #
+  # For now, all 101 cards default to region=TBD/requires=true. The generator should
+  # treat region=TBD as a soft error (refuse to generate until set).
+
+# Every card from data/locations.yaml needs a rule here. Generate a stub block:
+#   for each card_location: { region: TBD, requires: "true" }
+# Or update gen_apworld.py to default missing rules to region=TBD.
+
+# Goal definition.
+goal:
+  basilisk:
+    requires_completed: ["LevelClear_ChamberOfSecrets"]
+    notes: "v1 only. Future modes: all_gold_cards, mcguffin_hunt — see DESIGN.md parking lot."

@@ -1,0 +1,146 @@
+# HP2PC_AP item catalog — source of truth.
+#
+# Each item appears EXACTLY ONCE in the multiworld pool. AP item IDs are stable
+# integers; once assigned, never change them (it would break old seeds).
+#
+# Schema:
+#   id            unique AP item id (offset from base 5750000)
+#   name          display name (also used as the in-game string)
+#   classification: progression | useful | filler | trap
+#   group         grouping for AP/yaml category options (e.g. "Cards (Bronze)")
+#   notes         free text, optional
+#
+# Total: 111 unique items + 3 filler types = 114 entries (filler stacks as needed).
+
+base_id: 5750000
+
+spells:
+  - { id_offset: 1, name: Alohomora,  classification: progression, group: Spells }
+  - { id_offset: 2, name: Diffindo,   classification: progression, group: Spells }
+  - { id_offset: 3, name: Flipendo,   classification: progression, group: Spells }
+  - { id_offset: 4, name: Lumos,      classification: progression, group: Spells }
+  - { id_offset: 5, name: Rictusempra,classification: progression, group: Spells }
+  - { id_offset: 6, name: Skurge,     classification: progression, group: Spells }
+  - { id_offset: 7, name: Spongify,   classification: progression, group: Spells }
+
+key_items:
+  - { id_offset: 8,  name: Boomslang,  classification: progression, group: KeyItems, notes: "Required for ___ level (TBD playtest)" }
+  - { id_offset: 9,  name: Bicorn,     classification: progression, group: KeyItems, notes: "Required for ___ level (TBD playtest)" }
+  - { id_offset: 10, name: BitOGoyle,  classification: progression, group: KeyItems, notes: "Required to enter Slytherin Common Room" }
+
+# 50 Bronze cards, IDs 5750100-5750149
+cards_bronze:
+  - { id_offset: 100, class: WCAgrippa,       name: "Cornelius Agrippa" }
+  - { id_offset: 101, class: WCAlderton,      name: "Alderton" }
+  - { id_offset: 102, class: WCBarbary,       name: "Barbary" }
+  - { id_offset: 103, class: WCBarkwith,      name: "Barkwith" }
+  - { id_offset: 104, class: WCBelby,         name: "Belby" }
+  - { id_offset: 105, class: WCBlane,         name: "Blane" }
+  - { id_offset: 106, class: WCBloxam,        name: "Bloxam" }
+  - { id_offset: 107, class: WCBonham,        name: "Bonham" }
+  - { id_offset: 108, class: WCCatchlove,     name: "Catchlove" }
+  - { id_offset: 109, class: WCElphick,       name: "Elphick" }
+  - { id_offset: 110, class: WCEthelred,      name: "Ethelred" }
+  - { id_offset: 111, class: WCFancourt,      name: "Fancourt" }
+  - { id_offset: 112, class: WCGoshawk,       name: "Goshawk" }
+  - { id_offset: 113, class: WCGraves,        name: "Graves" }
+  - { id_offset: 114, class: WCGunhilda,      name: "Gunhilda" }
+  - { id_offset: 115, class: WCHipworth,      name: "Hipworth" }
+  - { id_offset: 116, class: WCKegg,          name: "Kegg" }
+  - { id_offset: 117, class: WCKetteridge,    name: "Ketteridge" }
+  - { id_offset: 118, class: WCMarjoribanks,  name: "Marjoribanks" }
+  - { id_offset: 119, class: WCMerlin,        name: "Merlin" }
+  - { id_offset: 120, class: WCMerwyn,        name: "Merwyn" }
+  - { id_offset: 121, class: WCMuldoon,       name: "Muldoon" }
+  - { id_offset: 122, class: WCOllerton,      name: "Ollerton" }
+  - { id_offset: 123, class: WCPeakes,        name: "Peakes" }
+  - { id_offset: 124, class: WCPilliwickle,   name: "Pilliwickle" }
+  - { id_offset: 125, class: WCPlatt,         name: "Platt" }
+  - { id_offset: 126, class: WCPlumpton,      name: "Plumpton" }
+  - { id_offset: 127, class: WCPo,            name: "Po" }
+  - { id_offset: 128, class: WCPokeby,        name: "Pokeby" }
+  - { id_offset: 129, class: WCSawbridge,     name: "Sawbridge" }
+  - { id_offset: 130, class: WCScamander,     name: "Scamander" }
+  - { id_offset: 131, class: WCStarkey,       name: "Starkey" }
+  - { id_offset: 132, class: WCStroulger,     name: "Stroulger" }
+  - { id_offset: 133, class: WCStump,         name: "Stump" }
+  - { id_offset: 134, class: WCSweeting,      name: "Sweeting" }
+  - { id_offset: 135, class: WCSykes,         name: "Sykes" }
+  - { id_offset: 136, class: WCThruston,      name: "Thruston" }
+  - { id_offset: 137, class: WCToke,          name: "Toke" }
+  - { id_offset: 138, class: WCTwonk,         name: "Twonk" }
+  - { id_offset: 139, class: WCUlric,         name: "Ulric" }
+  - { id_offset: 140, class: WCVablatsky,     name: "Vablatsky" }
+  - { id_offset: 141, class: WCWaffling,      name: "Waffling" }
+  - { id_offset: 142, class: WCWagtail,       name: "Wagtail" }
+  - { id_offset: 143, class: WCWarbeck,       name: "Warbeck" }
+  - { id_offset: 144, class: WCWellbeloved,   name: "Wellbeloved" }
+  - { id_offset: 145, class: WCWenlock,       name: "Wenlock" }
+  - { id_offset: 146, class: WCWhitehorn,     name: "Whitehorn" }
+  - { id_offset: 147, class: WCWintringham,   name: "Wintringham" }
+  - { id_offset: 148, class: WCWithers,       name: "Withers" }
+  - { id_offset: 149, class: WCWoodcroft,     name: "Woodcroft" }
+
+# 40 Silver cards, IDs 5750150-5750189
+cards_silver:
+  - { id_offset: 150, class: WCAndros,        name: "Andros" }
+  - { id_offset: 151, class: WCBeamish,       name: "Beamish" }
+  - { id_offset: 152, class: WCChittock,      name: "Chittock" }
+  - { id_offset: 153, class: WCCirce,         name: "Circe" }
+  - { id_offset: 154, class: WCClagg,         name: "Clagg" }
+  - { id_offset: 155, class: WCCliodne,       name: "Cliodne" }
+  - { id_offset: 156, class: WCCronk,         name: "Cronk" }
+  - { id_offset: 157, class: WCCrumb,         name: "Crumb" }
+  - { id_offset: 158, class: WCDodderidge,    name: "Dodderidge" }
+  - { id_offset: 159, class: WCDuke,          name: "Duke" }
+  - { id_offset: 160, class: WCFay,           name: "Fay" }
+  - { id_offset: 161, class: WCFulbert,       name: "Fulbert" }
+  - { id_offset: 162, class: WCFurmage,       name: "Furmage" }
+  - { id_offset: 163, class: WCGregory,       name: "Gregory" }
+  - { id_offset: 164, class: WCGrunnion,      name: "Grunnion" }
+  - { id_offset: 165, class: WCJones,         name: "Jones" }
+  - { id_offset: 166, class: WCLufkin,        name: "Lufkin" }
+  - { id_offset: 167, class: WCMaeve,         name: "Maeve" }
+  - { id_offset: 168, class: WCMontmorency,   name: "Montmorency" }
+  - { id_offset: 169, class: WCMopsus,        name: "Mopsus" }
+  - { id_offset: 170, class: WCNutcombe,      name: "Nutcombe" }
+  - { id_offset: 171, class: WCOglethorpe,    name: "Oglethorpe" }
+  - { id_offset: 172, class: WCOldridge,      name: "Oldridge" }
+  - { id_offset: 173, class: WCOliphant,      name: "Oliphant" }
+  - { id_offset: 174, class: WCPlunkett,      name: "Plunkett" }
+  - { id_offset: 175, class: WCRastrick,      name: "Rastrick" }
+  - { id_offset: 176, class: WCShimpling,     name: "Shimpling" }
+  - { id_offset: 177, class: WCShingleton,    name: "Shingleton" }
+  - { id_offset: 178, class: WCSmethwyck,     name: "Smethwyck" }
+  - { id_offset: 179, class: WCStalk,         name: "Stalk" }
+  - { id_offset: 180, class: WCSummerbee,     name: "Summerbee" }
+  - { id_offset: 181, class: WCThurkell,      name: "Thurkell" }
+  - { id_offset: 182, class: WCToothill,      name: "Toothill" }
+  - { id_offset: 183, class: WCTremlett,      name: "Tremlett" }
+  - { id_offset: 184, class: WCTugwood,       name: "Tugwood" }
+  - { id_offset: 185, class: WCWadcock,       name: "Wadcock" }
+  - { id_offset: 186, class: WCWendelin,      name: "Wendelin" }
+  - { id_offset: 187, class: WCWildsmith,     name: "Wildsmith" }
+  - { id_offset: 188, class: WCWright,        name: "Wright" }
+  - { id_offset: 189, class: WCYoudle,        name: "Youdle" }
+
+# 11 Gold cards, IDs 5750190-5750200
+cards_gold:
+  - { id_offset: 190, class: WCBott,          name: "Bott" }
+  - { id_offset: 191, class: WCDumbledore,    name: "Dumbledore" }
+  - { id_offset: 192, class: WCGriffindor,    name: "Gryffindor", notes: "Class file is WCGriffindor (mis-spelled in source)" }
+  - { id_offset: 193, class: WCHerpo,         name: "Herpo" }
+  - { id_offset: 194, class: WCHufflepuff,    name: "Hufflepuff" }
+  - { id_offset: 195, class: WCKnightley,     name: "Knightley" }
+  - { id_offset: 196, class: WCParacelsus,    name: "Paracelsus" }
+  - { id_offset: 197, class: WCPinkstone,     name: "Pinkstone" }
+  - { id_offset: 198, class: WCPotter,        name: "Potter" }
+  - { id_offset: 199, class: WCRavenclaw,     name: "Ravenclaw" }
+  - { id_offset: 200, class: WCSlytherin,     name: "Slytherin" }
+
+# Filler. Stacks — multiple copies allowed, count adjusted at generation time
+# to exactly fill the location-pool delta (locations - non-filler items).
+filler:
+  - { id_offset: 300, name: "BeansSmall",   classification: filler, group: Filler, notes: "Grants ~25 beans" }
+  - { id_offset: 301, name: "BeansMedium",  classification: filler, group: Filler, notes: "Grants ~50 beans" }
+  - { id_offset: 302, name: "BeansLarge",   classification: filler, group: Filler, notes: "Grants ~100 beans" }
