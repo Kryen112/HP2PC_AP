@@ -76,9 +76,9 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **Goal:** finishing a seed is recognized as such.
 
-- `APGoalDetector.uc` — subclass `Basilisk`, override death function, send `{"type":"goal_complete"}`.
+- `APGoalDetector.uc` — hook the Great Hall post-Basilisk entry (the speedrun endpoint that naturally triggers the credits cutscene), send `{"type":"goal_complete"}`. Not the Basilisk's death function — that fires mid-cutscene before the run is genuinely complete.
 - Sidecar reports goal to AP server.
-- Test: play a seed, kill Basilisk, confirm AP server marks slot complete.
+- Test: play a seed, kill Basilisk, walk into the Great Hall, confirm AP server marks slot complete.
 
 ## M8 — UX polish
 

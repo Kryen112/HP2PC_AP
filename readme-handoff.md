@@ -23,7 +23,7 @@ Verification:
 Stefan provided the v1 story progression. Mapping authored:
 - `data/locations.yaml` classroom entries renamed to one per non-starter spell: `Classroom_Lockhart_Rictusempra` (offset 1), `Classroom_Flitwick_Skurge` (offset 2), `Classroom_Sprout_Diffindo` (offset 3), `Classroom_Lockhart_Spongify` (offset 4). The previous `Classroom_Snape` (Potions) was dropped — Snape teaches Wiggenweld brewing, not a spell. Total location count unchanged at 117.
 - `client/hp2_ap_client.py` got `SPELL_TO_LOCATION_NAME` (4 entries) and `KEYITEM_TO_LOCATION_NAME` (3 entries: Boomslang/Bicorn/BitOGoyle → respective `LevelClear_*Level`). The two `CHECK_SPELL` / `CHECK_KEYITEM` handlers now route through a shared `_send_named_location_check` helper that mirrors the existing card-CHECK flow (validate AP connection, look up location id, dedupe via `checked_locations_seen`, send `LocationChecks`).
-- Lumos/Flipendo/Alohomora intentionally have no entry in `SPELL_TO_LOCATION_NAME` — they're starter cutscene spells, baselined in the watcher's initial snapshot, never fire `CHECK_SPELL`. They must be placed as start-inventory by the seed (intersects open question 7 — make the call before M6 logic).
+- Lumos/Flipendo/Alohomora intentionally have no entry in `SPELL_TO_LOCATION_NAME` — they're starter cutscene spells, baselined in the watcher's initial snapshot, never fire `CHECK_SPELL`. Per the resolved DESIGN open Q7 (policy a, 2026-05-07), they're placed as start-inventory by the seed and the vanilla cutscenes that re-grant them in-game are left untouched (`AddToSpellBook` no-ops on already-known spells).
 - The 3 ingredient levels (Boomslang/Bicorn/Goyle) get their `LevelClear_*` checks via the key-item pickup hook — design call from Stefan: pickup IS level-end, one check not two. The other 9 level-clears still need a dedicated hook (now a fresh open todo at `MOD_TODO.md`).
 
 Verification:
@@ -96,7 +96,7 @@ Grant application (in `APGameInfo.ApplyGrant`):
 ### Next milestones
 
 - **M6 — Logic + seed gen.** Author `data/logic.yaml`, regenerate apworld with proper region connections + access rules. Resolve the spell-mapping question. Run `start_inventory_from_pool: all` seed test, then play a real seed solo. Logic iteration is the long pole of the project — budget extra time.
-- **M7 — Goal detection.** Subclass `Basilisk`, override death function, send `goal_complete`.
+- **M7 — Goal detection.** Hook Great Hall post-Basilisk entry (the speedrun endpoint that triggers credits), send `goal_complete`. Not the Basilisk death function.
 - **M8 — UX polish.** HUD toast, pickup FX on grants, vendor disable, etc.
 
 ## Setup on Stefan's machine

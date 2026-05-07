@@ -5,7 +5,8 @@ scripts/gen_apworld.py, which writes items.py and locations.py in this
 directory. Re-run the generator after every YAML edit.
 
 Goal placeholder for M5: collect all 7 spells + 3 key items. Real "defeat
-Basilisk" goal detection lands in M7.
+Basilisk" goal detection lands in M7 — triggered by Harry entering the
+Great Hall post-kill (the speedrun endpoint), not the Basilisk death itself.
 """
 
 from __future__ import annotations
