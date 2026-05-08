@@ -10,19 +10,82 @@ var StatusItemWizardCards siSilver;
 var StatusItemWizardCards siGold;
 var byte WasOwnedByHarry[102];
 var bool bSnapshotted;
+var int LastBronzeCount;
+var int LastSilverCount;
+var int LastGoldCount;
+var int HeartbeatCounter;
 
 var class<baseSpell> SpellClasses[7];
 var string SpellNames[7];
 var byte WasSpellOwned[7];
+var byte APGrantedSpell[7];
 
 var StatusItem KeyItemStatus[3];
 var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
 
+var APCardWatcher LatestInstance;
+
+static function APCardWatcher GetLatest()
+{
+    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
+    {
+        return default.LatestInstance;
+    }
+    return None;
+}
+
+function MarkAsGranted(int id)
+{
+    if (id >= 0 && id <= MAX_CARD_ID)
+    {
+        WasOwnedByHarry[id] = 1;
+        Log("[Archipelago] APCardWatcher.MarkAsGranted: id=" $ id $ " (suppresses vanilla-revert + CHECK echo)");
+    }
+}
+
+function MarkSpellAsGranted(string SpellName)
+{
+    local int i;
+    for (i = 0; i < NUM_SPELLS; i++)
+    {
+        if (SpellNames[i] == SpellName)
+        {
+            APGrantedSpell[i] = 1;
+            WasSpellOwned[i] = 1;
+            Log("[Archipelago] APCardWatcher.MarkSpellAsGranted: " $ SpellName);
+            return;
+        }
+    }
+}
+
+function RevertVanillaPickup(int id)
+{
+    if (siBronze != None && siBronze.IsOwnedByHarry(id))
+    {
+        siBronze.SetCardOwner(id, siBronze.ECardOwner.CardOwner_None);
+        Log("[Archipelago] APCardWatcher.RevertVanillaPickup: cleared Bronze[" $ id $ "]");
+        return;
+    }
+    if (siSilver != None && siSilver.IsOwnedByHarry(id))
+    {
+        siSilver.SetCardOwner(id, siSilver.ECardOwner.CardOwner_None);
+        Log("[Archipelago] APCardWatcher.RevertVanillaPickup: cleared Silver[" $ id $ "]");
+        return;
+    }
+    if (siGold != None && siGold.IsOwnedByHarry(id))
+    {
+        siGold.SetCardOwner(id, siGold.ECardOwner.CardOwner_None);
+        Log("[Archipelago] APCardWatcher.RevertVanillaPickup: cleared Gold[" $ id $ "]");
+        return;
+    }
+}
+
 event PreBeginPlay()
 {
     Super.PreBeginPlay();
-    Log("[Archipelago] APCardWatcher.PreBeginPlay - starting timer");
+    Log("[Archipelago] APCardWatcher.PreBeginPlay - starting timer (Level=" $ string(Level) $ ")");
+    default.LatestInstance = self;
     SetTimer(0.25, true);
 
     SpellClasses[0] = class'spellAlohomora';   SpellNames[0] = "Alohomora";
@@ -61,24 +124,34 @@ event Timer()
         if (WasOwnedByHarry[id] == 0 && IsHarryOwned(id))
         {
             WasOwnedByHarry[id] = 1;
-            Log("[Archipelago] APCardWatcher: new card owned by Harry, id=" $ id);
+            Log("[Archipelago] APCardWatcher: new vanilla card pickup detected, id=" $ id);
             if (gi != None && gi.IPCActor != None)
             {
                 gi.IPCActor.SendCheck(id);
             }
+            RevertVanillaPickup(id);
         }
     }
 
     for (i = 0; i < NUM_SPELLS; i++)
     {
-        if (WasSpellOwned[i] == 0 && HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
+        if (APGrantedSpell[i] == 1)
         {
-            WasSpellOwned[i] = 1;
-            Log("[Archipelago] APCardWatcher: new spell learned: " $ SpellNames[i]);
-            if (gi != None && gi.IPCActor != None)
+            continue;
+        }
+        if (HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
+        {
+            if (WasSpellOwned[i] == 0)
             {
-                gi.IPCActor.SendCheckSpell(SpellNames[i]);
+                WasSpellOwned[i] = 1;
+                Log("[Archipelago] APCardWatcher: new vanilla spell learned: " $ SpellNames[i]);
+                if (gi != None && gi.IPCActor != None)
+                {
+                    gi.IPCActor.SendCheckSpell(SpellNames[i]);
+                }
             }
+            HarryRef.SpellBook[SpellClasses[i].default.SpellType] = None;
+            Log("[Archipelago] APCardWatcher: reverted vanilla " $ SpellNames[i]);
         }
     }
 
@@ -94,20 +167,38 @@ event Timer()
             }
         }
     }
+
+    if (siBronze.nCount != LastBronzeCount || siSilver.nCount != LastSilverCount || siGold.nCount != LastGoldCount)
+    {
+        Log("[Archipelago] APCardWatcher: nCount CHANGE - Bronze=" $ siBronze.nCount $ " Silver=" $ siSilver.nCount $ " Gold=" $ siGold.nCount $ " (was " $ LastBronzeCount $ "/" $ LastSilverCount $ "/" $ LastGoldCount $ ")");
+        LastBronzeCount = siBronze.nCount;
+        LastSilverCount = siSilver.nCount;
+        LastGoldCount   = siGold.nCount;
+    }
+    HeartbeatCounter++;
+    if (HeartbeatCounter >= 40)
+    {
+        HeartbeatCounter = 0;
+        Log("[Archipelago] APCardWatcher: nCount heartbeat - Bronze=" $ siBronze.nCount $ " Silver=" $ siSilver.nCount $ " Gold=" $ siGold.nCount);
+    }
 }
 
 function bool Bind()
 {
     local StatusGroupWizardCards sg;
+    local harry candidate;
 
-    if (HarryRef == None)
+    candidate = class'APGameInfo'.static.FindActiveHarry(self);
+    if (candidate == None)
     {
-        foreach AllActors(class'harry', HarryRef)
-        {
-            break;
-        }
+        return False;
     }
-    if (HarryRef == None || HarryRef.managerStatus == None)
+    if (HarryRef != candidate)
+    {
+        Log("[Archipelago] APCardWatcher: rebinding harry " $ string(HarryRef) $ " -> " $ string(candidate));
+        HarryRef = candidate;
+    }
+    if (HarryRef.managerStatus == None)
     {
         return False;
     }
@@ -162,10 +253,11 @@ function Snapshot()
         if (HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
         {
             WasSpellOwned[i] = 1;
+            APGrantedSpell[i] = 1;
             ownedSpellCount++;
         }
     }
-    Log("[Archipelago] APCardWatcher: initial snapshot - Harry already knows " $ ownedSpellCount $ " spells");
+    Log("[Archipelago] APCardWatcher: initial snapshot - Harry already knows " $ ownedSpellCount $ " spells (baselined as AP-granted, no revert)");
 
     for (i = 0; i < NUM_KEY_ITEMS; i++)
     {
@@ -174,11 +266,25 @@ function Snapshot()
             WasKeyItemOwned[i] = 1;
         }
     }
+
+    LastBronzeCount = siBronze.nCount;
+    LastSilverCount = siSilver.nCount;
+    LastGoldCount   = siGold.nCount;
+    Log("[Archipelago] APCardWatcher: initial nCount snapshot - Bronze=" $ LastBronzeCount $ " Silver=" $ LastSilverCount $ " Gold=" $ LastGoldCount);
 }
 
 function bool IsHarryOwned(int id)
 {
     return siBronze.IsOwnedByHarry(id) || siSilver.IsOwnedByHarry(id) || siGold.IsOwnedByHarry(id);
+}
+
+event Destroyed()
+{
+    if (default.LatestInstance == self)
+    {
+        default.LatestInstance = None;
+    }
+    Super.Destroyed();
 }
 
 defaultproperties

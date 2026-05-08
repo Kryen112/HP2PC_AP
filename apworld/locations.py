@@ -3,10 +3,10 @@
 BASE_ID = 5760000
 
 LOCATION_NAME_TO_ID: dict[str, int] = {
-    'Classroom_Lockhart': 5760001,
-    'Classroom_Sprout': 5760002,
-    'Classroom_Snape': 5760003,
-    'Classroom_TBD': 5760004,
+    'Classroom_Lockhart_Rictusempra': 5760001,
+    'Classroom_Flitwick_Skurge': 5760002,
+    'Classroom_Sprout_Diffindo': 5760003,
+    'Classroom_Lockhart_Spongify': 5760004,
     'LevelClear_WhompingWillow': 5760010,
     'LevelClear_RictusempraChallenge': 5760011,
     'LevelClear_SkurgeChallenge': 5760012,
@@ -123,10 +123,10 @@ LOCATION_NAME_TO_ID: dict[str, int] = {
 }
 
 LOCATION_REGIONS: dict[str, str] = {
-    'Classroom_Lockhart': 'Hogwarts',
-    'Classroom_Sprout': 'Greenhouses',
-    'Classroom_Snape': 'Dungeons',
-    'Classroom_TBD': 'TBD',
+    'Classroom_Lockhart_Rictusempra': 'Hogwarts',
+    'Classroom_Flitwick_Skurge': 'Hogwarts',
+    'Classroom_Sprout_Diffindo': 'Greenhouses',
+    'Classroom_Lockhart_Spongify': 'Hogwarts',
     'LevelClear_WhompingWillow': 'WhompingWillow',
     'LevelClear_RictusempraChallenge': 'RictusempraChallenge',
     'LevelClear_SkurgeChallenge': 'SkurgeChallenge',
@@ -243,10 +243,10 @@ LOCATION_REGIONS: dict[str, str] = {
 }
 
 LOCATION_GROUPS: dict[str, str] = {
-    'Classroom_Lockhart': 'Classrooms',
-    'Classroom_Sprout': 'Classrooms',
-    'Classroom_Snape': 'Classrooms',
-    'Classroom_TBD': 'Classrooms',
+    'Classroom_Lockhart_Rictusempra': 'Classrooms',
+    'Classroom_Flitwick_Skurge': 'Classrooms',
+    'Classroom_Sprout_Diffindo': 'Classrooms',
+    'Classroom_Lockhart_Spongify': 'Classrooms',
     'LevelClear_WhompingWillow': 'LevelClears',
     'LevelClear_RictusempraChallenge': 'LevelClears',
     'LevelClear_SkurgeChallenge': 'LevelClears',

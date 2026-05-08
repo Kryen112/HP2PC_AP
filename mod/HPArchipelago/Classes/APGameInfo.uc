@@ -32,7 +32,7 @@ event InitGame(string Options, out string Error)
     if (cls != None)
     {
         Spawn(cls);
-        Log("[Archipelago] APGameInfo: APCardWatcher spawned");
+        Log("[Archipelago] APGameInfo: APCardWatcher spawned (per-level)");
     }
     else
     {
@@ -96,10 +96,13 @@ function bool TryApplyCard(string ItemName, harry h)
         return False;
     }
 
+    if (class'APCardWatcher'.static.GetLatest() != None)
+    {
+        class'APCardWatcher'.static.GetLatest().MarkAsGranted(cardClass.default.Id);
+    }
     siCard.SetCardOwner(cardClass.default.Id, siCard.ECardOwner.CardOwner_Harry);
     sgCards.RemoveHarryOwnedCardsFromLevel(None);
-
-    Log("[Archipelago] ApplyGrant: granted card " $ ItemName $ " (Id=" $ cardClass.default.Id $ ") via SetCardOwner+RemoveHarryOwnedCardsFromLevel");
+    Log("[Archipelago] ApplyGrant: granted card " $ ItemName $ " (Id=" $ cardClass.default.Id $ ")");
     return True;
 }
 
@@ -127,37 +130,73 @@ function bool TryApplyKeyItem(string Name, harry h)
     return False;
 }
 
+static function harry FindActiveHarry(Actor caller)
+{
+    local APCardWatcher watcher;
+    local harry h, fallback;
+
+    watcher = class'APCardWatcher'.static.GetLatest();
+    if (watcher != None)
+    {
+        h = harry(watcher.Level.PlayerHarryActor);
+        if (h != None && !h.bDeleteMe)
+        {
+            Log("[Archipelago] FindActiveHarry: using watcher.Level.PlayerHarryActor=" $ string(h) $ " (watcher.Level=" $ string(watcher.Level) $ ")");
+            return h;
+        }
+        if (watcher.HarryRef != None && !watcher.HarryRef.bDeleteMe)
+        {
+            Log("[Archipelago] FindActiveHarry: using watcher.HarryRef=" $ string(watcher.HarryRef));
+            return watcher.HarryRef;
+        }
+    }
+
+    h = harry(caller.Level.PlayerHarryActor);
+    if (h != None && !h.bDeleteMe)
+    {
+        Log("[Archipelago] FindActiveHarry: fallback to caller.Level.PlayerHarryActor=" $ string(h));
+        return h;
+    }
+
+    foreach caller.AllActors(class'harry', h)
+    {
+        if (h.bDeleteMe)
+        {
+            continue;
+        }
+        if (fallback == None)
+        {
+            fallback = h;
+        }
+    }
+    if (fallback != None)
+    {
+        Log("[Archipelago] FindActiveHarry: last-resort foreach fallback=" $ string(fallback));
+    }
+    return fallback;
+}
+
 function ApplyGrant(string ItemName)
 {
     local harry h;
-    local PlayerPawn pp;
 
     Log("[Archipelago] APGameInfo.ApplyGrant: " $ ItemName);
 
-    foreach AllActors(class'PlayerPawn', pp)
-    {
-        if (pp.bIsPlayer && pp.IsA('harry'))
-        {
-            h = harry(pp);
-            break;
-        }
-    }
-    if (h == None)
-    {
-        foreach AllActors(class'harry', h)
-        {
-            break;
-        }
-    }
+    h = FindActiveHarry(self);
     if (h == None)
     {
         Log("[Archipelago] ApplyGrant: no harry to deliver to");
         return;
     }
+    Log("[Archipelago] ApplyGrant: targeting harry=" $ string(h) $ " managerStatus=" $ string(h.managerStatus));
 
     if (IsKnownSpellName(ItemName))
     {
-        Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - calling AddToSpellBookByString");
+        Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - marking AP-granted + AddToSpellBookByString");
+        if (class'APCardWatcher'.static.GetLatest() != None)
+        {
+            class'APCardWatcher'.static.GetLatest().MarkSpellAsGranted(ItemName);
+        }
         h.AddToSpellBookByString(ItemName);
         return;
     }
