@@ -60,15 +60,24 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **De-risks:** the data pipeline. After M5, adding/changing items is a YAML edit + regen.
 
-## M6 — Logic and seed generation
+## M6 — Logic and seed generation ⏳ in progress (commit df05524 + uncommitted)
 
 **Goal:** generated seeds are solvable end-to-end.
 
-- Author `data/logic.yaml` per-location (start with region-coarse, refine over playtests).
-- `scripts/gen_apworld.py` emits `apworld/regions.py` and `apworld/rules.py`.
-- Add YAML option `goal: basilisk` (the only option in v1).
-- Run AP generator with `start_inventory_from_pool: all` ("unlock everything") seed for testing — confirm every location is reachable.
-- First real seed: play a normal seed start-to-finish solo. Find broken logic; fix; regen; repeat.
+**Done:**
+- `data/logic.yaml` schema authored (string-grammar `requires`, `Lumos & Flipendo | Alohomora`-style). Region list + classroom locations populated. Card per-location overrides empty for now (Stefan fills as playtest catalogues card homes).
+- `scripts/gen_apworld.py` emits `apworld/regions.py` (region defs + entry rules), `apworld/rules.py` (per-location overrides + goal definition), and 101 `mod/HPArchipelago/Classes/APCardMarker_<X>.uc` subclasses for the chest-replacement architecture.
+- `apworld/__init__.py` wires region entry rules into `Region.connect(... rule=...)` and goal completion via `state.can_reach_location("LevelClear_ChamberOfSecrets", player)`.
+- Goal `basilisk` declared in `logic.yaml`; default goal in `__init__.py`. (YAML option for choosing goal is parked v2.)
+- TBD-lenient mode: rules with `entry: TBD` compile to `True` so seeds gen during playtest. Generator prints a warning listing unfilled regions.
+- Card-pickup architecture rewritten — `APCardMarker_<X>` replaces every card class in chests/cauldrons/loose-icon spots at level entry. Markers fire CHECK on Touch, no `SetCardOwner`, no celebration cutscene. See `docs/DESIGN.md#card-pickup-architecture-apcardmarker`.
+
+**Still TODO:**
+- Fill in `entry:` rules for the 5 TBD regions (ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel). Currently fires lenient-warning each gen.
+- Fill in `region:` for the 101 cards in `data/locations.yaml` as Stefan catalogues them during playtest. Generator currently routes all TBD-region cards to a placeholder "TBD" Region that's reachable from Menu (open-hub).
+- Run AP generator with `start_inventory_from_pool: all` and confirm every location is reachable.
+- Solo playtest a real seed start-to-finish.
+- Spell-challenge softlock: locked exit door when player enters classroom without the spell. Logic.yaml workaround is to make spells reachable before their classrooms; v2 fix is unlocking the door via UScript.
 
 **De-risks:** the AP world correctness.
 

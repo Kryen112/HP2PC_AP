@@ -1,49 +1,44 @@
-# Handoff — written 2026-05-07 (updated end-of-day 2026-05-07)
+# Handoff — written 2026-05-08 end-of-day
 
-This file is for the next Claude that boots into this repo. Read it top-to-bottom before doing anything else. The previous Claude wrote it after a long session that took the project from M0 design docs to a working M5 with end-to-end Archipelago integration.
+This file is for the next Claude that boots into this repo. Read it top-to-bottom before doing anything else. The previous session did major architectural work on card pickup (the new `APCardMarker` system) and started M6 logic + seed gen. Two specific code changes from the very end of the session are **untested in-game** and need verification first thing next session.
 
 ---
 
-## ⚠️ IN-FLIGHT, UNTESTED — read before touching anything
+## ⚠️ FIRST THING NEXT SESSION — TEST THESE TWO CHANGES
 
-Two code changes landed end-of-day 2026-05-07 on a Python-less laptop with no game install. Neither has been compiled or playtested. Before doing anything else next session, work through both.
+Both landed in the final code commit (just before the docs commit). The previous Claude couldn't test them — Stefan ran out of time and signed off after Stefan reported the symptoms but before fixes were verified.
 
-### Game-machine boot checklist (do these in order)
+### Change 1 — APCardMarker gravity (was floating mid-air)
 
-1. `git pull origin main` — should fast-forward to `223403d` (or later if newer commits exist).
-2. `py -3.12 scripts\gen_apworld.py` from the repo root — regenerates `apworld/items.py` + `apworld/locations.py` from the YAML. The `mklink /J` junction at `Archipelago\worlds\harry_potter_2\` propagates the change to the AP framework.
-3. `ucc make` in `Modded\System` — compiles the new `APGameInfo.uc` (and any other UScript edits). If errors, scroll up in the output for the first one and fix; subsequent errors usually cascade.
-4. Generate a fresh test seed against the apworld (any standard `Archipelago.exe` generation flow you used before for this project).
-5. Boot game + sidecar + AP MultiServer, connect everything, and walk through the verification steps for both changes below.
+`mod/HPArchipelago/Classes/APCardMarker.uc` — `Spawned()` was `PHYS_None`, which left chest-spawned markers floating at the chest mouth (Stefan saw a Wadcock marker float in air). Changed to `PHYS_Falling` while still skipping the bouncing state so loose-icon replacements stay near their design-time x/y.
 
-The two changes are independent. If `ucc make` fails on Change 1, Change 2 is still testable (it only affects the sidecar + apworld); skip past Change 1's playtest until the build is fixed.
+**Verification:**
+1. `.\HP2PC_AP\scripts\rebuild_mod.ps1` (admin shell)
+2. Fresh new game with the smoke seed (test/HP2_Test.yaml plandos `Card_Starkey → Wadcock`, `Card_Wadcock → Diffindo`)
+3. Walk Starkey marker → AP grants Wadcock card
+4. Walk to Wadcock chest → marker should drop to floor (not float at chest mouth)
+5. Walk over Wadcock marker → should fire `CHECK 36` → AP grants Diffindo
 
-### Change 1: M3 card-album persistence fix (`mod/HPArchipelago/Classes/APGameInfo.uc`)
+If markers fall through floors instead of landing on them, switch back to `PHYS_None` for one variant — see "fallback options" below.
 
-M212 Discord pointed at `WizardCardIcon.uc:131`. Card-grant path was rewritten from `Spawn(class) + cardActor.Touch(harry)` to a direct `siCard.SetCardOwner(cardClass.default.Id, CardOwner_Harry)` + `sgCards.RemoveHarryOwnedCardsFromLevel(None)`.
+### Change 2 — sidecar dedup removed
 
-Verification:
+`client/hp2_ap_client.py` — removed the `granted_card_game_ids` set entirely. Stefan reported that walking over the Wadcock marker (after AP had granted Wadcock from the Starkey location) didn't fire a real CHECK because the sidecar was dedup-blocking it as "watcher echo".
 
-1. `ucc make` in `Modded\System` — confirm the new `TryApplyCard` and the trimmed `ApplyGrant` compile cleanly. Locals removed from `ApplyGrant`: `cardClass`, `cardActor`, `spawnLoc`, `attempt`. Class refs needed: `WizardCardIcon`, `StatusItemWizardCards`, `StatusGroupWizardCards`, `StatusItemBronzeCards`, `StatusItemSilverCards`, `StatusItemGoldcards`, `BronzeCards`, `SilverCards`, `Goldcards`. If `ucc` complains about unresolved class refs, add the appropriate package to `EditPackages=` or fully-qualify with `HGame.<Class>`.
-2. Run a real seed and have AP grant a card. Open the album. **Confirm the granted card actually appears.** If yes, this milestone closes; commit the changes (commit message ≤25 words, no AI attribution). If no, the fix is wrong — the grant log line `[Archipelago] ApplyGrant: granted card …` should still appear but the album won't update. In that case re-open DESIGN open question 6.
-3. Side-effect to watch for: `RemoveHarryOwnedCardsFromLevel(None)` walks all `WizardCardIcon` actors in the current level and destroys Harry-owned ones. That's the same call `harry.uc:977` makes on level entry, so it should be safe — but if a player picks up a vanilla card and *then* AP grants a different card, other in-level card icons Harry already owns will vanish. Check the play feel.
+The dedup was a holdover from M3 when the watcher fired echo CHECKs after `SetCardOwner`. With `MarkAsGranted` setting `WasOwnedByHarry[id]=1` BEFORE `SetCardOwner` runs, the watcher's transition path is suppressed and there's no echo to dedupe. The only `CHECK <id>` source now is `APCardMarker.Touch` — which is always a real player walk-over.
 
-### Change 2: spell + key-item → AP location wiring (`data/locations.yaml`, `client/hp2_ap_client.py`, `docs/MOD_TODO.md`)
+**Verification:**
+1. With the test seed running (gravity test above), Stefan walked Starkey → got Wadcock card
+2. Walk to Wadcock's marker → sidecar log should show `Sent LocationChecks for Card_Wadcock`
+3. AP grants Diffindo (per the second plando line)
+4. Spellbook shows Diffindo
 
-Stefan provided the v1 story progression. Mapping authored:
-- `data/locations.yaml` classroom entries renamed to one per non-starter spell: `Classroom_Lockhart_Rictusempra` (offset 1), `Classroom_Flitwick_Skurge` (offset 2), `Classroom_Sprout_Diffindo` (offset 3), `Classroom_Lockhart_Spongify` (offset 4). The previous `Classroom_Snape` (Potions) was dropped — Snape teaches Wiggenweld brewing, not a spell. Total location count unchanged at 117.
-- `client/hp2_ap_client.py` got `SPELL_TO_LOCATION_NAME` (4 entries) and `KEYITEM_TO_LOCATION_NAME` (3 entries: Boomslang/Bicorn/BitOGoyle → respective `LevelClear_*Level`). The two `CHECK_SPELL` / `CHECK_KEYITEM` handlers now route through a shared `_send_named_location_check` helper that mirrors the existing card-CHECK flow (validate AP connection, look up location id, dedupe via `checked_locations_seen`, send `LocationChecks`).
-- Lumos/Flipendo/Alohomora intentionally have no entry in `SPELL_TO_LOCATION_NAME` — they're starter cutscene spells, baselined in the watcher's initial snapshot, never fire `CHECK_SPELL`. Per the resolved DESIGN open Q7 (policy a, 2026-05-07), they're placed as start-inventory by the seed and the vanilla cutscenes that re-grant them in-game are left untouched (`AddToSpellBook` no-ops on already-known spells).
-- The 3 ingredient levels (Boomslang/Bicorn/Goyle) get their `LevelClear_*` checks via the key-item pickup hook — design call from Stefan: pickup IS level-end, one check not two. The other 9 level-clears still need a dedicated hook (now a fresh open todo at `MOD_TODO.md`).
+If you see `Ignoring CHECK 36 — sidecar just GRANTed this card; watcher echo`, the dedup wasn't fully removed — re-check `hp2_ap_client.py` for any lingering `granted_card_game_ids` reference.
 
-Verification:
+### Fallback options if the gravity change is bad
 
-1. **Regen the apworld:** `py -3.12 scripts\gen_apworld.py` from the repo root. Should succeed; the validator will catch any duplicate ids/names. The 4 renamed classrooms keep their original `id_offset` values (1–4), so existing test seeds remain compatible.
-2. **Test seed:** generate a fresh seed, connect both clients. Walk Harry through Lockhart's first class to learn Rictusempra. Sidecar should log `Sent LocationChecks for Classroom_Lockhart_Rictusempra` and the AP server should mark that location collected.
-3. **Repeat** for Flitwick (Skurge), Sprout (Diffindo), Lockhart#2 (Spongify), and the 3 ingredient pickups.
-4. **Watch for** `Game spell 'Lumos' has no AP location mapping (likely starter / non-progression); skipping` — that line firing means the starter-spell snapshot is somehow leaking; investigate the `APCardWatcher` baseline if so. It should normally never appear.
-
-If both changes pass, delete this entire `IN-FLIGHT` section and let the rest of the doc stand.
+- If markers fall through level geometry: revert `Spawned()` to `PHYS_None`. Chest-spawned markers float at chest mouth (annoying but pickable). Loose-icon replacements stay in place. Trade-off documented.
+- If markers stop firing CHECK after the gravity change: not expected, but if so, check that `Spawned()` doesn't accidentally call `Destroy()` somewhere.
 
 ---
 
@@ -52,63 +47,73 @@ If both changes pass, delete this entire `IN-FLIGHT` section and let the rest of
 **Stefan Kuppen** (`stefan.kuppen@indi.nl`, GitHub: `Kryen112`).
 
 - Solid AP Python knowledge — has contributed to AP randomizers before.
-- Zero UnrealScript experience before this project; learned a lot during M1–M5.
+- Zero UnrealScript experience before this project; learned a lot during M1–M6.
 - Zero C/C++ / reverse-engineering experience. The architecture intentionally avoids native code.
 
 ### Hard rules (saved as feedback memories — do not violate)
 
 1. **Commit messages: 10–25 words, single sentence.** Any longer and Stefan will push back.
-2. **Never put your name (Claude / AI) under a commit.** No `Co-Authored-By: Claude` trailers, ever. Stefan force-pushed once to remove one — don't make him do it again.
-3. **Never recommend stopping based on time of day.** Stefan codes long hours and finds "want to stop here for the night?" prompts annoying. If a milestone wraps up, ask "what's next?" not "want to stop?".
+2. **Never put your name (Claude / AI) under a commit.** No `Co-Authored-By: Claude` trailers, ever.
+3. **Never recommend stopping based on time of day.** Stefan codes long hours and finds "want to stop here for the night?" prompts annoying.
 4. **Be terse.** Don't trail responses with summaries — Stefan can read the diff.
 
-These are in `~/.claude/projects/.../memory/` already; you should see them load automatically.
+---
 
-## What exists right now
+## Where the project is
 
 The project is **HP2PC_AP**, an Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secrets* (PC, 2002 KnowWonder release), built on Metallicafan212's HP2Engine 3.4 (UE1 fork that restored UT99 IpDrv networking).
 
-### Milestones complete (M0–M5)
+### Milestones
 
 | Milestone | Commit | What it proved |
 | --- | --- | --- |
 | M0 — Bootstrap | `48e3cac` | Repo + design docs |
 | M1 — Hello-world mod | `929c493` | UScript toolchain works; `DefaultGame=` in `Game.ini` is the canonical entry point |
 | M2 — TcpLink ping/pong | `cddb73f` | UScript ↔ Python bidirectional IPC over localhost:38281 |
-| M3 — Card pickup round-trip | `5cedc10` | Watcher detects pickups, sidecar replies, mod applies — wire end-to-end. Album-persistence fix coded 2026-05-07 (direct `SetCardOwner` + `RemoveHarryOwnedCardsFromLevel`, not Spawn+Touch) — **untested, see in-flight section above.** |
+| M3 — Card pickup round-trip | `5cedc10` (initial) → `608663d` (album-fix) → `df05524` + uncommitted (APCardMarker rewrite) | Card pickup architecture has been through three iterations; current is APCardMarker (see DESIGN.md) |
 | M4 — Real AP integration | `302b27d` | Sidecar subclasses `CommonContext`; speaks real AP WebSocket protocol against MultiServer |
 | M5 — Full pool + hooks | `91ddc48`, `a167dfa`, `fcd68a5` | 114 items, 117 locations, gen pipeline, all four grant types (cards/spells/key items/beans) wired both ways |
+| M6 — Logic + seed gen | `df05524` + uncommitted | logic.yaml schema authored, regions.py + rules.py generated, APCardMarker chest-replacement architecture; 5 region entry rules still TBD; per-card region cataloguing still TBD |
+| M7 — Goal detection | not started | Plan: poll `FEBook.bInEndGame` from `APCardWatcher`, send `ClientStatus.CLIENT_GOAL`. See `docs/MOD_TODO.md`. |
+| M8 — UX polish | not started | HUD toast, vendor disable, etc. |
 
-Latest commit on `main`: see `git log --oneline -5`.
+### Card pickup architecture as of 2026-05-08 — APCardMarker
 
-### What works end-to-end as of this handoff
+This is the *third* card-pickup iteration. Read `docs/DESIGN.md#card-pickup-architecture-apcardmarker` for the full rationale; here's the executive summary:
 
-Stefan has played a real seed: a CHECK in-game sends a `LocationChecks` to the AP server, the server sends back `ReceivedItems`, the sidecar forwards `GRANT <classname>`, the mod applies it. Echo cascade is solved (sidecar tracks `granted_card_game_ids` to ignore the watcher re-detecting AP-granted cards).
+- **101 generated `APCardMarker_<ClassName>` UScript subclasses** (one per card). Each extends `APCardMarker` (which extends `WizardCardIcon`) and sets `CardLocationId` to the real card id (1..101).
+- **Sentinel `Id=200`** in `APCardMarker` defaults so vanilla `harry.uc:977 / RemoveHarryOwnedCardsFromLevel(None)`'s `IsOwnedByHarry(class.Default.Id)` check never matches → markers immune to the level-entry bean-swap.
+- **`APGameInfo.ReplaceCardChests()`** runs at every `InitGame`: iterates `chestbronze` (covers `ChestWood`/`ChestIron`/`ChestGold` via UE1 polymorphism), `bronzecauldron`, and loose `WizardCardIcon` actors. Swaps card-class slots / icons to the corresponding `APCardMarker_<X>`. **Critical:** for loose icons, `wci.Destroy()` happens BEFORE `Spawn(marker, ..., wci.Location)` because same-coords overlap causes UE1 to silently destroy the new actor and return None from `Spawn`.
+- **`APCardMarker.Touch`** fires `CHECK <CardLocationId>` over IPC and `Destroy()`. Does NOT call `SetCardOwner` (that path is reserved for the AP grant-application flow). Sets `class'APCardWatcher'.default.LocationChecked[CardLocationId]=1`.
+- **`PostBeginPlay`** checks `LocationChecked[CardLocationId]` and self-destroys if already collected — re-entered levels don't re-spawn already-collected markers.
+- **`Spawned()`** override: `PHYS_Falling` + skip bouncing state. Marker drops to floor (chest mouth → floor for chest spawns; loose icons usually already grounded).
+- **`APCardWatcher.LocationChecked[102]`** class-default byte array, persists across level transitions in a session.
+- **`APGameInfo.TryApplyCard`** for AP grants: calls `MarkAsGranted(cardId)` to set `WasOwnedByHarry[id]=1` BEFORE `SetCardOwner(id, Harry)`, so the watcher's transition path doesn't fire an echo CHECK. Album updates via `WizardCards[50]` (the canonical store FEFolioPage reads).
+- **Sidecar's `granted_card_game_ids` dedup is removed** — only marker-Touch fires CHECK now, so no echo to dedupe.
 
-Detection:
-- **Cards**: `APCardWatcher` polls `IsOwnedByHarry(id)` for ids 1–101 every 0.25s
-- **Spells**: same watcher polls `harry.IsInSpellBook` for the 7 user-spells (excluded starter spells via initial-snapshot baseline)
-- **Key items**: same watcher polls `nCount` on `StatusItemBoomslang/Bicorn/BitOGoyle` (all in `StatusGroupPolyIngr`)
+### Detection (the 0.25s polling APCardWatcher)
 
-Grant application (in `APGameInfo.ApplyGrant`):
-- **Cards** → `siCard.SetCardOwner(cardClass.default.Id, CardOwner_Harry)` + `sgCards.RemoveHarryOwnedCardsFromLevel(None)`. Direct write to the canonical `WizardCards[50]` store; level-side cleanup destroys duplicate `WizardCardIcon` actors and replaces chest contents. Bypasses Spawn+Touch (whose `CanPickupNow` guard short-circuited for runtime-spawned actors).
-- **Spells** → `harry.AddToSpellBookByString(name)`
-- **Key items** → `managerStatus.AddBoomslang(1)` / `AddBicorn(1)` / `IncrementCount(StatusGroupPolyIngr, StatusItemBitOGoyle, 1)`
-- **Beans** → `managerStatus.AddBeans(25/50/100)` for Small/Medium/Large
+Still in place as a safety net for any non-marker grant path (e.g., cutscene-scripted card grants):
 
-## What's NOT done
+- **Cards**: `APCardWatcher` polls `IsOwnedByHarry(id)` for ids 1–101 every 0.25s. On 0→1 transition (and not `WasOwnedByHarry[id]`), fires `CHECK <id>` and reverts `SetCardOwner(id, None)` if not `APGrantedCard[id]`.
+- **Spells**: same watcher polls `harry.IsInSpellBook` for the 7 spells. AP-granted spells (`MarkSpellAsGranted`) preserved. Vanilla cutscene-granted spells are reverted (so the AP-placed item at the classroom location is the only spell granted).
+- **Key items**: same watcher polls `nCount` on `StatusItemBoomslang/Bicorn/BitOGoyle` (in `StatusGroupPolyIngr`). AP grants flow through `MarkKeyItemAsGranted` to suppress echo.
 
-### Open questions
+### Grant application (in `APGameInfo.ApplyGrant`)
 
-(M3 album persistence, Q7 spell-start policy, and the spell/key-item location mapping all resolved 2026-05-07. Remaining open questions live in `docs/DESIGN.md` "Open questions to resolve in playtest" — mostly per-card vanilla-location cataloguing for M6.)
+- **Cards** → `MarkAsGranted(id)` then `siCard.SetCardOwner(cardClass.default.Id, CardOwner_Harry)`. Does NOT call `RemoveHarryOwnedCardsFromLevel` (incompatible with marker architecture).
+- **Spells** → `MarkSpellAsGranted(name)` then `harry.AddToSpellBookByString(name)`.
+- **Key items** → `MarkKeyItemAsGranted(name)` then `managerStatus.AddBoomslang(1)` / `AddBicorn(1)` / `IncrementCount(StatusGroupPolyIngr, StatusItemBitOGoyle, 1)`.
+- **Beans** → `managerStatus.AddBeans(25/50/100)` for Small/Medium/Large.
 
-The big M6-blocker now is **authoring `data/logic.yaml`** with per-region access rules. The story-progression memory has the canonical level/spell flow; the per-card vanilla locations still need cataloguing during playtest.
+### M6 status
 
-### Next milestones
+Code scaffolding complete. Authoring in progress.
 
-- **M6 — Logic + seed gen.** Author `data/logic.yaml`, regenerate apworld with proper region connections + access rules. Resolve the spell-mapping question. Run `start_inventory_from_pool: all` seed test, then play a real seed solo. Logic iteration is the long pole of the project — budget extra time.
-- **M7 — Goal detection.** Add `bInEndGame` poll to `APCardWatcher`: read `HPConsole(PlayerHarry.Player.Console).menuBook.bInEndGame`, fire `GOAL_COMPLETE` over IPC on False → True. Sidecar handler sends `{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}`. Full plan + alternatives considered: `docs/MOD_TODO.md` "Goal-complete hook" entry. Not the Basilisk death function.
-- **M8 — UX polish.** HUD toast, pickup FX on grants, vendor disable, etc.
+- **`data/logic.yaml`**: schema documented at top. Regions list filled. 4 classroom locations specified. Goal `basilisk → [LevelClear_ChamberOfSecrets]`. **5 region `entry:` rules still `TBD`** — ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel. Generator currently treats TBD as `True` (lenient mode) and prints a warning listing them.
+- **`data/locations.yaml`**: classroom + level-completion locations have `region:` filled. **101 cards still have `region: TBD`** — Stefan catalogues these during playtest. Generator routes TBD-region cards to a placeholder TBD region reachable from Menu (open-hub).
+- **Generator (`scripts/gen_apworld.py`)** emits: `apworld/items.py`, `apworld/locations.py`, `apworld/regions.py`, `apworld/rules.py`, plus 101 `mod/HPArchipelago/Classes/APCardMarker_<X>.uc` files.
+- **`apworld/__init__.py`** wires region entry rules into `Region.connect(... rule=...)` and goal completion via `state.can_reach_location("LevelClear_ChamberOfSecrets", player)`.
 
 ## Setup on Stefan's machine
 
@@ -119,9 +124,18 @@ The big M6-blocker now is **authoring `data/logic.yaml`** with per-region access
 - Python 3.12 + asyncio + websockets via AP's `CommonClient`.
 - UScript builds via `ucc make` in the Modded\System directory.
 
+### PowerShell scripts in `scripts/`
+
+- `gen_seed.ps1` — regen apworld + generate a fresh AP seed
+- `host_seed.ps1` — host the latest seed on port 38282
+- `run_sidecar.ps1` — start the sidecar (terminal B)
+- `rebuild_mod.ps1` — robocopy mod source + run UCC make (REQUIRES admin shell)
+
+Standard test loop: `rebuild_mod.ps1` (admin) → `gen_seed.ps1` → `host_seed.ps1` → `run_sidecar.ps1` → game.
+
 ### File encoding gotchas
 
-- `Game.log` is **UTF-16 LE** — read it with the right encoding or you'll get garbage.
+- `Game.log` is **UTF-16 LE** — read it with `iconv -f UTF-16LE -t UTF-8` or you'll get garbage.
 - `Game.ini`, `HP.ini`, `Default.ini` are **ANSI / Win-1252**.
 - `HP.ini` in the user data folder **overrides** `Default.ini`. If you edit `EditPackages=` in `Default.ini` and it doesn't take effect, also edit `HP.ini`.
 
@@ -133,37 +147,41 @@ The big M6-blocker now is **authoring `data/logic.yaml`** with per-region access
 - ❌ `?Mutator=` URL params — stripped by HP2's Browse
 - ❌ `GameInfo.AddMutator(string)` — KnowWonder removed it
 
-See `docs/DESIGN.md#mod-entry-point` for the long version.
-
 ### Persistent singleton pattern — verified, do not regress
 
-`APIPCActor` survives level transitions via:
-- `bGameRelevant=True` and `bAlwaysRelevant=True` in `defaultproperties`
-- A class-default reference (`var APIPCActor PersistentInstance` at static scope) initialized in `PreBeginPlay`
-- `APGameInfo.InitGame` checks `APIPCActor.static.GetInstance()` before spawning — so re-entry doesn't churn
+`APIPCActor` survives level transitions via `bGameRelevant=True` + `bAlwaysRelevant=True` + class-default ref initialized in `PreBeginPlay` + `APGameInfo.InitGame` checks `APIPCActor.static.GetInstance()` before spawning. One TCP connection lasts the whole session.
 
-Result: one `APIPCActor`, one TCP connection, lasts the whole game session.
+`APCardWatcher` is per-level (no `bGameRelevant`) but its class-default `LocationChecked[]` and `LatestInstance` survive across levels. `APGameInfo.FindActiveHarry` resolves harry through `APCardWatcher.GetLatest().Level.PlayerHarryActor` so the gameplay UWorld's harry is targeted (not Entry's).
 
-## Read these in order on startup
+## Known v1 limitations (parked for v2)
 
-1. `README.md` — project overview, status line up to date as of M5
-2. `docs/ROADMAP.md` — milestone-by-milestone status with commit hashes
-3. `docs/DESIGN.md` — every locked decision, including the v2 parking lot
-4. `docs/MOD_TODO.md` — what the UScript mod has to do, with completion state
-5. `docs/DEV_SETUP.md` — toolchain commands, build loop, file paths
+See `docs/DESIGN.md#v2-parking-lot` for full descriptions.
+
+- **Spell-challenge auto-transition + locked exit door.** Walking into a classroom auto-teleports to the spell challenge with the exit locked behind. If the player doesn't already own the spell (because we revert vanilla cutscene grants), they softlock. v1 workaround: AP logic should make the spell reachable before its classroom; or plando the spell at its own classroom.
+- **Save-load vs new-game distinction.** Currently no protection against loading a save from a different multiworld slot.
+- Various v2 features: entrance shuffle, alt goal modes, Tier-3 check expansion, vendor card sales, trap items, etc.
+
+## Read these in order on resume
+
+1. `README.md` — project overview
+2. `docs/ROADMAP.md` — milestone-by-milestone status
+3. `docs/DESIGN.md` — every locked decision, including the APCardMarker architecture and the v2 parking lot
+4. `docs/MOD_TODO.md` — UScript implementation checklist
+5. `docs/DEV_SETUP.md` — toolchain commands
 6. This file (you're reading it)
-
-The DESIGN doc has a **v2 parking lot** at the bottom. Anything not in v1 lives there. If Stefan proposes a feature mid-conversation that's already parked, gently redirect.
 
 ## Memory pointers
 
-The `memory/` directory under `~/.claude/projects/.../` should auto-load via `MEMORY.md` and includes:
+The `memory/` directory under `~/.claude/projects/.../` should auto-load via `MEMORY.md`. Includes:
+
 - Stefan's role and skill profile (user memory)
 - Don't-stop-recommending feedback
 - Short-commit-message feedback
 - No-AI-attribution feedback
-- **HP2 AP Randomizer — v2 parking lot** (entrance shuffle, alt goal modes, Tier-3 check expansion deferred from v1)
-- **HP2 AP Randomizer — v1 vanilla story progression** (canonical level/spell flow; load-bearing for M6 logic authoring)
+- HP2 AP Randomizer — v2 parking lot
+- HP2 AP Randomizer — v1 vanilla story progression (canonical level/spell flow)
+- HP2/M212 engine quirks (Game.log encoding, ini layering, etc.)
+- HP2 mod entry point (DefaultGame= pattern)
 
 If those don't appear in your initial context, the memory system is broken — flag it.
 
@@ -173,14 +191,14 @@ If those don't appear in your initial context, the memory system is broken — f
 git log --oneline -5
 ```
 
-Should show `223403d` or later as HEAD on `main`. If it's older, Stefan has either reset or you're on a stale checkout — ask before doing anything.
+Should show the latest two commits from this session: a code commit (M6 + APCardMarker) and a docs commit (this handoff + DESIGN/ROADMAP/MOD_TODO updates). If older, ask Stefan.
 
 ```powershell
 ls docs/
 ```
 
-Should show `DESIGN.md ROADMAP.md MOD_TODO.md DEV_SETUP.md AGENTS.md`. If any are missing, ask.
+Should show `DESIGN.md ROADMAP.md MOD_TODO.md DEV_SETUP.md AGENTS.md`.
 
 ## When unsure, ask Stefan
 
-He'd rather you ask one specific question than guess and waste time. But spend up to a minute on read-only investigation first (grep, read existing files) so the question is specific. "I see `IsInSpellBook` in `harry.uc:1234` — is that what we should hook?" beats "how do I detect spells?".
+He'd rather you ask one specific question than guess and waste time. But spend up to a minute on read-only investigation first (grep, read existing files) so the question is specific.
