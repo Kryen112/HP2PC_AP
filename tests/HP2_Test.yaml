@@ -2,16 +2,12 @@ name: HP2_Test
 description: HP2 minimal-world generation smoke test
 game: Harry Potter 2
 Harry Potter 2:
-  # Pin the first two card pickups so the smoke test is deterministic:
-  #   walk over Starkey -> AP grants BeansMedium (verify beans counter goes up)
-  #   open Wadcock chest -> AP grants Diffindo (verify spell appears in spellbook)
-  # Rictusempra classroom is left random so we can see what AP places there.
+  # Smoke test for the APCardMarker chest-replacement work:
+  #   walk over Starkey marker -> AP grants the Wadcock card -> verify Wadcock
+  #     appears in the album AND Wadcock's chest still spawns its marker.
+  #   walk over Wadcock marker  -> AP grants Diffindo -> verify spellbook.
   plando_items:
-    - item: BeansMedium
+    - item: Wadcock
       location: Card_Starkey
-      from_pool: true
-      force: silent
-    - item: Diffindo
-      location: Card_Wadcock
       from_pool: true
       force: silent

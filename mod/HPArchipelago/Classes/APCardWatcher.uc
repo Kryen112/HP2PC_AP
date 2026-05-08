@@ -23,8 +23,14 @@ var byte APGrantedSpell[7];
 var StatusItem KeyItemStatus[3];
 var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
+var byte APGrantedKeyItem[3];
 
 var APCardWatcher LatestInstance;
+
+// Class-default array. Survives level transitions in a session (default vars are
+// process-wide). APCardMarker.Touch sets LocationChecked[id]=1 after firing its
+// CHECK; APCardMarker.PostBeginPlay self-destroys if its id is already checked.
+var byte LocationChecked[102];
 
 static function APCardWatcher GetLatest()
 {
@@ -54,6 +60,21 @@ function MarkSpellAsGranted(string SpellName)
             APGrantedSpell[i] = 1;
             WasSpellOwned[i] = 1;
             Log("[Archipelago] APCardWatcher.MarkSpellAsGranted: " $ SpellName);
+            return;
+        }
+    }
+}
+
+function MarkKeyItemAsGranted(string KeyItemName)
+{
+    local int i;
+    for (i = 0; i < NUM_KEY_ITEMS; i++)
+    {
+        if (KeyItemNames[i] == KeyItemName)
+        {
+            APGrantedKeyItem[i] = 1;
+            WasKeyItemOwned[i] = 1;
+            Log("[Archipelago] APCardWatcher.MarkKeyItemAsGranted: " $ KeyItemName);
             return;
         }
     }

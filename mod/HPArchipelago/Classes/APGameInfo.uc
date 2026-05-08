@@ -38,6 +38,110 @@ event InitGame(string Options, out string Error)
     {
         Log("[Archipelago] APGameInfo: APCardWatcher class load FAILED");
     }
+
+    ReplaceCardChests();
+}
+
+// Replace every card-class reference in chests/cauldrons (and every loose
+// WizardCardIcon actor in the level) with the corresponding APCardMarker_<class>
+// subclass. Called from InitGame on every level entry.
+//
+// Why this exists: vanilla harry.uc:977 calls RemoveHarryOwnedCardsFromLevel(None)
+// on level entry, which bean-swaps any chest holding a card the player already
+// owns. That makes those AP locations unreachable. Our markers carry a sentinel
+// Id that vanilla never matches, so they survive the sweep.
+function ReplaceCardChests()
+{
+    local chestbronze chest;
+    local bronzecauldron cauldron;
+    local WizardCardIcon wci;
+    local class<Actor> markerClass;
+    local Actor spawned;
+    local Vector looseLoc;
+    local Rotator looseRot;
+    local int i;
+    local int totalReplaced;
+
+    totalReplaced = 0;
+
+    foreach AllActors(class'chestbronze', chest)
+    {
+        for (i = 0; i < ArrayCount(chest.EjectedObjects); i++)
+        {
+            if (TryReplaceCardSlot(chest.EjectedObjects[i], markerClass))
+            {
+                Log("[Archipelago] ReplaceCardChests: chest=" $ string(chest) $ " slot=" $ i $ " was=" $ string(chest.EjectedObjects[i]) $ " -> " $ string(markerClass));
+                chest.EjectedObjects[i] = markerClass;
+                totalReplaced++;
+            }
+        }
+    }
+
+    foreach AllActors(class'bronzecauldron', cauldron)
+    {
+        for (i = 0; i < ArrayCount(cauldron.EjectedObjects); i++)
+        {
+            if (TryReplaceCardSlot(cauldron.EjectedObjects[i], markerClass))
+            {
+                Log("[Archipelago] ReplaceCardChests: cauldron=" $ string(cauldron) $ " slot=" $ i $ " was=" $ string(cauldron.EjectedObjects[i]) $ " -> " $ string(markerClass));
+                cauldron.EjectedObjects[i] = markerClass;
+                totalReplaced++;
+            }
+        }
+    }
+
+    foreach AllActors(class'WizardCardIcon', wci)
+    {
+        if (wci.IsA('APCardMarker')) continue;
+        markerClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(wci.Class.Name), class'Class'));
+        if (markerClass != None)
+        {
+            // Capture location/rotation before destroying wci. We must destroy
+            // wci FIRST — Spawn at the same coords with wci still present causes
+            // encroachment, the engine destroys the new marker and returns None.
+            looseLoc = wci.Location;
+            looseRot = wci.Rotation;
+            Log("[Archipelago] ReplaceCardChests: loose icon=" $ string(wci) $ " (class=" $ string(wci.Class.Name) $ ") at " $ string(looseLoc) $ " -> spawn " $ string(markerClass));
+            wci.Destroy();
+            spawned = Spawn(markerClass, , , looseLoc, looseRot);
+            if (spawned == None)
+            {
+                Log("[Archipelago] ReplaceCardChests: Spawn STILL returned None for " $ string(markerClass) $ " at " $ string(looseLoc));
+            }
+            else
+            {
+                Log("[Archipelago] ReplaceCardChests: spawned " $ string(spawned) $ " at " $ string(spawned.Location));
+            }
+            totalReplaced++;
+        }
+        else
+        {
+            Log("[Archipelago] ReplaceCardChests: loose icon=" $ string(wci) $ " (class=" $ string(wci.Class.Name) $ ") - no APCardMarker_<class> found, leaving alone");
+        }
+    }
+
+    if (totalReplaced > 0)
+    {
+        Log("[Archipelago] ReplaceCardChests: replaced " $ totalReplaced $ " card slot(s) / loose icon(s) with APCardMarker subclasses");
+    }
+}
+
+// Helper: if `slot` is a WizardCardIcon subclass that isn't already our marker,
+// resolve the corresponding APCardMarker_<ClassName> and write it to outClass.
+// Returns true if a replacement was found.
+function bool TryReplaceCardSlot(class<Actor> slot, out class<Actor> outClass)
+{
+    if (slot == None) return False;
+    if (ClassIsChildOf(slot, class'APCardMarker')) return False;
+    if (!ClassIsChildOf(slot, class'WizardCardIcon')) return False;
+
+    outClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(slot.Name), class'Class'));
+    if (outClass == None)
+    {
+        Log("[Archipelago] ReplaceCardChests: no APCardMarker_" $ string(slot.Name) $ " - leaving slot alone");
+        return False;
+    }
+    return True;
 }
 
 function bool IsKnownSpellName(string Name)
@@ -101,14 +205,30 @@ function bool TryApplyCard(string ItemName, harry h)
         class'APCardWatcher'.static.GetLatest().MarkAsGranted(cardClass.default.Id);
     }
     siCard.SetCardOwner(cardClass.default.Id, siCard.ECardOwner.CardOwner_Harry);
-    sgCards.RemoveHarryOwnedCardsFromLevel(None);
+    // NOTE: vanilla Touch chain ends with sgCards.RemoveHarryOwnedCardsFromLevel(self)
+    // to clean up the picked-up icon and replace duplicate-card chest contents
+    // with Jellybeans. We deliberately DO NOT call it here. For an AP grant we
+    // have no in-level icon to clean up, and the chest-mutation side effect
+    // makes the player unable to visit those card locations later (the chest
+    // would spawn a bean instead of the card icon). Trade-off documented in
+    // docs/DESIGN.md v2 parking lot.
     Log("[Archipelago] ApplyGrant: granted card " $ ItemName $ " (Id=" $ cardClass.default.Id $ ")");
     return True;
 }
 
 function bool TryApplyKeyItem(string Name, harry h)
 {
+    local APCardWatcher watcher;
+
     if (h == None || h.managerStatus == None) return False;
+    if (Name != "Boomslang" && Name != "Bicorn" && Name != "BitOGoyle") return False;
+
+    watcher = class'APCardWatcher'.static.GetLatest();
+    if (watcher != None)
+    {
+        watcher.MarkKeyItemAsGranted(Name);
+    }
+
     if (Name == "Boomslang")
     {
         h.managerStatus.AddBoomslang(1);
@@ -124,7 +244,7 @@ function bool TryApplyKeyItem(string Name, harry h)
     if (Name == "BitOGoyle")
     {
         h.managerStatus.IncrementCount(class'StatusGroupPolyIngr', class'StatusItemBitOGoyle', 1);
-        Log("[Archipelago] ApplyGrant: granted BitOGoyle via IncrementCount(StatusGroupPolyIngr,StatusItemBitOGoyle,1)");
+        Log("[Archipelago] ApplyGrant: granted BitOGoyle via IncrementCount");
         return True;
     }
     return False;

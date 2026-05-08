@@ -123,10 +123,6 @@ class HP2Context(CommonContext):
         self.game_writer: Optional[asyncio.StreamWriter] = None
         self.tcp_server_task: Optional[asyncio.Task] = None
         self.checked_locations_seen: set[int] = set()
-        # Card game-Ids the sidecar has just GRANTed to the mod; the mod's
-        # watcher will see those cards become Harry-owned and echo CHECK back.
-        # We swallow those echoes so they don't trigger another LocationCheck.
-        self.granted_card_game_ids: set[int] = set()
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -143,17 +139,11 @@ class HP2Context(CommonContext):
                 item_id = item.item
                 item_name = self.item_names.lookup_in_game(item_id, GAME_NAME) or f"item_id_{item_id}"
                 # Cards: forward as 'GRANT <UScriptClassName>' so mod's ApplyGrant
-                # can DynamicLoadObject and Spawn-Touch the card. Non-cards get
-                # the raw item name; mod's ApplyGrant ignores those for now.
+                # can DynamicLoadObject the card class and SetCardOwner. Non-cards
+                # get the raw item name and route through ApplyGrant's spell /
+                # key-item / beans branches.
                 ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
                 payload = ucls if ucls else item_name
-                if ucls:
-                    game_id = CARD_CLASS_TO_GAME_ID.get(ucls)
-                    if game_id is not None:
-                        # Tell ourselves: when the mod echoes CHECK <game_id>
-                        # back (because its watcher sees Harry now owns this
-                        # card), do NOT treat it as a real check.
-                        self.granted_card_game_ids.add(game_id)
                 logger.info(f"Received item: {item_name} (id={item_id}) → forwarding as GRANT {payload}")
                 self._send_to_game(f"GRANT {payload}")
 
@@ -218,9 +208,6 @@ class HP2Context(CommonContext):
                 return
             if not self.server or self.slot is None:
                 logger.warning(f"AP server not connected (slot={self.slot}), dropping CHECK {check_id}")
-                return
-            if check_id in self.granted_card_game_ids:
-                logger.info(f"Ignoring CHECK {check_id} — sidecar just GRANTed this card; watcher echo")
                 return
             location_name = CARD_GAME_ID_TO_LOCATION_NAME.get(check_id)
             if location_name is None:
