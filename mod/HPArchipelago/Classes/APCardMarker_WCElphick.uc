@@ -5,4 +5,5 @@ class APCardMarker_WCElphick extends APCardMarker;
 defaultproperties
 {
     CardLocationId=91
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

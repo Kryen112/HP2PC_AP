@@ -5,4 +5,5 @@ class APCardMarker_WCWintringham extends APCardMarker;
 defaultproperties
 {
     CardLocationId=63
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

@@ -5,4 +5,5 @@ class APCardMarker_WCWildsmith extends APCardMarker;
 defaultproperties
 {
     CardLocationId=62
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

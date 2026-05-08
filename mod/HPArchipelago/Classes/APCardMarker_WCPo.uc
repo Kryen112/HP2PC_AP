@@ -5,4 +5,5 @@ class APCardMarker_WCPo extends APCardMarker;
 defaultproperties
 {
     CardLocationId=81
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

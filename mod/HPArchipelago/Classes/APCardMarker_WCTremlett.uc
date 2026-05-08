@@ -5,4 +5,5 @@ class APCardMarker_WCTremlett extends APCardMarker;
 defaultproperties
 {
     CardLocationId=34
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

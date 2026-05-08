@@ -5,4 +5,5 @@ class APCardMarker_WCLufkin extends APCardMarker;
 defaultproperties
 {
     CardLocationId=30
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

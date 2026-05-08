@@ -5,4 +5,5 @@ class APCardMarker_WCMaeve extends APCardMarker;
 defaultproperties
 {
     CardLocationId=71
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

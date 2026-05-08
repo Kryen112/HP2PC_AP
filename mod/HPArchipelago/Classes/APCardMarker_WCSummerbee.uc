@@ -5,4 +5,5 @@ class APCardMarker_WCSummerbee extends APCardMarker;
 defaultproperties
 {
     CardLocationId=52
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

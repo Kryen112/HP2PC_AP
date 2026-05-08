@@ -5,4 +5,5 @@ class APCardMarker_WCYoudle extends APCardMarker;
 defaultproperties
 {
     CardLocationId=43
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

@@ -5,4 +5,5 @@ class APCardMarker_WCOglethorpe extends APCardMarker;
 defaultproperties
 {
     CardLocationId=45
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

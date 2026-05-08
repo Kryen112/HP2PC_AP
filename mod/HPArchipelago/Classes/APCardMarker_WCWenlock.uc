@@ -5,4 +5,5 @@ class APCardMarker_WCWenlock extends APCardMarker;
 defaultproperties
 {
     CardLocationId=32
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

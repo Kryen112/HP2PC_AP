@@ -5,4 +5,5 @@ class APCardMarker_WCChittock extends APCardMarker;
 defaultproperties
 {
     CardLocationId=23
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

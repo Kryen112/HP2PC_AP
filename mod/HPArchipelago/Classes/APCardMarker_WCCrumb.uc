@@ -5,4 +5,5 @@ class APCardMarker_WCCrumb extends APCardMarker;
 defaultproperties
 {
     CardLocationId=56
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

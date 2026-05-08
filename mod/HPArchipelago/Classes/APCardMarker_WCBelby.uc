@@ -5,4 +5,5 @@ class APCardMarker_WCBelby extends APCardMarker;
 defaultproperties
 {
     CardLocationId=66
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

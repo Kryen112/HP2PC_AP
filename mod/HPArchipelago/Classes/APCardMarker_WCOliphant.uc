@@ -5,4 +5,5 @@ class APCardMarker_WCOliphant extends APCardMarker;
 defaultproperties
 {
     CardLocationId=65
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

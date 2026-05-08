@@ -5,4 +5,5 @@ class APCardMarker_WCWarbeck extends APCardMarker;
 defaultproperties
 {
     CardLocationId=88
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

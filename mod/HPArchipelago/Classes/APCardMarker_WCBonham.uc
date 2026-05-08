@@ -5,4 +5,5 @@ class APCardMarker_WCBonham extends APCardMarker;
 defaultproperties
 {
     CardLocationId=75
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

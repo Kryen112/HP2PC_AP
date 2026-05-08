@@ -5,4 +5,5 @@ class APCardMarker_WCPilliwickle extends APCardMarker;
 defaultproperties
 {
     CardLocationId=67
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

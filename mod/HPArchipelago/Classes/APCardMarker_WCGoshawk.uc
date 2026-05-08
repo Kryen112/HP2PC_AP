@@ -5,4 +5,5 @@ class APCardMarker_WCGoshawk extends APCardMarker;
 defaultproperties
 {
     CardLocationId=46
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

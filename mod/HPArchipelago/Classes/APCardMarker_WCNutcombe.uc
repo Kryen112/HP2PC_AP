@@ -5,4 +5,5 @@ class APCardMarker_WCNutcombe extends APCardMarker;
 defaultproperties
 {
     CardLocationId=55
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

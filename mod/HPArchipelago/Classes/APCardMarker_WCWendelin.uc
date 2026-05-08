@@ -5,4 +5,5 @@ class APCardMarker_WCWendelin extends APCardMarker;
 defaultproperties
 {
     CardLocationId=20
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

@@ -5,4 +5,5 @@ class APCardMarker_WCWhitehorn extends APCardMarker;
 defaultproperties
 {
     CardLocationId=44
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

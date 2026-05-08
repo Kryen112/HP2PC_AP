@@ -5,4 +5,5 @@ class APCardMarker_WCShingleton extends APCardMarker;
 defaultproperties
 {
     CardLocationId=54
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

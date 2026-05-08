@@ -5,4 +5,5 @@ class APCardMarker_WCShimpling extends APCardMarker;
 defaultproperties
 {
     CardLocationId=8
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

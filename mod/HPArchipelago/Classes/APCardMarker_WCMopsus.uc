@@ -5,4 +5,5 @@ class APCardMarker_WCMopsus extends APCardMarker;
 defaultproperties
 {
     CardLocationId=73
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

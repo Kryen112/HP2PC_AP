@@ -5,4 +5,5 @@ class APCardMarker_WCDodderidge extends APCardMarker;
 defaultproperties
 {
     CardLocationId=99
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

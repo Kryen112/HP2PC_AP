@@ -5,4 +5,5 @@ class APCardMarker_WCOllerton extends APCardMarker;
 defaultproperties
 {
     CardLocationId=57
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

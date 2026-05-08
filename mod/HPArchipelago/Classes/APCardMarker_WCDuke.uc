@@ -5,4 +5,5 @@ class APCardMarker_WCDuke extends APCardMarker;
 defaultproperties
 {
     CardLocationId=68
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

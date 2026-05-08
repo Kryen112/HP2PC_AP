@@ -5,4 +5,5 @@ class APCardMarker_WCUlric extends APCardMarker;
 defaultproperties
 {
     CardLocationId=18
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

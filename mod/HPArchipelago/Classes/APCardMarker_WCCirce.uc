@@ -5,4 +5,5 @@ class APCardMarker_WCCirce extends APCardMarker;
 defaultproperties
 {
     CardLocationId=22
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

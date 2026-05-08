@@ -5,4 +5,5 @@ class APCardMarker_WCStroulger extends APCardMarker;
 defaultproperties
 {
     CardLocationId=47
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
 }

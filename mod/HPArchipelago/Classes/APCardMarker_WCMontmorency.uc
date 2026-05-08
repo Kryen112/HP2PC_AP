@@ -5,4 +5,5 @@ class APCardMarker_WCMontmorency extends APCardMarker;
 defaultproperties
 {
     CardLocationId=60
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }

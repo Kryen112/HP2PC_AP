@@ -5,4 +5,5 @@ class APCardMarker_WCToothill extends APCardMarker;
 defaultproperties
 {
     CardLocationId=89
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_silver'
 }
