@@ -30,6 +30,8 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - `APGameInfo.ApplyGrant` parses `GRANT <classname>` and applies the card directly via `siCard.SetCardOwner(Id, CardOwner_Harry)` + `sgCards.RemoveHarryOwnedCardsFromLevel(None)` — bypassing the spawn-and-Touch chain (whose `CanPickupNow` precondition was short-circuiting before line 131 of vanilla `WizardCardIcon.Touch`). Album persistence confirmed; M212 Discord answer (2026-05-07) pointed at the missing `RemoveHarryOwnedCardsFromLevel` call.
 - Watcher confirms the SetCardOwner write via re-detection (CHECK fires for the granted Id).
 
+> **Superseded in M6.** The watcher-as-primary-card-detector path and the `RemoveHarryOwnedCardsFromLevel`-based grant flow were replaced by `APCardMarker` (chest/cauldron/loose-icon swap with `MarkAsGranted` echo-suppression). The watcher still polls as a safety net for cutscene grants. Current behaviour is in `docs/DESIGN.md#card-pickup-architecture-apcardmarker` and `docs/MOD_TODO.md`.
+
 ## M4 — Real Archipelago integration
 
 **Goal:** speak the real AP protocol against `archipelago.gg`.
@@ -53,6 +55,8 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - `APCardWatcher` polls cards (via `IsOwnedByHarry`), spells (via `harry.IsInSpellBook`), and key items (via `StatusItemBoomslang/Bicorn/BitOGoyle.nCount` in `StatusGroupPolyIngr`). Initial-snapshot baselines starter spells (Lumos/Flipendo/Alohomora) so cutscene-grants don't fire as fake CHECKs.
 - `APIPCActor` sends differentiated `CHECK <int>` (cards), `CHECK_SPELL <name>`, `CHECK_KEYITEM <name>`.
 - `APGameInfo.ApplyGrant` handles four grant types: cards (via `Spawn`+`Touch` chain), spells (via `harry.AddToSpellBookByString`), key items (via `managerStatus.AddBoomslang/AddBicorn` and `IncrementCount` for BitOGoyle), and filler beans (via `managerStatus.AddBeans` with 25/50/100 per tier).
+
+> **Cards path superseded in M6.** The `Spawn`+`Touch` chain for card grants was replaced by `MarkAsGranted` + direct `siCard.SetCardOwner` write (no Spawn, no Touch, no celebration cutscene). Spell / key item / bean grant paths described above remain current. See `docs/DESIGN.md#card-pickup-architecture-apcardmarker`.
 
 **Deferred to M6:**
 - AP location mapping for `CHECK_SPELL` (which classroom location does each spell-tutorial map to?) and `CHECK_KEYITEM` (which level location holds each key item?). Sidecar logs these but doesn't yet send `LocationChecks` for them — the mapping needs playtest data.
