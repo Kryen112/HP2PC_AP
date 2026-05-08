@@ -33,11 +33,22 @@ from .locations import (
     LOCATION_NAME_TO_ID,
     LOCATION_REGIONS,
 )
+from .regions import (
+    REGION_ENTRY_RULES,
+    REGION_NAMES,
+    START_REGION,
+)
+from .rules import (
+    GOAL_REQUIREMENTS,
+    LOCATION_RULES,
+)
 
 
 PROGRESSION_ITEM_NAMES: list[str] = [
     name for name, c in ITEM_CLASSIFICATIONS.items() if c == ItemClassification.progression
 ]
+
+DEFAULT_GOAL = "basilisk"
 
 
 class HP2Item(Item):
@@ -66,18 +77,34 @@ class HP2World(World):
         return HP2Item(name, ITEM_CLASSIFICATIONS[name], self.item_name_to_id[name], self.player)
 
     def create_regions(self) -> None:
-        menu = Region("Menu", self.player, self.multiworld)
-        self.multiworld.regions.append(menu)
+        # Build every region declared in logic.yaml plus a "TBD" placeholder for
+        # cards whose vanilla home is still uncatalogued. TBD is reachable from
+        # Menu with no requirement so seed gen succeeds during playtest.
+        all_region_names = list(REGION_NAMES)
+        if "TBD" not in all_region_names:
+            all_region_names.append("TBD")
 
-        regions_by_name: dict[str, Region] = {"Menu": menu}
-        for region_name in sorted({r for r in LOCATION_REGIONS.values() if r != "TBD"} | {"TBD"}):
+        regions_by_name: dict[str, Region] = {}
+        for region_name in all_region_names:
             r = Region(region_name, self.player, self.multiworld)
             regions_by_name[region_name] = r
             self.multiworld.regions.append(r)
-            menu.connect(r)
+
+        start = regions_by_name[START_REGION]
+        for region_name, region in regions_by_name.items():
+            if region_name == START_REGION:
+                continue
+            rule_fn = REGION_ENTRY_RULES.get(region_name)
+            if rule_fn is None:
+                start.connect(region)
+            else:
+                start.connect(
+                    region,
+                    rule=lambda state, fn=rule_fn, player=self.player: fn(state, player),
+                )
 
         for loc_name, region_name in LOCATION_REGIONS.items():
-            r = regions_by_name[region_name]
+            r = regions_by_name.get(region_name) or regions_by_name["TBD"]
             loc_id = LOCATION_NAME_TO_ID[loc_name]
             r.locations.append(HP2Location(self.player, loc_name, loc_id, r))
 
@@ -97,7 +124,26 @@ class HP2World(World):
                 self.multiworld.itempool.append(self.create_item(name))
 
     def set_rules(self) -> None:
-        progression = list(PROGRESSION_ITEM_NAMES)
+        from worlds.generic.Rules import set_rule
+
+        for loc_name, rule_fn in LOCATION_RULES.items():
+            try:
+                loc = self.multiworld.get_location(loc_name, self.player)
+            except KeyError:
+                continue
+            set_rule(loc, lambda state, fn=rule_fn, player=self.player: fn(state, player))
+
+        goal_locations = GOAL_REQUIREMENTS.get(DEFAULT_GOAL, [])
+        if not goal_locations:
+            # Fallback: if logic.yaml has no goal defined, use M5 placeholder
+            # (collect every progression item).
+            progression = list(PROGRESSION_ITEM_NAMES)
+            self.multiworld.completion_condition[self.player] = (
+                lambda state: all(state.has(name, self.player) for name in progression)
+            )
+            return
+
         self.multiworld.completion_condition[self.player] = (
-            lambda state: all(state.has(name, self.player) for name in progression)
+            lambda state, locs=goal_locations, player=self.player:
+                all(state.can_reach_location(loc, player) for loc in locs)
         )

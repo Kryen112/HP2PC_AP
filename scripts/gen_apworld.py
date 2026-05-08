@@ -1,14 +1,15 @@
-"""Generates apworld/items.py and apworld/locations.py from data/*.yaml.
+"""Generates apworld/items.py, locations.py, regions.py, rules.py from data/*.yaml.
 
 Run from the repo root:
     py -3.12 scripts\\gen_apworld.py
 
-After every edit to data/items.yaml or data/locations.yaml, re-run this and
-commit the regenerated apworld/*.py.
+After every edit to data/items.yaml, data/locations.yaml, or data/logic.yaml,
+re-run this and commit the regenerated apworld/*.py.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -48,10 +49,126 @@ CARD_GAME_ID_TO_CLASS: dict[int, str] = {
 }
 
 
-def load_data() -> tuple[dict, dict]:
+def load_data() -> tuple[dict, dict, dict]:
     items = yaml.safe_load((DATA_DIR / "items.yaml").read_text(encoding="utf-8"))
     locations = yaml.safe_load((DATA_DIR / "locations.yaml").read_text(encoding="utf-8"))
-    return items, locations
+    logic = yaml.safe_load((DATA_DIR / "logic.yaml").read_text(encoding="utf-8"))
+    return items, locations, logic
+
+
+def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
+    """Convert a logic.yaml rule string to a Python expression body.
+
+    Grammar: identifiers (item names) joined by `&` (AND), `|` (OR), with
+    parens for grouping. Special idents: `true`, `false`, `TBD`.
+
+    Returns a string like 'state.has("Lumos", player) and state.has("Flipendo", player)'
+    suitable for embedding in a `lambda state, player: <expr>` body.
+    """
+    s = (rule_str or "true").strip()
+    if s == "true":
+        return "True"
+    if s == "false":
+        return "False"
+    if s == "TBD":
+        # Lenient: treat TBD as always-reachable so seeds gen during playtest.
+        # validate_logic() collects TBDs separately for the dev-warning list.
+        return "True"
+
+    unknown: list[str] = []
+
+    def replace_ident(m: re.Match) -> str:
+        ident = m.group(0)
+        if ident in ("true", "True"):
+            return "True"
+        if ident in ("false", "False"):
+            return "False"
+        if ident == "TBD":
+            return "True"
+        if ident not in known_items:
+            unknown.append(ident)
+        return f"state.has({ident!r}, player)"
+
+    body = re.sub(r"[A-Za-z_][A-Za-z0-9_]*", replace_ident, s)
+    body = body.replace("&", " and ").replace("|", " or ")
+
+    if unknown:
+        raise ValueError(
+            f"{context}: rule {rule_str!r} references unknown item(s): {sorted(set(unknown))}. "
+            f"Items must match data/items.yaml `name:` fields."
+        )
+    return body
+
+
+def collect_known_items(items: dict) -> set[str]:
+    names: set[str] = set()
+    for category in ("spells", "key_items", "cards_bronze", "cards_silver", "cards_gold", "filler"):
+        for entry in items.get(category, []):
+            names.add(entry["name"])
+    return names
+
+
+def validate_logic(logic: dict, locations: dict, known_items: set[str]) -> tuple[str, list[str]]:
+    """Validate logic.yaml. Returns (start_region_name, all_region_names_sorted)."""
+    regions = logic.get("regions") or {}
+    if not regions:
+        raise ValueError("logic.yaml missing `regions:` section")
+
+    start_regions = [name for name, meta in regions.items() if (meta or {}).get("start")]
+    if len(start_regions) != 1:
+        raise ValueError(
+            f"logic.yaml must have exactly one region with `start: true` (found {len(start_regions)}: {start_regions})"
+        )
+    start_region = start_regions[0]
+
+    # Validate region entry rules
+    for region_name, meta in regions.items():
+        meta = meta or {}
+        rule = meta.get("entry", "true")
+        parse_rule(rule, known_items, f"region {region_name!r} entry")
+
+    # Cross-check: every region used in locations.yaml must be defined in logic.yaml
+    # (allow "TBD" as a valid placeholder so playtest can iterate).
+    used_regions = {entry.get("region", "TBD") for category in ("classrooms", "level_completions", "cards") for entry in locations.get(category, [])}
+    used_regions.discard("TBD")  # TBD is implicit
+    missing = used_regions - set(regions.keys())
+    if missing:
+        raise ValueError(
+            f"locations.yaml references region(s) not defined in logic.yaml `regions:`: {sorted(missing)}"
+        )
+
+    # Validate per-location overrides
+    location_rules = logic.get("locations") or {}
+    location_names_set = {entry["name"] for category in ("classrooms", "level_completions", "cards") for entry in locations.get(category, [])}
+    for loc_name, meta in location_rules.items():
+        meta = meta or {}
+        if loc_name not in location_names_set:
+            raise ValueError(
+                f"logic.yaml `locations:` key {loc_name!r} not found in data/locations.yaml"
+            )
+        parse_rule(meta.get("requires", "true"), known_items, f"location {loc_name!r} requires")
+
+    # Validate goal
+    goal = logic.get("goal") or {}
+    for goal_name, meta in goal.items():
+        for loc in (meta or {}).get("requires_completed", []):
+            if loc not in location_names_set:
+                raise ValueError(
+                    f"goal {goal_name!r} requires_completed references unknown location {loc!r}"
+                )
+
+    # Collect TBD entries for dev warning (lenient mode treats TBD as reachable).
+    tbd_regions = [name for name, meta in regions.items() if (meta or {}).get("entry", "true") == "TBD"]
+    tbd_locations = [name for name, meta in (logic.get("locations") or {}).items() if (meta or {}).get("requires", "true") == "TBD"]
+    if tbd_regions or tbd_locations:
+        print(f"WARNING: {len(tbd_regions)} region(s) and {len(tbd_locations)} location(s) still TBD (lenient: treated as always-reachable):", file=sys.stderr)
+        for name in sorted(tbd_regions):
+            print(f"  region {name}: entry TBD", file=sys.stderr)
+        for name in sorted(tbd_locations):
+            print(f"  location {name}: requires TBD", file=sys.stderr)
+
+    all_regions = sorted(regions.keys())
+    return start_region, all_regions
 
 
 def validate(items: dict, locations: dict) -> None:
@@ -249,23 +366,136 @@ def emit_locations(locations: dict) -> str:
     return "\n".join(lines)
 
 
+def emit_regions(logic: dict, start_region: str, all_regions: list[str]) -> str:
+    """Emit apworld/regions.py: REGION_NAMES, START_REGION, REGION_ENTRY_RULES."""
+    regions = logic.get("regions") or {}
+    known_items = set()  # already validated; pass empty so unknown-check is skipped here
+    # We re-parse rules but with the items set we get from the logic-validated state.
+    # Caller has already validated, so passing an unrestricted set just for emission:
+    return _emit_regions_impl(regions, start_region, all_regions)
+
+
+def _emit_regions_impl(regions: dict, start_region: str, all_regions: list[str]) -> str:
+    lines: list[str] = [
+        '"""AUTO-GENERATED by scripts/gen_apworld.py from data/logic.yaml. Do not edit by hand."""',
+        "",
+        "from typing import Callable",
+        "",
+        "from BaseClasses import CollectionState",
+        "",
+        f"START_REGION: str = {start_region!r}",
+        "",
+        f"REGION_NAMES: list[str] = {all_regions!r}",
+        "",
+        "# region_name -> rule(state, player) -> bool. The rule is the requirement to",
+        "# enter the region from the start region (Menu) in the open-hub v1 model. Any",
+        "# region not listed here is considered always-reachable (entry rule = True).",
+        "REGION_ENTRY_RULES: dict[str, Callable[[CollectionState, int], bool]] = {",
+    ]
+    for region_name in sorted(regions.keys()):
+        meta = regions[region_name] or {}
+        if region_name == start_region:
+            continue  # start region has no entry rule (you're already there)
+        rule_str = meta.get("entry", "true")
+        # Re-parse with empty known set since validate_logic already checked.
+        # Use a fake set that allows anything — we need to extract item names.
+        body = _emit_rule_body(rule_str)
+        lines.append(f"    {region_name!r}: lambda state, player: {body},")
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _emit_rule_body(rule_str: str) -> str:
+    """Convert rule string to lambda-body Python expression. No validation here —
+    caller has already validated via parse_rule(). TBD compiles to True (lenient)."""
+    s = (rule_str or "true").strip()
+    if s == "true" or s == "TBD":
+        return "True"
+    if s == "false":
+        return "False"
+
+    def replace_ident(m: re.Match) -> str:
+        ident = m.group(0)
+        if ident in ("true", "True", "TBD"):
+            return "True"
+        if ident in ("false", "False"):
+            return "False"
+        return f"state.has({ident!r}, player)"
+
+    body = re.sub(r"[A-Za-z_][A-Za-z0-9_]*", replace_ident, s)
+    return body.replace("&", " and ").replace("|", " or ")
+
+
+def emit_rules(logic: dict, locations: dict) -> str:
+    """Emit apworld/rules.py: LOCATION_RULES, GOAL_REQUIREMENTS."""
+    location_rules = logic.get("locations") or {}
+    goal = logic.get("goal") or {}
+
+    # locations.yaml is the authoritative source for location->region; logic.yaml
+    # entries with `region:` should match. Per-location `requires:` is the only
+    # thing we emit (a rule on top of region entry).
+    lines: list[str] = [
+        '"""AUTO-GENERATED by scripts/gen_apworld.py from data/logic.yaml. Do not edit by hand."""',
+        "",
+        "from typing import Callable",
+        "",
+        "from BaseClasses import CollectionState",
+        "",
+        "# Per-location additional rules. Location is reachable iff its region's",
+        "# entry rule passes AND this rule passes. Locations not listed here have no",
+        "# extra requirement (the region's entry rule alone gates reachability).",
+        "LOCATION_RULES: dict[str, Callable[[CollectionState, int], bool]] = {",
+    ]
+    for loc_name in sorted(location_rules.keys()):
+        meta = location_rules[loc_name] or {}
+        rule_str = meta.get("requires", "true")
+        # Skip emitting rules that are trivially True (no override).
+        body = _emit_rule_body(rule_str)
+        if body == "True":
+            continue
+        lines.append(f"    {loc_name!r}: lambda state, player: {body},")
+    lines.append("}")
+    lines.append("")
+    lines.append("# goal_name -> list of location names that must be reachable for victory.")
+    lines.append("# Player picks one via the YAML `goal:` option (default `basilisk` for v1).")
+    lines.append("GOAL_REQUIREMENTS: dict[str, list[str]] = {")
+    for goal_name in sorted(goal.keys()):
+        meta = goal[goal_name] or {}
+        reqs = meta.get("requires_completed", [])
+        lines.append(f"    {goal_name!r}: {reqs!r},")
+    lines.append("}")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main() -> int:
-    items, locations = load_data()
+    items, locations, logic = load_data()
+    known_items = collect_known_items(items)
     try:
         validate(items, locations)
+        start_region, all_regions = validate_logic(logic, locations, known_items)
     except ValueError as e:
         print(f"VALIDATION ERROR: {e}", file=sys.stderr)
         return 1
 
     items_py = APWORLD_DIR / "items.py"
     locations_py = APWORLD_DIR / "locations.py"
+    regions_py = APWORLD_DIR / "regions.py"
+    rules_py = APWORLD_DIR / "rules.py"
     items_py.write_text(emit_items(items), encoding="utf-8")
     locations_py.write_text(emit_locations(locations), encoding="utf-8")
+    regions_py.write_text(_emit_regions_impl(logic.get("regions") or {}, start_region, all_regions), encoding="utf-8")
+    rules_py.write_text(emit_rules(logic, locations), encoding="utf-8")
 
     n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "cards_bronze", "cards_silver", "cards_gold", "filler"))
     n_locs = sum(len(locations.get(c, [])) for c in ("classrooms", "level_completions", "cards"))
+    n_regions = len(all_regions)
+    n_loc_rules = sum(1 for m in (logic.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")
     print(f"Wrote {locations_py} ({n_locs} locations)")
+    print(f"Wrote {regions_py} ({n_regions} regions, start={start_region!r})")
+    print(f"Wrote {rules_py} ({n_loc_rules} per-location overrides, {len(logic.get('goal') or {})} goal(s))")
     return 0
 
 

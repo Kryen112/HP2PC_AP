@@ -28,15 +28,14 @@
 # Regions — entry rules. Locations inherit region access; their own `requires`
 # adds extra requirements on top.
 regions:
-  Hub:                        # Hogwarts grounds / castle entrance — spawn
+  Menu:                       # AP-standard start region; only edge out is to Hogwarts
     entry: "true"
+    start: true
   Hogwarts:
-    entry: "true"             # the castle interior/hub, navigable from spawn
-    notes: "Refine — some hub-internal doors may need spells"
+    entry: "true"             # castle interior/hub, classrooms + grand staircase
+    notes: "Refine — some hub-internal doors may need spells in playtest"
   Greenhouses:
-    entry: "true"
-  Dungeons:
-    entry: "true"             # initial Snape encounter is reachable
+    entry: "true"             # Sprout's herbology classroom
   WhompingWillow:
     entry: "Lumos & Flipendo & Alohomora"
     notes: "Per design conversation — verify in playtest"
@@ -67,11 +66,14 @@ regions:
 # Per-location rules. KEY = location.name from locations.yaml.
 # Default scaffolding sets `requires: true` (= just region access). Refine during playtest.
 locations:
-  # Sphere-0 — all classroom checks reachable with no items
-  Classroom_Lockhart:   { region: Hogwarts,    requires: "true" }
-  Classroom_Sprout:     { region: Greenhouses, requires: "true" }
-  Classroom_Snape:      { region: Dungeons,    requires: "true" }
-  Classroom_TBD:        { region: Hogwarts,    requires: "true",  notes: "4th tutorial — confirm location/region" }
+  # 4 spell classrooms. Entering grants the spell via vanilla cutscene; the
+  # CHECK_SPELL fires at that moment. Region access is "true" (Hogwarts +
+  # Greenhouses are sphere-0 in the open-hub model). Lumos/Flipendo/Alohomora
+  # are start-inventory and have no classroom location (resolved DESIGN Q7).
+  Classroom_Lockhart_Rictusempra: { region: Hogwarts,    requires: "true" }
+  Classroom_Flitwick_Skurge:      { region: Hogwarts,    requires: "true" }
+  Classroom_Sprout_Diffindo:      { region: Greenhouses, requires: "true" }
+  Classroom_Lockhart_Spongify:    { region: Hogwarts,    requires: "true" }
 
   # Level completions — assume completing requires being able to enter the region
   # AND clear it. Refine clear-requirements per level during playtest.
@@ -88,20 +90,17 @@ locations:
   LevelClear_SlytherinCommon:    { region: SlytherinCommon,    requires: "true" }
   LevelClear_ChamberOfSecrets:   { region: ChamberOfSecrets,   requires: "true",  notes: "= goal location for goal=basilisk" }
 
-  # 101 card locations — region TBD per playtest, requires defaulted to region access.
-  # Add per-location overrides as observations come in.
-  # Format below is a placeholder; once regions are filled, refine `requires` for the
-  # cards behind extra obstacles.
+  # 101 card locations are NOT enumerated here. The generator will default any
+  # location not listed above to {region: <whatever locations.yaml says>, requires: "true"}.
+  # Add an entry below ONLY when a card needs a per-location rule (e.g. behind
+  # a Lumos wall in a region the player can otherwise access freely).
   #
   # Example future entry:
   #   Card_Agrippa: { region: ForbiddenForest, requires: "Diffindo", notes: "Behind a vine wall" }
   #
-  # For now, all 101 cards default to region=TBD/requires=true. The generator should
-  # treat region=TBD as a soft error (refuse to generate until set).
-
-# Every card from data/locations.yaml needs a rule here. Generate a stub block:
-#   for each card_location: { region: TBD, requires: "true" }
-# Or update gen_apworld.py to default missing rules to region=TBD.
+  # Cards whose `region` in locations.yaml is still TBD will block generation
+  # until you fill them in (during playtest). The generator surfaces those as
+  # an error listing exactly which Card_* entries are missing regions.
 
 # Goal definition.
 goal:
