@@ -4,41 +4,20 @@ This file is for the next Claude that boots into this repo. Read it top-to-botto
 
 ---
 
-## ⚠️ FIRST THING NEXT SESSION — TEST THESE TWO CHANGES
+## Verified end-of-session 2026-05-08
 
-Both landed in the final code commit (just before the docs commit). The previous Claude couldn't test them — Stefan ran out of time and signed off after Stefan reported the symptoms but before fixes were verified.
+The two changes flagged "untested" in the previous draft have been verified by Stefan in-game:
 
-### Change 1 — APCardMarker gravity (was floating mid-air)
+- **APCardMarker gravity (`PHYS_Falling` + skip bouncing):** working. Markers drop to floor cleanly, no falling through geometry, walkable.
+- **Sidecar `granted_card_game_ids` dedup removal:** working. Smoke test ran `Card_Starkey → Wadcock card → Card_Wadcock → Diffindo` end-to-end, both CHECKs reached AP, both grants applied. No "Ignoring CHECK ... watcher echo" lines in the sidecar log.
 
-`mod/HPArchipelago/Classes/APCardMarker.uc` — `Spawned()` was `PHYS_None`, which left chest-spawned markers floating at the chest mouth (Stefan saw a Wadcock marker float in air). Changed to `PHYS_Falling` while still skipping the bouncing state so loose-icon replacements stay near their design-time x/y.
+Game.log evidence: `ReplaceCardChests: replaced 6 card slot(s)` in Grounds_Night, marker `PostBeginPlay` lines for each spawn, `APCardMarker.Touch: firing CHECK 36`, `ApplyGrant: spell Diffindo - marking AP-granted`.
 
-**Verification:**
-1. `.\HP2PC_AP\scripts\rebuild_mod.ps1` (admin shell)
-2. Fresh new game with the smoke seed (test/HP2_Test.yaml plandos `Card_Starkey → Wadcock`, `Card_Wadcock → Diffindo`)
-3. Walk Starkey marker → AP grants Wadcock card
-4. Walk to Wadcock chest → marker should drop to floor (not float at chest mouth)
-5. Walk over Wadcock marker → should fire `CHECK 36` → AP grants Diffindo
+### Follow-up observation worth investigating next session
 
-If markers fall through floors instead of landing on them, switch back to `PHYS_None` for one variant — see "fallback options" below.
+`APCardMarker_WCWadcock0` through `WCWadcock17` showed up in `PostBeginPlay` logs — 18 marker instances around the same chest at slightly varying coords (range ~10 units in each axis). The vanilla chest's `EjectedObjects` array is 8 slots; one Wadcock-card slot should produce one marker. 18 instances suggests either (a) the chest spawns multiple instances per open with positional spread, or (b) the chest is being re-triggered, or (c) Grounds_Night has multiple Wadcock-bearing chests/cauldrons all replaced at once. Doesn't block the smoke test (player can pick up any of them; the first Touch fires CHECK and self-destroys), but worth understanding before scaling to a full playtest.
 
-### Change 2 — sidecar dedup removed
-
-`client/hp2_ap_client.py` — removed the `granted_card_game_ids` set entirely. Stefan reported that walking over the Wadcock marker (after AP had granted Wadcock from the Starkey location) didn't fire a real CHECK because the sidecar was dedup-blocking it as "watcher echo".
-
-The dedup was a holdover from M3 when the watcher fired echo CHECKs after `SetCardOwner`. With `MarkAsGranted` setting `WasOwnedByHarry[id]=1` BEFORE `SetCardOwner` runs, the watcher's transition path is suppressed and there's no echo to dedupe. The only `CHECK <id>` source now is `APCardMarker.Touch` — which is always a real player walk-over.
-
-**Verification:**
-1. With the test seed running (gravity test above), Stefan walked Starkey → got Wadcock card
-2. Walk to Wadcock's marker → sidecar log should show `Sent LocationChecks for Card_Wadcock`
-3. AP grants Diffindo (per the second plando line)
-4. Spellbook shows Diffindo
-
-If you see `Ignoring CHECK 36 — sidecar just GRANTed this card; watcher echo`, the dedup wasn't fully removed — re-check `hp2_ap_client.py` for any lingering `granted_card_game_ids` reference.
-
-### Fallback options if the gravity change is bad
-
-- If markers fall through level geometry: revert `Spawned()` to `PHYS_None`. Chest-spawned markers float at chest mouth (annoying but pickable). Loose-icon replacements stay in place. Trade-off documented.
-- If markers stop firing CHECK after the gravity change: not expected, but if so, check that `Spawned()` doesn't accidentally call `Destroy()` somewhere.
+Suggested first step: read chestbronze.uc's open/spawn function (`HGame/Classes/Props/chestbronze.uc`) to see how it iterates `EjectedObjects` and whether there's a multiplier loop. Also search `data/items.yaml` and the level's `.unr` for any duplicate card placements.
 
 ---
 
