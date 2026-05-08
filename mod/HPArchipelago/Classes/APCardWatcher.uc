@@ -25,6 +25,11 @@ var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
 var byte APGrantedKeyItem[3];
 
+// M7 goal detection: tracks whether we've already fired GOAL_COMPLETE this
+// session. Class-default so it survives level transitions (the credits flow
+// stays in the same level instance, but defensive-default just in case).
+var byte WasInEndGame;
+
 var APCardWatcher LatestInstance;
 
 // Class-default array. Survives level transitions in a session (default vars are
@@ -126,6 +131,8 @@ event Timer()
 {
     local int id, i;
     local APGameInfo gi;
+    local HPConsole console;
+    local FEBook book;
 
     if (!bSnapshotted)
     {
@@ -185,6 +192,31 @@ event Timer()
             if (gi != None && gi.IPCActor != None)
             {
                 gi.IPCActor.SendCheckKeyItem(KeyItemNames[i]);
+            }
+        }
+    }
+
+    // M7 goal detection: poll FEBook.bInEndGame, set True by ShowCredits()
+    // (FEBook.uc:1392) when the post-Basilisk credits cutscene runs. Access
+    // pattern mirrors harry.uc:5582 / harry.uc:339 — go through the live
+    // gameplay UWorld's HPConsole to reach the active menuBook (HarryRef's
+    // own .menuBook field can be stale; the explicit lookup is known-good).
+    // One-shot: WasInEndGame guards re-fire. Null-check Player/Console/menuBook
+    // because they can briefly be None during level loads.
+    if (WasInEndGame == 0 && HarryRef.Player != None)
+    {
+        console = HPConsole(HarryRef.Player.Console);
+        if (console != None)
+        {
+            book = console.menuBook;
+            if (book != None && book.bInEndGame)
+            {
+                WasInEndGame = 1;
+                Log("[Archipelago] APCardWatcher: bInEndGame transitioned True - firing GOAL_COMPLETE");
+                if (gi != None && gi.IPCActor != None)
+                {
+                    gi.IPCActor.SendGoalComplete();
+                }
             }
         }
     }

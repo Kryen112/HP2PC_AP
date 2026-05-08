@@ -96,6 +96,12 @@ function SendCheckKeyItem(string KeyItemName)
     Log("[Archipelago] APIPCActor: sent CHECK_KEYITEM " $ KeyItemName);
 }
 
+function SendGoalComplete()
+{
+    SendText("GOAL_COMPLETE" $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent GOAL_COMPLETE");
+}
+
 defaultproperties
 {
     LinkMode=MODE_Text

@@ -14,7 +14,10 @@ from inside the Archipelago repo (or with that directory on sys.path).
 
 Mod-side protocol (newline-delimited text):
     HELLO                       (game → sidecar, on connect)
-    CHECK <id>                  (game → sidecar, on pickup)
+    CHECK <id>                  (game → sidecar, on card pickup)
+    CHECK_SPELL <name>          (game → sidecar, on spell learned)
+    CHECK_KEYITEM <name>        (game → sidecar, on Boomslang/Bicorn/BitOGoyle pickup)
+    GOAL_COMPLETE               (game → sidecar, once when post-Basilisk credits start)
     GRANT <classname>           (sidecar → game, on item received)
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
@@ -123,6 +126,9 @@ class HP2Context(CommonContext):
         self.game_writer: Optional[asyncio.StreamWriter] = None
         self.tcp_server_task: Optional[asyncio.Task] = None
         self.checked_locations_seen: set[int] = set()
+        # M7: dedupe GOAL_COMPLETE so a chatty mod can't spam StatusUpdate.
+        # The watcher itself is one-shot (WasInEndGame guard), but defence-in-depth.
+        self.goal_sent: bool = False
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -183,6 +189,16 @@ class HP2Context(CommonContext):
 
     async def _handle_game_line(self, line: str) -> None:
         if line == "HELLO":
+            return
+        if line == "GOAL_COMPLETE":
+            if self.goal_sent:
+                return
+            if not self.server or self.slot is None:
+                logger.warning("AP server not connected, dropping GOAL_COMPLETE")
+                return
+            self.goal_sent = True
+            await self.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
+            logger.info("Sent ClientStatus.CLIENT_GOAL — slot complete")
             return
         if line.startswith("CHECK_SPELL "):
             spell_name = line[len("CHECK_SPELL "):].strip()

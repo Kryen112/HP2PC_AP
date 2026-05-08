@@ -85,13 +85,20 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **De-risks:** the AP world correctness.
 
-## M7 — Goal detection + endgame
+## M7 — Goal detection + endgame ⏳ drafted (untested in-game)
 
 **Goal:** finishing a seed is recognized as such.
 
-- `APGoalDetector.uc` — hook the Great Hall post-Basilisk entry (the speedrun endpoint that naturally triggers the credits cutscene), send `{"type":"goal_complete"}`. Not the Basilisk's death function — that fires mid-cutscene before the run is genuinely complete.
-- Sidecar reports goal to AP server.
-- Test: play a seed, kill Basilisk, walk into the Great Hall, confirm AP server marks slot complete.
+**Done (drafted 2026-05-08):**
+- `APIPCActor.SendGoalComplete()` adds a one-shot `GOAL_COMPLETE` IPC line.
+- `APCardWatcher.Timer()` polls `FEBook.bInEndGame` (set True by `ShowCredits` at `FEBook.uc:1392` when the post-Basilisk credits cutscene runs) via `HPConsole(HarryRef.Player.Console).menuBook`, fires `SendGoalComplete()` on False→True transition with a `WasInEndGame` one-shot guard. Reuses the existing 0.25s timer rather than adding a separate `APGoalDetector` actor — the original plan's standalone-actor design folded into the watcher because the access pattern is identical.
+- Sidecar `_handle_game_line` adds a `GOAL_COMPLETE` branch that sends `{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}` to the AP WebSocket, with a `goal_sent` dedupe flag for defence-in-depth.
+
+**Still TODO:**
+- Compile-verify on the gaming machine (laptop UCC pending DLL-load fix).
+- Play a seed end-to-end; confirm AP server marks slot complete after Basilisk + Great Hall walk-in + ~5-10s credits-cutscene latency.
+
+**De-risks:** end-of-run signal correctness.
 
 ## M8 — UX polish
 
