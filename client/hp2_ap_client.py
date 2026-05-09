@@ -29,8 +29,14 @@ import argparse
 import asyncio
 import logging
 import sys
+import warnings
 from pathlib import Path
 from typing import Optional
+
+# Silence the upstream setuptools deprecation that fires every time AP imports
+# pkg_resources (Archipelago/ModuleUpdate.py:76). Must run before importing
+# CommonClient below so the filter is in place when the warning would emit.
+warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
 
 # Bootstrap: make sure Archipelago is importable. Try a couple of locations:
 # (1) sibling of HP2PC_AP/'s parent (Archipelago-play/Archipelago/) and
@@ -129,6 +135,10 @@ class HP2Context(CommonContext):
         # M7: dedupe GOAL_COMPLETE so a chatty mod can't spam StatusUpdate.
         # The watcher itself is one-shot (WasInEndGame guard), but defence-in-depth.
         self.goal_sent: bool = False
+        # FIFO of GRANT lines accumulated while no game is connected (start
+        # inventory delivered before game boot, mid-session game crash, etc).
+        # Drained by handle_game_connection on each new game connect.
+        self.pending_grants: list[str] = []
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -159,17 +169,36 @@ class HP2Context(CommonContext):
 
     def _send_to_game(self, text: str) -> None:
         if self.game_writer is None or self.game_writer.is_closing():
-            logger.warning(f"Cannot send to game (no connection): {text}")
+            self.pending_grants.append(text)
+            logger.info(f"Queued (no game connection yet, {len(self.pending_grants)} pending): {text}")
             return
         try:
             self.game_writer.write((text + "\n").encode("utf-8"))
         except Exception as e:
-            logger.exception(f"Failed to write to game: {e}")
+            logger.exception(f"Failed to write to game, re-queuing: {e}")
+            self.pending_grants.append(text)
 
     async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
         logger.info(f"Game connected from {peer}")
         self.game_writer = writer
+
+        # Drain anything queued while the game wasn't connected (start
+        # inventory grants delivered before game boot, items received during
+        # a previous game-disconnect window, etc).
+        if self.pending_grants:
+            logger.info(f"Draining {len(self.pending_grants)} queued grant(s) to game")
+            queued, self.pending_grants = self.pending_grants, []
+            for line in queued:
+                try:
+                    writer.write((line + "\n").encode("utf-8"))
+                except Exception as e:
+                    logger.exception(f"Failed to drain {line!r}, re-queuing remainder: {e}")
+                    # Stash this one and everything after back at the queue head
+                    idx = queued.index(line)
+                    self.pending_grants = queued[idx:] + self.pending_grants
+                    return
+
         try:
             while True:
                 line_bytes = await reader.readline()
@@ -178,14 +207,23 @@ class HP2Context(CommonContext):
                 line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
                 logger.info(f"[game→sidecar] {line}")
                 await self._handle_game_line(line)
+        except (ConnectionResetError, ConnectionAbortedError):
+            # Normal on Windows when the game window closes — the OS resets
+            # the socket without a clean FIN. No need to log a stack trace.
+            pass
         finally:
             logger.info(f"Game disconnected ({peer})")
             self.game_writer = None
-            writer.close()
             try:
-                await writer.wait_closed()
+                writer.close()
             except Exception:
                 pass
+            # Skip wait_closed() entirely — on Windows ProactorEventLoop, an
+            # already-reset socket raises ConnectionResetError from the loop's
+            # internal _loop_reading task, which asyncio surfaces as
+            # "Unhandled exception in client_connected_cb" regardless of any
+            # try/except we wrap around it. close() alone is sufficient for
+            # cleanup; the OS reaps the socket either way.
 
     async def _handle_game_line(self, line: str) -> None:
         if line == "HELLO":
@@ -267,7 +305,20 @@ class HP2Context(CommonContext):
             await server.serve_forever()
 
 
+def _suppress_socket_reset(loop: asyncio.AbstractEventLoop, context: dict) -> None:
+    # Windows ProactorEventLoop's _loop_reading background task can raise
+    # ConnectionResetError when a socket peer disconnects abruptly (Ctrl+C
+    # against the game, game window closed, etc). The error is benign but
+    # surfaces as "Unhandled exception in client_connected_cb". Filter that
+    # one specific case; let everything else through to the default handler.
+    exc = context.get("exception")
+    if isinstance(exc, (ConnectionResetError, ConnectionAbortedError)):
+        return
+    loop.default_exception_handler(context)
+
+
 async def main_async(args: argparse.Namespace) -> None:
+    asyncio.get_running_loop().set_exception_handler(_suppress_socket_reset)
     ctx = HP2Context(args.connect, args.password)
     ctx.auth = args.name
     ctx.server_task = asyncio.create_task(server_loop(ctx), name="ap server loop")
@@ -283,7 +334,15 @@ def main() -> None:
     parser.add_argument("url", nargs="?", help="Archipelago connection url.")
     args = parser.parse_args()
     args = CommonClient.handle_url_arg(args, parser=parser)
-    logging.getLogger().setLevel(logging.INFO)
+    # basicConfig (not just setLevel) — without an explicit handler, INFO-level
+    # logs fall through to logging's lastResort handler which drops anything
+    # below WARNING. Only the warnings would surface, hiding all the useful
+    # connection / item-flow chatter.
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%H:%M:%S",
+    )
     asyncio.run(main_async(args))
 
 

@@ -58,6 +58,10 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 - [ ] **`APConfig`** — port, possibly the slot name as a fallback. Editable via console (`set APConfig nPort 38281`) or .ini.
 
+## Cosmetic / known issues (M8 polish)
+
+- [ ] **Chest card-spawn dedupe (low priority)** — `chestbronze.turnover` runs `for(iBean=0; iBean<iNumberOfBeans; iBean++) generateobject()`, and `generateobject` calls native `FancySpawn(EjectedObjects[iBean], ...)`. `FancySpawn` (HP2Engine, no decompiled source) jitters per call across cardinal offsets at increasing radius, so a single card-slot replacement explodes into N markers — 18 for `ChestWood2/Grounds_Night` (logged 2026-05-08, see `Game_2026-05-08(07_12_52).log` lines 987–1006). Vanilla collapsed the duplicates via `RemoveHarryOwnedCardsFromLevel` after first pickup; we deliberately stripped that call (DESIGN.md trade-off — it would also clobber other chests' card slots). Player-visible behavior is fine: only one card flies out (the rest stack at near-identical coords and the first Touch fires CHECK + Destroys), the others sit invisible/inert. Logs are noisy: 18 `PostBeginPlay` lines per Wadcock-style chest open. **Failed fix attempt 2026-05-09:** tried (a) `foreach AllActors(class'APCardMarker', ...)` dedupe in `PostBeginPlay` — never matched (suspect: native `FancySpawn` batches actor creation so PostBeginPlay siblings aren't visible to `AllActors` yet); then (b) class-default `HasPrimaryMarker[102]` byte-array registry with per-level reset in `APGameInfo.InitGame` — over-eager, killed the survivor too (root cause not diagnosed; needs more logging next attempt). Both reverts now in place. When revisiting: add a `Log` line immediately before/after each registry write to confirm what's happening, and consider a different scope for the registry (e.g. on `APCardWatcher` instead of class-default on `APCardMarker`).
+
 ## Open questions for playtest
 
 - Whether each of the 7 spells is taught in a classroom, picked up from a book, or earned in a challenge — needs cataloguing. (Determines the 4 sphere-0 location names.)

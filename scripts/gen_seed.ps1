@@ -12,7 +12,7 @@ py -3.12 "$repo\scripts\gen_apworld.py"
 Write-Host "`n== Generate seed =="
 Push-Location $ap
 try {
-    py -3.12 Generate.py --player_files_path hp2_only_players --outputpath "output\hp2_test"
+    py -3.12 Generate.py --player_files_path "$repo\tests" --outputpath "output\hp2_test"
 } finally {
     Pop-Location
 }

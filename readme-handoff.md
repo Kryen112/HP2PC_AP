@@ -1,23 +1,28 @@
-# Handoff — written 2026-05-08 end-of-day
+# Handoff — written 2026-05-09 end-of-day
 
-This file is for the next Claude that boots into this repo. Read it top-to-bottom before doing anything else. The previous session did major architectural work on card pickup (the new `APCardMarker` system) and started M6 logic + seed gen. Two specific code changes from the very end of the session are **untested in-game** and need verification first thing next session.
+This file is for the next Claude that boots into this repo. Read it top-to-bottom before doing anything else. The previous session prepped the apworld + sidecar for a real solo playthrough and Stefan started cataloguing per-card regions in `data/locations.yaml` mid-playthrough.
 
 ---
 
-## Verified end-of-session 2026-05-08
+## Verified end-of-session 2026-05-09
 
-The two changes flagged "untested" in the previous draft have been verified by Stefan in-game:
+- **18-marker chest investigation closed (deferred to M8 polish).** Root cause is `chestbronze.turnover`'s `for(iBean=0; iBean<iNumberOfBeans; iBean++) generateobject()` loop — `ChestWood2/Grounds_Night` has `iNumberOfBeans=18` and the native `FancySpawn` jitters per call across cardinal offsets at increasing radius, so one card-slot replacement explodes into 18 markers. Player visually only sees one card flying out (the rest stack at near-identical coords); the first `Touch` fires CHECK and `Destroys`, the others sit invisible/inert. Two dedupe attempts (foreach `AllActors` and class-default `HasPrimaryMarker[]` registry) both failed in different ways and were reverted; full forensics are in `docs/MOD_TODO.md` under "Cosmetic / known issues (M8 polish)". **Do not redo the investigation** — read the MOD_TODO entry first.
+- **Real-playthrough seed pipeline working end-to-end.** `tests/HP2_Test.yaml` is now configured for a full solo playthrough: `start_inventory_from_pool` puts Lumos/Flipendo/Alohomora at start (avoiding the watcher's revert of vanilla cutscene grants), `plando_items` places each non-starter spell at its own classroom (workaround for the classroom-softlock v2-parking-lot item), and Card_Starkey/Wadcock/etc are randomized like everything else. Spoiler verified: 117 unique placements, no card duplicates, sphere 0 = the 3 starter spells, sphere 1 = the 4 classroom spells.
+- **`apworld/__init__.py` opted into AP common options.** Custom `HP2Options(PerGameCommonOptions)` adds `start_inventory_from_pool: StartInventoryPool` (`PerGameCommonOptions` only includes the dict-form `start_inventory`, not the from-pool variant). Also added `get_filler_item_name` returning a random `FILLER_NAMES` choice — without this, AP's default filler picker pulls any item name including cards, producing `Card_X: <duplicate-card-name>` placements when the pool shrinks (e.g. via `start_inventory_from_pool`).
+- **Sidecar quality-of-life fixes** so Stefan's playthrough terminal isn't full of noise/grief:
+    - INFO-level logs now visible — `logging.basicConfig(level=logging.INFO, ...)` instead of just `setLevel`. Without basicConfig, INFO falls through to lastResort handler which only emits WARNING+. Earlier session showed only `Cannot send to game (no connection)` warnings; everything else was silently dropped.
+    - Items received before the game connects are queued, not warned. New `pending_grants: list[str]` on `HP2Context`; `_send_to_game` appends to the queue when `game_writer` is None/closing; `handle_game_connection` drains the queue first thing on game connect. Same path covers mid-session game crash + reconnect (sidecar stays connected to AP across game disconnects, items received in between are queued).
+    - Graceful Ctrl+C — removed the `await writer.wait_closed()` call entirely (Windows ProactorEventLoop's `_loop_reading` raises `ConnectionResetError` from the loop's internal task when the socket is already reset, which surfaces as "Unhandled exception in client_connected_cb" no matter how you wrap it). Belt-and-suspenders: `_suppress_socket_reset` loop exception handler installed in `main_async` filters `ConnectionResetError`/`ConnectionAbortedError` from any other path. The `pkg_resources` deprecation warning is also silenced via `warnings.filterwarnings` before `import CommonClient`.
+- **`scripts/gen_seed.ps1` now reads from `tests/` in the repo** (was reading the stale `Archipelago\hp2_only_players\` copy and silently using yesterday's plando). Single source of truth: edits to `tests/HP2_Test.yaml` flow into the next gen.
 
-- **APCardMarker gravity (`PHYS_Falling` + skip bouncing):** working. Markers drop to floor cleanly, no falling through geometry, walkable.
-- **Sidecar `granted_card_game_ids` dedup removal:** working. Smoke test ran `Card_Starkey → Wadcock card → Card_Wadcock → Diffindo` end-to-end, both CHECKs reached AP, both grants applied. No "Ignoring CHECK ... watcher echo" lines in the sidecar log.
+### Next session
 
-Game.log evidence: `ReplaceCardChests: replaced 6 card slot(s)` in Grounds_Night, marker `PostBeginPlay` lines for each spawn, `APCardMarker.Touch: firing CHECK 36`, `ApplyGrant: spell Diffindo - marking AP-granted`.
+Stefan was mid-playthrough at end-of-session, cataloguing per-card region in `data/locations.yaml` (currently 101 cards have `region: TBD`). Two parallel tracks for the next Claude:
 
-### Follow-up observation worth investigating next session
+1. **Help Stefan finish the playthrough** — answer questions about which level to enter next, where to find specific cards, etc. Reference `data/locations.yaml`, the spoiler.txt in the latest seed under `Archipelago\output\hp2_test\`, and the v1 vanilla story progression project memory.
+2. **Fill the 5 TBD region `entry:` rules** in `data/logic.yaml` (ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel) once Stefan has enough playtest data to know what each region requires. Generator currently fires the lenient-warning each gen — that's fine during playtest but must close before v1.
 
-`APCardMarker_WCWadcock0` through `WCWadcock17` showed up in `PostBeginPlay` logs — 18 marker instances around the same chest at slightly varying coords (range ~10 units in each axis). The vanilla chest's `EjectedObjects` array is 8 slots; one Wadcock-card slot should produce one marker. 18 instances suggests either (a) the chest spawns multiple instances per open with positional spread, or (b) the chest is being re-triggered, or (c) Grounds_Night has multiple Wadcock-bearing chests/cauldrons all replaced at once. Doesn't block the smoke test (player can pick up any of them; the first Touch fires CHECK and self-destroys), but worth understanding before scaling to a full playtest.
-
-Suggested first step: read chestbronze.uc's open/spawn function (`HGame/Classes/Props/chestbronze.uc`) to see how it iterates `EjectedObjects` and whether there's a multiplier loop. Also search `data/items.yaml` and the level's `.unr` for any duplicate card placements.
+Pre-existing architectural follow-ups that did NOT progress this session: the 9 non-key-item LevelClear hooks (MOD_TODO line 10), HUD toast / safe-state queue drainer (MOD_TODO "Item delivery queue"), vendor card-sale disable, M7 GOAL_COMPLETE in-game verification.
 
 ---
 

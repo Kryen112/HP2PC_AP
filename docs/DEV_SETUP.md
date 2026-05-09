@@ -78,42 +78,33 @@ If Stefan ever needs to bump the AP framework version, do a controlled `git fetc
 
 ## Player files (AP slot YAMLs)
 
-`gen_seed.ps1` invokes `Generate.py --player_files_path hp2_only_players`, which reads every `.yaml` in `<Archipelago>\hp2_only_players\` as a multiworld slot. For solo HP2 testing, one minimal slot suffices:
+`gen_seed.ps1` invokes `Generate.py --player_files_path "$repo\tests"`, reading every `.yaml` in the repo's `tests/` directory as a multiworld slot. Single source of truth — edit `tests/HP2_Test.yaml` and the next `gen_seed.ps1` run picks it up. (Earlier setup pointed at `Archipelago\hp2_only_players\`, which silently went stale; if that directory still exists on this machine, it's dead weight and can be removed.)
 
-```powershell
-$ap = 'C:\Users\kryen\Documents\Archipelago-play\Archipelago'
-New-Item -ItemType Directory -Path "$ap\hp2_only_players" -Force | Out-Null
-```
-
-Save the following as `$ap\hp2_only_players\hp2_test.yaml`:
+For solo HP2 testing, one slot suffices. The current `tests/HP2_Test.yaml` is configured for full playthrough:
 
 ```yaml
 name: HP2_Test
+description: HP2 full-playthrough seed for logic cataloguing
 game: Harry Potter 2
-description: HP2 randomizer solo test seed
-
 Harry Potter 2:
-  progression_balancing: 50
-  accessibility: items
-```
-
-For "everything-unlocked" playtest mode (`docs/DESIGN.md` logic-iteration loop), append under the `Harry Potter 2:` block:
-
-```yaml
   start_inventory_from_pool:
     Lumos: 1
     Flipendo: 1
     Alohomora: 1
-    Diffindo: 1
-    Rictusempra: 1
-    Skurge: 1
-    Spongify: 1
-    Boomslang: 1
-    Bicorn: 1
-    BitOGoyle: 1
+  plando_items:
+    - { item: Rictusempra, location: Classroom_Lockhart_Rictusempra, from_pool: true, force: silent }
+    - { item: Skurge,      location: Classroom_Flitwick_Skurge,      from_pool: true, force: silent }
+    - { item: Diffindo,    location: Classroom_Sprout_Diffindo,      from_pool: true, force: silent }
+    - { item: Spongify,    location: Classroom_Lockhart_Spongify,    from_pool: true, force: silent }
 ```
 
-Lumos / Flipendo / Alohomora are vanilla starter spells anyway and need to be in `start_inventory` regardless (see `memory/project_hp2ap_v1_story_progression.md`).
+Why each entry:
+
+- **`start_inventory_from_pool` for Lumos/Flipendo/Alohomora** — these are vanilla cutscene-granted spells. Without start_inventory, they get placed at random Card_* locations and the watcher reverts the cutscene grant within 0.25s (softlock at the first wall needing them).
+- **`plando_items` 4 classroom locks** — walking into a classroom auto-teleports to the spell challenge with the exit locked behind. If the player doesn't already own the spell, they softlock. v2 fix unlocks the door via UScript; v1 workaround is to plando each spell at its own classroom so picking it up at the challenge end grants the spell that opens the exit.
+- **`from_pool: true`** removes the plando'd copy from the random pool (no duplicates). **`force: silent`** suppresses the noisy "plando applied" stdout per entry.
+
+For "everything-unlocked" playtest mode (skip cataloguing, prove the AP solver), swap `start_inventory_from_pool` for all 7 spells + 3 key items and drop the classroom plandos.
 
 ## One-time M212 engine prep
 

@@ -76,12 +76,18 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - TBD-lenient mode: rules with `entry: TBD` compile to `True` so seeds gen during playtest. Generator prints a warning listing unfilled regions.
 - Card-pickup architecture rewritten — `APCardMarker_<X>` replaces every card class in chests/cauldrons/loose-icon spots at level entry. Markers fire CHECK on Touch, no `SetCardOwner`, no celebration cutscene. See `docs/DESIGN.md#card-pickup-architecture-apcardmarker`.
 
+**Done (2026-05-09):**
+- AP common-options support: `HP2World.options_dataclass = HP2Options(PerGameCommonOptions)` adds `start_inventory_from_pool: StartInventoryPool` (not in vanilla `PerGameCommonOptions`). Without this, `start_inventory_from_pool` in the player yaml is silently ignored.
+- `HP2World.get_filler_item_name()` returns a random `FILLER_NAMES` choice. Default would pick any item name including cards, producing duplicate `Card_X: <existing-card>` placements when the pool shrinks (e.g. via start_inventory_from_pool).
+- `tests/HP2_Test.yaml` configured for solo playthrough: 3 starter spells in `start_inventory_from_pool`, 4 non-starter spells plando'd at their classrooms (spell-challenge-softlock workaround), Card_*-level placements all random. Spoiler verified: 117 unique non-card placements, sphere 0 = starter spells, sphere 1 = classroom spells.
+- `scripts/gen_seed.ps1` now reads from the repo's `tests/` (was reading a stale copy in `Archipelago\hp2_only_players\`). Single source of truth.
+- Sidecar quality-of-life: INFO logs now visible (`logging.basicConfig` not just `setLevel`); items received before the game connects are queued and drained on game connect (was warning + dropping); graceful Ctrl+C (skip `wait_closed()` plus loop-level `ConnectionResetError` filter); `pkg_resources` deprecation warning silenced.
+
 **Still TODO:**
 - Fill in `entry:` rules for the 5 TBD regions (ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel). Currently fires lenient-warning each gen.
-- Fill in `region:` for the 101 cards in `data/locations.yaml` as Stefan catalogues them during playtest. Generator currently routes all TBD-region cards to a placeholder "TBD" Region that's reachable from Menu (open-hub).
-- Run AP generator with `start_inventory_from_pool: all` and confirm every location is reachable.
-- Solo playtest a real seed start-to-finish.
-- Spell-challenge softlock: locked exit door when player enters classroom without the spell. Logic.yaml workaround is to make spells reachable before their classrooms; v2 fix is unlocking the door via UScript.
+- Fill in `region:` for the 101 cards in `data/locations.yaml` as Stefan catalogues them during playtest (in progress 2026-05-09).
+- Solo playtest a real seed start-to-finish (in progress 2026-05-09 — Stefan running `AP_*.zip` from `Archipelago\output\hp2_test\`).
+- Spell-challenge softlock proper fix: v1 workaround above is plando each spell at its own classroom; v2 fix is unlocking the door via UScript so spells can land elsewhere too.
 
 **De-risks:** the AP world correctness.
 

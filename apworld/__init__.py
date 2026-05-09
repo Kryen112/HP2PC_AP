@@ -12,9 +12,11 @@ Great Hall post-kill (the speedrun endpoint), not the Basilisk death itself.
 from __future__ import annotations
 
 import random as _random
+from dataclasses import dataclass
 from typing import Any
 
 from BaseClasses import CollectionState, Item, ItemClassification, Location, Region
+from Options import PerGameCommonOptions, StartInventoryPool
 from worlds.AutoWorld import WebWorld, World
 
 from .items import (
@@ -63,11 +65,21 @@ class HP2WebWorld(WebWorld):
     """Web frontend metadata for archipelago.gg."""
 
 
+@dataclass
+class HP2Options(PerGameCommonOptions):
+    # PerGameCommonOptions includes start_inventory (just-add) but NOT
+    # StartInventoryPool (add-and-remove-from-pool). Adding it explicitly
+    # so HP2_Test.yaml can pre-load Lumos/Flipendo/Alohomora without
+    # leaving duplicates in the world.
+    start_inventory_from_pool: StartInventoryPool
+
+
 class HP2World(World):
     """Harry Potter and the Chamber of Secrets (PC) randomizer."""
 
     game = "Harry Potter 2"
     web = HP2WebWorld()
+    options_dataclass = HP2Options
 
     item_name_to_id = ITEM_NAME_TO_ID
     location_name_to_id = LOCATION_NAME_TO_ID
@@ -75,6 +87,12 @@ class HP2World(World):
 
     def create_item(self, name: str) -> HP2Item:
         return HP2Item(name, ITEM_CLASSIFICATIONS[name], self.item_name_to_id[name], self.player)
+
+    def get_filler_item_name(self) -> str:
+        # AP calls this when extra items are needed (e.g. start_inventory_from_pool
+        # shrunk the pool). Default would pick any item name including cards,
+        # producing card duplicates in the seed. Restrict to bean tiers.
+        return self.multiworld.random.choice(FILLER_NAMES)
 
     def create_regions(self) -> None:
         # Build every region declared in logic.yaml plus a "TBD" placeholder for
