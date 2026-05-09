@@ -110,7 +110,8 @@ function ReplaceCardChests()
             }
             else
             {
-                Log("[Archipelago] ReplaceCardChests: spawned " $ string(spawned) $ " at " $ string(spawned.Location));
+                APCardMarker(spawned).MarkAsLoose();
+                Log("[Archipelago] ReplaceCardChests: spawned " $ string(spawned) $ " at " $ string(spawned.Location) $ " (loose, gravity disabled)");
             }
             totalReplaced++;
         }

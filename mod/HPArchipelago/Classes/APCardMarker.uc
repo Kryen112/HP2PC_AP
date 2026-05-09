@@ -48,6 +48,18 @@ function Spawned()
     GotoState('Wait');
 }
 
+// Called by APGameInfo.ReplaceCardChests right after spawning a loose-icon
+// replacement. Loose icons live at design-time exact positions (top of grand
+// staircase, mid-air over Spongify-tile gaps, etc) — gravity from Spawned()
+// would let them slide off platforms or fall into pits. Our 'Wait' state has
+// an empty HitWall so the marker would never settle on its own. Setting
+// PHYS_None pins the marker at its spawn coords. Safe to call mid-Spawn:
+// UE1 is single-threaded so no Tick fires between Spawn() and this call.
+function MarkAsLoose()
+{
+    SetPhysics(PHYS_None);
+}
+
 function Touch(Actor Other)
 {
     local APGameInfo gi;
