@@ -64,6 +64,10 @@ function MarkSpellAsGranted(string SpellName)
         {
             APGrantedSpell[i] = 1;
             WasSpellOwned[i] = 1;
+            // Mirror to class default so the flag survives level transitions —
+            // each level spawns a fresh watcher with zeroed instance arrays,
+            // and APGameInfo.InitGame reads this value before Snapshot has run.
+            default.APGrantedSpell[i] = 1;
             Log("[Archipelago] APCardWatcher.MarkSpellAsGranted: " $ SpellName);
             return;
         }
@@ -109,6 +113,7 @@ function RevertVanillaPickup(int id)
 
 event PreBeginPlay()
 {
+    local int i;
     Super.PreBeginPlay();
     Log("[Archipelago] APCardWatcher.PreBeginPlay - starting timer (Level=" $ string(Level) $ ")");
     default.LatestInstance = self;
@@ -125,6 +130,35 @@ event PreBeginPlay()
     KeyItemNames[0] = "Boomslang";
     KeyItemNames[1] = "Bicorn";
     KeyItemNames[2] = "BitOGoyle";
+
+    // Inherit cross-session AP-grant flags from class default so a freshly
+    // spawned watcher (e.g. after a save-load while AP grants arrived
+    // mid-flight) doesn't think these are vanilla pickups and revert them.
+    for (i = 0; i < NUM_SPELLS; i++)
+    {
+        if (default.APGrantedSpell[i] == 1)
+        {
+            APGrantedSpell[i] = 1;
+            WasSpellOwned[i] = 1;
+        }
+    }
+}
+
+// Class-default-only marker so APGameInfo.ApplyGrant can mark a spell as
+// AP-granted even when no watcher instance is alive (e.g. during the gap
+// between the startup watcher dying and the next level's watcher PreBeginPlay).
+// PreBeginPlay copies these flags into each new instance.
+static function MarkSpellAsAPGrantedDefault(string SpellName)
+{
+    if      (SpellName == "Alohomora")   default.APGrantedSpell[0] = 1;
+    else if (SpellName == "Diffindo")    default.APGrantedSpell[1] = 1;
+    else if (SpellName == "Flipendo")    default.APGrantedSpell[2] = 1;
+    else if (SpellName == "Lumos")       default.APGrantedSpell[3] = 1;
+    else if (SpellName == "Rictusempra") default.APGrantedSpell[4] = 1;
+    else if (SpellName == "Skurge")      default.APGrantedSpell[5] = 1;
+    else if (SpellName == "Spongify")    default.APGrantedSpell[6] = 1;
+    else return;
+    Log("[Archipelago] APCardWatcher.MarkSpellAsAPGrantedDefault: " $ SpellName $ " (class default set)");
 }
 
 event Timer()
@@ -133,6 +167,13 @@ event Timer()
     local APGameInfo gi;
     local HPConsole console;
     local FEBook book;
+    local harry viewportHarry;
+
+    EnsureLatestRegistration();
+    if (default.LatestInstance != self)
+    {
+        return;
+    }
 
     if (!bSnapshotted)
     {
@@ -143,6 +184,17 @@ event Timer()
         Snapshot();
         bSnapshotted = True;
         return;
+    }
+
+    viewportHarry = class'APGameInfo'.static.TryGetViewportHarry(HarryRef);
+    if (viewportHarry != None && viewportHarry != HarryRef)
+    {
+        Log("[Archipelago] APCardWatcher: detected Viewport.Actor switch " $ string(HarryRef) $ " -> " $ string(viewportHarry) $ " - rebinding");
+        if (!Bind())
+        {
+            return;
+        }
+        Snapshot();
     }
 
     gi = APGameInfo(Level.Game);
@@ -285,6 +337,48 @@ function bool Bind()
     return True;
 }
 
+function bool HasLivePlayerHarry()
+{
+    local harry h;
+
+    if (HarryRef != None && HarryRef.Player != None && !HarryRef.bDeleteMe)
+    {
+        return True;
+    }
+
+    h = harry(Level.PlayerHarryActor);
+    if (h != None && h.Player != None && !h.bDeleteMe)
+    {
+        return True;
+    }
+
+    return False;
+}
+
+function EnsureLatestRegistration()
+{
+    local APCardWatcher current;
+
+    current = default.LatestInstance;
+    if (current == self)
+    {
+        return;
+    }
+
+    if (current == None || current.bDeleteMe)
+    {
+        default.LatestInstance = self;
+        Log("[Archipelago] APCardWatcher: restored LatestInstance -> self (was empty/stale)");
+        return;
+    }
+
+    if (HasLivePlayerHarry() && !current.HasLivePlayerHarry())
+    {
+        default.LatestInstance = self;
+        Log("[Archipelago] APCardWatcher: promoted self to LatestInstance (self has live Player, current does not)");
+    }
+}
+
 function Snapshot()
 {
     local int id, i, ownedCardCount, ownedSpellCount;
@@ -307,6 +401,7 @@ function Snapshot()
         {
             WasSpellOwned[i] = 1;
             APGrantedSpell[i] = 1;
+            default.APGrantedSpell[i] = 1;
             ownedSpellCount++;
         }
     }

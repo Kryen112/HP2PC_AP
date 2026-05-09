@@ -2,6 +2,19 @@ class APGameInfo extends GameInfo;
 
 var APIPCActor IPCActor;
 
+// Per-classroom offset applied to the cutscene's Location when spawning the
+// blocker. Lets us nudge the bookshelf without recompiling the cutscene
+// lookup. (0,0,0) places it exactly on the cutscene actor; positive X is
+// "forward" relative to the cutscene's Rotation.
+var Vector RictaBlockerOffset;
+
+// Class-default reference to the spawned blocker. Set after a successful
+// Spawn in BlockRictaClassroomIfMissing, used by RemoveRictaBlocker for
+// O(1) destroy without needing a per-level watcher in the right UWorld.
+// Cleared in RemoveRictaBlocker. Auto-invalidates via bDeleteMe when the
+// level it lives in is unloaded.
+var Actor RictaBlockerInstance;
+
 event InitGame(string Options, out string Error)
 {
     local class<Actor> cls;
@@ -40,6 +53,126 @@ event InitGame(string Options, out string Error)
     }
 
     ReplaceCardChests();
+    BlockRictaClassroomIfMissing();
+}
+
+// If the player doesn't already own Rictusempra (per APCardWatcher's AP-grant
+// flag), spawn a bookshelf at the location of the lesson-intro cutscene
+// (`02060DADARictaInt`). The cutscene's actor location is the chokepoint
+// where Lockhart's intro fires when Harry walks up; blocking it prevents the
+// whole softlock chain (intro -> wand minigame -> changegamestate ->
+// LevelChange Ch1Rictusempra) without disturbing the eventual real run-through
+// once AP grants the spell.
+function BlockRictaClassroomIfMissing()
+{
+    local CutScene cs;
+    local Actor blocker;
+    local Vector spawnLoc;
+    local Rotator spawnRot;
+    local bool found;
+
+    if (class'APCardWatcher'.default.APGrantedSpell[4] == 1)
+    {
+        Log("[Archipelago] BlockRicta: player has Rictusempra (APGrantedSpell[4]=1) - no blocker needed");
+        return;
+    }
+
+    foreach AllActors(class'CutScene', cs)
+    {
+        if (cs.FileName == "02060DADARictaInt")
+        {
+            spawnLoc = cs.Location + RictaBlockerOffset;
+            spawnRot = cs.Rotation;
+            Log("[Archipelago] BlockRicta: cutscene=" $ string(cs.Name)
+                $ " FileName=" $ cs.FileName
+                $ " Loc=" $ string(cs.Location)
+                $ " Rot=" $ string(cs.Rotation)
+                $ " offset=" $ string(RictaBlockerOffset)
+                $ " spawnLoc=" $ string(spawnLoc));
+            blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+            if (blocker == None)
+            {
+                Log("[Archipelago] BlockRicta: Spawn returned None (encroachment likely - try a non-zero RictaBlockerOffset.Z)");
+            }
+            else
+            {
+                blocker.Tag = 'APRictaBlocker';
+                default.RictaBlockerInstance = blocker;
+                Log("[Archipelago] BlockRicta: spawned " $ string(blocker)
+                    $ " bCollideActors=" $ string(blocker.bCollideActors)
+                    $ " bBlockActors=" $ string(blocker.bBlockActors)
+                    $ " bBlockPlayers=" $ string(blocker.bBlockPlayers)
+                    $ " (tracked as default.RictaBlockerInstance)");
+            }
+            found = True;
+            break;
+        }
+    }
+    if (!found)
+    {
+        Log("[Archipelago] BlockRicta: 02060DADARictaInt cutscene not present in this level (expected only in Grandstaircase_hub)");
+    }
+}
+
+// Live removal: destroy any blocker we previously spawned. Called when AP
+// grants Rictusempra mid-session.
+//
+// Two paths:
+//  1) Direct ref via default.RictaBlockerInstance (set when BlockRicta
+//     spawned the blocker THIS session). O(1), works across UWorlds.
+//  2) Fallback: iterate via the latest watcher's UWorld looking for any
+//     actor tagged 'APRictaBlocker' (covers the case where the blocker
+//     was saved into a .usa and restored in a fresh session, so our
+//     class-default ref is None but a tagged actor still exists).
+function RemoveRictaBlocker()
+{
+    local Actor b, a, scanActor;
+    local APCardWatcher w;
+    local int n;
+
+    b = default.RictaBlockerInstance;
+    if (b != None && !b.bDeleteMe)
+    {
+        Log("[Archipelago] RemoveRictaBlocker: destroying tracked blocker " $ string(b) $ " at " $ string(b.Location) $ " (in level " $ string(b.Level) $ ")");
+        b.Destroy();
+        default.RictaBlockerInstance = None;
+        return;
+    }
+    if (b != None)
+    {
+        Log("[Archipelago] RemoveRictaBlocker: tracked ref was already bDeleteMe - clearing");
+        default.RictaBlockerInstance = None;
+    }
+
+    // Fallback: scan via watcher's UWorld for any tagged blocker.
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w == None)
+    {
+        Log("[Archipelago] RemoveRictaBlocker: no tracked ref AND no watcher to scan - giving up (nothing to destroy)");
+        return;
+    }
+    if (w.HarryRef != None && !w.HarryRef.bDeleteMe)
+    {
+        scanActor = w.HarryRef;
+    }
+    else
+    {
+        scanActor = w;
+    }
+    n = 0;
+    foreach scanActor.AllActors(class'Actor', a)
+    {
+        if (a.Tag == 'APRictaBlocker' && !a.bDeleteMe)
+        {
+            Log("[Archipelago] RemoveRictaBlocker: tag-scan found " $ string(a) $ " in " $ string(scanActor.Level) $ " - destroying");
+            a.Destroy();
+            n++;
+        }
+    }
+    if (n == 0)
+    {
+        Log("[Archipelago] RemoveRictaBlocker: tag-scan in " $ string(scanActor.Level) $ " found 0 blockers (player likely not in Grandstaircase_hub)");
+    }
 }
 
 // Replace every card-class reference in chests/cauldrons (and every loose
@@ -259,6 +392,12 @@ static function harry FindActiveHarry(Actor caller)
     watcher = class'APCardWatcher'.static.GetLatest();
     if (watcher != None)
     {
+        h = TryGetViewportHarry(harry(watcher.Level.PlayerHarryActor));
+        if (h != None)
+        {
+            Log("[Archipelago] FindActiveHarry: using watcher console Viewport.Actor=" $ string(h) $ " (watcher.Level=" $ string(watcher.Level) $ ")");
+            return h;
+        }
         h = harry(watcher.Level.PlayerHarryActor);
         if (h != None && !h.bDeleteMe)
         {
@@ -270,6 +409,13 @@ static function harry FindActiveHarry(Actor caller)
             Log("[Archipelago] FindActiveHarry: using watcher.HarryRef=" $ string(watcher.HarryRef));
             return watcher.HarryRef;
         }
+    }
+
+    h = TryGetViewportHarry(harry(caller.Level.PlayerHarryActor));
+    if (h != None)
+    {
+        Log("[Archipelago] FindActiveHarry: using caller console Viewport.Actor=" $ string(h));
+        return h;
     }
 
     h = harry(caller.Level.PlayerHarryActor);
@@ -297,16 +443,93 @@ static function harry FindActiveHarry(Actor caller)
     return fallback;
 }
 
+static function harry TryGetViewportHarry(harry SourceHarry)
+{
+    local HPConsole Console;
+    local harry ViewportHarry;
+
+    if (SourceHarry == None || SourceHarry.Player == None)
+    {
+        return None;
+    }
+
+    Console = HPConsole(SourceHarry.Player.Console);
+    if (Console == None || Console.Viewport == None)
+    {
+        return None;
+    }
+
+    ViewportHarry = harry(Console.Viewport.Actor);
+    if (ViewportHarry != None && !ViewportHarry.bDeleteMe)
+    {
+        return ViewportHarry;
+    }
+    return None;
+}
+
+static function harry FindGrantReadyHarry(Actor caller)
+{
+    local APCardWatcher watcher;
+    local harry h;
+
+    watcher = class'APCardWatcher'.static.GetLatest();
+    if (watcher != None)
+    {
+        h = TryGetViewportHarry(watcher.HarryRef);
+        if (h != None)
+        {
+            Log("[Archipelago] FindGrantReadyHarry: using watcher.HarryRef console Viewport.Actor=" $ string(h));
+            return h;
+        }
+
+        h = TryGetViewportHarry(harry(watcher.Level.PlayerHarryActor));
+        if (h != None)
+        {
+            Log("[Archipelago] FindGrantReadyHarry: using watcher.Level.PlayerHarryActor console Viewport.Actor=" $ string(h));
+            return h;
+        }
+
+        if (watcher.HarryRef != None && watcher.HarryRef.Player != None && !watcher.HarryRef.bDeleteMe)
+        {
+            Log("[Archipelago] FindGrantReadyHarry: using watcher.HarryRef=" $ string(watcher.HarryRef));
+            return watcher.HarryRef;
+        }
+
+        h = harry(watcher.Level.PlayerHarryActor);
+        if (h != None && h.Player != None && !h.bDeleteMe)
+        {
+            Log("[Archipelago] FindGrantReadyHarry: using watcher.Level.PlayerHarryActor=" $ string(h));
+            return h;
+        }
+    }
+
+    h = TryGetViewportHarry(harry(caller.Level.PlayerHarryActor));
+    if (h != None)
+    {
+        Log("[Archipelago] FindGrantReadyHarry: using caller console Viewport.Actor=" $ string(h));
+        return h;
+    }
+
+    h = harry(caller.Level.PlayerHarryActor);
+    if (h != None && h.Player != None && !h.bDeleteMe)
+    {
+        Log("[Archipelago] FindGrantReadyHarry: using caller.Level.PlayerHarryActor=" $ string(h));
+        return h;
+    }
+
+    return None;
+}
+
 function ApplyGrant(string ItemName)
 {
     local harry h;
 
     Log("[Archipelago] APGameInfo.ApplyGrant: " $ ItemName);
 
-    h = FindActiveHarry(self);
+    h = FindGrantReadyHarry(self);
     if (h == None)
     {
-        Log("[Archipelago] ApplyGrant: no harry to deliver to");
+        Log("[Archipelago] ApplyGrant: no ready gameplay harry to deliver to");
         return;
     }
     Log("[Archipelago] ApplyGrant: targeting harry=" $ string(h) $ " managerStatus=" $ string(h.managerStatus));
@@ -314,11 +537,19 @@ function ApplyGrant(string ItemName)
     if (IsKnownSpellName(ItemName))
     {
         Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - marking AP-granted + AddToSpellBookByString");
+        // Always set the class-default flag — works even when no watcher
+        // instance is alive (e.g. during Save0.usa load gap). Next level's
+        // watcher PreBeginPlay will copy default -> instance.
+        class'APCardWatcher'.static.MarkSpellAsAPGrantedDefault(ItemName);
         if (class'APCardWatcher'.static.GetLatest() != None)
         {
             class'APCardWatcher'.static.GetLatest().MarkSpellAsGranted(ItemName);
         }
         h.AddToSpellBookByString(ItemName);
+        if (ItemName == "Rictusempra")
+        {
+            RemoveRictaBlocker();
+        }
         return;
     }
 
@@ -352,4 +583,9 @@ function ApplyGrant(string ItemName)
     }
 
     Log("[Archipelago] ApplyGrant: unknown item " $ ItemName);
+}
+
+defaultproperties
+{
+    RictaBlockerOffset=(X=-15.000000,Y=130.000000,Z=0.000000)
 }
