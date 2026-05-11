@@ -78,7 +78,7 @@ If Stefan ever needs to bump the AP framework version, do a controlled `git fetc
 
 ## Player files (AP slot YAMLs)
 
-`gen_seed.ps1` invokes `Generate.py --player_files_path "$repo\tests"`, reading every `.yaml` in the repo's `tests/` directory as a multiworld slot. Single source of truth — edit `tests/HP2_Test.yaml` and the next `gen_seed.ps1` run picks it up. (Earlier setup pointed at `Archipelago\hp2_only_players\`, which silently went stale; if that directory still exists on this machine, it's dead weight and can be removed.)
+`gen_seed.ps1` invokes `Generate.py --player_files_path "$repo\tests" --plando "items"`, reading every `.yaml` in the repo's `tests/` directory as a multiworld slot. Single source of truth — edit `tests/HP2_Test.yaml` and the next `gen_seed.ps1` run picks it up. (Earlier setup pointed at `Archipelago\hp2_only_players\`, which silently went stale; if that directory still exists on this machine, it's dead weight and can be removed.)
 
 For solo HP2 testing, one slot suffices. The current `tests/HP2_Test.yaml` is configured for full playthrough:
 
@@ -87,10 +87,6 @@ name: HP2_Test
 description: HP2 full-playthrough seed for logic cataloguing
 game: Harry Potter 2
 Harry Potter 2:
-  start_inventory_from_pool:
-    Lumos: 1
-    Flipendo: 1
-    Alohomora: 1
   plando_items:
     - { item: Rictusempra, location: Classroom_Lockhart_Rictusempra, from_pool: true, force: silent }
     - { item: Skurge,      location: Classroom_Flitwick_Skurge,      from_pool: true, force: silent }
@@ -100,11 +96,11 @@ Harry Potter 2:
 
 Why each entry:
 
-- **`start_inventory_from_pool` for Lumos/Flipendo/Alohomora** — these are vanilla cutscene-granted spells. Without start_inventory, they get placed at random Card_* locations and the watcher reverts the cutscene grant within 0.25s (softlock at the first wall needing them).
+- **Lumos/Flipendo/Alohomora are not listed here** — the APWorld precollects them unconditionally because v1 has 108 checks and 111 unique non-filler items.
 - **`plando_items` 4 classroom locks** — walking into a classroom auto-teleports to the spell challenge with the exit locked behind. If the player doesn't already own the spell, they softlock. v2 fix unlocks the door via UScript; v1 workaround is to plando each spell at its own classroom so picking it up at the challenge end grants the spell that opens the exit.
 - **`from_pool: true`** removes the plando'd copy from the random pool (no duplicates). **`force: silent`** suppresses the noisy "plando applied" stdout per entry.
 
-For "everything-unlocked" playtest mode (skip cataloguing, prove the AP solver), swap `start_inventory_from_pool` for all 7 spells + 3 key items and drop the classroom plandos.
+For "everything-unlocked" playtest mode (skip cataloguing, prove the AP solver), use `start_inventory_from_pool` for the 4 non-starter spells + 3 special progression items and drop the classroom plandos.
 
 ## One-time M212 engine prep
 

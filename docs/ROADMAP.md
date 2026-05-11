@@ -48,7 +48,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 **Goal:** all 111 items + locations addressable in code, both directions wired.
 
 **Done:**
-- `data/items.yaml` (114 entries: 7 spells + 3 key items + 101 cards + 3 filler tiers) and `data/locations.yaml` (117 entries: 4 classrooms + 12 level completions + 101 card locations).
+- `data/items.yaml` (114 entries: 7 spells + 3 special progression items + 101 cards + 3 filler tiers) and the v1 location model (108 checks: 4 classrooms + 101 card locations + Boomslang/Bicorn/BitOGoyle special checks).
 - `scripts/gen_apworld.py` — reads `data/*.yaml`, validates uniqueness + cross-references, emits `apworld/items.py` and `apworld/locations.py`. Includes hardcoded `CARD_GAME_ID_TO_CLASS` map extracted from `StatusItemWizardCards.GetCardClassFromId`.
 - `apworld/__init__.py` refactored to consume the generated modules; full pool seeds generate cleanly under AP 0.6.5.
 - Sidecar uses real `card_game_id → AP location` and `AP item name → UScript class` mappings, with grant-echo deduplication so a sidecar GRANT doesn't trigger an infinite cascade via the watcher's re-detection.
@@ -59,7 +59,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 > **Cards path superseded in M6.** The `Spawn`+`Touch` chain for card grants was replaced by `MarkAsGranted` + direct `siCard.SetCardOwner` write (no Spawn, no Touch, no celebration cutscene). Spell / key item / bean grant paths described above remain current. See `docs/DESIGN.md#card-pickup-architecture-apcardmarker`.
 
 **Deferred to M6:**
-- AP location mapping for `CHECK_SPELL` (which classroom location does each spell-tutorial map to?) and `CHECK_KEYITEM` (which level location holds each key item?). Sidecar logs these but doesn't yet send `LocationChecks` for them — the mapping needs playtest data.
+- AP location mapping for `CHECK_SPELL` (which classroom location does each spell-tutorial map to?) and the three special pickup/interact checks. Sidecar logs these but doesn't yet send `LocationChecks` for them — the mapping needs playtest data.
 - Spell-start-state policy (DESIGN.md open question 7).
 
 **De-risks:** the data pipeline. After M5, adding/changing items is a YAML edit + regen.
@@ -71,19 +71,29 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 **Done:**
 - `data/logic.yaml` schema authored (string-grammar `requires`, `Lumos & Flipendo | Alohomora`-style). Region list + classroom locations populated. Card per-location overrides empty for now (Stefan fills as playtest catalogues card homes).
 - `scripts/gen_apworld.py` emits `apworld/regions.py` (region defs + entry rules), `apworld/rules.py` (per-location overrides + goal definition), and 101 `mod/HPArchipelago/Classes/APCardMarker_<X>.uc` subclasses for the chest-replacement architecture.
-- `apworld/__init__.py` wires region entry rules into `Region.connect(... rule=...)` and goal completion via `state.can_reach_location("LevelClear_ChamberOfSecrets", player)`.
+- `apworld/__init__.py` wires region entry rules into `Region.connect(... rule=...)`. Goal generation uses the Basilisk spell requirement from `logic.yaml`; runtime completion signal is `GOAL_COMPLETE`.
 - Goal `basilisk` declared in `logic.yaml`; default goal in `__init__.py`. (YAML option for choosing goal is parked v2.)
 - TBD-lenient mode: rules with `entry: TBD` compile to `True` so seeds gen during playtest. Generator prints a warning listing unfilled regions.
 - Card-pickup architecture rewritten — `APCardMarker_<X>` replaces every card class in chests/cauldrons/loose-icon spots at level entry. Markers fire CHECK on Touch, no `SetCardOwner`, no celebration cutscene. See `docs/DESIGN.md#card-pickup-architecture-apcardmarker`.
 
 **Done (2026-05-09):**
-- AP common-options support: `HP2World.options_dataclass = HP2Options(PerGameCommonOptions)` adds `start_inventory_from_pool: StartInventoryPool` (not in vanilla `PerGameCommonOptions`). Without this, `start_inventory_from_pool` in the player yaml is silently ignored.
+- AP common-options support: `HP2World.options_dataclass = HP2Options(PerGameCommonOptions)` adds `start_inventory_from_pool: StartInventoryPool` (not in vanilla `PerGameCommonOptions`). Still useful for playtest YAMLs; v1 starter spells are now mandatory precollected items.
 - `HP2World.get_filler_item_name()` returns a random `FILLER_NAMES` choice. Default would pick any item name including cards, producing duplicate `Card_X: <existing-card>` placements when the pool shrinks (e.g. via start_inventory_from_pool).
-- `tests/HP2_Test.yaml` configured for solo playthrough: 3 starter spells in `start_inventory_from_pool`, 4 non-starter spells plando'd at their classrooms (spell-challenge-softlock workaround), Card_*-level placements all random. Spoiler verified: 117 unique non-card placements, sphere 0 = starter spells, sphere 1 = classroom spells.
+- `tests/HP2_Test.yaml` configured for solo playthrough: starter spells are precollected by the APWorld, 4 non-starter spells plando'd at their classrooms (spell-challenge-softlock workaround), Card_*-level placements all random.
 - `scripts/gen_seed.ps1` now reads from the repo's `tests/` (was reading a stale copy in `Archipelago\hp2_only_players\`). Single source of truth.
 - Sidecar quality-of-life: INFO logs now visible (`logging.basicConfig` not just `setLevel`); items received before the game connects are queued and drained on game connect (was warning + dropping); graceful Ctrl+C (skip `wait_closed()` plus loop-level `ConnectionResetError` filter); `pkg_resources` deprecation warning silenced.
 
+**Done (2026-05-10):**
+- Removed level-completion locations/rules from source data and generated APWorld output.
+- Added `Special_Boomslang`, `Special_Bicorn`, and `Special_BitOGoyle` checks.
+- Updated the generator to treat `special_checks` as a first-class location category and to support direct goal logic rules.
+- Updated the sidecar special-item mapping to send Boomslang/Bicorn/BitOGoyle checks to the new special locations.
+- Moved Lumos/Flipendo/Alohomora into mandatory APWorld precollection so the 111 unique non-filler items fit the 108-location v1 model.
+- Verified AP generation under the 108-check model; `Generate.py` fills 104 random items after 3 precollected starter spells and 4 classroom plandos.
+
 **Still TODO:**
+- Implement AP marker/icon hooks for Boomslang and Bicorn so their vanilla ingredient pickups send `Special_Boomslang` and `Special_Bicorn`.
+- Implement the BitOGoyle Goyle-touch/end-interaction hook so it sends `Special_BitOGoyle`; BitOGoyle is not a vanilla pickup item.
 - Fill in `entry:` rules for the 5 TBD regions (ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel). Currently fires lenient-warning each gen.
 - Fill in `region:` for the 101 cards in `data/locations.yaml` as Stefan catalogues them during playtest (in progress 2026-05-09).
 - Solo playtest a real seed start-to-finish (in progress 2026-05-09 — Stefan running `AP_*.zip` from `Archipelago\output\hp2_test\`).
@@ -102,7 +112,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **Still TODO:**
 - Compile-verify on the gaming machine (laptop UCC pending DLL-load fix).
-- Play a seed end-to-end; confirm AP server marks slot complete after Basilisk + Great Hall walk-in + ~5-10s credits-cutscene latency.
+- Play a seed end-to-end; confirm AP server marks slot complete after Basilisk + Great Hall walk-in + ~5-10s credits-cutscene latency from the drafted `GOAL_COMPLETE` path.
 
 **De-risks:** end-of-run signal correctness.
 

@@ -23,6 +23,7 @@ Thumbs.db
 
 # AP generation
 output/
+dist-temp/
 *.archipelago
 
 # Reference checkouts (kept outside repo)

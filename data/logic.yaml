@@ -75,20 +75,11 @@ locations:
   Classroom_Sprout_Diffindo:      { region: Greenhouses, requires: "true" }
   Classroom_Lockhart_Spongify:    { region: Hogwarts,    requires: "true" }
 
-  # Level completions — assume completing requires being able to enter the region
-  # AND clear it. Refine clear-requirements per level during playtest.
-  LevelClear_WhompingWillow:     { region: WhompingWillow,     requires: "true" }
-  LevelClear_RictusempraChallenge: { region: RictusempraChallenge, requires: "true" }
-  LevelClear_SkurgeChallenge:    { region: SkurgeChallenge,    requires: "true" }
-  LevelClear_DiffindoChallenge:  { region: DiffindoChallenge,  requires: "true" }
-  LevelClear_SpongifyChallenge:  { region: SpongifyChallenge,  requires: "true" }
-  LevelClear_ForbiddenForest:    { region: ForbiddenForest,    requires: "true" }
-  LevelClear_Quidditch:          { region: Quidditch,          requires: "true" }
-  LevelClear_BicornLevel:        { region: BicornLevel,        requires: "true" }
-  LevelClear_BoomslangLevel:     { region: BoomslangLevel,     requires: "true" }
-  LevelClear_GoyleLevel:         { region: GoyleLevel,         requires: "true" }
-  LevelClear_SlytherinCommon:    { region: SlytherinCommon,    requires: "true" }
-  LevelClear_ChamberOfSecrets:   { region: ChamberOfSecrets,   requires: "true",  notes: "= goal location for goal=basilisk" }
+  # Special progression checks. These are concrete pickups/interactions, not
+  # level clears.
+  Special_Boomslang: { region: BoomslangLevel, requires: "true", notes: "AP marker/icon at vanilla Boomslang pickup" }
+  Special_Bicorn:    { region: BicornLevel,    requires: "true", notes: "AP marker/icon at vanilla Bicorn pickup" }
+  Special_BitOGoyle: { region: GoyleLevel,     requires: "true", notes: "Goyle end interaction/touch; no vanilla pickup item" }
 
   # 101 card locations are NOT enumerated here. The generator will default any
   # location not listed above to {region: <whatever locations.yaml says>, requires: "true"}.
@@ -105,5 +96,5 @@ locations:
 # Goal definition.
 goal:
   basilisk:
-    requires_completed: ["LevelClear_ChamberOfSecrets"]
-    notes: "v1 only. Future modes: all_gold_cards, mcguffin_hunt — see DESIGN.md parking lot."
+    requires: "Flipendo & Lumos & Alohomora & Diffindo & Rictusempra & Skurge & Spongify"
+    notes: "Generation logic for reaching Basilisk/credits. Runtime completion still comes from GOAL_COMPLETE."

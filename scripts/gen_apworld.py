@@ -21,6 +21,8 @@ DATA_DIR = REPO_ROOT / "data"
 APWORLD_DIR = REPO_ROOT / "apworld"
 MOD_CLASSES_DIR = REPO_ROOT / "mod" / "HPArchipelago" / "Classes"
 
+LOCATION_CATEGORIES = ("classrooms", "special_checks", "cards")
+
 
 # UScript card Id (set on each WC*.uc class default) → UScript class name.
 # Extracted from HGame/Classes/StatusItems/StatusItemWizardCards.uc:GetCardClassFromId.
@@ -130,7 +132,7 @@ def validate_logic(logic: dict, locations: dict, known_items: set[str]) -> tuple
 
     # Cross-check: every region used in locations.yaml must be defined in logic.yaml
     # (allow "TBD" as a valid placeholder so playtest can iterate).
-    used_regions = {entry.get("region", "TBD") for category in ("classrooms", "level_completions", "cards") for entry in locations.get(category, [])}
+    used_regions = {entry.get("region", "TBD") for category in LOCATION_CATEGORIES for entry in locations.get(category, [])}
     used_regions.discard("TBD")  # TBD is implicit
     missing = used_regions - set(regions.keys())
     if missing:
@@ -140,7 +142,7 @@ def validate_logic(logic: dict, locations: dict, known_items: set[str]) -> tuple
 
     # Validate per-location overrides
     location_rules = logic.get("locations") or {}
-    location_names_set = {entry["name"] for category in ("classrooms", "level_completions", "cards") for entry in locations.get(category, [])}
+    location_names_set = {entry["name"] for category in LOCATION_CATEGORIES for entry in locations.get(category, [])}
     for loc_name, meta in location_rules.items():
         meta = meta or {}
         if loc_name not in location_names_set:
@@ -152,6 +154,7 @@ def validate_logic(logic: dict, locations: dict, known_items: set[str]) -> tuple
     # Validate goal
     goal = logic.get("goal") or {}
     for goal_name, meta in goal.items():
+        parse_rule((meta or {}).get("requires", "true"), known_items, f"goal {goal_name!r} requires")
         for loc in (meta or {}).get("requires_completed", []):
             if loc not in location_names_set:
                 raise ValueError(
@@ -189,7 +192,7 @@ def validate(items: dict, locations: dict) -> None:
     loc_ids: set[int] = set()
     loc_names: set[str] = set()
     loc_base = locations["base_id"]
-    for category in ("classrooms", "level_completions", "cards"):
+    for category in LOCATION_CATEGORIES:
         for entry in locations.get(category, []):
             lid = loc_base + entry["id_offset"]
             if lid in loc_ids:
@@ -317,7 +320,7 @@ def emit_locations(locations: dict) -> str:
     card_game_id_to_loc_name: list[tuple[int, str]] = []
 
     name_to_id: list[tuple[str, int]] = []
-    for category in ("classrooms", "level_completions", "cards"):
+    for category in LOCATION_CATEGORIES:
         for entry in locations.get(category, []):
             name = entry["name"]
             ap_id = base + entry["id_offset"]
@@ -429,7 +432,7 @@ def _emit_rule_body(rule_str: str) -> str:
 
 
 def emit_rules(logic: dict, locations: dict) -> str:
-    """Emit apworld/rules.py: LOCATION_RULES, GOAL_REQUIREMENTS."""
+    """Emit apworld/rules.py: LOCATION_RULES, GOAL_RULES, GOAL_LOCATION_REQUIREMENTS."""
     location_rules = logic.get("locations") or {}
     goal = logic.get("goal") or {}
 
@@ -458,13 +461,24 @@ def emit_rules(logic: dict, locations: dict) -> str:
         lines.append(f"    {loc_name!r}: lambda state, player: {body},")
     lines.append("}")
     lines.append("")
-    lines.append("# goal_name -> list of location names that must be reachable for victory.")
-    lines.append("# Player picks one via the YAML `goal:` option (default `basilisk` for v1).")
-    lines.append("GOAL_REQUIREMENTS: dict[str, list[str]] = {")
+    lines.append("# goal_name -> direct item/logic rule for victory generation.")
+    lines.append("# Runtime completion still comes from the game-side GOAL_COMPLETE signal.")
+    lines.append("GOAL_RULES: dict[str, Callable[[CollectionState, int], bool]] = {")
+    for goal_name in sorted(goal.keys()):
+        meta = goal[goal_name] or {}
+        body = _emit_rule_body(meta.get("requires", "true"))
+        if body == "True":
+            continue
+        lines.append(f"    {goal_name!r}: lambda state, player: {body},")
+    lines.append("}")
+    lines.append("")
+    lines.append("# Optional goal_name -> location names that must be reachable for victory.")
+    lines.append("GOAL_LOCATION_REQUIREMENTS: dict[str, list[str]] = {")
     for goal_name in sorted(goal.keys()):
         meta = goal[goal_name] or {}
         reqs = meta.get("requires_completed", [])
-        lines.append(f"    {goal_name!r}: {reqs!r},")
+        if reqs:
+            lines.append(f"    {goal_name!r}: {reqs!r},")
     lines.append("}")
     lines.append("")
     return "\n".join(lines)
@@ -543,7 +557,7 @@ def main() -> int:
     n_markers = emit_card_markers(items)
 
     n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "cards_bronze", "cards_silver", "cards_gold", "filler"))
-    n_locs = sum(len(locations.get(c, [])) for c in ("classrooms", "level_completions", "cards"))
+    n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
     n_regions = len(all_regions)
     n_loc_rules = sum(1 for m in (logic.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")

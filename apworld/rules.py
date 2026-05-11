@@ -10,8 +10,12 @@ from BaseClasses import CollectionState
 LOCATION_RULES: dict[str, Callable[[CollectionState, int], bool]] = {
 }
 
-# goal_name -> list of location names that must be reachable for victory.
-# Player picks one via the YAML `goal:` option (default `basilisk` for v1).
-GOAL_REQUIREMENTS: dict[str, list[str]] = {
-    'basilisk': ['LevelClear_ChamberOfSecrets'],
+# goal_name -> direct item/logic rule for victory generation.
+# Runtime completion still comes from the game-side GOAL_COMPLETE signal.
+GOAL_RULES: dict[str, Callable[[CollectionState, int], bool]] = {
+    'basilisk': lambda state, player: state.has('Flipendo', player)  and  state.has('Lumos', player)  and  state.has('Alohomora', player)  and  state.has('Diffindo', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Spongify', player),
+}
+
+# Optional goal_name -> location names that must be reachable for victory.
+GOAL_LOCATION_REQUIREMENTS: dict[str, list[str]] = {
 }

@@ -4,9 +4,9 @@ M5: full item / location pool. Items + locations come from data/*.yaml via
 scripts/gen_apworld.py, which writes items.py and locations.py in this
 directory. Re-run the generator after every YAML edit.
 
-Goal placeholder for M5: collect all 7 spells + 3 key items. Real "defeat
-Basilisk" goal detection lands in M7 — triggered by Harry entering the
-Great Hall post-kill (the speedrun endpoint), not the Basilisk death itself.
+Generation models the Basilisk goal as the item/logic requirements needed to
+reach endgame. Runtime completion comes from the game-side GOAL_COMPLETE signal
+when credits start after the Basilisk sequence.
 """
 
 from __future__ import annotations
@@ -41,7 +41,8 @@ from .regions import (
     START_REGION,
 )
 from .rules import (
-    GOAL_REQUIREMENTS,
+    GOAL_LOCATION_REQUIREMENTS,
+    GOAL_RULES,
     LOCATION_RULES,
 )
 
@@ -51,6 +52,7 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 ]
 
 DEFAULT_GOAL = "basilisk"
+STARTER_ITEM_NAMES: set[str] = {"Lumos", "Flipendo", "Alohomora"}
 
 
 class HP2Item(Item):
@@ -68,9 +70,8 @@ class HP2WebWorld(WebWorld):
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
-    # StartInventoryPool (add-and-remove-from-pool). Adding it explicitly
-    # so HP2_Test.yaml can pre-load Lumos/Flipendo/Alohomora without
-    # leaving duplicates in the world.
+    # StartInventoryPool (add-and-remove-from-pool). Keep it available for
+    # playtest YAMLs; v1's three starter spells are precollected by the world.
     start_inventory_from_pool: StartInventoryPool
 
 
@@ -131,10 +132,17 @@ class HP2World(World):
             name for name in ITEM_NAME_TO_ID
             if name not in FILLER_NAMES
         ]
+        placeable_non_filler = [
+            name for name in non_filler
+            if name not in STARTER_ITEM_NAMES
+        ]
         for name in non_filler:
+            if name in STARTER_ITEM_NAMES:
+                self.multiworld.push_precollected(self.create_item(name))
+                continue
             self.multiworld.itempool.append(self.create_item(name))
 
-        delta = len(LOCATION_NAME_TO_ID) - len(non_filler)
+        delta = len(LOCATION_NAME_TO_ID) - len(placeable_non_filler)
         if delta > 0:
             rng: _random.Random = self.multiworld.random if hasattr(self.multiworld, "random") else _random.Random()
             for _ in range(delta):
@@ -151,8 +159,9 @@ class HP2World(World):
                 continue
             set_rule(loc, lambda state, fn=rule_fn, player=self.player: fn(state, player))
 
-        goal_locations = GOAL_REQUIREMENTS.get(DEFAULT_GOAL, [])
-        if not goal_locations:
+        goal_locations = GOAL_LOCATION_REQUIREMENTS.get(DEFAULT_GOAL, [])
+        goal_rule = GOAL_RULES.get(DEFAULT_GOAL)
+        if not goal_locations and goal_rule is None:
             # Fallback: if logic.yaml has no goal defined, use M5 placeholder
             # (collect every progression item).
             progression = list(PROGRESSION_ITEM_NAMES)
@@ -162,6 +171,7 @@ class HP2World(World):
             return
 
         self.multiworld.completion_condition[self.player] = (
-            lambda state, locs=goal_locations, player=self.player:
-                all(state.can_reach_location(loc, player) for loc in locs)
+            lambda state, locs=goal_locations, fn=goal_rule, player=self.player:
+                (fn(state, player) if fn is not None else True)
+                and all(state.can_reach_location(loc, player) for loc in locs)
         )

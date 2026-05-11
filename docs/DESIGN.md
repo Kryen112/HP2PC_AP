@@ -37,23 +37,26 @@ Living design doc. Captures every decision made during design and the reasoning 
 ## Scope (v1)
 
 - **Item shuffle** only. World layout, level connections, cutscenes unchanged. Entrance shuffle parked.
-- **Open hub start.** Player spawns in Hogwarts grounds / castle entrance. Every level door is unlocked except where a hard key item gates it (BitOGoyle for Slytherin Common; spells for Chamber).
-- **Levels (12 known so far):** Whomping Willow, Rictusempra Challenge, Skurge Challenge, Diffindo Challenge, Spongify Challenge, Forbidden Forest, Quidditch, Bicorn level, Boomslang level, Goyle level, Slytherin Common Room, Chamber of Secrets. To be cross-checked against the wiki + game in playtest.
+- **Open hub start.** Player spawns in Hogwarts grounds / castle entrance. Every level door is unlocked except where progression items gate it (Goyle disguise / BitOGoyle for Slytherin Common; spells for Chamber).
+- **Levels are regions, not checks.** Whomping Willow, spell challenges, Forbidden Forest, Quidditch, ingredient levels, Slytherin Common Room, and Chamber of Secrets can contain AP checks, but finishing a level is not an AP location in v1.
+- **No level-completion checks in v1.** Beating, exiting, or clearing a level never sends a location check. This avoids fragile per-level end hooks and keeps the check model tied to concrete pickups/interactions.
 - **Goal:** defeat Basilisk. Detection trigger is **entering the Great Hall after the kill** (the speedrun endpoint — also what triggers the credits cutscene), NOT the Basilisk's death function. Cleaner endpoint: a death hook would fire mid-cutscene before the player has finished the run; Great Hall entry only fires when the run is genuinely complete.
 
 ## Items (111 unique, each appears once)
 
 - **7 spells:** Alohomora, Diffindo, Flipendo, Lumos, Rictusempra, Skurge, Spongify.
 - **101 wizard cards:** 50 Bronze + 40 Silver + 11 Gold (counts confirmed from decompile).
-- **3 key items:** Boomslang, Bicorn, BitOGoyle.
+- **3 special progression items:** Boomslang, Bicorn, BitOGoyle. Boomslang and Bicorn correspond to ingredient pickups. BitOGoyle is an AP progression item representing the Goyle end interaction/touch; it is not a vanilla inventory pickup.
 - **FlobberMucus and WiggenBark are NOT key items** — they're potion ingredients buyable from NPCs, not progression. Excluded from the pool.
 
-## Locations (~117+, to be enumerated in playtest)
+## Locations (108 v1 checks)
 
 - **4 spell-teaching classrooms** (sphere-0 — reachable with zero items).
-- **12 level completions** (one per level).
 - **101 wizard card pickups** (one per vanilla card location — needs cataloguing during playtest).
-- **Possible extras:** mid-level checkpoints, NPC handoffs. Decide per-level during playtest.
+- **3 special AP-marker/interact checks:**
+  - **Boomslang:** replace or augment the vanilla ingredient pickup with an AP marker/icon check.
+  - **Bicorn:** replace or augment the vanilla ingredient pickup with an AP marker/icon check.
+  - **BitOGoyle:** hook the end-of-Goyle interaction/touch as the check; there is no vanilla item pickup for this.
 
 ## Sphere-0
 
@@ -69,7 +72,7 @@ The 4 spell-teaching classrooms are reachable with zero items. Generator places 
 
 ## Spell-teaching cutscenes
 
-Lockhart's class and other spell tutorials become **AP checks**. Cutscene plays normally; instead of teaching the canonical spell, Lockhart "teaches you an Archipelago item" — the seed places whatever item there. Tutorial completion must NOT auto-transition into the matching challenge level (that's a separate AP region with its own checks). Mod intercepts and cancels the post-tutorial transition; player returns to wherever they were.
+Lockhart's class and other spell tutorials become **AP checks**. Cutscene plays normally; instead of teaching the canonical spell, Lockhart "teaches you an Archipelago item" — the seed places whatever item there. Tutorial completion must NOT auto-transition into the matching challenge level. The challenge level may contain card/special checks, but it is not a level-clear check. Mod intercepts and cancels the post-tutorial transition; player returns to wherever they were.
 
 ## Vendors
 
@@ -144,7 +147,7 @@ Features explicitly deferred from v1. Each of these came up during design and wa
 
 - **Entrance shuffle** — randomize the level-to-level graph (Floo destinations, etc.). Requires per-entrance/exit cataloguing, softlock prevention, possibly cutscene re-stitching. Big, separate piece of work.
 - **Alternative goal modes** — selectable via YAML: "all gold cards (requires silver cards)", "mcguffin hunt". v1 = Basilisk only. Data structures should leave room for these without schema breakage.
-- **Tier 3 check expansion** — Quidditch matches, dueling club, every collectible bean, hidden bean stashes, time trials. v1 sticks to cards + spells + key items + level completions.
+- **Tier 3 check expansion** — Quidditch matches, dueling club, every collectible bean, hidden bean stashes, time trials. v1 sticks to cards + spell classrooms + the three special progression checks.
 - **Vendor card sales re-enabled (vanity only)** — vendors could sell duplicates of cards the player has already received from AP. Lore-flavorful, complicates economy. Defer.
 - **Original spell-teaching cutscene replays for received spells (option B)** — replay Lockhart's full teach cutscene when AP grants you Flipendo. Considered, parked as flavor option.
 - **Item-on-floor delivery (option D)** — spawn AP items as world pickups Harry walks over rather than instant grants. More immersive, more work.
@@ -161,9 +164,9 @@ Features explicitly deferred from v1. Each of these came up during design and wa
 
 ## Open questions to resolve in playtest
 
-1. Exact level list — does the wiki/community have a canonical list? Cross-check against the 12 above.
-2. Which spells are taught in classrooms (the 4 sphere-0 locations), which in challenge levels, which by NPCs/books? Need to map for the spell-tutorial location names.
-3. Per-card vanilla locations (which level each of the 101 cards lives in by default) — required for `data/locations.yaml`.
+1. Which spells are taught in classrooms (the 4 sphere-0 locations), which in challenge levels, which by NPCs/books? Need to map for the spell-tutorial location names.
+2. Per-card vanilla locations (which level each of the 101 cards lives in by default) — required for `data/locations.yaml`.
+3. Exact implementation for Boomslang/Bicorn AP markers and the BitOGoyle Goyle-touch interaction hook.
 4. Whether `start_inventory_from_pool: all` actually works as expected with this APWorld, or whether we need a custom "give everything" YAML option.
 5. Confirm that vanilla obstacles in HP2 really do hold the line in modded mode — i.e., a Flipendo block won't break for a player who lacks Flipendo just because the mod is loaded.
 6. ~~**Card-grant persistence into the album**~~ **FULLY RESOLVED 2026-05-08.** Root cause was *not* what the initial M212 Discord answer suggested. Real cause: **UWorld context divergence.** `APGameInfo` is a perpetual UE1 actor whose `Level` is the persistent (Entry) `LevelInfo`, so `APGameInfo.Level.PlayerHarryActor = Entry.Harry0` (the menu/static harry, `Player=None`, never updated by gameplay pickup). Vanilla `Touch` and `FEFolioPage` (the album) both run in the *current gameplay level's* UWorld and use *that* level's harry — e.g., `Grounds_Night.Harry0`. `APCardWatcher`, when spawned per-level via `APGameInfo.InitGame`, lives in the gameplay level's UWorld and naturally binds to the right harry. Fix: (a) `APCardWatcher` keeps a class-default `LatestInstance` ref updated in `PreBeginPlay`; (b) `APGameInfo.FindActiveHarry` resolves harry through `APCardWatcher.GetLatest().Level.PlayerHarryActor` instead of `self.Level.PlayerHarryActor`, so `ApplyGrant` writes to the same `managerStatus` the album reads. Verified end-to-end: vanilla pickup + AP grant both visible in the album. `WizardCards[50]` is the canonical store, persists. Pickup FX deferred to M8 polish. Also: `APCardWatcher` now reverts vanilla `SetCardOwner` after firing CHECK (Bug 2 partial fix — see v2 parking lot for the residual stamina-celebration exploit).

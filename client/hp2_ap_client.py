@@ -16,7 +16,7 @@ Mod-side protocol (newline-delimited text):
     HELLO                       (game → sidecar, on connect)
     CHECK <id>                  (game → sidecar, on card pickup)
     CHECK_SPELL <name>          (game → sidecar, on spell learned)
-    CHECK_KEYITEM <name>        (game → sidecar, on Boomslang/Bicorn/BitOGoyle pickup)
+    CHECK_KEYITEM <name>        (game → sidecar, on Boomslang/Bicorn pickup or BitOGoyle interaction)
     GOAL_COMPLETE               (game → sidecar, once when post-Basilisk credits start)
     GRANT <classname>           (sidecar → game, on item received)
 
@@ -103,15 +103,12 @@ SPELL_TO_LOCATION_NAME = {
     "Spongify":    "Classroom_Lockhart_Spongify",
 }
 
-# Map UScript key-item name to the AP location it represents. Per design:
-# the key-item pickup IS the level-end (you finish the level by grabbing
-# the ingredient), so we collapse pickup + level-clear into a single check
-# rather than firing two. The other 9 level-clears (non-key-item levels)
-# still need their own level-completion hook — see MOD_TODO.md.
+# Map UScript special progression name to its AP check. These are concrete
+# pickup/interact checks, not level clears.
 KEYITEM_TO_LOCATION_NAME = {
-    "Boomslang": "LevelClear_BoomslangLevel",
-    "Bicorn":    "LevelClear_BicornLevel",
-    "BitOGoyle": "LevelClear_GoyleLevel",
+    "Boomslang": "Special_Boomslang",
+    "Bicorn":    "Special_Bicorn",
+    "BitOGoyle": "Special_BitOGoyle",
 }
 
 logger = logging.getLogger("HP2Client")

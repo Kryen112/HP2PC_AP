@@ -2,14 +2,8 @@ name: HP2_Test
 description: HP2 full-playthrough seed for logic cataloguing
 game: Harry Potter 2
 Harry Potter 2:
-  # Starter spells: Lumos/Flipendo/Alohomora are cutscene-granted in the early
-  # game and the watcher baselines them as already-AP-granted (no revert). For
-  # AP gen to consider them "owned" when evaluating logic, give them as start
-  # inventory pulled from the pool — leaves 4 random spells in the pool.
-  start_inventory_from_pool:
-    Lumos: 1
-    Flipendo: 1
-    Alohomora: 1
+  # Lumos/Flipendo/Alohomora are mandatory precollected starter spells in the
+  # APWorld now, because v1 has 108 checks and 111 unique non-filler items.
   # Plando each classroom to teach its own spell. Without this, walking into a
   # classroom auto-teleports to the spell challenge with the exit locked behind;
   # if the player doesn't already own the spell (because we revert vanilla

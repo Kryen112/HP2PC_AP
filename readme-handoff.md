@@ -7,7 +7,8 @@ This file is for the next Claude that boots into this repo. Read it top-to-botto
 ## Verified end-of-session 2026-05-09
 
 - **18-marker chest investigation closed (deferred to M8 polish).** Root cause is `chestbronze.turnover`'s `for(iBean=0; iBean<iNumberOfBeans; iBean++) generateobject()` loop — `ChestWood2/Grounds_Night` has `iNumberOfBeans=18` and the native `FancySpawn` jitters per call across cardinal offsets at increasing radius, so one card-slot replacement explodes into 18 markers. Player visually only sees one card flying out (the rest stack at near-identical coords); the first `Touch` fires CHECK and `Destroys`, the others sit invisible/inert. Two dedupe attempts (foreach `AllActors` and class-default `HasPrimaryMarker[]` registry) both failed in different ways and were reverted; full forensics are in `docs/MOD_TODO.md` under "Cosmetic / known issues (M8 polish)". **Do not redo the investigation** — read the MOD_TODO entry first.
-- **Real-playthrough seed pipeline working end-to-end.** `tests/HP2_Test.yaml` is now configured for a full solo playthrough: `start_inventory_from_pool` puts Lumos/Flipendo/Alohomora at start (avoiding the watcher's revert of vanilla cutscene grants), `plando_items` places each non-starter spell at its own classroom (workaround for the classroom-softlock v2-parking-lot item), and Card_Starkey/Wadcock/etc are randomized like everything else. Spoiler verified: 117 unique placements, no card duplicates, sphere 0 = the 3 starter spells, sphere 1 = the 4 classroom spells.
+- **Real-playthrough seed pipeline working end-to-end under the old scaffold.** `tests/HP2_Test.yaml` is now configured for a full solo playthrough: the APWorld precollects Lumos/Flipendo/Alohomora (avoiding the watcher's revert of vanilla cutscene grants), `plando_items` places each non-starter spell at its own classroom (workaround for the classroom-softlock v2-parking-lot item), and Card_Starkey/Wadcock/etc are randomized like everything else. The old seed verified 117 unique placements, no card duplicates, sphere 0 = the 3 starter spells, sphere 1 = the 4 classroom spells. Superseded 2026-05-10: v1 now generates 108 checks after removing level-completion locations.
+- **108-check generation verified 2026-05-10.** `Generate.py --plando "items"` fills 104 random items after 3 mandatory starter-spell precollections and 4 classroom spell plandos. `scripts/gen_seed.ps1` now passes `--plando "items"` so those classroom plandos actually apply.
 - **`apworld/__init__.py` opted into AP common options.** Custom `HP2Options(PerGameCommonOptions)` adds `start_inventory_from_pool: StartInventoryPool` (`PerGameCommonOptions` only includes the dict-form `start_inventory`, not the from-pool variant). Also added `get_filler_item_name` returning a random `FILLER_NAMES` choice — without this, AP's default filler picker pulls any item name including cards, producing `Card_X: <duplicate-card-name>` placements when the pool shrinks (e.g. via `start_inventory_from_pool`).
 - **Sidecar quality-of-life fixes** so Stefan's playthrough terminal isn't full of noise/grief:
     - INFO-level logs now visible — `logging.basicConfig(level=logging.INFO, ...)` instead of just `setLevel`. Without basicConfig, INFO falls through to lastResort handler which only emits WARNING+. Earlier session showed only `Cannot send to game (no connection)` warnings; everything else was silently dropped.
@@ -22,7 +23,13 @@ Stefan was mid-playthrough at end-of-session, cataloguing per-card region in `da
 1. **Help Stefan finish the playthrough** — answer questions about which level to enter next, where to find specific cards, etc. Reference `data/locations.yaml`, the spoiler.txt in the latest seed under `Archipelago\output\hp2_test\`, and the v1 vanilla story progression project memory.
 2. **Fill the 5 TBD region `entry:` rules** in `data/logic.yaml` (ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel) once Stefan has enough playtest data to know what each region requires. Generator currently fires the lenient-warning each gen — that's fine during playtest but must close before v1.
 
-Pre-existing architectural follow-ups that did NOT progress this session: the 9 non-key-item LevelClear hooks (MOD_TODO line 10), HUD toast / safe-state queue drainer (MOD_TODO "Item delivery queue"), vendor card-sale disable, M7 GOAL_COMPLETE in-game verification.
+Pre-existing architectural follow-ups that did NOT progress this session: special AP-marker/interact checks for Boomslang/Bicorn/BitOGoyle, HUD toast / safe-state queue drainer (MOD_TODO "Item delivery queue"), vendor card-sale disable, M7 GOAL_COMPLETE in-game verification.
+
+Immediate implementation follow-ups:
+
+1. **Boomslang/Bicorn special checks** — find the vanilla ingredient pickup actors and replace or augment them with AP marker/icon checks that send `Special_Boomslang` and `Special_Bicorn`.
+2. **BitOGoyle special check** — hook the end-of-Goyle interaction/touch and send `Special_BitOGoyle`; do not treat BitOGoyle as a vanilla pickup item.
+3. **M7 goal verification** — compile/run the drafted `GOAL_COMPLETE` path in-game and confirm the AP server marks the slot complete after Basilisk + Great Hall walk-in + credits latency.
 
 ---
 
@@ -56,7 +63,7 @@ The project is **HP2PC_AP**, an Archipelago multiworld randomizer for *Harry Pot
 | M2 — TcpLink ping/pong | `cddb73f` | UScript ↔ Python bidirectional IPC over localhost:38281 |
 | M3 — Card pickup round-trip | `5cedc10` (initial) → `608663d` (album-fix) → `df05524` + uncommitted (APCardMarker rewrite) | Card pickup architecture has been through three iterations; current is APCardMarker (see DESIGN.md) |
 | M4 — Real AP integration | `302b27d` | Sidecar subclasses `CommonContext`; speaks real AP WebSocket protocol against MultiServer |
-| M5 — Full pool + hooks | `91ddc48`, `a167dfa`, `fcd68a5` | 114 items, 117 locations, gen pipeline, all four grant types (cards/spells/key items/beans) wired both ways |
+| M5 — Full pool + hooks | `91ddc48`, `a167dfa`, `fcd68a5` | 114 item entries, generated location pipeline, all four grant types (cards/spells/key items/beans) wired both ways |
 | M6 — Logic + seed gen | `df05524` + uncommitted | logic.yaml schema authored, regions.py + rules.py generated, APCardMarker chest-replacement architecture; 5 region entry rules still TBD; per-card region cataloguing still TBD |
 | M7 — Goal detection | not started | Plan: poll `FEBook.bInEndGame` from `APCardWatcher`, send `ClientStatus.CLIENT_GOAL`. See `docs/MOD_TODO.md`. |
 | M8 — UX polish | not started | HUD toast, vendor disable, etc. |
@@ -81,7 +88,7 @@ Still in place as a safety net for any non-marker grant path (e.g., cutscene-scr
 
 - **Cards**: `APCardWatcher` polls `IsOwnedByHarry(id)` for ids 1–101 every 0.25s. On 0→1 transition (and not `WasOwnedByHarry[id]`), fires `CHECK <id>` and reverts `SetCardOwner(id, None)` if not `APGrantedCard[id]`.
 - **Spells**: same watcher polls `harry.IsInSpellBook` for the 7 spells. AP-granted spells (`MarkSpellAsGranted`) preserved. Vanilla cutscene-granted spells are reverted (so the AP-placed item at the classroom location is the only spell granted).
-- **Key items**: same watcher polls `nCount` on `StatusItemBoomslang/Bicorn/BitOGoyle` (in `StatusGroupPolyIngr`). AP grants flow through `MarkKeyItemAsGranted` to suppress echo.
+- **Special progression items**: same watcher polls `nCount` on `StatusItemBoomslang/Bicorn/BitOGoyle` (in `StatusGroupPolyIngr`). AP grants flow through `MarkKeyItemAsGranted` to suppress echo. This polling path is not the final check model: Boomslang/Bicorn should be AP marker/icon checks, and BitOGoyle should be the Goyle end interaction/touch because there is no vanilla pickup item.
 
 ### Grant application (in `APGameInfo.ApplyGrant`)
 
@@ -94,10 +101,10 @@ Still in place as a safety net for any non-marker grant path (e.g., cutscene-scr
 
 Code scaffolding complete. Authoring in progress.
 
-- **`data/logic.yaml`**: schema documented at top. Regions list filled. 4 classroom locations specified. Goal `basilisk → [LevelClear_ChamberOfSecrets]`. **5 region `entry:` rules still `TBD`** — ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel. Generator currently treats TBD as `True` (lenient mode) and prints a warning listing them.
-- **`data/locations.yaml`**: classroom + level-completion locations have `region:` filled. **101 cards still have `region: TBD`** — Stefan catalogues these during playtest. Generator routes TBD-region cards to a placeholder TBD region reachable from Menu (open-hub).
+- **`data/logic.yaml`**: schema documented at top. Regions list filled. 4 classroom locations plus 3 special checks specified. Goal `basilisk` uses a direct all-spells rule for generation; runtime completion still comes from `GOAL_COMPLETE`. **5 region `entry:` rules still `TBD`** — ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel. Generator currently treats TBD as `True` (lenient mode) and prints a warning listing them.
+- **`data/locations.yaml`**: matches the 108-check v1 model: 4 classrooms + 101 cards + Boomslang/Bicorn/BitOGoyle special checks. **101 cards still have `region: TBD`** — Stefan catalogues these during playtest. Generator routes TBD-region cards to a placeholder TBD region reachable from Menu (open-hub).
 - **Generator (`scripts/gen_apworld.py`)** emits: `apworld/items.py`, `apworld/locations.py`, `apworld/regions.py`, `apworld/rules.py`, plus 101 `mod/HPArchipelago/Classes/APCardMarker_<X>.uc` files.
-- **`apworld/__init__.py`** wires region entry rules into `Region.connect(... rule=...)` and goal completion via `state.can_reach_location("LevelClear_ChamberOfSecrets", player)`.
+- **`apworld/__init__.py`** wires region entry rules into `Region.connect(... rule=...)`. AP generation completion uses the direct Basilisk rule from `apworld/rules.py`; actual slot completion uses the Basilisk/credits `GOAL_COMPLETE` path.
 
 ## Setup on Stefan's machine
 

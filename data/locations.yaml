@@ -38,20 +38,12 @@ classrooms:
   - { id_offset: 3, name: "Classroom_Sprout_Diffindo",      region: Greenhouses, group: Classrooms, notes: "Sprout's Herbology class (story step 7) — teaches Diffindo after the spell challenge" }
   - { id_offset: 4, name: "Classroom_Lockhart_Spongify",    region: Hogwarts,    group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge" }
 
-# Level completion checks — one per level the player can clear.
-level_completions:
-  - { id_offset: 10, name: "LevelClear_WhompingWillow",     region: WhompingWillow,     group: LevelClears }
-  - { id_offset: 11, name: "LevelClear_RictusempraChallenge", region: RictusempraChallenge, group: LevelClears }
-  - { id_offset: 12, name: "LevelClear_SkurgeChallenge",    region: SkurgeChallenge,    group: LevelClears }
-  - { id_offset: 13, name: "LevelClear_DiffindoChallenge",  region: DiffindoChallenge,  group: LevelClears }
-  - { id_offset: 14, name: "LevelClear_SpongifyChallenge",  region: SpongifyChallenge,  group: LevelClears }
-  - { id_offset: 15, name: "LevelClear_ForbiddenForest",    region: ForbiddenForest,    group: LevelClears }
-  - { id_offset: 16, name: "LevelClear_Quidditch",          region: Quidditch,          group: LevelClears }
-  - { id_offset: 17, name: "LevelClear_BicornLevel",        region: BicornLevel,        group: LevelClears }
-  - { id_offset: 18, name: "LevelClear_BoomslangLevel",     region: BoomslangLevel,     group: LevelClears }
-  - { id_offset: 19, name: "LevelClear_GoyleLevel",         region: GoyleLevel,         group: LevelClears }
-  - { id_offset: 20, name: "LevelClear_SlytherinCommon",    region: SlytherinCommon,    group: LevelClears, notes: "Entry gated by BitOGoyle" }
-  - { id_offset: 21, name: "LevelClear_ChamberOfSecrets",   region: ChamberOfSecrets,   group: LevelClears, notes: "Goal location — entry gating TBD (all spells? challenges cleared?)" }
+# Special progression checks. These are concrete pickups/interactions, not
+# level-completion checks.
+special_checks:
+  - { id_offset: 10, name: "Special_Boomslang",  region: BoomslangLevel, group: SpecialChecks, notes: "AP marker/icon at the vanilla Boomslang pickup" }
+  - { id_offset: 11, name: "Special_Bicorn",     region: BicornLevel,    group: SpecialChecks, notes: "AP marker/icon at the vanilla Bicorn pickup" }
+  - { id_offset: 12, name: "Special_BitOGoyle",  region: GoyleLevel,     group: SpecialChecks, notes: "Goyle end interaction/touch; BitOGoyle is not a vanilla pickup item" }
 
 # 101 card pickup locations. One per card. Region = vanilla level the card lives in.
 # `card_class` matches data/items.yaml `class` so the mod can use card.Id to

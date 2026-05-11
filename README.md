@@ -2,7 +2,7 @@
 
 An Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secrets* (PC, 2002 EA / KnowWonder release).
 
-**Status:** pre-alpha. M0–M5 done. M6 (logic + seed gen) entered playtest 2026-05-09 — first full-playthrough seed generates clean (114 items / 117 locations, sphere 0 = the 3 starter spells, sphere 1 = the 4 classroom spells, no duplicate cards). Stefan is mid-playthrough cataloguing per-card region in `data/locations.yaml`; 5 region `entry:` rules in `data/logic.yaml` still TBD. See `docs/ROADMAP.md` for the full milestone status, `readme-handoff.md` for end-of-session context, and `docs/DESIGN.md#open-questions-to-resolve-in-playtest` for the active blockers.
+**Status:** pre-alpha. M0–M5 done. M6 (logic + seed gen) entered playtest 2026-05-09. The v1 source-data model is now 111 items / 108 checks: 4 classrooms, 101 cards, and 3 special Boomslang/Bicorn/BitOGoyle checks. Stefan is mid-playthrough cataloguing per-card region in `data/locations.yaml`; 5 region `entry:` rules in `data/logic.yaml` still TBD. See `docs/ROADMAP.md` for the full milestone status, `readme-handoff.md` for end-of-session context, and `docs/DESIGN.md#open-questions-to-resolve-in-playtest` for the active blockers.
 
 ## Architecture (one-liner)
 
@@ -47,8 +47,8 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 
 - **Item shuffle** (no entrance shuffle).
 - **Open hub** start; all level doors unlocked from spawn; player can enter any level.
-- **111 items** in pool: 7 spells + 101 wizard cards + Boomslang + Bicorn + BitOGoyle.
-- **~117+ locations**: 4 spell-tutorial classrooms + 12 level completions + 101 card pickups + small extras to be enumerated.
+- **111 unique non-filler items:** 7 spells + 101 wizard cards + Boomslang + Bicorn + BitOGoyle. Lumos/Flipendo/Alohomora are mandatory precollected starters, leaving 108 items to place.
+- **108 checks**: 4 spell-tutorial classrooms + 101 card pickups + 3 special AP-marker checks (Boomslang, Bicorn, BitOGoyle/Goyle touch).
 - **Goal:** defeat Basilisk.
 - **Sphere 0:** 4 spell-teaching classrooms (no items required to reach).
 - **Filler:** beans (3 tiers — small/medium/large).
