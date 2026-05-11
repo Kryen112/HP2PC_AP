@@ -16,6 +16,17 @@ var APIPCActor IPCActor;
 // safer: positive local X is always "forward from the cutscene's facing."
 var Vector RictaBlockerOffset;
 var Vector SkurgeBlockerOffset;
+// Sprout's herbology classroom entrance is wide enough that one bookcase
+// doesn't cover it. Each slot in `DiffindoBlockerOffsets` is the spawn
+// position for one bookcase, in WORLD coords relative to the cutscene
+// actor (no rotation transformation — added directly to cs.Location).
+// World coords match what you see in spawnLoc log lines and let you step
+// purely along a world axis to follow a doorway. Array size = number of
+// bookcases spawned. The bookcase ORIENTATION is still derived from the
+// cutscene rotation (Yaw + 32768 so it faces Harry); only position is
+// world-coords. Tune each slot independently — they don't have to be
+// collinear.
+var Vector DiffindoBlockerOffsets[3];
 
 // Class-default reference to the spawned blocker. Set after a successful
 // Spawn in BlockXxxClassroomIfMissing, used by RemoveXxxBlocker for an
@@ -24,6 +35,7 @@ var Vector SkurgeBlockerOffset;
 // level it lives in is unloaded.
 var Actor RictaBlockerInstance;
 var Actor SkurgeBlockerInstance;
+var Actor DiffindoBlockerInstance;
 
 event InitGame(string Options, out string Error)
 {
@@ -65,6 +77,7 @@ event InitGame(string Options, out string Error)
     ReplaceCardChests();
     BlockRictaClassroomIfMissing();
     BlockSkurgeClassroomIfMissing();
+    BlockDiffindoClassroomIfMissing();
 }
 
 // If the player doesn't already own Rictusempra (per APCardWatcher's AP-grant
@@ -346,6 +359,133 @@ function RemoveSkurgeBlocker()
     if (n == 0)
     {
         Log("[Archipelago] RemoveSkurgeBlocker: tag-scan in " $ string(scanActor.Level) $ " found 0 blockers (player likely not in Grandstaircase_hub)");
+    }
+}
+
+// Mirror of BlockSkurgeClassroomIfMissing for Sprout's Diffindo classroom.
+// Cutscene FileName resolved via same heuristic ("Diffindo" + "Int" suffix);
+// fallback dumps every cutscene FileName if no match.
+function BlockDiffindoClassroomIfMissing()
+{
+    local CutScene cs, candidate;
+    local Actor blocker;
+    local Vector spawnLoc, worldOffset;
+    local Rotator spawnRot;
+    local int i, spawned;
+
+    if (class'APCardWatcher'.default.APGrantedSpell[1] == 1)
+    {
+        Log("[Archipelago] BlockDiffindo: player has Diffindo (APGrantedSpell[1]=1) - no blocker needed");
+        return;
+    }
+
+    // Exact match — discovered via the heuristic-fallback dump. Sprout's
+    // Diffindo intro doesn't follow the same naming convention as Ricta /
+    // Skurge: it uses "Diff" (abbreviated) and the suffix is "Intro" not
+    // "Int". So we hard-code the name like Ricta does.
+    foreach AllActors(class'CutScene', cs)
+    {
+        if (cs.FileName == "08040HerbDiffIntro")
+        {
+            candidate = cs;
+            break;
+        }
+    }
+
+    if (candidate == None)
+    {
+        Log("[Archipelago] BlockDiffindo: 08040HerbDiffIntro cutscene not present in this level (expected only in Grounds_hub)");
+        return;
+    }
+
+    // Sprout's classroom entrance is wider than one bookcase. Spawn one
+    // bookcase per slot in DiffindoBlockerOffsets — each is a WORLD offset
+    // from the cutscene actor (no rotation transformation). Slots are
+    // independent; tune each one's X/Y/Z separately to match the doorway
+    // geometry. Bookcase ORIENTATION still tracks the cutscene rotation
+    // (Yaw + 32768 to face Harry). No idempotency tag-scan up front — if
+    // previous bookcases are still in the level (restored from .usa),
+    // Spawn returns None on encroachment and we just skip that slot.
+    // RemoveDiffindoBlocker's tag-scan destroys every tagged blocker on
+    // AP grant.
+    spawnRot = candidate.Rotation;
+    spawnRot.Yaw = spawnRot.Yaw + 32768;
+
+    Log("[Archipelago] BlockDiffindo: candidate=" $ string(candidate.Name)
+        $ " FileName=" $ candidate.FileName
+        $ " Loc=" $ string(candidate.Location)
+        $ " Rot=" $ string(candidate.Rotation)
+        $ " count=" $ string(ArrayCount(DiffindoBlockerOffsets)));
+
+    spawned = 0;
+    for (i = 0; i < ArrayCount(DiffindoBlockerOffsets); i++)
+    {
+        worldOffset = DiffindoBlockerOffsets[i];
+        spawnLoc = candidate.Location + worldOffset;
+        Log("[Archipelago] BlockDiffindo[" $ string(i) $ "]: worldOffset=" $ string(worldOffset)
+            $ " spawnLoc=" $ string(spawnLoc));
+
+        blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+        if (blocker == None)
+        {
+            Log("[Archipelago] BlockDiffindo[" $ string(i) $ "]: Spawn returned None (encroachment - tweak DiffindoBlockerOffsets[" $ string(i) $ "], or this slot is already filled by a restored save actor)");
+            continue;
+        }
+        blocker.Tag = 'APDiffindoBlocker';
+        if (default.DiffindoBlockerInstance == None)
+        {
+            default.DiffindoBlockerInstance = blocker;
+        }
+        spawned++;
+        Log("[Archipelago] BlockDiffindo[" $ string(i) $ "]: spawned " $ string(blocker));
+    }
+
+    Log("[Archipelago] BlockDiffindo: spawned " $ string(spawned) $ " of " $ string(ArrayCount(DiffindoBlockerOffsets)) $ " bookcases");
+}
+
+function RemoveDiffindoBlocker()
+{
+    local Actor a, scanActor;
+    local APCardWatcher w;
+    local int n;
+
+    // Diffindo spawns a row of bookcases (one per DiffindoBlockerOffsets
+    // slot) to cover the wide herbology entrance. Always tag-scan and
+    // destroy every matching actor — the direct-ref shortcut used by
+    // Ricta/Skurge would only destroy the first one and leak the others.
+    default.DiffindoBlockerInstance = None;
+
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w == None)
+    {
+        Log("[Archipelago] RemoveDiffindoBlocker: no watcher to scan - giving up");
+        return;
+    }
+    if (w.HarryRef != None && !w.HarryRef.bDeleteMe)
+    {
+        scanActor = w.HarryRef;
+    }
+    else
+    {
+        scanActor = w;
+    }
+    n = 0;
+    foreach scanActor.AllActors(class'Actor', a)
+    {
+        if (a.Tag == 'APDiffindoBlocker' && !a.bDeleteMe)
+        {
+            Log("[Archipelago] RemoveDiffindoBlocker: tag-scan found " $ string(a) $ " in " $ string(scanActor.Level) $ " - destroying");
+            a.Destroy();
+            n++;
+        }
+    }
+    if (n == 0)
+    {
+        Log("[Archipelago] RemoveDiffindoBlocker: tag-scan in " $ string(scanActor.Level) $ " found 0 blockers");
+    }
+    else
+    {
+        Log("[Archipelago] RemoveDiffindoBlocker: destroyed " $ string(n) $ " bookcase(s)");
     }
 }
 
@@ -1009,6 +1149,10 @@ function ApplyGrant(string ItemName)
         {
             RemoveSkurgeBlocker();
         }
+        else if (ItemName == "Diffindo")
+        {
+            RemoveDiffindoBlocker();
+        }
         return;
     }
 
@@ -1048,4 +1192,7 @@ defaultproperties
 {
     RictaBlockerOffset=(X=-15.000000,Y=130.000000,Z=0.000000)
     SkurgeBlockerOffset=(X=7.000000,Y=-230.000000,Z=-20.000000)
+    DiffindoBlockerOffsets(0)=(X=50.000000,Y=-172.000000,Z=-20.000000)
+    DiffindoBlockerOffsets(1)=(X=50.000000,Y=-5.000000,Z=-20.000000)
+    DiffindoBlockerOffsets(2)=(X=50.000000,Y=162.000000,Z=-20.000000)
 }

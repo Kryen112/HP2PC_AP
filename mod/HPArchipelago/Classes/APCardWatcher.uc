@@ -388,6 +388,7 @@ function TrySpawnClassroomBlockers()
     }
     gi.BlockRictaClassroomIfMissing();
     gi.BlockSkurgeClassroomIfMissing();
+    gi.BlockDiffindoClassroomIfMissing();
 }
 
 function EnsureLatestRegistration()

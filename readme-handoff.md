@@ -4,6 +4,18 @@ This file is for the next Claude that boots into this repo. Read it top-to-botto
 
 ---
 
+## Resume point for next session (2026-05-12, on Stefan's other PC)
+
+**Pick this up first.** Stefan is continuing tomorrow on his other PC, so the next Claude must read this section before doing anything else.
+
+- **Diffindo bookcase blockers**: done. Row of 3 bookcases in front of Sprout's `08040HerbDiffIntro` cutscene in Grounds_hub covers the doorway. (Tried 4 originally; 3 is enough.)
+- Diffindo offsets are WORLD coords (no rotation transformation) — we switched from local coords because the cutscene's `Yaw=49136 (≈270°)` rotation made diagonal stepping in local space too painful to reason about. World coords match exactly what the spawnLoc log lines show. Bookcase ORIENTATION is still derived from `cs.Rotation + 32768 yaw` so the bookcases face Harry's approach; only POSITION is world-coords.
+- All Diffindo machinery (idempotency dropped for multi-bookcase, tag-scan removal of all 3, save-load resilience via `APCardWatcher.TrySpawnClassroomBlockers`) is in place and working.
+
+**What still needs doing in M8**: Spongify bookcase (tricky — shares Lockhart's DADA room with Rictusempra, so the blocker must gate the spell-challenge auto-teleport rather than the room entry door). Then HUD toast, vendor card sales disable, `docs/PLAYER_SETUP.md`, `tests/test_generation.py`, v1.0.0 release zip. See `docs/ROADMAP.md` M8 + `docs/MOD_TODO.md`.
+
+---
+
 ## Verified end-of-session 2026-05-11
 
 The seed is end-to-end playable, including goal completion. Stefan ran from `Adv1Willow` to the Basilisk and the post-Basilisk Great-Hall walk-in fired `GOAL_COMPLETE`; the AP server marked the slot complete and released items.
@@ -33,7 +45,7 @@ The seed is end-to-end playable, including goal completion. Stefan ran from `Adv
 
 ### What's left for v1 (M8)
 
-The only major remaining gameplay-correctness item: **classroom challenge blockers for Skurge, Diffindo, and Spongify**. The Rictusempra blocker is implemented and verified (`APGameInfo.BlockRictaClassroomIfMissing` / `RemoveRictaBlocker`). The other three need the same pattern. Spongify is tricky because it shares the DADA room with Rictusempra — gate the spell-challenge auto-teleport instead of the room entry.
+The only major remaining gameplay-correctness item: **classroom challenge blocker for Spongify**. Rictusempra / Skurge / Diffindo blockers are implemented and verified. Spongify is tricky because it shares the DADA room with Rictusempra — gate the spell-challenge auto-teleport instead of the room entry.
 
 Other M8 work: HUD toast, vendor card sales disable, player-facing setup walkthrough, seed-gen smoke test.
 
@@ -148,7 +160,7 @@ Standard test loop: `rebuild_mod.ps1` (admin) → `gen_seed.ps1` → `host_seed.
 See `docs/DESIGN.md#v2-parking-lot` for full descriptions.
 
 - **Boomslang / Bicorn / BitOGoyle as AP items/checks** — pulled from v1 pool (vanilla story progression). Reinstate when the mod-side trigger work is reliable (AP marker/icon at Boomslang and Bicorn pickup, end-of-Goyle touch for BitOGoyle).
-- **Spell-challenge auto-transition + locked exit door** for Skurge / Diffindo / Spongify. v1 workaround: AP plando-places each spell at its own classroom and the mod's bookcase blocker (Rictusempra implemented; Skurge / Diffindo / Spongify still TODO) prevents entry without the spell.
+- **Spell-challenge auto-transition + locked exit door** for Skurge / Diffindo / Spongify. v1 workaround: AP plando-places each spell at its own classroom and the mod's bookcase blocker (Rictusempra / Skurge / Diffindo implemented; Spongify still TODO) prevents entry without the spell.
 - **Save-load vs new-game distinction.** Currently no protection against loading a save from a different multiworld slot.
 - Various v2 features: entrance shuffle, alt goal modes, Tier-3 check expansion (Quidditch matches, vendor purchases, dueling), vendor card sales, trap items, etc.
 
