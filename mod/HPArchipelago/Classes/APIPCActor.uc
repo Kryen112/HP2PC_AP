@@ -3,6 +3,15 @@ class APIPCActor extends IpDrv.TcpLink;
 var APIPCActor PersistentInstance;
 var array<string> PendingGrants;
 var bool bLoggedGrantDeferral;
+var float GrantWarmupUntil;
+var float NextGrantDrainTime;
+// ReceivedText delivers raw TCP chunks, not one-line-per-event. When the sidecar
+// burst-writes a resync (e.g. 39 GRANTs back-to-back), TCP coalesces them into
+// one or a few packets; UE1 fires ReceivedText with the whole blob. We have to
+// split on \n ourselves and carry any trailing partial line across the next
+// chunk. Pre-fix this lost ~95% of resync grants and silently truncated the
+// queue.
+var string RecvBuffer;
 
 static function APIPCActor GetInstance()
 {
@@ -49,25 +58,61 @@ event Destroyed()
 event Opened()
 {
     Log("[Archipelago] APIPCActor: Opened - sending hello");
+    // Bumped from 3.0s to 8.0s after save-load playtest showed grants draining
+    // while the player was still on the post-load loading screen. The extra
+    // headroom plus the Level.Pauser gate in TryDrainPendingGrants keeps the
+    // queue cold until the player actually owns input.
+    GrantWarmupUntil = Level.TimeSeconds + 8.0;
+    if (NextGrantDrainTime < GrantWarmupUntil)
+    {
+        NextGrantDrainTime = GrantWarmupUntil;
+    }
     SendText("HELLO" $ Chr(10));
 }
 
 event ReceivedText(string Text)
 {
-    local string trimmed;
-    local int idx;
+    local int idx, crIdx;
+    local string line;
 
-    trimmed = Text;
-    idx = InStr(trimmed, Chr(13));
-    if (idx >= 0) trimmed = Left(trimmed, idx);
-    idx = InStr(trimmed, Chr(10));
-    if (idx >= 0) trimmed = Left(trimmed, idx);
+    // Append the new chunk to whatever partial line was carried over from the
+    // previous ReceivedText call. Then drain every complete \n-terminated line;
+    // leave any trailing tail in RecvBuffer for the next chunk to complete.
+    RecvBuffer = RecvBuffer $ Text;
 
-    Log("[Archipelago] APIPCActor: ReceivedText: " $ trimmed);
-
-    if (Left(trimmed, 6) == "GRANT ")
+    while (True)
     {
-        QueueGrant(Mid(trimmed, 6));
+        idx = InStr(RecvBuffer, Chr(10));
+        if (idx < 0)
+        {
+            break;
+        }
+        line = Left(RecvBuffer, idx);
+        RecvBuffer = Mid(RecvBuffer, idx + 1);
+
+        // Strip a trailing \r if the sender used CRLF.
+        crIdx = InStr(line, Chr(13));
+        if (crIdx >= 0)
+        {
+            line = Left(line, crIdx);
+        }
+
+        if (line == "")
+        {
+            continue;
+        }
+
+        HandleLine(line);
+    }
+}
+
+function HandleLine(string line)
+{
+    Log("[Archipelago] APIPCActor: ReceivedText: " $ line);
+
+    if (Left(line, 6) == "GRANT ")
+    {
+        QueueGrant(Mid(line, 6));
     }
 }
 
@@ -116,6 +161,7 @@ function TryDrainPendingGrants()
 {
     local APGameInfo gi;
     local harry readyHarry;
+    local APCardWatcher watcher;
     local string ItemName;
 
     if (PendingGrants.Length == 0)
@@ -131,6 +177,34 @@ function TryDrainPendingGrants()
         return;
     }
 
+    if (Level.TimeSeconds < GrantWarmupUntil)
+    {
+        if (!bLoggedGrantDeferral)
+        {
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
+                $ " grant(s) - reconnect warmup active for "
+                $ string(GrantWarmupUntil - Level.TimeSeconds) $ " more second(s)");
+            bLoggedGrantDeferral = True;
+        }
+        return;
+    }
+
+    // Don't drain while the game is paused (loading screen, menu open,
+    // cutscene pause). Without this gate, grants land mid-loading-screen and
+    // either apply to a transitional Harry or get clobbered by post-load
+    // state restore. Level.Pauser is a string in HP2 (UE1 retail), not an
+    // object ref — compare to "" not None. See HPConsole.uc:752.
+    if (Level.Pauser != "")
+    {
+        if (!bLoggedGrantDeferral)
+        {
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
+                $ " grant(s) - Level.Pauser=" $ Level.Pauser $ " (menu/loading/cutscene)");
+            bLoggedGrantDeferral = True;
+        }
+        return;
+    }
+
     readyHarry = class'APGameInfo'.static.FindGrantReadyHarry(self);
     if (readyHarry == None)
     {
@@ -141,15 +215,30 @@ function TryDrainPendingGrants()
         }
         return;
     }
+
+    watcher = class'APCardWatcher'.static.GetLatest();
+    if (watcher == None || !watcher.bSnapshotted || watcher.HarryRef == None)
+    {
+        if (!bLoggedGrantDeferral)
+        {
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
+                $ " grant(s) - watcher not snapshotted yet");
+            bLoggedGrantDeferral = True;
+        }
+        return;
+    }
+
+    if (Level.TimeSeconds < NextGrantDrainTime)
+    {
+        return;
+    }
     bLoggedGrantDeferral = False;
 
-    while (PendingGrants.Length > 0)
-    {
-        ItemName = PendingGrants[0];
-        PendingGrants.Remove(0, 1);
-        Log("[Archipelago] APIPCActor: draining queued grant " $ ItemName $ " to " $ string(readyHarry));
-        gi.ApplyGrant(ItemName);
-    }
+    ItemName = PendingGrants[0];
+    PendingGrants.Remove(0, 1);
+    Log("[Archipelago] APIPCActor: draining queued grant " $ ItemName $ " to " $ string(readyHarry));
+    gi.ApplyGrant(ItemName);
+    NextGrantDrainTime = Level.TimeSeconds + 0.75;
 }
 
 defaultproperties

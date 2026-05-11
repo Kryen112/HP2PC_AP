@@ -17,6 +17,15 @@
 class APCardMarker extends WizardCardIcon;
 
 var int CardLocationId;
+// True if this marker was spawned by APGameInfo.ReplaceCardChests for a
+// design-time loose-icon placement (Sweeting, Sykes, Oglethorpe, etc.) as
+// opposed to chest-spawned by chestbronze.generateobject. Loose-spawned
+// markers keep bPersistent=True so they survive level transitions (matching
+// the vanilla wci behaviour they replace, since the cache delta records the
+// vanilla wci as destroyed — without a persistent replacement the spot ends
+// up empty on re-entry). Chest-spawned markers get bPersistent=False via
+// the Timer to avoid the 18-marker-stacking bug.
+var bool bIsLooseSpawn;
 
 function PostBeginPlay()
 {
@@ -31,7 +40,27 @@ function PostBeginPlay()
         Log("[Archipelago] APCardMarker.PostBeginPlay: location " $ CardLocationId
             $ " already checked - destroying immediately");
         Destroy();
+        return;
     }
+
+    // Defer bPersistent=False to next tick. chestbronze.generateobject (uc:163)
+    // stamps newSpawn.bPersistent = bMakeSpawnPersistent AFTER PostBeginPlay
+    // returns, so setting bPersistent here would be overridden. The Timer
+    // fires next tick — by then the chest's generateobject has finished and
+    // our False sticks. Effect: an opened-but-not-picked-up card is gone on
+    // level re-entry instead of stacking into a pile of intangible markers.
+    // (For loose-spawn markers there's no chest stamp, but the timer still
+    // runs harmlessly.)
+    SetTimer(0.05, false);
+}
+
+event Timer()
+{
+    if (!bIsLooseSpawn)
+    {
+        bPersistent = False;
+    }
+    SetTimer(0.0, false);
 }
 
 // Override the parent's bouncing-fall behavior. Vanilla WizardCardIcon.Spawned()
@@ -49,20 +78,54 @@ function Spawned()
 }
 
 // Called by APGameInfo.ReplaceCardChests right after spawning a loose-icon
-// replacement. Loose icons live at design-time exact positions (top of grand
-// staircase, mid-air over Spongify-tile gaps, etc) — gravity from Spawned()
-// would let them slide off platforms or fall into pits. Our 'Wait' state has
-// an empty HitWall so the marker would never settle on its own. Setting
-// PHYS_None pins the marker at its spawn coords. Safe to call mid-Spawn:
-// UE1 is single-threaded so no Tick fires between Spawn() and this call.
+// replacement at a design-time placement. v1 had this switch to PHYS_None to
+// pin the marker, but that broke mover-carried cards (Chamber-II descending
+// platform) because PHYS_None actors don't get pushed by mover collision.
+//
+// v2: no-op. We leave PHYS_Falling from Spawned() in place. The Wait state's
+// HitWall override below zeroes velocity on contact so the card settles on
+// its initial surface without drifting, and a mover sliding through it still
+// carries it via collision.
+//
+// Sets bIsLooseSpawn so the deferred Timer leaves bPersistent at the default
+// True. Without this flag, our Timer-driven bPersistent=False (intended for
+// chest-spawned markers) would also nuke loose-spawned markers, and since the
+// cache delta records the vanilla wci as destroyed, the spot would be empty
+// on every re-entry.
 function MarkAsLoose()
 {
-    SetPhysics(PHYS_None);
+    bIsLooseSpawn = True;
+}
+
+// Override vanilla's empty Wait.HitWall so the card actually settles on its
+// landing surface instead of jittering forever under gravity. Velocity zeroed
+// on every contact; PHYS_Falling stays active so movers can collision-carry
+// the card. Tick keeps vanilla's spinning-yaw animation. The begin: loop
+// mirrors vanilla — UE1 needs a state entry point.
+auto state Wait
+{
+    function HitWall(Vector HitNormal, Actor Wall)
+    {
+        Velocity = vect(0, 0, 0);
+    }
+
+    function Tick(float Delta)
+    {
+        local Rotator newRot;
+
+        newRot = Rotation;
+        newRot.Yaw = newRot.Yaw + (50000 * Delta);
+        SetRotation(newRot);
+    }
+
+begin:
+    Sleep(1.0);
+    goto ('Begin');
 }
 
 function Touch(Actor Other)
 {
-    local APGameInfo gi;
+    local APIPCActor ipc;
     local harry h;
     local Rotator rotPickupFX;
 
@@ -73,10 +136,18 @@ function Touch(Actor Other)
 
     Log("[Archipelago] APCardMarker.Touch: firing CHECK " $ CardLocationId);
 
-    gi = APGameInfo(Level.Game);
-    if (gi != None && gi.IPCActor != None)
+    // Use the persistent singleton directly. Save-load skips APGameInfo.InitGame,
+    // so the post-save-load APGameInfo's IPCActor field stays None and going
+    // through gi.IPCActor silently drops the CHECK. The singleton survives the
+    // level transition via bGameRelevant and is always reachable via GetInstance.
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc != None)
     {
-        gi.IPCActor.SendCheck(CardLocationId);
+        ipc.SendCheck(CardLocationId);
+    }
+    else
+    {
+        Log("[Archipelago] APCardMarker.Touch: APIPCActor singleton is None - CHECK " $ CardLocationId $ " dropped");
     }
 
     class'APCardWatcher'.default.LocationChecked[CardLocationId] = 1;

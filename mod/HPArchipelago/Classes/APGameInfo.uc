@@ -189,11 +189,15 @@ function ReplaceCardChests()
     local bronzecauldron cauldron;
     local WizardCardIcon wci;
     local class<Actor> markerClass;
+    local class<APCardMarker> slotMarkerCls;
     local Actor spawned;
     local Vector looseLoc;
     local Rotator looseRot;
+    local name looseTag;
+    local Actor looseBase;
     local int i;
     local int totalReplaced;
+    local bool hasUnchecked;
 
     totalReplaced = 0;
 
@@ -206,6 +210,39 @@ function ReplaceCardChests()
                 Log("[Archipelago] ReplaceCardChests: chest=" $ string(chest) $ " slot=" $ i $ " was=" $ string(chest.EjectedObjects[i]) $ " -> " $ string(markerClass));
                 chest.EjectedObjects[i] = markerClass;
                 totalReplaced++;
+            }
+        }
+        if (chest.bOpened)
+        {
+            hasUnchecked = False;
+            for (i = 0; i < ArrayCount(chest.EjectedObjects); i++)
+            {
+                if (chest.EjectedObjects[i] != None
+                    && ClassIsChildOf(chest.EjectedObjects[i], class'APCardMarker'))
+                {
+                    slotMarkerCls = class<APCardMarker>(chest.EjectedObjects[i]);
+                    if (slotMarkerCls.default.CardLocationId > 0
+                        && slotMarkerCls.default.CardLocationId <= 101
+                        && class'APCardWatcher'.default.LocationChecked[slotMarkerCls.default.CardLocationId] == 0)
+                    {
+                        hasUnchecked = True;
+                        break;
+                    }
+                }
+            }
+            if (hasUnchecked)
+            {
+                Log("[Archipelago] ReplaceCardChests: chest=" $ string(chest) $ " was opened but has an unchecked APCardMarker slot - resetting bOpened so player can re-open and pick up");
+                chest.bOpened = False;
+                // Restore spell-targetability. stillOpen state had set these to
+                // non-targetable (bProjTarget=False, eVulnerableToSpell=SPELL_None);
+                // GotoState alone won't restore them, so Alohomora wouldn't hit
+                // and the chest would stay shut after our "reset". Defaults are
+                // bProjTarget=True, eVulnerableToSpell=SPELL_Alohomora on
+                // chestbronze (and its ChestWood/Iron/Gold subclasses inherit).
+                chest.bProjTarget = class'chestbronze'.default.bProjTarget;
+                chest.eVulnerableToSpell = class'chestbronze'.default.eVulnerableToSpell;
+                chest.GotoState('waitforspell');
             }
         }
     }
@@ -221,20 +258,81 @@ function ReplaceCardChests()
                 totalReplaced++;
             }
         }
+        if (cauldron.bOpened)
+        {
+            hasUnchecked = False;
+            for (i = 0; i < ArrayCount(cauldron.EjectedObjects); i++)
+            {
+                if (cauldron.EjectedObjects[i] != None
+                    && ClassIsChildOf(cauldron.EjectedObjects[i], class'APCardMarker'))
+                {
+                    slotMarkerCls = class<APCardMarker>(cauldron.EjectedObjects[i]);
+                    if (slotMarkerCls.default.CardLocationId > 0
+                        && slotMarkerCls.default.CardLocationId <= 101
+                        && class'APCardWatcher'.default.LocationChecked[slotMarkerCls.default.CardLocationId] == 0)
+                    {
+                        hasUnchecked = True;
+                        break;
+                    }
+                }
+            }
+            if (hasUnchecked)
+            {
+                Log("[Archipelago] ReplaceCardChests: cauldron=" $ string(cauldron) $ " was opened but has an unchecked APCardMarker slot - resetting bOpened so player can re-open and pick up");
+                cauldron.bOpened = False;
+                // Same flag-restore as the chest path. Cauldron is Flipendo-opened.
+                cauldron.bProjTarget = class'bronzecauldron'.default.bProjTarget;
+                cauldron.eVulnerableToSpell = class'bronzecauldron'.default.eVulnerableToSpell;
+                cauldron.GotoState('waitforspell');
+            }
+        }
     }
 
     foreach AllActors(class'WizardCardIcon', wci)
     {
         if (wci.IsA('APCardMarker')) continue;
+
+        // If this loose icon's location has already been checked this session,
+        // just destroy the vanilla wci and don't spawn a replacement. Avoids
+        // the "ghost sprite" Stefan saw after day/night transitions: the
+        // freshly-spawned APCardMarker_<X> would self-destroy in PostBeginPlay
+        // due to the LocationChecked[] guard, but the brief lifetime + render
+        // timing could leave a visible-but-untouchable card icon behind.
+        // Chest path uses Jellybean swap; loose path has no surrounding
+        // container so empty space is the cleanest result.
+        if (wci.Id > 0 && wci.Id <= 101
+            && class'APCardWatcher'.default.LocationChecked[wci.Id] == 1)
+        {
+            Log("[Archipelago] ReplaceCardChests: loose icon=" $ string(wci) $ " location " $ wci.Id $ " already checked - destroying vanilla wci with no replacement");
+            wci.Destroy();
+            continue;
+        }
+
         markerClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(wci.Class.Name), class'Class'));
         if (markerClass != None)
         {
-            // Capture location/rotation before destroying wci. We must destroy
-            // wci FIRST — Spawn at the same coords with wci still present causes
-            // encroachment, the engine destroys the new marker and returns None.
+            // Capture location/rotation/tag/base before destroying wci. We must
+            // destroy wci FIRST — Spawn at the same coords with wci still present
+            // causes encroachment, the engine destroys the new marker and returns
+            // None.
+            //
+            // Tag and Base get copied so the new marker keeps any mover
+            // attachment the level designer set up. In UE1, movers attach actors
+            // via their `AttachTag` field in `PostBeginPlay` (which runs AFTER
+            // InitGame, i.e. AFTER this function); a Tag-match on our new marker
+            // makes that scan attach us. Base is copied too in case the editor
+            // set it directly on the wci (rare but cheap to handle).
+            //
+            // Concrete case this fixes: Chamber-of-Secrets II has a freestanding
+            // card on a descending platform. Pre-fix, the marker stayed at its
+            // original Z while the platform dropped because PHYS_None pins to
+            // world coords. With Tag inherited, the mover's PostBeginPlay scan
+            // SetBases the marker so it follows the platform down.
             looseLoc = wci.Location;
             looseRot = wci.Rotation;
-            Log("[Archipelago] ReplaceCardChests: loose icon=" $ string(wci) $ " (class=" $ string(wci.Class.Name) $ ") at " $ string(looseLoc) $ " -> spawn " $ string(markerClass));
+            looseTag = wci.Tag;
+            looseBase = wci.Base;
+            Log("[Archipelago] ReplaceCardChests: loose icon=" $ string(wci) $ " (class=" $ string(wci.Class.Name) $ ") at " $ string(looseLoc) $ " Tag=" $ string(looseTag) $ " Base=" $ string(looseBase) $ " -> spawn " $ string(markerClass));
             wci.Destroy();
             spawned = Spawn(markerClass, , , looseLoc, looseRot);
             if (spawned == None)
@@ -243,8 +341,16 @@ function ReplaceCardChests()
             }
             else
             {
+                if (looseTag != 'None')
+                {
+                    spawned.Tag = looseTag;
+                }
+                if (looseBase != None)
+                {
+                    spawned.SetBase(looseBase);
+                }
                 APCardMarker(spawned).MarkAsLoose();
-                Log("[Archipelago] ReplaceCardChests: spawned " $ string(spawned) $ " at " $ string(spawned.Location) $ " (loose, gravity disabled)");
+                Log("[Archipelago] ReplaceCardChests: spawned " $ string(spawned) $ " at " $ string(spawned.Location) $ " Tag=" $ string(spawned.Tag) $ " Base=" $ string(spawned.Base) $ " (loose, gravity disabled)");
             }
             totalReplaced++;
         }
@@ -263,11 +369,54 @@ function ReplaceCardChests()
 // Helper: if `slot` is a WizardCardIcon subclass that isn't already our marker,
 // resolve the corresponding APCardMarker_<ClassName> and write it to outClass.
 // Returns true if a replacement was found.
+//
+// If the card's location is already checked this session, swap to `Jellybean`
+// instead — mimics vanilla StatusGroupWizardCards.RemoveHarryOwnedCardsFromLevel
+// which bean-swaps chest slots whose card the player already owns. Without
+// this swap, re-opening a looted chest would spawn an APCardMarker whose
+// PostBeginPlay sees LocationChecked[id]==1 and self-destroys, leaving the
+// player with chest particles + sound but no item ("ghost chest" bug).
+//
+// Handles two slot states:
+//   1) Vanilla WCxxx — read .default.Id from the vanilla class.
+//   2) Already-replaced APCardMarker_xxx (restored from a persistent delta
+//      actor cache on re-entry) — read .default.CardLocationId from the marker
+//      class. Without this branch, a card collected in a level twin (e.g.
+//      Wadcock in Grounds_Night) would leave Grounds_hub's chest's
+//      EjectedObjects[0] stuck as the marker class, and the marker's
+//      PostBeginPlay self-destroy produces the ghost chest.
 function bool TryReplaceCardSlot(class<Actor> slot, out class<Actor> outClass)
 {
+    local class<WizardCardIcon> cardCls;
+    local class<APCardMarker> markerCls;
+    local int locationId;
+
     if (slot == None) return False;
-    if (ClassIsChildOf(slot, class'APCardMarker')) return False;
     if (!ClassIsChildOf(slot, class'WizardCardIcon')) return False;
+
+    if (ClassIsChildOf(slot, class'APCardMarker'))
+    {
+        markerCls = class<APCardMarker>(slot);
+        locationId = markerCls.default.CardLocationId;
+        if (locationId > 0 && locationId <= 101
+            && class'APCardWatcher'.default.LocationChecked[locationId] == 1)
+        {
+            Log("[Archipelago] ReplaceCardChests: location " $ locationId $ " already checked - bean-swapping cached APCardMarker " $ string(slot.Name) $ " to Jellybean");
+            outClass = class'Jellybean';
+            return True;
+        }
+        return False;
+    }
+
+    cardCls = class<WizardCardIcon>(slot);
+    locationId = cardCls.default.Id;
+    if (locationId > 0 && locationId <= 101
+        && class'APCardWatcher'.default.LocationChecked[locationId] == 1)
+    {
+        Log("[Archipelago] ReplaceCardChests: location " $ locationId $ " already checked - bean-swapping " $ string(slot.Name) $ " slot to Jellybean");
+        outClass = class'Jellybean';
+        return True;
+    }
 
     outClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(slot.Name), class'Class'));
     if (outClass == None)
@@ -291,6 +440,8 @@ function bool TryApplyCard(string ItemName, harry h)
     local class<StatusItemWizardCards> siClass;
     local StatusGroupWizardCards sgCards;
     local StatusItemWizardCards siCard;
+    local int nOldCardCount;
+    local int nNewCardCount;
 
     cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ ItemName, class'Class'));
     if (cardClass == None)
@@ -338,7 +489,10 @@ function bool TryApplyCard(string ItemName, harry h)
     {
         class'APCardWatcher'.static.GetLatest().MarkAsGranted(cardClass.default.Id);
     }
+    nOldCardCount = siCard.nCount;
     siCard.SetCardOwner(cardClass.default.Id, siCard.ECardOwner.CardOwner_Harry);
+    nNewCardCount = siCard.nCount;
+    PlayCardRewardFX(h, cardClass, nOldCardCount, nNewCardCount);
     // NOTE: vanilla Touch chain ends with sgCards.RemoveHarryOwnedCardsFromLevel(self)
     // to clean up the picked-up icon and replace duplicate-card chest contents
     // with Jellybeans. We deliberately DO NOT call it here. For an AP grant we
@@ -350,13 +504,62 @@ function bool TryApplyCard(string ItemName, harry h)
     return True;
 }
 
+function PlayCardRewardFX(harry h, class<WizardCardIcon> cardClass, int nOldCardCount, int nNewCardCount)
+{
+    local Rotator rotPickupFX;
+
+    if (h == None || nOldCardCount == nNewCardCount)
+    {
+        return;
+    }
+
+    rotPickupFX.Pitch = 16464;
+    rotPickupFX.Yaw = 0;
+    rotPickupFX.Roll = 0;
+
+    if (ClassIsChildOf(cardClass, class'BronzeCards'))
+    {
+        if (nNewCardCount % 10 == 0)
+        {
+            FancySpawn(class'BronzeStamina',,,, rotPickupFX);
+            h.DoCelebrateCardSet(True);
+        }
+        else
+        {
+            FancySpawn(class'BronzePickup',,,, rotPickupFX);
+        }
+        return;
+    }
+
+    if (ClassIsChildOf(cardClass, class'SilverCards'))
+    {
+        if (nNewCardCount % 10 == 0)
+        {
+            FancySpawn(class'SilverUnlock',,,, rotPickupFX);
+            h.DoCelebrateCardSet(False);
+        }
+        else
+        {
+            FancySpawn(class'SilverPickup',,,, rotPickupFX);
+        }
+        return;
+    }
+
+    if (ClassIsChildOf(cardClass, class'Goldcards'))
+    {
+        FancySpawn(class'GoldPickup',,,, rotPickupFX);
+    }
+}
+
 function bool TryApplyKeyItem(string Name, harry h)
 {
     local APCardWatcher watcher;
+    local StatusItem siKey;
 
     if (h == None || h.managerStatus == None) return False;
     if (Name != "Boomslang" && Name != "Bicorn" && Name != "BitOGoyle") return False;
 
+    class'APCardWatcher'.static.MarkKeyItemAsAPGrantedDefault(Name);
     watcher = class'APCardWatcher'.static.GetLatest();
     if (watcher != None)
     {
@@ -365,18 +568,40 @@ function bool TryApplyKeyItem(string Name, harry h)
 
     if (Name == "Boomslang")
     {
+        siKey = h.managerStatus.GetStatusItem(class'StatusGroupPolyIngr', class'StatusItemBoomslang');
+        if (siKey != None && siKey.nCount > 0)
+        {
+            Log("[Archipelago] ApplyGrant: Boomslang already owned - no-op");
+            return True;
+        }
         h.managerStatus.AddBoomslang(1);
         Log("[Archipelago] ApplyGrant: granted Boomslang via AddBoomslang(1)");
         return True;
     }
     if (Name == "Bicorn")
     {
+        siKey = h.managerStatus.GetStatusItem(class'StatusGroupPolyIngr', class'StatusItemBicorn');
+        if (siKey != None && siKey.nCount > 0)
+        {
+            Log("[Archipelago] ApplyGrant: Bicorn already owned - no-op");
+            return True;
+        }
         h.managerStatus.AddBicorn(1);
         Log("[Archipelago] ApplyGrant: granted Bicorn via AddBicorn(1)");
         return True;
     }
     if (Name == "BitOGoyle")
     {
+        siKey = h.managerStatus.GetStatusItem(class'StatusGroupPolyIngr', class'StatusItemBitOGoyle');
+        if (siKey == None)
+        {
+            siKey = h.managerStatus.GetStatusItem(class'StatusGroupPotionIngr', class'StatusItemBitOGoyle');
+        }
+        if (siKey != None && siKey.nCount > 0)
+        {
+            Log("[Archipelago] ApplyGrant: BitOGoyle already owned - no-op");
+            return True;
+        }
         h.managerStatus.IncrementCount(class'StatusGroupPolyIngr', class'StatusItemBitOGoyle', 1);
         Log("[Archipelago] ApplyGrant: granted BitOGoyle via IncrementCount");
         return True;

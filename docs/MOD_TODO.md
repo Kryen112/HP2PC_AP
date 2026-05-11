@@ -6,15 +6,15 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 - [x] **Card pickup hook (M3+M6, 2026-05-08)** — superseded by `APCardMarker` architecture. `APGameInfo.ReplaceCardChests()` runs at every `InitGame`: iterates `chestbronze` (covers all chest variants via polymorphism), `bronzecauldron`, and loose `WizardCardIcon` actors; replaces card-class slots / icons with `APCardMarker_<ClassName>` (one of 101 generated subclasses). Markers extend `WizardCardIcon` so they look identical, but carry sentinel `Id=200` (vanilla bean-swap can't match) and the real card id in `CardLocationId`. On `Touch` they fire `CHECK <CardLocationId>` and self-destroy — no `SetCardOwner` no celebration no exploit. `APCardWatcher` still polls `IsOwnedByHarry` as a safety net for cutscene-script grants the marker swap doesn't cover. Full design in `docs/DESIGN.md#card-pickup-architecture-apcardmarker`.
 - [x] **Spell-tutorial completion hook (M5+M6, 2026-05-07)** — `APCardWatcher` polls `harry.IsInSpellBook` and fires `CHECK_SPELL <name>` on diff; sidecar's `SPELL_TO_LOCATION_NAME` maps the 4 non-starter spells (Rictusempra, Skurge, Diffindo, Spongify) to `Classroom_Lockhart_Rictusempra` / `_Flitwick_Skurge` / `_Sprout_Diffindo` / `_Lockhart_Spongify` respectively, then sends `LocationChecks`. Lumos/Flipendo/Alohomora are starter cutscene spells — baselined in the watcher's initial snapshot, never fire CHECK_SPELL, and are mandatory precollected items in the APWorld.
-- [ ] **Special pickup/interact checks (Boomslang, Bicorn, BitOGoyle)** — replace the old key-item-as-level-clear hook model. Boomslang and Bicorn should be represented by AP markers/icons at their vanilla ingredient pickups. BitOGoyle should fire from the end-of-Goyle interaction/touch; there is no vanilla pickup item for it. Sidecar mapping already points these to `Special_Boomslang`, `Special_Bicorn`, and `Special_BitOGoyle`. Existing `CHECK_KEYITEM` polling can remain as grant echo-suppression/safety net, but it is not the final v1 check model.
-- [x] **Goal-complete hook (post-Basilisk credits roll) — drafted 2026-05-08, untested in-game** — investigation 2026-05-07 traced the credit-roll flow:
+- [~] **Special pickup/interact checks (Boomslang, Bicorn, BitOGoyle)** — DEFERRED TO v2. Removed from v1 item/location pool (2026-05-11) — the items flow through vanilla story progression. `APCardWatcher` still polls and fires `CHECK_KEYITEM` for vanilla pickups, but the sidecar's `KEYITEM_TO_LOCATION_NAME` is empty so those CHECKs are silently dropped. Re-instate when the mod-side trigger work is reliable: AP marker/icon at Boomslang and Bicorn pickup spots, and the end-of-Goyle interaction/touch for BitOGoyle.
+- [x] **Goal-complete hook (post-Basilisk credits roll) — verified working 2026-05-11.** Investigation 2026-05-07 traced the credit-roll flow:
     - Post-Basilisk cutscene `.cut` invokes the `RunCredits` cutscene command.
     - `harry.uc:5582` matches it and calls `HPConsole(Player.Console).menuBook.RunTheCredits();`.
     - `FEBook.uc:1378` `RunTheCredits()` → `ShowCredits()` (line 1392), which sets `bInEndGame = True` and opens the credits page.
     - `bInEndGame` defaults False (`FEBook.uc:103`), is *only* set True in `ShowCredits()` (the also-defined `EndGame()` at line 1373 is dead — never called from anywhere). Single, reliable goal signal.
     - **Plan:** add a `bInEndGame` poll to `APCardWatcher.Tick`, alongside the existing cards/spells/key-items polls (0.25s cadence). On False → True transition, fire one-shot `GOAL_COMPLETE` line over IPC. Reach via `HPConsole(PlayerHarry.Player.Console).menuBook` — the same access pattern the vanilla command handler uses, so it's known-correct. Null-check both `Console` and `menuBook` (may be None during level loads).
     - **Sidecar side:** add a `GOAL_COMPLETE` branch in `_handle_game_line` that sends `{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}` over the AP WebSocket. `ClientStatus` is already imported from `NetUtils` (`hp2_ap_client.py:57`).
-    - **Implementation (2026-05-08):** `APIPCActor.SendGoalComplete()` adds the IPC line; `APCardWatcher.Timer()` polls `HPConsole(HarryRef.Player.Console).menuBook.bInEndGame` with a `WasInEndGame` one-shot guard and null-checks Player/Console/menuBook; sidecar `_handle_game_line` GOAL_COMPLETE branch sends `ClientStatus.CLIENT_GOAL` with a `goal_sent` dedupe flag. Untested in-game — verify post-Basilisk run on next playtest.
+    - **Implementation (2026-05-08, verified 2026-05-11):** `APIPCActor.SendGoalComplete()` adds the IPC line; `APCardWatcher.Timer()` polls `HPConsole(HarryRef.Player.Console).menuBook.bInEndGame` with a `WasInEndGame` one-shot guard and null-checks Player/Console/menuBook; sidecar `_handle_game_line` GOAL_COMPLETE branch sends `ClientStatus.CLIENT_GOAL` with a `goal_sent` dedupe flag. End-to-end verified — entering the Great Hall after Basilisk, skipping the cutscene, fires `bInEndGame=True`, AP marks the slot complete, items released.
     - Considered alternatives: subclass `FEBook` and override `RunTheCredits()` (cleaner OO hook but requires registering our subclass through the menu system — risky); subclass `harry` and override `CutCommand` to intercept "RunCredits" (invasive — `harry` is referenced by exact type all over the codebase); hook a level-script `Trigger` at the Great Hall doors (would fire at Great Hall arrival rather than a few seconds later at credits start, more aligned with Stefan's "speedrun endpoint" phrasing — but level scripts live in `.unr` files not decompiled here, so identification needs `UnrealEd` access on the game machine; deferred).
     - **Latency:** the post-arrival cutscene plays for several seconds before `RunCredits` fires, so `bInEndGame` flips ~5-10s after Harry walks into the Great Hall. Fine for AP — the seed is "complete" the moment any credits-bound cutscene starts; AP doesn't care about sub-second precision.
 
@@ -28,14 +28,19 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 ## Item delivery queue
 
-- [ ] **`APItemQueue`** — FIFO queue. `grant_item` messages enqueue. A `Tick`-based drainer applies items only in **safe states**:
-  - Harry exists, has player control (no `bIsInCutscene`, no menu open, no level load in progress, not Quidditch mid-match, not in dialog).
-  - One item per ~1.5 seconds to prevent FX/sound flooding.
+- [x] **`APItemQueue`** — FIFO queue in `APIPCActor.PendingGrants`. `GRANT` messages enqueue via `QueueGrant`. `TryDrainPendingGrants` (Timer-driven, 0.25s tick) applies items only in safe states: `Level.TimeSeconds >= GrantWarmupUntil` (8 seconds after connect), `Level.Pauser == ""` (no menu / loading / cutscene pause), a ready gameplay `harry`, and a snapshotted `APCardWatcher`. One item per 0.75 seconds to prevent FX/sound flooding.
 - [ ] **HUD toast** — for every applied item, also emit an on-screen "Received <item> from <player>" message. Stack vertically, fade after a few seconds.
 
 ## Vendor disable
 
-- [ ] **Disable vendor card sales** — find the vendor inventory class; remove cards from the available SKUs. Beans / potion ingredients still sold normally.
+- [ ] **Disable vendor card sales** — find the vendor inventory class; remove cards from the available SKUs. Beans / potion ingredients still sold normally. Currently a missed card in an un-replayable level (e.g., Goyle) will be re-sold by Fred/George as a vanilla card with no AP check firing.
+
+## Classroom challenge blockers (M8)
+
+- [x] **Rictusempra bookcase** — `APGameInfo.BlockRictaClassroomIfMissing` spawns a `BookcaseGlassDoors` actor at the cutscene-intro location for `02060DADARictaInt` when the player doesn't yet own Rictusempra; `RemoveRictaBlocker` clears it when AP grants the spell. Verified working.
+- [ ] **Skurge bookcase** — mirror the Rictusempra pattern for Flitwick's classroom. Identify the cutscene/trigger that fires the Skurge spell challenge, spawn a blocker at it when the player doesn't own Skurge, remove on AP grant. Add a fallback tag scan (same pattern as `RemoveRictaBlocker`) for save-load resilience.
+- [ ] **Diffindo bookcase** — mirror for Sprout's herbology classroom.
+- [ ] **Spongify bookcase** — tricky: Spongify is taught in Lockhart's DADA classroom, the same room as Rictusempra. A door-side bookcase would block Rictusempra too. Instead, gate the spell-challenge auto-teleport (intercept whatever trigger fires the Spongify challenge) rather than the room entry.
 
 ## Level lockouts
 
@@ -49,8 +54,8 @@ Running list of things the UScript mod must do. Build out across milestones M1�
 
 ## IPC
 
-- [x] **`APIPCActor` (M2/M3, 2026-05-07)** — extends `IpDrv.TcpLink`, connects to `localhost:38281` via `StringToIpAddr` (no DNS roundtrip). Persists across levels via `bGameRelevant=True` + `bAlwaysRelevant=True` + class-default singleton ref + per-instance check in `APGameInfo.InitGame`. Sidecar accept-loop tolerates per-level reconnects but the singleton means it doesn't churn unnecessarily. Currently uses simple `HELLO` / `CHECK <id>` / `GRANT <classname>` text protocol; will move to JSON in M4.
-- [ ] **Boot sequence:** on level load, if not connected, attempt connect. On connect, request the items-received list from the sidecar (which got it from the AP server) and re-apply via `APItemReceiver` (idempotent). *(Today: connect happens but no replay on connect — needs to be added in M4.)*
+- [x] **`APIPCActor` (M2/M3, 2026-05-07)** — extends `IpDrv.TcpLink`, connects to `localhost:38281` via `StringToIpAddr` (no DNS roundtrip). Persists across levels via `bGameRelevant=True` + `bAlwaysRelevant=True` + class-default singleton ref + per-instance check in `APGameInfo.InitGame`. Hardened 2026-05-11: `ReceivedText` now appends to `RecvBuffer` and parses every `\n`-terminated line (a sidecar resync burst is one TCP chunk with many lines — pre-fix this dropped ~95% of GRANTs). All `gi.IPCActor.Send*` call sites now go through `class'APIPCActor'.static.GetInstance()` so post-save-load CHECKs still flow when `APGameInfo.InitGame` is skipped by `ProcessServerTravel`.
+- [x] **Boot sequence / resync:** sidecar's `_resync_durable_grants` replays all durable items on `HELLO`. Idempotent apply means double-delivery is safe. Sidecar `game_writer` race fixed 2026-05-11 — finally clause only nulls if the writer is still ours, so an old-handler wakeup after a new connection doesn't strand the live writer.
 - [x] **Persistence across levels** — solved with the singleton + `bGameRelevant`/`bAlwaysRelevant` pattern. One `APIPCActor`, one connection, lasts the whole game session.
 
 ## Config

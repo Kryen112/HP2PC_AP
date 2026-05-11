@@ -64,7 +64,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **De-risks:** the data pipeline. After M5, adding/changing items is a YAML edit + regen.
 
-## M6 — Logic and seed generation ⏳ in progress (commit df05524 + uncommitted)
+## M6 — Logic and seed generation ✅ (committed through 2026-05-11)
 
 **Goal:** generated seeds are solvable end-to-end.
 
@@ -91,39 +91,51 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - Moved Lumos/Flipendo/Alohomora into mandatory APWorld precollection so the 111 unique non-filler items fit the 108-location v1 model.
 - Verified AP generation under the 108-check model; `Generate.py` fills 104 random items after 3 precollected starter spells and 4 classroom plandos.
 
-**Still TODO:**
-- Implement AP marker/icon hooks for Boomslang and Bicorn so their vanilla ingredient pickups send `Special_Boomslang` and `Special_Bicorn`.
-- Implement the BitOGoyle Goyle-touch/end-interaction hook so it sends `Special_BitOGoyle`; BitOGoyle is not a vanilla pickup item.
-- Fill in `entry:` rules for the 5 TBD regions (ForbiddenForest, Quidditch, BicornLevel, BoomslangLevel, GoyleLevel). Currently fires lenient-warning each gen.
-- Fill in `region:` for the 101 cards in `data/locations.yaml` as Stefan catalogues them during playtest (in progress 2026-05-09).
-- Solo playtest a real seed start-to-finish (in progress 2026-05-09 — Stefan running `AP_*.zip` from `Archipelago\output\hp2_test\`).
-- Spell-challenge softlock proper fix: v1 workaround above is plando each spell at its own classroom; v2 fix is unlocking the door via UScript so spells can land elsewhere too.
+**Done (2026-05-11):**
+- All 18 region entry rules authored with full spell-chain requirements (Alohomora explicitly listed where it's required, in anticipation of a future "Alohomora-not-starter" YAML option).
+- All 101 cards have a region in `data/locations.yaml` (one — Card_Sykes — was caught as a typo in original cataloguing and corrected).
+- 38 per-location override rules cover the cards/classrooms whose requirements differ from their region entry.
+- Boomslang / Bicorn / BitOGoyle removed from the AP item/location pool — v1 lets them flow through vanilla story progression. Pool is now 108 items / 105 checks (was 111/108).
+- Day/night unified — no separate `HogwartsNight` region (Castle-Exterior cards reachable in either daylight or night version of Grounds_hub).
+- Gold-card chest locations forbidden from receiving Silver-card items via `add_item_rule` (prevents 40-silver-to-unlock-gold-chest circular dependency).
+- Spell-challenge softlock workaround: each non-starter spell is plando'd at its own classroom + bookcase blocker class (Rictusempra-only implemented mod-side; Skurge/Diffindo/Spongify bookcase blockers are M8 work).
+
+**Deferred to v2 (see `docs/DESIGN.md#v2-parking-lot`):**
+- Boomslang/Bicorn/BitOGoyle as AP checks + items.
+- Spell-challenge softlock proper fix (unlock the exit door via UScript so spells can land elsewhere).
+- Quidditch matches and vendor-purchases as Tier-3 checks.
 
 **De-risks:** the AP world correctness.
 
-## M7 — Goal detection + endgame ⏳ drafted (untested in-game)
+## M7 — Goal detection + endgame ✅ (verified 2026-05-11)
 
 **Goal:** finishing a seed is recognized as such.
 
-**Done (drafted 2026-05-08):**
+**Done:**
 - `APIPCActor.SendGoalComplete()` adds a one-shot `GOAL_COMPLETE` IPC line.
 - `APCardWatcher.Timer()` polls `FEBook.bInEndGame` (set True by `ShowCredits` at `FEBook.uc:1392` when the post-Basilisk credits cutscene runs) via `HPConsole(HarryRef.Player.Console).menuBook`, fires `SendGoalComplete()` on False→True transition with a `WasInEndGame` one-shot guard. Reuses the existing 0.25s timer rather than adding a separate `APGoalDetector` actor — the original plan's standalone-actor design folded into the watcher because the access pattern is identical.
 - Sidecar `_handle_game_line` adds a `GOAL_COMPLETE` branch that sends `{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}` to the AP WebSocket, with a `goal_sent` dedupe flag for defence-in-depth.
 
-**Still TODO:**
-- Compile-verify on the gaming machine (laptop UCC pending DLL-load fix).
-- Play a seed end-to-end; confirm AP server marks slot complete after Basilisk + Great Hall walk-in + ~5-10s credits-cutscene latency from the drafted `GOAL_COMPLETE` path.
+**Verified 2026-05-11:** post-Basilisk Great-Hall walk-in (cutscene skipped) fires `bInEndGame=True`, mod sends `GOAL_COMPLETE`, sidecar relays `ClientStatus.CLIENT_GOAL` to the AP server, AP releases items and marks the slot complete. End-to-end working.
 
 **De-risks:** end-of-run signal correctness.
 
-## M8 — UX polish
+## M8 — UX polish ⏳ in progress
 
 **Goal:** v1 ships.
 
+**Done (2026-05-11 series):**
+- Mover-attached cards follow movers (Chamber-II descending platform: Card_Elphick rides down).
+- Chest persistence: opened chest + collected card → chest stays open with Jellybean on re-entry (vanilla post-pickup parity); opened + not collected → chest resets to closed-and-spell-vulnerable so the player can try again (no softlock).
+- Loose-icon persistence: marker survives via cache for unpicked loose cards; on twin-level pickup the cached marker self-destroys via `PostBeginPlay`'s LocationChecked guard.
+- Twin-level card chests (Wadcock day/night): once picked up on either side, the other side bean-swaps to Jellybean.
+- IPC robustness: `ReceivedText` now buffers across TCP chunks so multi-line packets aren't truncated; `APIPCActor.GetInstance()` singleton accessor used everywhere (save-load resilient); sidecar `game_writer` race fixed on reconnect; 8s warmup + `Level.Pauser` gate on grant drain so no items land during loading screens / menus.
+- Save-load spell-revert fix: `APCardWatcher.EnsureLatestRegistration` clears `bSnapshotted` so the post-save-load instance re-snapshots before its revert loop runs, preventing the "Flipendo/Lumos/Rictusempra/Skurge wiped after save reload" bug.
+
+**Still TODO:**
+- **Bookcase challenge blocks** for Skurge / Diffindo / Spongify classrooms (Rictusempra bookcase already implemented and verified). Spongify shares the DADA room with Rictusempra so its blocker needs a different approach (gate the auto-teleport into the spell challenge, not the room entry).
 - HUD toast actor (`APHUDToast.uc`) — on-screen "Received X from Y" notification, queued, drains during safe states.
-- Card-receive plays native pickup FX. Spell-receive reuses 10-card-set celebration FX.
 - Vendor card sales disabled.
-- Levels confirmed re-entrable.
 - Player-facing `docs/PLAYER_SETUP.md` walkthrough.
 - `tests/test_generation.py`: "100 seeds generate without error".
 - Tagged `v1.0.0` GitHub release zip.

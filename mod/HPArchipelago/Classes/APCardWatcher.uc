@@ -83,6 +83,7 @@ function MarkKeyItemAsGranted(string KeyItemName)
         {
             APGrantedKeyItem[i] = 1;
             WasKeyItemOwned[i] = 1;
+            default.APGrantedKeyItem[i] = 1;
             Log("[Archipelago] APCardWatcher.MarkKeyItemAsGranted: " $ KeyItemName);
             return;
         }
@@ -142,6 +143,14 @@ event PreBeginPlay()
             WasSpellOwned[i] = 1;
         }
     }
+    for (i = 0; i < NUM_KEY_ITEMS; i++)
+    {
+        if (default.APGrantedKeyItem[i] == 1)
+        {
+            APGrantedKeyItem[i] = 1;
+            WasKeyItemOwned[i] = 1;
+        }
+    }
 }
 
 // Class-default-only marker so APGameInfo.ApplyGrant can mark a spell as
@@ -161,10 +170,19 @@ static function MarkSpellAsAPGrantedDefault(string SpellName)
     Log("[Archipelago] APCardWatcher.MarkSpellAsAPGrantedDefault: " $ SpellName $ " (class default set)");
 }
 
+static function MarkKeyItemAsAPGrantedDefault(string KeyItemName)
+{
+    if      (KeyItemName == "Boomslang") default.APGrantedKeyItem[0] = 1;
+    else if (KeyItemName == "Bicorn")    default.APGrantedKeyItem[1] = 1;
+    else if (KeyItemName == "BitOGoyle") default.APGrantedKeyItem[2] = 1;
+    else return;
+    Log("[Archipelago] APCardWatcher.MarkKeyItemAsAPGrantedDefault: " $ KeyItemName $ " (class default set)");
+}
+
 event Timer()
 {
     local int id, i;
-    local APGameInfo gi;
+    local APIPCActor ipc;
     local HPConsole console;
     local FEBook book;
     local harry viewportHarry;
@@ -197,7 +215,11 @@ event Timer()
         Snapshot();
     }
 
-    gi = APGameInfo(Level.Game);
+    // Use the singleton directly instead of Level.Game.IPCActor. Save-load
+    // skips APGameInfo.InitGame, leaving the post-save GameInfo with IPCActor=None
+    // even though the persistent singleton is still alive. Pre-fix this dropped
+    // every game→sidecar CHECK after a save-load.
+    ipc = class'APIPCActor'.static.GetInstance();
 
     for (id = 1; id <= MAX_CARD_ID; id++)
     {
@@ -205,9 +227,9 @@ event Timer()
         {
             WasOwnedByHarry[id] = 1;
             Log("[Archipelago] APCardWatcher: new vanilla card pickup detected, id=" $ id);
-            if (gi != None && gi.IPCActor != None)
+            if (ipc != None)
             {
-                gi.IPCActor.SendCheck(id);
+                ipc.SendCheck(id);
             }
             RevertVanillaPickup(id);
         }
@@ -225,9 +247,9 @@ event Timer()
             {
                 WasSpellOwned[i] = 1;
                 Log("[Archipelago] APCardWatcher: new vanilla spell learned: " $ SpellNames[i]);
-                if (gi != None && gi.IPCActor != None)
+                if (ipc != None)
                 {
-                    gi.IPCActor.SendCheckSpell(SpellNames[i]);
+                    ipc.SendCheckSpell(SpellNames[i]);
                 }
             }
             HarryRef.SpellBook[SpellClasses[i].default.SpellType] = None;
@@ -241,9 +263,9 @@ event Timer()
         {
             WasKeyItemOwned[i] = 1;
             Log("[Archipelago] APCardWatcher: new key item: " $ KeyItemNames[i]);
-            if (gi != None && gi.IPCActor != None)
+            if (ipc != None)
             {
-                gi.IPCActor.SendCheckKeyItem(KeyItemNames[i]);
+                ipc.SendCheckKeyItem(KeyItemNames[i]);
             }
         }
     }
@@ -265,9 +287,9 @@ event Timer()
             {
                 WasInEndGame = 1;
                 Log("[Archipelago] APCardWatcher: bInEndGame transitioned True - firing GOAL_COMPLETE");
-                if (gi != None && gi.IPCActor != None)
+                if (ipc != None)
                 {
-                    gi.IPCActor.SendGoalComplete();
+                    ipc.SendGoalComplete();
                 }
             }
         }
@@ -368,7 +390,15 @@ function EnsureLatestRegistration()
     if (current == None || current.bDeleteMe)
     {
         default.LatestInstance = self;
-        Log("[Archipelago] APCardWatcher: restored LatestInstance -> self (was empty/stale)");
+        // Save-load fix: a watcher restored from a .usa save can come back with
+        // bSnapshotted=True but stale/zeroed APGrantedSpell[] (e.g. when the
+        // class layout changed between save creation and load). That makes the
+        // next Timer skip Bind+Snapshot and run the revert path, wiping any
+        // AP-granted spells the save preserved in HarryRef.SpellBook[]. Forcing
+        // a re-snapshot here re-baselines APGrantedSpell from the live
+        // spellbook before the revert path can fire.
+        bSnapshotted = False;
+        Log("[Archipelago] APCardWatcher: restored LatestInstance -> self (was empty/stale, re-snapshotting)");
         return;
     }
 

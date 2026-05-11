@@ -23,10 +23,10 @@ spells:
   - { id_offset: 6, name: Skurge,     classification: progression, group: Spells }
   - { id_offset: 7, name: Spongify,   classification: progression, group: Spells }
 
-key_items:
-  - { id_offset: 8,  name: Boomslang,  classification: progression, group: KeyItems, notes: "Required for ___ level (TBD playtest)" }
-  - { id_offset: 9,  name: Bicorn,     classification: progression, group: KeyItems, notes: "Required for ___ level (TBD playtest)" }
-  - { id_offset: 10, name: BitOGoyle,  classification: progression, group: KeyItems, notes: "Required to enter Slytherin Common Room" }
+# v1: Boomslang / Bicorn / BitOGoyle are NOT randomized. They flow through
+# vanilla story progression. Add back when the key-item AP path is reliable
+# (mod hook for goyle-bump trigger, vendor behaviour after missed pickup, etc).
+key_items: []
 
 # 50 Bronze cards, IDs 5750100-5750149
 cards_bronze:

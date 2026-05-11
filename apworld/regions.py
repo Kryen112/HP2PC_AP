@@ -6,24 +6,27 @@ from BaseClasses import CollectionState
 
 START_REGION: str = 'Menu'
 
-REGION_NAMES: list[str] = ['BicornLevel', 'BoomslangLevel', 'ChamberOfSecrets', 'DiffindoChallenge', 'ForbiddenForest', 'GoyleLevel', 'Greenhouses', 'Hogwarts', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
+REGION_NAMES: list[str] = ['BicornLevel', 'BoomslangLevel', 'CastleExterior', 'ChamberOfSecrets', 'DiffindoChallenge', 'DumbledoreStudy', 'Dungeons', 'ForbiddenForest', 'GoyleLevel', 'Greenhouses', 'Hogwarts', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
 
 # region_name -> rule(state, player) -> bool. The rule is the requirement to
 # enter the region from the start region (Menu) in the open-hub v1 model. Any
 # region not listed here is considered always-reachable (entry rule = True).
 REGION_ENTRY_RULES: dict[str, Callable[[CollectionState, int], bool]] = {
-    'BicornLevel': lambda state, player: True,
-    'BoomslangLevel': lambda state, player: True,
-    'ChamberOfSecrets': lambda state, player: state.has('Flipendo', player)  and  state.has('Lumos', player)  and  state.has('Alohomora', player)  and  state.has('Diffindo', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Spongify', player),
-    'DiffindoChallenge': lambda state, player: state.has('Diffindo', player),
-    'ForbiddenForest': lambda state, player: True,
-    'GoyleLevel': lambda state, player: True,
-    'Greenhouses': lambda state, player: True,
-    'Hogwarts': lambda state, player: True,
-    'Quidditch': lambda state, player: True,
-    'RictusempraChallenge': lambda state, player: state.has('Rictusempra', player),
-    'SkurgeChallenge': lambda state, player: state.has('Skurge', player),
-    'SlytherinCommon': lambda state, player: state.has('BitOGoyle', player),
-    'SpongifyChallenge': lambda state, player: state.has('Spongify', player),
-    'WhompingWillow': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player),
+    'BicornLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player),
+    'BoomslangLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
+    'CastleExterior': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
+    'ChamberOfSecrets': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player),
+    'DiffindoChallenge': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
+    'DumbledoreStudy': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
+    'Dungeons': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player),
+    'ForbiddenForest': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player),
+    'GoyleLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
+    'Greenhouses': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
+    'Hogwarts': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
+    'Quidditch': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player),
+    'RictusempraChallenge': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player),
+    'SkurgeChallenge': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player),
+    'SlytherinCommon': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
+    'SpongifyChallenge': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player),
+    'WhompingWillow': lambda state, player: True,
 }

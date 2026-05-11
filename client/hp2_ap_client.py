@@ -75,6 +75,7 @@ from worlds.harry_potter_2.locations import (
 from worlds.harry_potter_2.items import CARD_CLASS_TO_ITEM_NAME
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
+NON_DURABLE_ITEM_NAMES = {"BeansSmall", "BeansMedium", "BeansLarge"}
 
 # Build UScript class → game-side card Id by composing the two maps:
 #   CARD_GAME_ID_TO_LOCATION_NAME  (game_id → "Card_Foo")
@@ -103,13 +104,12 @@ SPELL_TO_LOCATION_NAME = {
     "Spongify":    "Classroom_Lockhart_Spongify",
 }
 
-# Map UScript special progression name to its AP check. These are concrete
-# pickup/interact checks, not level clears.
-KEYITEM_TO_LOCATION_NAME = {
-    "Boomslang": "Special_Boomslang",
-    "Bicorn":    "Special_Bicorn",
-    "BitOGoyle": "Special_BitOGoyle",
-}
+# Map UScript special progression name to its AP check. v1: empty — Boomslang,
+# Bicorn, and BitOGoyle are not randomized, they flow through vanilla story.
+# The watcher still fires CHECK_KEYITEM when it sees a vanilla pickup; the
+# sidecar's _send_named_location_check then logs "no AP location mapping" and
+# silently skips. Add entries back when these become AP checks again.
+KEYITEM_TO_LOCATION_NAME: dict[str, str] = {}
 
 logger = logging.getLogger("HP2Client")
 
@@ -136,6 +136,10 @@ class HP2Context(CommonContext):
         # inventory delivered before game boot, mid-session game crash, etc).
         # Drained by handle_game_connection on each new game connect.
         self.pending_grants: list[str] = []
+        # Durable items (cards/spells/key items) that should be replayed to the
+        # game when it reconnects or loads an earlier save. Excludes bean filler,
+        # because replaying filler would duplicate a consumable/spendable state.
+        self.durable_grants: list[Optional[str]] = []
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -147,6 +151,7 @@ class HP2Context(CommonContext):
         if cmd == "Connected":
             logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
         elif cmd == "ReceivedItems":
+            package_index = args.get("index")
             for item in args.get("items", []):
                 # item is a NetworkItem namedtuple: (item, location, player, flags)
                 item_id = item.item
@@ -157,8 +162,12 @@ class HP2Context(CommonContext):
                 # key-item / beans branches.
                 ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
                 payload = ucls if ucls else item_name
+                if item_name not in NON_DURABLE_ITEM_NAMES:
+                    self._remember_durable_grant(payload, package_index)
                 logger.info(f"Received item: {item_name} (id={item_id}) → forwarding as GRANT {payload}")
                 self._send_to_game(f"GRANT {payload}")
+                if isinstance(package_index, int):
+                    package_index += 1
 
     def run_gui(self) -> None:
         # CLI-only for now; CommonContext supports GUI but we keep it minimal.
@@ -210,7 +219,13 @@ class HP2Context(CommonContext):
             pass
         finally:
             logger.info(f"Game disconnected ({peer})")
-            self.game_writer = None
+            # Only clear game_writer if it's still OUR writer. On Windows
+            # ProactorEventLoop the previous game's readline can wake up
+            # *after* a new game has already connected and replaced
+            # self.game_writer; clobbering it here would strand the new
+            # connection until sidecar restart.
+            if self.game_writer is writer:
+                self.game_writer = None
             try:
                 writer.close()
             except Exception:
@@ -224,6 +239,7 @@ class HP2Context(CommonContext):
 
     async def _handle_game_line(self, line: str) -> None:
         if line == "HELLO":
+            self._resync_durable_grants()
             return
         if line == "GOAL_COMPLETE":
             if self.goal_sent:
@@ -291,6 +307,23 @@ class HP2Context(CommonContext):
         self.checked_locations_seen.add(location_id)
         await self.send_msgs([{"cmd": "LocationChecks", "locations": [location_id]}])
         logger.info(f"Sent LocationChecks for {location_name} (id={location_id}, {kind} {game_name!r})")
+
+    def _resync_durable_grants(self) -> None:
+        grants = [payload for payload in self.durable_grants if payload is not None]
+        if not grants:
+            logger.info("Game HELLO received; no durable grants to resync")
+            return
+        logger.info(f"Game HELLO received; resyncing {len(grants)} durable grant(s)")
+        for payload in grants:
+            self._send_to_game(f"GRANT {payload}")
+
+    def _remember_durable_grant(self, payload: str, index: object) -> None:
+        if isinstance(index, int) and index >= 0:
+            while len(self.durable_grants) <= index:
+                self.durable_grants.append(None)
+            self.durable_grants[index] = payload
+            return
+        self.durable_grants.append(payload)
 
     async def run_tcp_server(self) -> None:
         server = await asyncio.start_server(

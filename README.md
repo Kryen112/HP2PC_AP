@@ -2,7 +2,7 @@
 
 An Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secrets* (PC, 2002 EA / KnowWonder release).
 
-**Status:** pre-alpha. M0–M5 done. M6 (logic + seed gen) entered playtest 2026-05-09. The v1 source-data model is now 111 items / 108 checks: 4 classrooms, 101 cards, and 3 special Boomslang/Bicorn/BitOGoyle checks. Stefan is mid-playthrough cataloguing per-card region in `data/locations.yaml`; 5 region `entry:` rules in `data/logic.yaml` still TBD. See `docs/ROADMAP.md` for the full milestone status, `readme-handoff.md` for end-of-session context, and `docs/DESIGN.md#open-questions-to-resolve-in-playtest` for the active blockers.
+**Status:** pre-alpha, end-to-end playable. M0–M7 done. M8 (UX polish) underway — the only major remaining gameplay-correctness item is the bookcase challenge blocks for the Skurge / Diffindo / Spongify classrooms. The v1 source-data model is 108 items / 105 checks: 7 spells (3 starter precollected) + 101 wizard cards, placed across 4 classrooms + 101 card pickups. Boomslang / Bicorn / BitOGoyle were dropped from AP for v1 and flow through vanilla story progression. Goal mechanic verified 2026-05-11 — post-Basilisk Great-Hall walk-in + credits cutscene releases items and marks the slot complete. See `docs/ROADMAP.md` for milestone status, `readme-handoff.md` for end-of-session context, and `docs/DESIGN.md#open-questions-to-resolve-in-playtest` for active blockers.
 
 ## Architecture (one-liner)
 
@@ -47,9 +47,11 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 
 - **Item shuffle** (no entrance shuffle).
 - **Open hub** start; all level doors unlocked from spawn; player can enter any level.
-- **111 unique non-filler items:** 7 spells + 101 wizard cards + Boomslang + Bicorn + BitOGoyle. Lumos/Flipendo/Alohomora are mandatory precollected starters, leaving 108 items to place.
-- **108 checks**: 4 spell-tutorial classrooms + 101 card pickups + 3 special AP-marker checks (Boomslang, Bicorn, BitOGoyle/Goyle touch).
-- **Goal:** defeat Basilisk.
-- **Sphere 0:** 4 spell-teaching classrooms (no items required to reach).
+- **108 unique non-filler items:** 7 spells + 101 wizard cards. Lumos/Flipendo/Alohomora are mandatory precollected starters, leaving 105 items to place.
+- **105 checks**: 4 spell-tutorial classrooms + 101 card pickups.
+- **Boomslang / Bicorn / BitOGoyle** are NOT AP items in v1; they're delivered by vanilla story progression and re-instated as AP checks in v2 once the mod-side trigger work lands (see `docs/MOD_TODO.md`).
+- **Goal:** defeat Basilisk. Detected via `FEBook.bInEndGame` flipping when the post-Basilisk credits cutscene starts (verified working 2026-05-11).
+- **Sphere 0:** 4 spell-teaching classrooms (no items required to reach in the open-hub model).
 - **Filler:** beans (3 tiers — small/medium/large).
+- **Placement constraint:** gold-card chest locations cannot hold silver-card items (would create a 40-silvers-to-unlock-gold-chest circular dependency).
 - **Distribution v1:** manual zip release (apworld + mod + Python client).

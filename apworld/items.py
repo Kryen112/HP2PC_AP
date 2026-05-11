@@ -12,9 +12,6 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     'Rictusempra': 5750005,
     'Skurge': 5750006,
     'Spongify': 5750007,
-    'Boomslang': 5750008,
-    'Bicorn': 5750009,
-    'BitOGoyle': 5750010,
     'Cornelius Agrippa': 5750100,
     'Alderton': 5750101,
     'Barbary': 5750102,
@@ -129,9 +126,6 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     'Rictusempra': ItemClassification.progression,
     'Skurge': ItemClassification.progression,
     'Spongify': ItemClassification.progression,
-    'Boomslang': ItemClassification.progression,
-    'Bicorn': ItemClassification.progression,
-    'BitOGoyle': ItemClassification.progression,
     'Cornelius Agrippa': ItemClassification.useful,
     'Alderton': ItemClassification.useful,
     'Barbary': ItemClassification.useful,
@@ -240,7 +234,7 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
 
 ITEM_GROUPS: dict[str, list[str]] = {
     'Spells': ['Alohomora', 'Diffindo', 'Flipendo', 'Lumos', 'Rictusempra', 'Skurge', 'Spongify'],
-    'Key Items': ['Boomslang', 'Bicorn', 'BitOGoyle'],
+    'Key Items': [],
     'Cards (Bronze)': ['Cornelius Agrippa', 'Alderton', 'Barbary', 'Barkwith', 'Belby', 'Blane', 'Bloxam', 'Bonham', 'Catchlove', 'Elphick', 'Ethelred', 'Fancourt', 'Goshawk', 'Graves', 'Gunhilda', 'Hipworth', 'Kegg', 'Ketteridge', 'Marjoribanks', 'Merlin', 'Merwyn', 'Muldoon', 'Ollerton', 'Peakes', 'Pilliwickle', 'Platt', 'Plumpton', 'Po', 'Pokeby', 'Sawbridge', 'Scamander', 'Starkey', 'Stroulger', 'Stump', 'Sweeting', 'Sykes', 'Thruston', 'Toke', 'Twonk', 'Ulric', 'Vablatsky', 'Waffling', 'Wagtail', 'Warbeck', 'Wellbeloved', 'Wenlock', 'Whitehorn', 'Wintringham', 'Withers', 'Woodcroft'],
     'Cards (Silver)': ['Andros', 'Beamish', 'Chittock', 'Circe', 'Clagg', 'Cliodne', 'Cronk', 'Crumb', 'Dodderidge', 'Duke', 'Fay', 'Fulbert', 'Furmage', 'Gregory', 'Grunnion', 'Jones', 'Lufkin', 'Maeve', 'Montmorency', 'Mopsus', 'Nutcombe', 'Oglethorpe', 'Oldridge', 'Oliphant', 'Plunkett', 'Rastrick', 'Shimpling', 'Shingleton', 'Smethwyck', 'Stalk', 'Summerbee', 'Thurkell', 'Toothill', 'Tremlett', 'Tugwood', 'Wadcock', 'Wendelin', 'Wildsmith', 'Wright', 'Youdle'],
     'Cards (Gold)': ['Bott', 'Dumbledore', 'Gryffindor', 'Herpo', 'Hufflepuff', 'Knightley', 'Paracelsus', 'Pinkstone', 'Potter', 'Ravenclaw', 'Slytherin'],

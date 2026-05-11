@@ -27,3 +27,5 @@ Harry Potter 2:
       location: Classroom_Lockhart_Spongify
       from_pool: true
       force: silent
+    # v1: Boomslang/Bicorn/BitOGoyle plando entries removed. These items are
+    # no longer in the AP pool — they flow through vanilla story progression.

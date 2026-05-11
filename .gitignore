@@ -25,6 +25,7 @@ Thumbs.db
 output/
 dist-temp/
 *.archipelago
+tmp_seed_check*/
 
 # Reference checkouts (kept outside repo)
 /uscript/
