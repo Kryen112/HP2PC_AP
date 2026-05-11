@@ -3,8 +3,17 @@ class APIPCActor extends IpDrv.TcpLink;
 var APIPCActor PersistentInstance;
 var array<string> PendingGrants;
 var bool bLoggedGrantDeferral;
-var float GrantWarmupUntil;
 var float NextGrantDrainTime;
+
+// Reconnect state. If the sidecar terminal closes / crashes mid-session, the
+// engine fires Closed() and the connection stays dead — previously the mod
+// sat silent for the rest of the session and the player had to restart the
+// game. Now Closed() schedules a retry; Timer() drives the actual attempts
+// with exponential backoff so a never-running sidecar doesn't spin Open()
+// hot on every 0.25s tick.
+var bool bWantsReconnect;
+var float NextReconnectAttempt;
+var float ReconnectBackoff;
 // ReceivedText delivers raw TCP chunks, not one-line-per-event. When the sidecar
 // burst-writes a resync (e.g. 39 GRANTs back-to-back), TCP coalesces them into
 // one or a few packets; UE1 fires ReceivedText with the whole blob. We have to
@@ -24,8 +33,6 @@ static function APIPCActor GetInstance()
 
 event PreBeginPlay()
 {
-    local IpAddr Addr;
-
     Super.PreBeginPlay();
     Log("[Archipelago] APIPCActor.PreBeginPlay - connecting to 127.0.0.1:38281");
 
@@ -33,16 +40,54 @@ event PreBeginPlay()
     SetTimer(0.25, true);
 
     BindPort();
+    ReconnectBackoff = 1.0;
+    bWantsReconnect = True;
+    NextReconnectAttempt = Level.TimeSeconds;
+    TryReconnect();
+}
+
+function TryReconnect()
+{
+    local IpAddr Addr;
+
+    if (!bWantsReconnect)
+    {
+        return;
+    }
+    if (LinkState == STATE_Connected || LinkState == STATE_Connecting)
+    {
+        return;
+    }
+    if (Level.TimeSeconds < NextReconnectAttempt)
+    {
+        return;
+    }
+
+    Log("[Archipelago] APIPCActor: attempting connect (backoff=" $ string(ReconnectBackoff) $ "s)");
+
     if (!StringToIpAddr("127.0.0.1", Addr))
     {
         Log("[Archipelago] APIPCActor: StringToIpAddr failed");
+        ScheduleNextReconnect();
         return;
     }
     Addr.Port = 38281;
     if (!Open(Addr))
     {
         Log("[Archipelago] APIPCActor: Open() returned false");
+        ScheduleNextReconnect();
+        return;
     }
+    // Open succeeded. Either Opened() fires (success path — resets backoff)
+    // or Closed() fires (failure — bumps backoff). Pre-schedule the next
+    // attempt so a stuck STATE_Connecting still eventually retries.
+    ScheduleNextReconnect();
+}
+
+function ScheduleNextReconnect()
+{
+    NextReconnectAttempt = Level.TimeSeconds + ReconnectBackoff;
+    ReconnectBackoff = FMin(ReconnectBackoff * 2.0, 16.0);
 }
 
 event Destroyed()
@@ -58,15 +103,8 @@ event Destroyed()
 event Opened()
 {
     Log("[Archipelago] APIPCActor: Opened - sending hello");
-    // Bumped from 3.0s to 8.0s after save-load playtest showed grants draining
-    // while the player was still on the post-load loading screen. The extra
-    // headroom plus the Level.Pauser gate in TryDrainPendingGrants keeps the
-    // queue cold until the player actually owns input.
-    GrantWarmupUntil = Level.TimeSeconds + 8.0;
-    if (NextGrantDrainTime < GrantWarmupUntil)
-    {
-        NextGrantDrainTime = GrantWarmupUntil;
-    }
+    bWantsReconnect = False;
+    ReconnectBackoff = 1.0;
     SendText("HELLO" $ Chr(10));
 }
 
@@ -118,12 +156,21 @@ function HandleLine(string line)
 
 event Timer()
 {
+    TryReconnect();
     TryDrainPendingGrants();
 }
 
 event Closed()
 {
-    Log("[Archipelago] APIPCActor: Closed");
+    Log("[Archipelago] APIPCActor: Closed - scheduling reconnect");
+    // RecvBuffer may hold a partial line from before the disconnect. A
+    // reconnected sidecar starts fresh, so any half-line we held is now
+    // garbage — drop it.
+    RecvBuffer = "";
+    bWantsReconnect = True;
+    // First retry after Closed: short delay so a graceful sidecar restart
+    // reconnects fast. Subsequent failures back off via ScheduleNextReconnect.
+    NextReconnectAttempt = Level.TimeSeconds + 1.0;
 }
 
 function SendCheck(int CardId)
@@ -163,6 +210,7 @@ function TryDrainPendingGrants()
     local harry readyHarry;
     local APCardWatcher watcher;
     local string ItemName;
+    local string deferReason;
 
     if (PendingGrants.Length == 0)
     {
@@ -177,23 +225,12 @@ function TryDrainPendingGrants()
         return;
     }
 
-    if (Level.TimeSeconds < GrantWarmupUntil)
-    {
-        if (!bLoggedGrantDeferral)
-        {
-            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
-                $ " grant(s) - reconnect warmup active for "
-                $ string(GrantWarmupUntil - Level.TimeSeconds) $ " more second(s)");
-            bLoggedGrantDeferral = True;
-        }
-        return;
-    }
-
-    // Don't drain while the game is paused (loading screen, menu open,
-    // cutscene pause). Without this gate, grants land mid-loading-screen and
-    // either apply to a transitional Harry or get clobbered by post-load
-    // state restore. Level.Pauser is a string in HP2 (UE1 retail), not an
-    // object ref — compare to "" not None. See HPConsole.uc:752.
+    // Don't drain while the game is paused (in-game menu, save/load). The
+    // IsPlayerInPlayableState gate below is the authoritative "Harry is
+    // actually playing" check; Level.Pauser is kept as a cheap early-out
+    // for the pause-menu case. Level.Pauser is a string in HP2 (UE1
+    // retail), not an object ref — compare to "" not None. See
+    // HPConsole.uc:752.
     if (Level.Pauser != "")
     {
         if (!bLoggedGrantDeferral)
@@ -223,6 +260,17 @@ function TryDrainPendingGrants()
         {
             Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
                 $ " grant(s) - watcher not snapshotted yet");
+            bLoggedGrantDeferral = True;
+        }
+        return;
+    }
+
+    if (!class'APGameInfo'.static.IsPlayerInPlayableState(readyHarry, deferReason))
+    {
+        if (!bLoggedGrantDeferral)
+        {
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
+                $ " grant(s) - " $ deferReason);
             bLoggedGrantDeferral = True;
         }
         return;

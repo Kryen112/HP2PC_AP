@@ -129,8 +129,11 @@ class HP2Context(CommonContext):
         self.game_writer: Optional[asyncio.StreamWriter] = None
         self.tcp_server_task: Optional[asyncio.Task] = None
         self.checked_locations_seen: set[int] = set()
-        # M7: dedupe GOAL_COMPLETE so a chatty mod can't spam StatusUpdate.
-        # The watcher itself is one-shot (WasInEndGame guard), but defence-in-depth.
+        # Dedupe GOAL_COMPLETE: once the mod has reported the goal we track it as
+        # "claimed" regardless of whether the AP send succeeded — the actual
+        # delivery to AP lives in pending_ap_outbound below, which retries on
+        # reconnect. Prevents the mod's WasInEndGame guard re-firing across
+        # save-load from re-queueing.
         self.goal_sent: bool = False
         # FIFO of GRANT lines accumulated while no game is connected (start
         # inventory delivered before game boot, mid-session game crash, etc).
@@ -140,6 +143,11 @@ class HP2Context(CommonContext):
         # game when it reconnects or loads an earlier save. Excludes bean filler,
         # because replaying filler would duplicate a consumable/spendable state.
         self.durable_grants: list[Optional[str]] = []
+        # Outbound AP messages queued while the AP server is offline. Drained
+        # on every successful Connected. In-memory only — a sidecar crash
+        # during an AP outage loses these. Disk persistence is parked for v2
+        # alongside bean durability (see docs/DESIGN.md#v2-parking-lot).
+        self.pending_ap_outbound: list[dict] = []
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -150,6 +158,8 @@ class HP2Context(CommonContext):
     def on_package(self, cmd: str, args: dict) -> None:
         if cmd == "Connected":
             logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
+            if self.pending_ap_outbound:
+                asyncio.create_task(self._flush_pending_ap_outbound())
         elif cmd == "ReceivedItems":
             package_index = args.get("index")
             for item in args.get("items", []):
@@ -244,12 +254,11 @@ class HP2Context(CommonContext):
         if line == "GOAL_COMPLETE":
             if self.goal_sent:
                 return
-            if not self.server or self.slot is None:
-                logger.warning("AP server not connected, dropping GOAL_COMPLETE")
-                return
             self.goal_sent = True
-            await self.send_msgs([{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}])
-            logger.info("Sent ClientStatus.CLIENT_GOAL — slot complete")
+            await self._send_or_queue_ap_msg(
+                {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
+                label="ClientStatus.CLIENT_GOAL (slot complete)",
+            )
             return
         if line.startswith("CHECK_SPELL "):
             spell_name = line[len("CHECK_SPELL "):].strip()
@@ -273,9 +282,6 @@ class HP2Context(CommonContext):
             except ValueError:
                 logger.warning(f"Unparseable CHECK: {line!r}")
                 return
-            if not self.server or self.slot is None:
-                logger.warning(f"AP server not connected (slot={self.slot}), dropping CHECK {check_id}")
-                return
             location_name = CARD_GAME_ID_TO_LOCATION_NAME.get(check_id)
             if location_name is None:
                 logger.warning(f"Game CHECK {check_id} doesn't map to a known card location; dropping")
@@ -287,13 +293,12 @@ class HP2Context(CommonContext):
             if location_id in self.checked_locations_seen:
                 return
             self.checked_locations_seen.add(location_id)
-            await self.send_msgs([{"cmd": "LocationChecks", "locations": [location_id]}])
-            logger.info(f"Sent LocationChecks for {location_name} (id={location_id}, game CHECK {check_id})")
+            await self._send_or_queue_ap_msg(
+                {"cmd": "LocationChecks", "locations": [location_id]},
+                label=f"LocationChecks for {location_name} (id={location_id}, game CHECK {check_id})",
+            )
 
     async def _send_named_location_check(self, kind: str, game_name: str, name_to_location: dict[str, str]) -> None:
-        if not self.server or self.slot is None:
-            logger.warning(f"AP server not connected (slot={self.slot}), dropping {kind} {game_name!r}")
-            return
         location_name = name_to_location.get(game_name)
         if location_name is None:
             logger.info(f"Game {kind} {game_name!r} has no AP location mapping (likely starter / non-progression); skipping")
@@ -305,8 +310,43 @@ class HP2Context(CommonContext):
         if location_id in self.checked_locations_seen:
             return
         self.checked_locations_seen.add(location_id)
-        await self.send_msgs([{"cmd": "LocationChecks", "locations": [location_id]}])
-        logger.info(f"Sent LocationChecks for {location_name} (id={location_id}, {kind} {game_name!r})")
+        await self._send_or_queue_ap_msg(
+            {"cmd": "LocationChecks", "locations": [location_id]},
+            label=f"LocationChecks for {location_name} (id={location_id}, {kind} {game_name!r})",
+        )
+
+    async def _send_or_queue_ap_msg(self, msg: dict, label: str) -> None:
+        """Send an outbound AP message, or queue it for replay on next Connected.
+
+        Replaces the previous "drop if AP offline" pattern that silently lost
+        checks made during a server inactivity timeout or network blip. The
+        mod's markers self-destroy on Touch so the location cannot be
+        re-checked by re-walking-over; without this queue, every check made
+        during an AP outage would be permanently lost on the AP side and the
+        other player(s) waiting on that item would wait forever.
+        """
+        if self.server and self.slot is not None:
+            try:
+                await self.send_msgs([msg])
+                logger.info(f"Sent {label}")
+                return
+            except Exception as e:
+                logger.warning(f"send_msgs failed for {label}, queuing for reconnect: {e}")
+        self.pending_ap_outbound.append(msg)
+        logger.info(f"Queued {label} (AP offline, {len(self.pending_ap_outbound)} pending)")
+
+    async def _flush_pending_ap_outbound(self) -> None:
+        if not (self.server and self.slot is not None):
+            return
+        if not self.pending_ap_outbound:
+            return
+        msgs, self.pending_ap_outbound = self.pending_ap_outbound, []
+        try:
+            await self.send_msgs(msgs)
+            logger.info(f"Flushed {len(msgs)} pending AP message(s) on reconnect")
+        except Exception as e:
+            logger.exception(f"Flush failed, re-queuing {len(msgs)} message(s): {e}")
+            self.pending_ap_outbound = msgs + self.pending_ap_outbound
 
     def _resync_durable_grants(self) -> None:
         grants = [payload for payload in self.durable_grants if payload is not None]

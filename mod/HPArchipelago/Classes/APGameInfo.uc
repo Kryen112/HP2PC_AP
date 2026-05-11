@@ -692,6 +692,62 @@ static function harry TryGetViewportHarry(harry SourceHarry)
     return None;
 }
 
+// Authoritative "Harry is actually playing right now" check. Layered on top
+// of the Level.Pauser / FindGrantReadyHarry / watcher.bSnapshotted gates in
+// APIPCActor.TryDrainPendingGrants. Only PlayerWalking grants —
+// every other state (stateCutIdle, SpellLearning, harryfrozen, stateDead,
+// GameEnded, exittoMenu, stateInactive, Mounting / MountFinish, Quidditch,
+// dueling, statePickupItem, statePotionMixing*, wingspell, LookAtActor,
+// ChessDeath, CelebrateCardSet, etc.) defers. The grant queue drains the
+// moment Harry returns to PlayerWalking. HUD cutscene/popup check covers
+// the tick-window between cutscene start and stateCutIdle transition (and
+// the cutscene-skip path where bBothBordersActive animates while Harry's
+// state hasn't transitioned yet).
+static function bool IsPlayerInPlayableState(harry h, out string DeferReason)
+{
+    local string stateName;
+    local HPHud hud;
+
+    if (h == None || h.bDeleteMe)
+    {
+        DeferReason = "harry None/deleted";
+        return False;
+    }
+    if (h.Player == None)
+    {
+        DeferReason = "harry has no Player (transitional)";
+        return False;
+    }
+
+    stateName = string(h.GetStateName());
+    if (stateName != "PlayerWalking")
+    {
+        DeferReason = "harry state=" $ stateName $ " (only PlayerWalking grants)";
+        return False;
+    }
+
+    if (h.bIsCaptured)
+    {
+        DeferReason = "harry bIsCaptured";
+        return False;
+    }
+    if (h.bKeepStationary)
+    {
+        DeferReason = "harry bKeepStationary (vendor)";
+        return False;
+    }
+
+    hud = HPHud(h.myHUD);
+    if (hud != None && hud.IsCutSceneOrPopupInProgress())
+    {
+        DeferReason = "HUD cutscene/popup in progress";
+        return False;
+    }
+
+    DeferReason = "";
+    return True;
+}
+
 static function harry FindGrantReadyHarry(Actor caller)
 {
     local APCardWatcher watcher;
