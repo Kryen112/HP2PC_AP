@@ -4,16 +4,26 @@ var APIPCActor IPCActor;
 
 // Per-classroom offset applied to the cutscene's Location when spawning the
 // blocker. Lets us nudge the bookshelf without recompiling the cutscene
-// lookup. (0,0,0) places it exactly on the cutscene actor; positive X is
-// "forward" relative to the cutscene's Rotation.
+// lookup.
+//
+// RictaBlockerOffset is interpreted in WORLD coords (hand-tuned for the
+// 02060DADARictaInt cutscene's specific Rotation in Grandstaircase_hub).
+//
+// SkurgeBlockerOffset is interpreted in the cutscene's LOCAL coords (rotated
+// into world via `>>` at spawn time) — (X=180, Y=0, Z=0) means "180 units
+// forward in whichever direction the cutscene faces." We don't have ground
+// truth for Flitwick's cutscene Rotation so the rotation-relative model is
+// safer: positive local X is always "forward from the cutscene's facing."
 var Vector RictaBlockerOffset;
+var Vector SkurgeBlockerOffset;
 
 // Class-default reference to the spawned blocker. Set after a successful
-// Spawn in BlockRictaClassroomIfMissing, used by RemoveRictaBlocker for
+// Spawn in BlockXxxClassroomIfMissing, used by RemoveXxxBlocker for an
 // O(1) destroy without needing a per-level watcher in the right UWorld.
-// Cleared in RemoveRictaBlocker. Auto-invalidates via bDeleteMe when the
+// Cleared in RemoveXxxBlocker. Auto-invalidates via bDeleteMe when the
 // level it lives in is unloaded.
 var Actor RictaBlockerInstance;
+var Actor SkurgeBlockerInstance;
 
 event InitGame(string Options, out string Error)
 {
@@ -54,6 +64,7 @@ event InitGame(string Options, out string Error)
 
     ReplaceCardChests();
     BlockRictaClassroomIfMissing();
+    BlockSkurgeClassroomIfMissing();
 }
 
 // If the player doesn't already own Rictusempra (per APCardWatcher's AP-grant
@@ -66,7 +77,7 @@ event InitGame(string Options, out string Error)
 function BlockRictaClassroomIfMissing()
 {
     local CutScene cs;
-    local Actor blocker;
+    local Actor blocker, existing;
     local Vector spawnLoc;
     local Rotator spawnRot;
     local bool found;
@@ -75,6 +86,21 @@ function BlockRictaClassroomIfMissing()
     {
         Log("[Archipelago] BlockRicta: player has Rictusempra (APGrantedSpell[4]=1) - no blocker needed");
         return;
+    }
+
+    // Idempotency: if a tagged blocker already exists in this level (either
+    // from a prior InitGame this session or restored from .usa save),
+    // capture its ref and skip the spawn. Same path is called from both
+    // APGameInfo.InitGame AND APCardWatcher.EnsureLatestRegistration so
+    // this guard prevents double-spawn.
+    foreach AllActors(class'Actor', existing)
+    {
+        if (existing.Tag == 'APRictaBlocker' && !existing.bDeleteMe)
+        {
+            default.RictaBlockerInstance = existing;
+            Log("[Archipelago] BlockRicta: blocker already in level (tag-scan hit " $ string(existing) $ ") - skipping spawn");
+            return;
+        }
     }
 
     foreach AllActors(class'CutScene', cs)
@@ -172,6 +198,154 @@ function RemoveRictaBlocker()
     if (n == 0)
     {
         Log("[Archipelago] RemoveRictaBlocker: tag-scan in " $ string(scanActor.Level) $ " found 0 blockers (player likely not in Grandstaircase_hub)");
+    }
+}
+
+// Mirror of BlockRictaClassroomIfMissing for Flitwick's Skurge classroom.
+// Same level (Grandstaircase_hub) but a different cutscene — the FileName
+// isn't in the UScript decompile (lives in the .unr), so we use a heuristic:
+// the Skurge intro cutscene's FileName contains "Skurge" and ends "Int"
+// (mirroring `02060DADARictaInt`'s structure). If the heuristic finds nothing,
+// the fallback path dumps every cutscene FileName in the level so we can
+// identify the right one on the next run.
+function BlockSkurgeClassroomIfMissing()
+{
+    local CutScene cs, candidate;
+    local Actor blocker, existing;
+    local Vector spawnLoc;
+    local Rotator spawnRot;
+    local string fn;
+    local int nameLen;
+
+    if (class'APCardWatcher'.default.APGrantedSpell[5] == 1)
+    {
+        Log("[Archipelago] BlockSkurge: player has Skurge (APGrantedSpell[5]=1) - no blocker needed");
+        return;
+    }
+
+    // Idempotency: see BlockRictaClassroomIfMissing.
+    foreach AllActors(class'Actor', existing)
+    {
+        if (existing.Tag == 'APSkurgeBlocker' && !existing.bDeleteMe)
+        {
+            default.SkurgeBlockerInstance = existing;
+            Log("[Archipelago] BlockSkurge: blocker already in level (tag-scan hit " $ string(existing) $ ") - skipping spawn");
+            return;
+        }
+    }
+
+    foreach AllActors(class'CutScene', cs)
+    {
+        fn = cs.FileName;
+        if (fn == "")
+        {
+            continue;
+        }
+        nameLen = Len(fn);
+        if (nameLen >= 3 && Mid(fn, nameLen - 3) == "Int" && InStr(fn, "Skurge") >= 0)
+        {
+            candidate = cs;
+            break;
+        }
+    }
+
+    if (candidate == None)
+    {
+        Log("[Archipelago] BlockSkurge: heuristic ('Skurge' + 'Int' suffix) found no match. Dumping all cutscenes in this level for identification:");
+        foreach AllActors(class'CutScene', cs)
+        {
+            Log("[Archipelago] BlockSkurge:   - " $ string(cs.Name) $ " FileName='" $ cs.FileName $ "'");
+        }
+        return;
+    }
+
+    // SkurgeBlockerOffset is interpreted in the cutscene's LOCAL coords —
+    // (X=180, Y=0, Z=0) means "180 units forward in whichever direction the
+    // cutscene actor is facing." This removes the need to guess the
+    // Skurge cutscene's world Rotation (Ricta's offset is in world coords,
+    // hand-tuned for that specific cutscene's orientation; we don't have
+    // the equivalent ground truth for the Flitwick one). `vector >> rotator`
+    // is UE1's rotate-into-world operator.
+    //
+    // Yaw +32768 = 180° in UE1's 16-bit-rotator space. The Flitwick cutscene
+    // faces away from Harry's approach direction, so we flip the bookcase to
+    // face Harry instead (verified visually in Grandstaircase_hub).
+    spawnRot = candidate.Rotation;
+    spawnRot.Yaw = spawnRot.Yaw + 32768;
+    spawnLoc = candidate.Location + (SkurgeBlockerOffset >> candidate.Rotation);
+    Log("[Archipelago] BlockSkurge: candidate=" $ string(candidate.Name)
+        $ " FileName=" $ candidate.FileName
+        $ " Loc=" $ string(candidate.Location)
+        $ " Rot=" $ string(candidate.Rotation)
+        $ " localOffset=" $ string(SkurgeBlockerOffset)
+        $ " worldDelta=" $ string(SkurgeBlockerOffset >> candidate.Rotation)
+        $ " spawnLoc=" $ string(spawnLoc));
+
+    blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+    if (blocker == None)
+    {
+        Log("[Archipelago] BlockSkurge: Spawn returned None (encroachment likely - try a non-zero SkurgeBlockerOffset.Z)");
+        return;
+    }
+    blocker.Tag = 'APSkurgeBlocker';
+    default.SkurgeBlockerInstance = blocker;
+    Log("[Archipelago] BlockSkurge: spawned " $ string(blocker)
+        $ " bCollideActors=" $ string(blocker.bCollideActors)
+        $ " bBlockActors=" $ string(blocker.bBlockActors)
+        $ " bBlockPlayers=" $ string(blocker.bBlockPlayers)
+        $ " (tracked as default.SkurgeBlockerInstance)");
+}
+
+// Live removal mirror of RemoveRictaBlocker. Two paths: direct class-default
+// ref (O(1), works across UWorlds) and tag-scan fallback for save-load
+// restored blockers whose default ref was reset to None on game boot.
+function RemoveSkurgeBlocker()
+{
+    local Actor b, a, scanActor;
+    local APCardWatcher w;
+    local int n;
+
+    b = default.SkurgeBlockerInstance;
+    if (b != None && !b.bDeleteMe)
+    {
+        Log("[Archipelago] RemoveSkurgeBlocker: destroying tracked blocker " $ string(b) $ " at " $ string(b.Location) $ " (in level " $ string(b.Level) $ ")");
+        b.Destroy();
+        default.SkurgeBlockerInstance = None;
+        return;
+    }
+    if (b != None)
+    {
+        Log("[Archipelago] RemoveSkurgeBlocker: tracked ref was already bDeleteMe - clearing");
+        default.SkurgeBlockerInstance = None;
+    }
+
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w == None)
+    {
+        Log("[Archipelago] RemoveSkurgeBlocker: no tracked ref AND no watcher to scan - giving up");
+        return;
+    }
+    if (w.HarryRef != None && !w.HarryRef.bDeleteMe)
+    {
+        scanActor = w.HarryRef;
+    }
+    else
+    {
+        scanActor = w;
+    }
+    n = 0;
+    foreach scanActor.AllActors(class'Actor', a)
+    {
+        if (a.Tag == 'APSkurgeBlocker' && !a.bDeleteMe)
+        {
+            Log("[Archipelago] RemoveSkurgeBlocker: tag-scan found " $ string(a) $ " in " $ string(scanActor.Level) $ " - destroying");
+            a.Destroy();
+            n++;
+        }
+    }
+    if (n == 0)
+    {
+        Log("[Archipelago] RemoveSkurgeBlocker: tag-scan in " $ string(scanActor.Level) $ " found 0 blockers (player likely not in Grandstaircase_hub)");
     }
 }
 
@@ -831,6 +1005,10 @@ function ApplyGrant(string ItemName)
         {
             RemoveRictaBlocker();
         }
+        else if (ItemName == "Skurge")
+        {
+            RemoveSkurgeBlocker();
+        }
         return;
     }
 
@@ -869,4 +1047,5 @@ function ApplyGrant(string ItemName)
 defaultproperties
 {
     RictaBlockerOffset=(X=-15.000000,Y=130.000000,Z=0.000000)
+    SkurgeBlockerOffset=(X=7.000000,Y=-230.000000,Z=-20.000000)
 }

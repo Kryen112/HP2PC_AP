@@ -377,6 +377,19 @@ function bool HasLivePlayerHarry()
     return False;
 }
 
+function TrySpawnClassroomBlockers()
+{
+    local APGameInfo gi;
+    gi = APGameInfo(Level.Game);
+    if (gi == None)
+    {
+        Log("[Archipelago] APCardWatcher: can't spawn classroom blockers - Level.Game is not APGameInfo");
+        return;
+    }
+    gi.BlockRictaClassroomIfMissing();
+    gi.BlockSkurgeClassroomIfMissing();
+}
+
 function EnsureLatestRegistration()
 {
     local APCardWatcher current;
@@ -399,6 +412,11 @@ function EnsureLatestRegistration()
         // spellbook before the revert path can fire.
         bSnapshotted = False;
         Log("[Archipelago] APCardWatcher: restored LatestInstance -> self (was empty/stale, re-snapshotting)");
+        // ProcessServerTravel skips APGameInfo.InitGame, so the classroom
+        // blockers won't have been spawned for this level entry. Spawn them
+        // now — the Block* functions are idempotent via a tag-scan guard,
+        // so calling them here in addition to InitGame can't double-spawn.
+        TrySpawnClassroomBlockers();
         return;
     }
 
