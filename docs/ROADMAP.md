@@ -98,7 +98,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - Boomslang / Bicorn / BitOGoyle removed from the AP item/location pool — v1 lets them flow through vanilla story progression. Pool is now 108 items / 105 checks (was 111/108).
 - Day/night unified — no separate `HogwartsNight` region (Castle-Exterior cards reachable in either daylight or night version of Grounds_hub).
 - Gold-card chest locations forbidden from receiving Silver-card items via `add_item_rule` (prevents 40-silver-to-unlock-gold-chest circular dependency).
-- Spell-challenge softlock workaround: each non-starter spell is plando'd at its own classroom + bookcase blocker class (Rictusempra/Skurge/Diffindo implemented mod-side; Spongify bookcase blocker is M8 work).
+- Spell-challenge softlock workaround: each non-starter spell is plando'd at its own classroom + bookcase blocker class (all four — Rictusempra/Skurge/Diffindo/Spongify — implemented and verified mod-side).
 
 **Deferred to v2 (see `docs/DESIGN.md#v2-parking-lot`):**
 - Boomslang/Bicorn/BitOGoyle as AP checks + items.
@@ -136,7 +136,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - **Outbound AP-offline queue.** Previously the sidecar dropped CHECK / CHECK_SPELL / CHECK_KEYITEM / GOAL_COMPLETE on the floor when `self.server` was None, with no recovery — fatal because `APCardMarker.Touch` self-destroys the marker so the location can't be re-checked by re-walking. New `pending_ap_outbound: list[dict]` in `HP2Context.__init__`, drained from `on_package("Connected")` via `_flush_pending_ap_outbound`. `_send_or_queue_ap_msg(msg, label)` is the single funnel for all four outbound message types. `goal_sent` semantic refined: tracks "have we claimed the goal locally" (set immediately on first `GOAL_COMPLETE` line), while the actual AP delivery rides the queue so an AP outage during goal time still completes the slot on reconnect. In-memory only; disk persistence parked alongside bean durability (see `docs/DESIGN.md#v2-parking-lot`).
 
 **Still TODO:**
-- **Bookcase challenge block** for the Spongify classroom (Rictusempra / Skurge / Diffindo bookcases already implemented and verified). Spongify shares the DADA room with Rictusempra so its blocker needs a different approach (gate the auto-teleport into the spell challenge, not the room entry).
+- ~~Bookcase challenge blocks~~ ✅ All four (Rictusempra / Skurge / Diffindo / Spongify) implemented and verified. Spongify reuses the Rictusempra cutscene anchor in the shared DADA room, gated on `harry.iGameState >= 130` (post-Slytherin-Common-Room story beat).
 - HUD toast actor (`APHUDToast.uc`) — on-screen "Received X from Y" notification, queued, drains during safe states.
 - Vendor card sales disabled.
 - Player-facing `docs/PLAYER_SETUP.md` walkthrough.

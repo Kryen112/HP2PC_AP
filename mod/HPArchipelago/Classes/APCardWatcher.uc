@@ -14,6 +14,7 @@ var int LastBronzeCount;
 var int LastSilverCount;
 var int LastGoldCount;
 var int HeartbeatCounter;
+var int LastGameState;
 
 var class<baseSpell> SpellClasses[7];
 var string SpellNames[7];
@@ -295,6 +296,24 @@ event Timer()
         }
     }
 
+    // Story-progression watcher. harry.iGameState is the canonical numeric
+    // story state (set via SetGameState from cutscene `ChangeGameState <n>`
+    // commands; mirrors the trailing digits of HarryRef.CurrentGameState).
+    // Drives the Spongify blocker spawn (gated by APGameInfo.SpongifyGameStateGate),
+    // and the log line is also general-purpose telemetry for any future
+    // story-state-gated mod logic. One line per transition — quiet otherwise.
+    if (HarryRef.iGameState != LastGameState)
+    {
+        Log("[Archipelago] APCardWatcher: iGameState " $ LastGameState $ " -> " $ HarryRef.iGameState $ " (CurrentGameState='" $ HarryRef.CurrentGameState $ "')");
+        LastGameState = HarryRef.iGameState;
+        // The Spongify blocker is gated on iGameState; re-attempt the spawn
+        // pass on every transition so it appears the moment Harry crosses
+        // SpongifyGameStateGate without waiting for a level reload.
+        // Other blockers are idempotent (tag-scan no-op) so the redundant
+        // calls are harmless.
+        TrySpawnClassroomBlockers();
+    }
+
     if (siBronze.nCount != LastBronzeCount || siSilver.nCount != LastSilverCount || siGold.nCount != LastGoldCount)
     {
         Log("[Archipelago] APCardWatcher: nCount CHANGE - Bronze=" $ siBronze.nCount $ " Silver=" $ siSilver.nCount $ " Gold=" $ siGold.nCount $ " (was " $ LastBronzeCount $ "/" $ LastSilverCount $ "/" $ LastGoldCount $ ")");
@@ -389,6 +408,7 @@ function TrySpawnClassroomBlockers()
     gi.BlockRictaClassroomIfMissing();
     gi.BlockSkurgeClassroomIfMissing();
     gi.BlockDiffindoClassroomIfMissing();
+    gi.BlockSpongifyClassroomIfMissing();
 }
 
 function EnsureLatestRegistration()

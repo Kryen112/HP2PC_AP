@@ -16,6 +16,23 @@ var APIPCActor IPCActor;
 // safer: positive local X is always "forward from the cutscene's facing."
 var Vector RictaBlockerOffset;
 var Vector SkurgeBlockerOffset;
+// Spongify's intro cutscene fires in Lockhart's DADA classroom (same room as
+// Rictusempra) but only after the Slytherin Common Room story beat. Vanilla
+// gates it via iGameState >= SpongifyGameStateGate; we mirror that gate so
+// the bookcase blocker only spawns once Spongify actually becomes the next
+// quest spell, instead of locking the player out of DADA from the start.
+// Threshold value (130 for stock HP2) determined empirically by logging
+// HarryRef.iGameState transitions through a vanilla playthrough until the
+// game prompted "go to DADA to learn Spongify".
+//
+// Spongify shares the DADA doorway chokepoint with Rictusempra, so we anchor
+// the blocker to the SAME cutscene actor as Ricta (`02060DADARictaInt`) — the
+// `13040SpongeIntro` cutscene actor exists but is parked off-path in the
+// level (its Location isn't a meaningful chokepoint). Offset is in WORLD
+// coords (mirroring RictaBlockerOffset). Set to a tiny delta from Ricta so a
+// not-yet-removed Ricta blocker doesn't encroach this spawn.
+var Vector SpongifyBlockerOffset;
+var int SpongifyGameStateGate;
 // Sprout's herbology classroom entrance is wide enough that one bookcase
 // doesn't cover it. Each slot in `DiffindoBlockerOffsets` is the spawn
 // position for one bookcase, in WORLD coords relative to the cutscene
@@ -36,6 +53,7 @@ var Vector DiffindoBlockerOffsets[3];
 var Actor RictaBlockerInstance;
 var Actor SkurgeBlockerInstance;
 var Actor DiffindoBlockerInstance;
+var Actor SpongifyBlockerInstance;
 
 event InitGame(string Options, out string Error)
 {
@@ -78,6 +96,7 @@ event InitGame(string Options, out string Error)
     BlockRictaClassroomIfMissing();
     BlockSkurgeClassroomIfMissing();
     BlockDiffindoClassroomIfMissing();
+    BlockSpongifyClassroomIfMissing();
 }
 
 // If the player doesn't already own Rictusempra (per APCardWatcher's AP-grant
@@ -486,6 +505,147 @@ function RemoveDiffindoBlocker()
     else
     {
         Log("[Archipelago] RemoveDiffindoBlocker: destroyed " $ string(n) $ " bookcase(s)");
+    }
+}
+
+// Mirror of BlockRictaClassroomIfMissing for Lockhart's Spongify lesson.
+// Spongify is the second lesson Lockhart teaches in the DADA classroom (after
+// Rictusempra) and vanilla only enables its intro cutscene once iGameState
+// reaches SpongifyGameStateGate (130 in stock HP2 — post-Slytherin Common
+// Room). Spawning the blocker before that point would lock Harry out of DADA
+// for no reason, so we early-return when iGameState is below the gate.
+//
+// Anchored to the Rictusempra cutscene actor (`02060DADARictaInt`) — same
+// physical doorway chokepoint as the Ricta blocker. The `13040SpongeIntro`
+// cutscene actor IS in the level but its position is not at the doorway
+// (cutscene actors can be parked anywhere; only their trigger location
+// matters for activation). Offset is WORLD coords like Ricta; small Y delta
+// from RictaBlockerOffset prevents encroachment-failure when both blockers
+// are up at the same time (e.g., Rictusempra not yet AP-granted at the
+// moment iGameState crosses 130).
+function BlockSpongifyClassroomIfMissing()
+{
+    local CutScene cs, candidate;
+    local Actor blocker, existing;
+    local Vector spawnLoc;
+    local Rotator spawnRot;
+    local harry h;
+
+    if (class'APCardWatcher'.default.APGrantedSpell[6] == 1)
+    {
+        Log("[Archipelago] BlockSpongify: player has Spongify (APGrantedSpell[6]=1) - no blocker needed");
+        return;
+    }
+
+    h = harry(Level.PlayerHarryActor);
+    if (h == None || h.iGameState < SpongifyGameStateGate)
+    {
+        // Story not yet at the point where Spongify intro becomes valid in
+        // DADA. Quiet return — this fires every InitGame / TrySpawnClassroom
+        // call before the gate; logging would be noise.
+        return;
+    }
+
+    foreach AllActors(class'Actor', existing)
+    {
+        if (existing.Tag == 'APSpongifyBlocker' && !existing.bDeleteMe)
+        {
+            default.SpongifyBlockerInstance = existing;
+            Log("[Archipelago] BlockSpongify: blocker already in level (tag-scan hit " $ string(existing) $ ") - skipping spawn");
+            return;
+        }
+    }
+
+    foreach AllActors(class'CutScene', cs)
+    {
+        if (cs.FileName == "02060DADARictaInt")
+        {
+            candidate = cs;
+            break;
+        }
+    }
+
+    if (candidate == None)
+    {
+        Log("[Archipelago] BlockSpongify: 02060DADARictaInt cutscene not present in this level (expected only in Grandstaircase_hub)");
+        return;
+    }
+
+    // SpongifyBlockerOffset is in WORLD coords (mirrors RictaBlockerOffset).
+    // Rotation comes straight from the cutscene actor (no Yaw flip — Ricta
+    // doesn't flip either; the Ricta blocker has been verified facing the
+    // right way at this same anchor).
+    spawnLoc = candidate.Location + SpongifyBlockerOffset;
+    spawnRot = candidate.Rotation;
+    Log("[Archipelago] BlockSpongify: candidate=" $ string(candidate.Name)
+        $ " FileName=" $ candidate.FileName
+        $ " Loc=" $ string(candidate.Location)
+        $ " Rot=" $ string(candidate.Rotation)
+        $ " offset=" $ string(SpongifyBlockerOffset)
+        $ " spawnLoc=" $ string(spawnLoc));
+
+    blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+    if (blocker == None)
+    {
+        Log("[Archipelago] BlockSpongify: Spawn returned None (encroachment likely - Ricta blocker may still be present at this spot; tweak SpongifyBlockerOffset)");
+        return;
+    }
+    blocker.Tag = 'APSpongifyBlocker';
+    default.SpongifyBlockerInstance = blocker;
+    Log("[Archipelago] BlockSpongify: spawned " $ string(blocker)
+        $ " bCollideActors=" $ string(blocker.bCollideActors)
+        $ " bBlockActors=" $ string(blocker.bBlockActors)
+        $ " bBlockPlayers=" $ string(blocker.bBlockPlayers)
+        $ " (tracked as default.SpongifyBlockerInstance)");
+}
+
+function RemoveSpongifyBlocker()
+{
+    local Actor b, a, scanActor;
+    local APCardWatcher w;
+    local int n;
+
+    b = default.SpongifyBlockerInstance;
+    if (b != None && !b.bDeleteMe)
+    {
+        Log("[Archipelago] RemoveSpongifyBlocker: destroying tracked blocker " $ string(b) $ " at " $ string(b.Location) $ " (in level " $ string(b.Level) $ ")");
+        b.Destroy();
+        default.SpongifyBlockerInstance = None;
+        return;
+    }
+    if (b != None)
+    {
+        Log("[Archipelago] RemoveSpongifyBlocker: tracked ref was already bDeleteMe - clearing");
+        default.SpongifyBlockerInstance = None;
+    }
+
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w == None)
+    {
+        Log("[Archipelago] RemoveSpongifyBlocker: no tracked ref AND no watcher to scan - giving up");
+        return;
+    }
+    if (w.HarryRef != None && !w.HarryRef.bDeleteMe)
+    {
+        scanActor = w.HarryRef;
+    }
+    else
+    {
+        scanActor = w;
+    }
+    n = 0;
+    foreach scanActor.AllActors(class'Actor', a)
+    {
+        if (a.Tag == 'APSpongifyBlocker' && !a.bDeleteMe)
+        {
+            Log("[Archipelago] RemoveSpongifyBlocker: tag-scan found " $ string(a) $ " in " $ string(scanActor.Level) $ " - destroying");
+            a.Destroy();
+            n++;
+        }
+    }
+    if (n == 0)
+    {
+        Log("[Archipelago] RemoveSpongifyBlocker: tag-scan in " $ string(scanActor.Level) $ " found 0 blockers (player likely not in Grandstaircase_hub)");
     }
 }
 
@@ -1153,6 +1313,10 @@ function ApplyGrant(string ItemName)
         {
             RemoveDiffindoBlocker();
         }
+        else if (ItemName == "Spongify")
+        {
+            RemoveSpongifyBlocker();
+        }
         return;
     }
 
@@ -1192,6 +1356,8 @@ defaultproperties
 {
     RictaBlockerOffset=(X=-15.000000,Y=130.000000,Z=0.000000)
     SkurgeBlockerOffset=(X=7.000000,Y=-230.000000,Z=-20.000000)
+    SpongifyBlockerOffset=(X=-15.000000,Y=131.000000,Z=0.000000)
+    SpongifyGameStateGate=130
     DiffindoBlockerOffsets(0)=(X=50.000000,Y=-172.000000,Z=-20.000000)
     DiffindoBlockerOffsets(1)=(X=50.000000,Y=-5.000000,Z=-20.000000)
     DiffindoBlockerOffsets(2)=(X=50.000000,Y=162.000000,Z=-20.000000)
