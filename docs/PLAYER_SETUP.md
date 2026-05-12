@@ -20,7 +20,7 @@ If you're a developer wanting to *modify* the mod or apworld, skip this and read
 | **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**. |
 | **HP2Engine 3.4 by Metallicafan212** ("M212") | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord. |
 | **Archipelago framework** | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting. |
-| **HP2PC_AP release zip** | The `harry_potter_2_pc_v*.zip` you downloaded with this doc. |
+| **HP2PC_AP release files** | Four files downloaded individually from the GitHub release: `HPArchipelago.u`, `harry_potter_2_pc.apworld`, `hp2_ap_client.exe`, and this `PLAYER_SETUP.md`. |
 
 OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
 
@@ -38,15 +38,12 @@ Run M212's installer. Point it at your HP2 install. It will create a `Modded\` s
 
 ### 3. Drop the mod files
 
-Unzip the release. Inside you'll find:
+You should have downloaded these four files from the GitHub release:
 
-```
-HP2PC_AP_v1.0.0/
-├── HPArchipelago.u           (compiled mod)
-├── harry_potter_2_pc.apworld (AP world)
-├── hp2_ap_client.exe         (self-contained client, ~85 MB)
-└── PLAYER_SETUP.md           (this file)
-```
+- `HPArchipelago.u` (the compiled mod)
+- `harry_potter_2_pc.apworld` (the AP world)
+- `hp2_ap_client.exe` (the self-contained client)
+- `PLAYER_SETUP.md` (this file)
 
 Copy `HPArchipelago.u` into your M212 install:
 
@@ -103,7 +100,7 @@ That's it. Archipelago discovers it automatically next time you launch.
 
 ### 9. Keep `hp2_ap_client.exe` somewhere handy
 
-It's a single self-contained file. Put it anywhere you'll remember, e.g. next to the unzipped release files. You'll launch it later when you start playing.
+It's a single self-contained file. Put it anywhere you'll remember, e.g. next to the other release files. You'll launch it later when you start playing.
 
 ## Generate a seed (solo play)
 
@@ -130,7 +127,7 @@ You'll need three things running:
 Double-click `hp2_ap_client.exe`, OR run from a terminal:
 
 ```powershell
-"<HP2PC_AP unzip path>\hp2_ap_client.exe" --name <YourSlotName> --connect <server>:<port>
+"<path to>\hp2_ap_client.exe" --name <YourSlotName> --connect <server>:<port>
 ```
 
 Replace `<YourSlotName>` with your AP slot's name and `<server>:<port>` with the AP server. For solo on the same machine, that's typically `localhost:38281`.
@@ -179,7 +176,7 @@ Quick checklist after first launch:
 
 **Client exe won't start / antivirus quarantines it**:
 
-- Some antivirus engines flag self-contained tools like this heuristically. If your AV blocks it, whitelist `hp2_ap_client.exe` and re-extract.
+- Some antivirus engines flag self-contained tools like this heuristically. If your AV blocks it, whitelist `hp2_ap_client.exe` and re-download.
 - The exe runs on its own. The Archipelago install is only needed to generate or host seeds, not to run the client.
 
 **Seed generation can't find the apworld**:

@@ -2,7 +2,7 @@
 
 An Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secrets* (PC, 2002 EA / KnowWonder release).
 
-**Status:** pre-alpha, end-to-end playable. M0–M7 done. M8 (UX polish) underway — all four bookcase challenge blocks (Rictusempra / Skurge / Diffindo / Spongify) are implemented and verified. The v1 source-data model is 108 items / 105 checks: 7 spells (3 starter precollected) + 101 wizard cards, placed across 4 classrooms + 101 card pickups. Boomslang / Bicorn / BitOGoyle were dropped from AP for v1 and flow through vanilla story progression. Goal mechanic verified 2026-05-11 — post-Basilisk Great-Hall walk-in + credits cutscene releases items and marks the slot complete. See `../DESIGN.md#open-questions-to-resolve-in-playtest` for active blockers.
+**Status:** v1.0 — end-to-end playable. 108 items / 105 checks: 7 spells (3 starter precollected) + 101 wizard cards, placed across 4 classrooms + 101 card pickups. Boomslang / Bicorn / BitOGoyle flow through vanilla story progression (will return as AP items in v2). Goal: post-Basilisk Great-Hall walk-in fires the credits cutscene which marks the slot complete.
 
 ## Architecture (one-liner)
 
