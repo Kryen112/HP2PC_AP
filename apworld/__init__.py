@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from BaseClasses import CollectionState, Item, ItemClassification, Location, Region
-from Options import PerGameCommonOptions, StartInventoryPool
+from Options import DefaultOnToggle, PerGameCommonOptions, StartInventoryPool, Toggle
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components, launch as launch_component
 
@@ -90,12 +90,64 @@ class HP2WebWorld(WebWorld):
     """Web frontend metadata for archipelago.gg."""
 
 
+class EnableSecretsChecks(DefaultOnToggle):
+    """If true, the 110 SecretAreaMarker pickups become AP locations.
+
+    Cataloged in data/secrets_catalogue.yaml. Enabled by default — secrets
+    are intended to be standard checks. Pair with `allow_secrets_progression`
+    for the missable-vs-replayable progression eligibility split. Generation
+    is a no-op for this toggle until per-secret `requires:` is filled in
+    across the catalogue and gen_apworld.py is taught to consume it (v2
+    scope), but the default is set now so the player-yaml-template reads
+    correctly the moment that wiring lands.
+    """
+    display_name = "Enable Secrets Checks"
+
+
+class EnableChallengeStarsChecks(DefaultOnToggle):
+    """If true, the 44 ChallengeStar pickups across the 4 spell-challenge
+    levels (Rictusempra, Skurge, Diffindo, Spongify) become AP locations.
+
+    Cataloged in data/challenge_stars_catalogue.yaml. Enabled by default —
+    stars are intended to be standard checks. All challenge levels are
+    replayable so stars are always progression-eligible (no equivalent of
+    `allow_secrets_progression` needed). Generation is a no-op until per-star
+    `requires:` is filled in and gen_apworld.py is taught to consume the
+    catalogue (v2 scope).
+    """
+    display_name = "Enable Challenge Stars Checks"
+
+
+class AllowSecretsProgression(Toggle):
+    """If true (and `enable_secrets_checks` is true), missable secrets in
+    un-replayable levels (Willow, Bicorn, Boomslang, Goyle, Slytherin Common,
+    Forest, Chamber) are allowed to hold progression items.
+
+    If false (default), missable secrets are filler-only — safer because the
+    player can't soft-lock by missing a story-replay secret. Replayable
+    secrets (Hogwarts, Castle Exterior, the 4 spell challenges) always allow
+    progression regardless of this setting; this flag only gates the
+    un-replayable subset.
+    """
+    display_name = "Allow Secrets Progression"
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
     # StartInventoryPool (add-and-remove-from-pool). Keep it available for
     # playtest YAMLs; v1's three starter spells are precollected by the world.
     start_inventory_from_pool: StartInventoryPool
+    # v2 (not yet shipped): toggles for the secrets/stars catalogues. The two
+    # enable_* default to true (secrets/stars are core v2 checks); the
+    # progression-allowance flag defaults to false (missable secrets stay
+    # filler-only by default). Generation is unaffected by these until
+    # gen_apworld.py learns to consume data/secrets_catalogue.yaml and
+    # data/challenge_stars_catalogue.yaml — scaffolded here to lock the
+    # option names + defaults in place early.
+    enable_secrets_checks: EnableSecretsChecks
+    enable_challenge_stars_checks: EnableChallengeStarsChecks
+    allow_secrets_progression: AllowSecretsProgression
 
 
 class HP2World(World):

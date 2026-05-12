@@ -10,7 +10,13 @@
 #   group         grouping for AP/yaml category options (e.g. "Cards (Bronze)")
 #   notes         free text, optional
 #
-# Total: 111 unique items + 3 filler types = 114 entries (filler stacks as needed).
+# Total: 108 unique items + 8 filler types = 116 entries (filler stacks as needed).
+# Filler `weight:` is the relative frequency when the generator picks a filler
+# item via get_filler_item_name (multiworld.random.choices). Probabilities are
+# weight / sum(weights). Sum across the 8 filler types = 35; example expected
+# counts over a 154-slot fill (110 secrets + 44 stars - 0 non-filler items
+# added in v2): weight 1 → ~4 picks, weight 3 → ~13, weight 7 → ~31,
+# weight 10 → ~44.
 
 base_id: 5750000
 
@@ -141,6 +147,11 @@ cards_gold:
 # Filler. Stacks — multiple copies allowed, count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).
 filler:
-  - { id_offset: 300, name: "Small Pile of Beans",   classification: filler, group: Filler, notes: "Grants ~25 beans" }
-  - { id_offset: 301, name: "Medium Pile of Beans",  classification: filler, group: Filler, notes: "Grants ~50 beans" }
-  - { id_offset: 302, name: "Large Pile of Beans",   classification: filler, group: Filler, notes: "Grants ~100 beans" }
+  - { id_offset: 300, name: "Small Pile of Beans",   classification: filler, group: Filler, weight: 10, notes: "Grants ~25 beans" }
+  - { id_offset: 301, name: "Medium Pile of Beans",  classification: filler, group: Filler, weight: 7,  notes: "Grants ~50 beans" }
+  - { id_offset: 302, name: "Large Pile of Beans",   classification: filler, group: Filler, weight: 3,  notes: "Grants ~100 beans" }
+  - { id_offset: 303, name: "Massive Pile of Beans", classification: filler, group: Filler, weight: 1,  notes: "Sparse premium. Grants ~250 beans" }
+  - { id_offset: 304, name: "Wiggenweld Potion",     classification: filler, group: Filler, weight: 1,  notes: "Sparse premium. Full health refill on grant" }
+  - { id_offset: 305, name: "Wiggentree Bark",       classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }
+  - { id_offset: 306, name: "Flobberworm Mucous",    classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }
+  - { id_offset: 307, name: "Chocolate Frog",        classification: filler, group: Filler, weight: 7,  notes: "Health refill on grant" }
