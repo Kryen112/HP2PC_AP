@@ -140,7 +140,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - ~~Vendor card sales~~ ✅ Phases A (filter) + B (replacement) + C (assignment) all implemented. Vendors keep selling missed cards; the spawned `WCXxx` is rewritten to an `APCardMarker_<class>` so the sale fires the original card location's AP CHECK rather than granting the vanilla card. AP-checked locations are filtered out so vendors don't re-offer them. See `docs/MOD_TODO.md` for the breakdown.
 - ~~HUD toast actor~~ ✅ `APHUDToast.uc` extends `HProp`, registers with `HPHud.propArray`, draws "Received <tier> card X from Y" / "Sent X to Y" with `HGame.Icons.leftPanel` panel background and `vendor_spawn_WC` woosh sound. Sidecar `on_print_json` filter routes ItemSend broadcasts back as `SENT <item>|<receiver>` for cross-slot deliveries; ReceivedItems handles own-slot grants via the existing GRANT path.
 - Player-facing `docs/PLAYER_SETUP.md` walkthrough.
-- `tests/test_generation.py`: "100 seeds generate without error".
+- ~~`tests/test_generation.py`~~ ✅ Subprocess-driven smoke test that runs AP `Generate.py` against `tests/HP2_Test.yaml` N times (default 25, configurable via `--count`) in a fresh temp `--player_files_path` and `--outputpath` per run. Catches logic.yaml regressions, item/location count mismatches, broken plando, and unfillable seed shapes without touching the game. ~4s/seed (mostly AP framework startup); 100-run pre-release pass is ~7 min.
 - Tagged `v1.0.0` GitHub release zip.
 
 ---
