@@ -38,6 +38,8 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 
 ## Read this first
 
+- **`docs/PLAYER_SETUP.md`** — install + first-run guide for end users (skip if you're modifying the mod itself).
+- **`docs/DEV_SETUP.md`** — dev environment + UScript build loop.
 - **`docs/DESIGN.md`** — every architectural decision and why.
 - **`docs/ROADMAP.md`** — what to build and in what order.
 - **`docs/MOD_TODO.md`** — what the UScript mod has to do.
