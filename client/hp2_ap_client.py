@@ -148,6 +148,13 @@ class HP2Context(CommonContext):
         # during an AP outage loses these. Disk persistence is parked for v2
         # alongside bean durability (see docs/DESIGN.md#v2-parking-lot).
         self.pending_ap_outbound: list[dict] = []
+        # Per-game-session set of GRANT/SENT lines successfully written to the
+        # game writer. Reset every time a new game connects (handle_game_connection).
+        # Used by _resync_durable_grants on HELLO to skip items that were
+        # already delivered earlier in this session — without it, the very
+        # first HELLO of a new seed would replay every item on top of the
+        # initial ReceivedItems delivery (3 starter spells × 2 = 6 toasts).
+        self.delivered_to_game: set[str] = set()
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -226,6 +233,7 @@ class HP2Context(CommonContext):
             return
         try:
             self.game_writer.write((text + "\n").encode("utf-8"))
+            self.delivered_to_game.add(text)
         except Exception as e:
             logger.exception(f"Failed to write to game, re-queuing: {e}")
             self.pending_grants.append(text)
@@ -234,6 +242,9 @@ class HP2Context(CommonContext):
         peer = writer.get_extra_info("peername")
         logger.info(f"Game connected from {peer}")
         self.game_writer = writer
+        # Fresh game session — clear the per-session "already delivered" set so
+        # _resync_durable_grants on HELLO knows nothing has been delivered yet.
+        self.delivered_to_game = set()
 
         # Drain anything queued while the game wasn't connected (start
         # inventory grants delivered before game boot, items received during
@@ -244,6 +255,7 @@ class HP2Context(CommonContext):
             for line in queued:
                 try:
                     writer.write((line + "\n").encode("utf-8"))
+                    self.delivered_to_game.add(line)
                 except Exception as e:
                     logger.exception(f"Failed to drain {line!r}, re-queuing remainder: {e}")
                     # Stash this one and everything after back at the queue head
@@ -389,8 +401,23 @@ class HP2Context(CommonContext):
         if not grants:
             logger.info("Game HELLO received; no durable grants to resync")
             return
-        logger.info(f"Game HELLO received; resyncing {len(grants)} durable grant(s)")
-        for payload in grants:
+        # Skip items already delivered earlier in this game session. Without
+        # this filter, the very first HELLO of a new seed would replay each
+        # item on top of the original ReceivedItems delivery (e.g. 3 starter
+        # spells × 2 = 6 toasts on game start). Reset of `delivered_to_game`
+        # in handle_game_connection guarantees each new game session does
+        # see a full replay if it actually needs one (post-restart, save load
+        # mid-session, etc.).
+        to_send = [p for p in grants if f"GRANT {p}" not in self.delivered_to_game]
+        if not to_send:
+            logger.info(f"Game HELLO received; game is in sync ({len(grants)} grant(s) already pushed via pre-HELLO drain or inline ReceivedItems)")
+            return
+        skipped = len(grants) - len(to_send)
+        if skipped > 0:
+            logger.info(f"Game HELLO received; resyncing {len(to_send)} of {len(grants)} durable grant(s) ({skipped} already pushed since game connect)")
+        else:
+            logger.info(f"Game HELLO received; resyncing {len(to_send)} durable grant(s)")
+        for payload in to_send:
             self._send_to_game(f"GRANT {payload}")
 
     def _remember_durable_grant(self, payload: str, index: object) -> None:
