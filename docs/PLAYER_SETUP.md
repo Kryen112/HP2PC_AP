@@ -2,7 +2,7 @@
 
 End-to-end install and first-run guide for the Harry Potter and the Chamber of Secrets PC Archipelago randomizer.
 
-If you're a developer wanting to *modify* the mod or apworld, skip this and read [`DEV_SETUP.md`](DEV_SETUP.md) instead.
+If you're a developer wanting to _modify_ the mod or apworld, skip this and read [`DEV_SETUP.md`](DEV_SETUP.md) instead.
 
 ---
 
@@ -15,12 +15,12 @@ If you're a developer wanting to *modify* the mod or apworld, skip this and read
 
 ## Prerequisites
 
-| Thing | Where to get it |
-| --- | --- |
-| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**. |
-| **HP2Engine 3.4 by Metallicafan212** ("M212") | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord. |
-| **Archipelago framework** | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting. |
-| **HP2PC_AP release files** | Four files downloaded individually from the GitHub release: `HPArchipelago.u`, `harry_potter_2_pc.apworld`, `hp2_ap_client.exe`, and this `PLAYER_SETUP.md`. |
+| Thing                                            | Where to get it                                                                                                                                                 |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                              |
+| **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                          |
+| **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                        |
+| **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, `hp2_ap_client.exe` and this `PLAYER_SETUP.md`. |
 
 OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
 
@@ -29,64 +29,49 @@ OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Win
 ### 1. Install HP2 retail
 
 Install the game from your disc or installer. Default location is fine (e.g. `C:\Program Files (x86)\Harry Potter 2\`).
+Follow only steps 1, 2, 3 and 5, no need for windowed steps etc.
 
 ### 2. Apply the M212 engine patch
 
-Run M212's installer. Point it at your HP2 install. It will create a `Modded\` subfolder next to the original install (`Modded\system\Game.exe`, `Modded\system\UCC.exe`, etc.).
-
-> Keep the original (vanilla) install untouched in case you ever need to verify a vanilla behaviour.
+Run M212's installer. Point it at your HP2 install.
 
 ### 3. Drop the mod files
 
-You should have downloaded these four files from the GitHub release:
+You should have downloaded these five files from the GitHub release:
 
 - `HPArchipelago.u` (the compiled mod)
+- `Default.ini` (pre-patched engine config — replaces the one shipped with M212)
 - `harry_potter_2_pc.apworld` (the AP world)
 - `hp2_ap_client.exe` (the self-contained client)
 - `PLAYER_SETUP.md` (this file)
 
-Copy `HPArchipelago.u` into your M212 install:
+Copy `HPArchipelago.u` and `Default.ini` into your M212 install, overwriting the existing `Default.ini`:
 
 ```
 <HP2 install>\Modded\system\HPArchipelago.u
+<HP2 install>\Modded\system\Default.ini
 ```
 
-### 4. Patch `Default.ini`
+If Windows blocks saving in Program Files, copy the files via Windows Explorer and approve the admin prompt, or move your HP2 install out of Program Files entirely (e.g. to `C:\Games\HP2\`).
 
-Open `<HP2 install>\Modded\system\Default.ini` in a text editor that preserves ANSI / Windows-1252 encoding (Notepad is fine; VS Code defaults to UTF-8, switch the encoding before saving).
+**Only if you've launched HP2 before** (i.e. `C:\Users\<you>\Documents\Harry - Coding Evolved\` already exists with `HP.ini` and/or `Game.ini` in it), do this cleanup:
 
-Add `IpDrv` and `HPArchipelago` to the `EditPackages=` list. Find the existing block and insert these two lines **immediately after** `EditPackages=M212Share`:
+- Delete your `HP.ini`.
+- For `Game.ini` (if it exists), either delete it OR open it and under the `[Engine.Engine]` section add:
 
-```ini
-EditPackages=IpDrv
-EditPackages=HPArchipelago
-```
+  ```
+  DefaultGame=HPArchipelago.APGameInfo
+  ```
 
-> Don't append at end-of-file. The file extends past the EditPackages list with graphics-adapter sections, and an EditPackages entry there is silently ignored.
+  (replacing any existing `DefaultGame=` line). The edit path preserves your per-user settings like resolution and audio volume; the delete path is simpler if you don't care.
 
-### 5. First launch creates the user-data files
+Your `Save\` folder is fine to keep. If `Harry - Coding Evolved\` doesn't exist yet (fresh M212 install, never launched), skip this — `Default.ini` is all you need; the engine will generate any per-user files on first launch.
 
-Launch the game once via `<HP2 install>\Modded\system\Game.exe`. It generates `HP.ini` and `Game.ini` in `C:\Users\<you>\Documents\Harry - Coding Evolved\`. Quit out of the game.
+> Why this matters: `HP.ini` and `Game.ini` are user-data overrides. If they exist from a prior launch, they take precedence over `Default.ini` and will silently override the mod's settings back to vanilla.
 
-> If you ever wipe the user-data folder, repeat this step before redoing 6 and 7.
+> The shipped `Default.ini` is already patched with `EditPackages=IpDrv`, `EditPackages=HPArchipelago`, and `DefaultGame=HPArchipelago.APGameInfo`. No hand-editing required.
 
-### 6. Patch `HP.ini`
-
-Open `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` (same ANSI encoding rule as `Default.ini`).
-
-Apply the **same** `EditPackages=IpDrv` and `EditPackages=HPArchipelago` lines from step 4 immediately after `EditPackages=M212Share`. Once `HP.ini` exists, the engine reads from it instead of `Default.ini`, so both files need the entries.
-
-### 7. Patch `Game.ini`
-
-Open `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.ini`. Find the `[Engine.Engine]` section and add:
-
-```ini
-DefaultGame=HPArchipelago.APGameInfo
-```
-
-This tells HP2 to load our `APGameInfo` subclass at level start, which is what wires the rest of the mod into the game.
-
-### 8. Install Archipelago and the apworld
+### 4. Install Archipelago and the apworld
 
 Install Archipelago using its Windows installer. Default location works (`C:\ProgramData\Archipelago\` on most systems).
 
@@ -98,7 +83,7 @@ Drop `harry_potter_2_pc.apworld` into Archipelago's custom worlds folder:
 
 That's it. Archipelago discovers it automatically next time you launch.
 
-### 9. Keep `hp2_ap_client.exe` somewhere handy
+### 5. Keep `hp2_ap_client.exe` somewhere handy
 
 It's a single self-contained file. Put it anywhere you'll remember, e.g. next to the other release files. You'll launch it later when you start playing.
 
@@ -106,7 +91,7 @@ It's a single self-contained file. Put it anywhere you'll remember, e.g. next to
 
 If you're playing solo (just you, no other AP slots):
 
-1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`.
+1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`. (If you don't see the yaml, make sure you have the apworld installed and close and re-open the launcher.)
 2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to whatever you want your in-game player name to be. Anything else in the template can stay at defaults for v1.
 3. **Generate.** ArchipelagoLauncher → **Generate**, pick your YAML when prompted. The generator drops a seed zip in `<Archipelago install>\output\`.
 
@@ -124,9 +109,14 @@ You'll need three things running:
 
 ### Start the client
 
-Double-click `hp2_ap_client.exe`, OR run from a terminal:
+Double-click `hp2_ap_client.exe`
+It might tell you that it is potentially harmful, but please run anyways
+In the client, type `/connect <server>:<port>`
+Then enter your slot name.
 
-```powershell
+OR run from a terminal:
+
+```
 "<path to>\hp2_ap_client.exe" --name <YourSlotName> --connect <server>:<port>
 ```
 
@@ -143,7 +133,7 @@ Leave the terminal open.
 
 ### Launch the game
 
-Run `<HP2 install>\Modded\system\Game.exe` (or use the M212 Start Menu shortcut).
+Run `<HP2 install>\system\Game.exe` (or use the M212 Start Menu shortcut), and start a new game.
 
 Within a few seconds you should see in the client terminal:
 
@@ -160,7 +150,7 @@ You're playing.
 
 Quick checklist after first launch:
 
-- **Toasts appear top-right** when items arrive. If not, the mod isn't loaded, check the INI patches in steps 4, 6, and 7.
+- **Toasts appear top-right** when items arrive. If not, the mod isn't loaded — see Troubleshooting below.
 - **Bookcases block the spell classrooms** you haven't been granted yet. If you can walk straight into Lockhart's DADA classroom and the spell-tutorial cutscene fires immediately, the mod isn't running.
 - **Picking up a wizard card** should fire a `CHECK <id>` line in the client terminal and (if you have any items waiting) hand you something back.
 - **Goal:** the seed completes when you defeat the Basilisk and the post-Basilisk Great Hall walk-in fires the credits.
@@ -170,8 +160,9 @@ Quick checklist after first launch:
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
 - Check `<HP2 install>\Modded\system\HPArchipelago.u` exists.
-- Check both `Default.ini` (in `<HP2 install>\Modded\system\`) AND `HP.ini` (in `C:\Users\<you>\Documents\Harry - Coding Evolved\`) have `EditPackages=IpDrv` and `EditPackages=HPArchipelago` inserted right after the `EditPackages=M212Share` line.
-- Check `Game.ini` (also in `C:\Users\<you>\Documents\Harry - Coding Evolved\`) has `DefaultGame=HPArchipelago.APGameInfo` under `[Engine.Engine]`.
+- Check `<HP2 install>\Modded\system\Default.ini` is the shipped one — open it and confirm `EditPackages=HPArchipelago` is present (search for it).
+- If `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` exists, it overrides `Default.ini`, delete it.
+- If `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.ini` exists, it overrides both. Either delete it, or open it and make sure `[Engine.Engine]` has `DefaultGame=HPArchipelago.APGameInfo` (not `DefaultGame=Engine.GameInfo`).
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
 
 **Client exe won't start / antivirus quarantines it**:
@@ -203,11 +194,11 @@ Quick checklist after first launch:
 
 For bug reports, attach these:
 
-| What | Where |
-| --- | --- |
-| Game-side log | `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log` (UTF-16LE) |
-| Client terminal | the PowerShell window you ran the client in |
-| AP server log | `<Archipelago install>\logs\` |
+| What            | Where                                                                 |
+| --------------- | --------------------------------------------------------------------- |
+| Game-side log   | `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log` (UTF-16LE) |
+| Client terminal | the PowerShell window you ran the client in                           |
+| AP server log   | `<Archipelago install>\logs\`                                         |
 
 ## Where to ask for help
 
