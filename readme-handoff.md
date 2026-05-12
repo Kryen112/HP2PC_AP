@@ -12,7 +12,7 @@ This file is for the next Claude that boots into this repo. Read it top-to-botto
 - Diffindo offsets are WORLD coords (no rotation transformation) — we switched from local coords because the cutscene's `Yaw=49136 (≈270°)` rotation made diagonal stepping in local space too painful to reason about. World coords match exactly what the spawnLoc log lines show. Bookcase ORIENTATION is still derived from `cs.Rotation + 32768 yaw` so the bookcases face Harry's approach; only POSITION is world-coords.
 - All Diffindo machinery (idempotency dropped for multi-bookcase, tag-scan removal of all 3, save-load resilience via `APCardWatcher.TrySpawnClassroomBlockers`) is in place and working.
 
-**What still needs doing in M8**: vendor Phase C (marker → vendor stock assignment — without it Phases A/B are inert and vendors stay out-of-stock), HUD toast, `docs/PLAYER_SETUP.md`, `tests/test_generation.py`, v1.0.0 release zip. All four bookcase blockers (Ricta / Skurge / Diffindo / Spongify) and vendor Phases A (filter) + B (replacement) are in place. See `docs/ROADMAP.md` M8 + `docs/MOD_TODO.md`.
+**What still needs doing in M8**: HUD toast, `docs/PLAYER_SETUP.md`, `tests/test_generation.py`, v1.0.0 release zip. All four bookcase blockers (Ricta / Skurge / Diffindo / Spongify) and the full vendor card-sale rewrite (Phases A filter / B replacement / C assignment) are in place. See `docs/ROADMAP.md` M8 + `docs/MOD_TODO.md`.
 
 ---
 

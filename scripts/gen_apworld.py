@@ -52,6 +52,125 @@ CARD_GAME_ID_TO_CLASS: dict[int, str] = {
 }
 
 
+# Per-card vendor metadata, harvested from each WCXxx.uc default in
+# HP2UScriptDecompile/HGame/Classes/WizardCards/. Stable across game versions
+# (extracted once 2026-05-12). Used by emit_card_markers to write the
+# corresponding fields onto each generated APCardMarker_<X> subclass so
+# APCardWatcher.AssignMarkersToVendors can assign markers into vendor stock —
+# vanilla AssignVendorCards reads slotClass.Default.Id (=200 sentinel on our
+# markers) and slotClass.Default.bVendorsCanSell (=False inherited from
+# WizardCardIcon base), so without these copied defaults vanilla skips every
+# marker and our cards never reach vendor inventory.
+#
+# Tuple is (bVendorsCanSell, strVendorOwnedAfterGState, tier).
+# Tier is "Bronze"/"Silver"/"Gold" — derived from the parent class
+# (BronzeCards/SilverCards/Goldcards). All 11 gold cards are non-sellable
+# (set rewards). 59 of 101 cards are sellable in vanilla.
+CARD_VENDOR_META: dict[str, tuple[bool, str, str]] = {
+    "WCAgrippa":      (True,  "GSTATE065", "Bronze"),
+    "WCAlderton":     (False, "",          "Bronze"),
+    "WCAndros":       (True,  "GSTATE180", "Silver"),
+    "WCBarbary":      (False, "",          "Bronze"),
+    "WCBarkwith":     (False, "",          "Bronze"),
+    "WCBeamish":      (True,  "GSTATE100", "Silver"),
+    "WCBelby":        (False, "",          "Bronze"),
+    "WCBlane":        (False, "",          "Bronze"),
+    "WCBloxam":       (True,  "GSTATE110", "Bronze"),
+    "WCBonham":       (False, "",          "Bronze"),
+    "WCBott":         (False, "",          "Gold"),
+    "WCCatchlove":    (False, "",          "Bronze"),
+    "WCChittock":     (True,  "GSTATE020", "Silver"),
+    "WCCirce":        (True,  "GSTATE110", "Silver"),
+    "WCClagg":        (True,  "GSTATE120", "Silver"),
+    "WCCliodne":      (True,  "GSTATE150", "Silver"),
+    "WCCronk":        (True,  "GSTATE065", "Silver"),
+    "WCCrumb":        (True,  "GSTATE020", "Silver"),
+    "WCDodderidge":   (True,  "GSTATE180", "Silver"),
+    "WCDuke":         (True,  "GSTATE020", "Silver"),
+    "WCDumbledore":   (False, "",          "Gold"),
+    "WCElphick":      (True,  "GSTATE170", "Bronze"),
+    "WCEthelred":     (False, "",          "Bronze"),
+    "WCFancourt":     (True,  "GSTATE150", "Bronze"),
+    "WCFay":          (True,  "GSTATE120", "Silver"),
+    "WCFulbert":      (True,  "GSTATE050", "Silver"),
+    "WCFurmage":      (True,  "GSTATE130", "Silver"),
+    "WCGoshawk":      (True,  "GSTATE065", "Bronze"),
+    "WCGraves":       (False, "",          "Bronze"),
+    "WCGregory":      (True,  "GSTATE050", "Silver"),
+    "WCGriffindor":   (False, "",          "Gold"),
+    "WCGrunnion":     (True,  "GSTATE130", "Silver"),
+    "WCGunhilda":     (False, "",          "Bronze"),
+    "WCHerpo":        (False, "",          "Gold"),
+    "WCHipworth":     (False, "",          "Bronze"),
+    "WCHufflepuff":   (False, "",          "Gold"),
+    "WCJones":        (True,  "GSTATE180", "Silver"),
+    "WCKegg":         (False, "",          "Bronze"),
+    "WCKetteridge":   (False, "",          "Bronze"),
+    "WCKnightley":    (False, "",          "Gold"),
+    "WCLufkin":       (True,  "GSTATE180", "Silver"),
+    "WCMaeve":        (True,  "GSTATE180", "Silver"),
+    "WCMarjoribanks": (False, "",          "Bronze"),
+    "WCMerlin":       (False, "",          "Bronze"),
+    "WCMerwyn":       (False, "",          "Bronze"),
+    "WCMontmorency":  (True,  "GSTATE180", "Silver"),
+    "WCMopsus":       (True,  "GSTATE180", "Silver"),
+    "WCMuldoon":      (True,  "GSTATE100", "Bronze"),
+    "WCNutcombe":     (True,  "GSTATE065", "Silver"),
+    "WCOglethorpe":   (True,  "GSTATE180", "Silver"),
+    "WCOldridge":     (True,  "GSTATE180", "Silver"),
+    "WCOliphant":     (True,  "GSTATE150", "Silver"),
+    "WCOllerton":     (True,  "GSTATE150", "Bronze"),
+    "WCParacelsus":   (False, "",          "Gold"),
+    "WCPeakes":       (True,  "GSTATE065", "Bronze"),
+    "WCPilliwickle":  (True,  "GSTATE120", "Bronze"),
+    "WCPinkstone":    (False, "",          "Gold"),
+    "WCPlatt":        (True,  "GSTATE120", "Bronze"),
+    "WCPlumpton":     (True,  "GSTATE110", "Bronze"),
+    "WCPlunkett":     (True,  "GSTATE180", "Silver"),
+    "WCPo":           (False, "",          "Bronze"),
+    "WCPokeby":       (False, "",          "Bronze"),
+    "WCPotter":       (False, "",          "Gold"),
+    "WCRastrick":     (True,  "GSTATE130", "Silver"),
+    "WCRavenclaw":    (False, "",          "Gold"),
+    "WCSawbridge":    (False, "",          "Bronze"),
+    "WCScamander":    (True,  "GSTATE150", "Bronze"),
+    "WCShimpling":    (True,  "GSTATE080", "Silver"),
+    "WCShingleton":   (True,  "GSTATE180", "Silver"),
+    "WCSlytherin":    (False, "",          "Gold"),
+    "WCSmethwyck":    (True,  "GSTATE080", "Silver"),
+    "WCStalk":        (True,  "GSTATE080", "Silver"),
+    "WCStarkey":      (True,  "GSTATE000", "Bronze"),
+    "WCStroulger":    (True,  "GSTATE110", "Bronze"),
+    "WCStump":        (True,  "GSTATE065", "Bronze"),
+    "WCSummerbee":    (True,  "GSTATE130", "Silver"),
+    "WCSweeting":     (False, "",          "Bronze"),
+    "WCSykes":        (False, "",          "Bronze"),
+    "WCThruston":     (False, "",          "Bronze"),
+    "WCThurkell":     (True,  "GSTATE080", "Silver"),
+    "WCToke":         (True,  "GSTATE090", "Bronze"),
+    "WCToothill":     (True,  "GSTATE180", "Silver"),
+    "WCTremlett":     (True,  "GSTATE020", "Silver"),
+    "WCTugwood":      (True,  "GSTATE090", "Silver"),
+    "WCTwonk":        (False, "",          "Bronze"),
+    "WCUlric":        (False, "",          "Bronze"),
+    "WCVablatsky":    (False, "",          "Bronze"),
+    "WCWadcock":      (True,  "GSTATE180", "Silver"),
+    "WCWaffling":     (True,  "GSTATE120", "Bronze"),
+    "WCWagtail":      (False, "",          "Bronze"),
+    "WCWarbeck":      (False, "",          "Bronze"),
+    "WCWellbeloved":  (True,  "GSTATE150", "Bronze"),
+    "WCWendelin":     (True,  "GSTATE180", "Silver"),
+    "WCWenlock":      (False, "",          "Bronze"),
+    "WCWhitehorn":    (True,  "GSTATE110", "Bronze"),
+    "WCWildsmith":    (True,  "GSTATE110", "Silver"),
+    "WCWintringham":  (False, "",          "Bronze"),
+    "WCWithers":      (False, "",          "Bronze"),
+    "WCWoodcroft":    (False, "",          "Bronze"),
+    "WCWright":       (True,  "GSTATE180", "Silver"),
+    "WCYoudle":       (True,  "GSTATE180", "Silver"),
+}
+
+
 def load_data() -> tuple[dict, dict, dict]:
     items = yaml.safe_load((DATA_DIR / "items.yaml").read_text(encoding="utf-8"))
     locations = yaml.safe_load((DATA_DIR / "locations.yaml").read_text(encoding="utf-8"))
@@ -518,6 +637,14 @@ def emit_card_markers(items: dict) -> int:
                 f"emit_card_markers: no tier in items.yaml for card class {ucls!r}; "
                 "add it to cards_bronze/cards_silver/cards_gold."
             )
+        meta = CARD_VENDOR_META.get(ucls)
+        if meta is None:
+            raise ValueError(
+                f"emit_card_markers: no vendor metadata for card class {ucls!r}; "
+                "add it to CARD_VENDOR_META in scripts/gen_apworld.py."
+            )
+        bvc, gst, marker_tier = meta
+        bvc_uc = "True" if bvc else "False"
         path = MOD_CLASSES_DIR / f"APCardMarker_{ucls}.uc"
         path.write_text(
             "// AUTO-GENERATED by scripts/gen_apworld.py from data/items.yaml.\n"
@@ -528,6 +655,9 @@ def emit_card_markers(items: dict) -> int:
             "{\n"
             f"    CardLocationId={game_id}\n"
             f"    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_{tier}'\n"
+            f"    bVendorsCanSell={bvc_uc}\n"
+            f"    strVendorOwnedAfterGState=\"{gst}\"\n"
+            f"    MarkerTier=\"{marker_tier}\"\n"
             "}\n",
             encoding="utf-8",
         )

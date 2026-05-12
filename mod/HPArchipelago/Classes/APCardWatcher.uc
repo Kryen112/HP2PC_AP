@@ -397,6 +397,11 @@ event Timer()
         // Other blockers are idempotent (tag-scan no-op) so the redundant
         // calls are harmless.
         TrySpawnClassroomBlockers();
+        // Several cards have strVendorOwnedAfterGState gates (e.g. GSTATE150
+        // for WCFancourt). Re-run the assignment pass so cards become
+        // vendor-available the moment their gate opens, without waiting for
+        // a level reload.
+        AssignMarkersToVendors();
     }
 
     if (siBronze.nCount != LastBronzeCount || siSilver.nCount != LastSilverCount || siGold.nCount != LastGoldCount)
@@ -412,6 +417,124 @@ event Timer()
         HeartbeatCounter = 0;
         Log("[Archipelago] APCardWatcher: nCount heartbeat - Bronze=" $ siBronze.nCount $ " Silver=" $ siSilver.nCount $ " Gold=" $ siGold.nCount);
     }
+}
+
+// Phase C of vendor support: mirror vanilla `AssignVendorCards` for our
+// markers. Vanilla iterates chest `EjectedObjects[]` / loose `WizardCardIcon`
+// actors and reads `slotClass.Default.Id` + `slotClass.Default.bVendorsCanSell`
+// to decide whether to assign the card to a vendor. Our markers have
+// `Default.Id=200` (sentinel for vanilla bean-swap immunity, can't change),
+// so vanilla's lookup writes vendor ownership for nonexistent id 200 — no-op.
+// We re-do the pass with the marker's real `CardLocationId` and the per-card
+// `bVendorsCanSell` / `strVendorOwnedAfterGState` defaults that gen_apworld
+// copies from each WCXxx vanilla class. Result: cards left behind in any
+// level (replayable or not) become available at vendors once their game-state
+// gate has passed, mirroring vanilla's recovery path. Skips locations already
+// AP-checked (handled by ClearVendorOwnershipForLocation in Phase A).
+function AssignMarkersToVendors()
+{
+    local chestbronze chest;
+    local bronzecauldron cauldron;
+    local APCardMarker marker;
+    local int i;
+    local int assigned;
+
+    assigned = 0;
+
+    foreach AllActors(class'chestbronze', chest)
+    {
+        for (i = 0; i < ArrayCount(chest.EjectedObjects); i++)
+        {
+            if (chest.EjectedObjects[i] != None
+                && ClassIsChildOf(chest.EjectedObjects[i], class'APCardMarker'))
+            {
+                if (TryAssignMarkerClassToVendor(class<APCardMarker>(chest.EjectedObjects[i])))
+                {
+                    assigned++;
+                }
+            }
+        }
+    }
+
+    foreach AllActors(class'bronzecauldron', cauldron)
+    {
+        for (i = 0; i < ArrayCount(cauldron.EjectedObjects); i++)
+        {
+            if (cauldron.EjectedObjects[i] != None
+                && ClassIsChildOf(cauldron.EjectedObjects[i], class'APCardMarker'))
+            {
+                if (TryAssignMarkerClassToVendor(class<APCardMarker>(cauldron.EjectedObjects[i])))
+                {
+                    assigned++;
+                }
+            }
+        }
+    }
+
+    foreach AllActors(class'APCardMarker', marker)
+    {
+        if (TryAssignMarkerClassToVendor(marker.Class))
+        {
+            assigned++;
+        }
+    }
+
+    if (assigned > 0)
+    {
+        Log("[Archipelago] APCardWatcher.AssignMarkersToVendors: assigned " $ assigned $ " marker location(s) to vendor stock");
+    }
+}
+
+// Helper for AssignMarkersToVendors. Returns True if it just transitioned the
+// card into vendor ownership (for log accounting). Skips:
+//   - markers whose Default.bVendorsCanSell is False (vanilla per-card opt-in)
+//   - markers whose location is already AP-checked
+//   - markers whose strVendorOwnedAfterGState gate hasn't passed yet
+//   - markers whose card is already CardOwner_Harry or CardOwner_Vendor
+function bool TryAssignMarkerClassToVendor(class<APCardMarker> markerCls)
+{
+    local int id;
+    local string strState;
+    local int gateState;
+
+    if (markerCls == None) return False;
+    id = markerCls.default.CardLocationId;
+    if (id <= 0 || id > MAX_CARD_ID) return False;
+    if (default.LocationChecked[id] == 1) return False;
+    if (!markerCls.default.bVendorsCanSell) return False;
+
+    strState = markerCls.default.strVendorOwnedAfterGState;
+    if (strState != "")
+    {
+        gateState = int(Right(strState, 3));
+        if (HarryRef == None || HarryRef.iGameState < gateState) return False;
+    }
+
+    if (markerCls.default.MarkerTier == "Bronze")
+    {
+        if (siBronze != None
+            && siBronze.GetCardOwner(id) != siBronze.ECardOwner.CardOwner_Harry
+            && siBronze.GetCardOwner(id) != siBronze.ECardOwner.CardOwner_Vendor)
+        {
+            siBronze.SetCardOwner(id, siBronze.ECardOwner.CardOwner_Vendor);
+            Log("[Archipelago] AssignMarker: Bronze[" $ id $ "] -> Vendor (class=" $ string(markerCls.Name) $ ")");
+            return True;
+        }
+    }
+    else if (markerCls.default.MarkerTier == "Silver")
+    {
+        if (siSilver != None
+            && siSilver.GetCardOwner(id) != siSilver.ECardOwner.CardOwner_Harry
+            && siSilver.GetCardOwner(id) != siSilver.ECardOwner.CardOwner_Vendor)
+        {
+            siSilver.SetCardOwner(id, siSilver.ECardOwner.CardOwner_Vendor);
+            Log("[Archipelago] AssignMarker: Silver[" $ id $ "] -> Vendor (class=" $ string(markerCls.Name) $ ")");
+            return True;
+        }
+    }
+    // Gold tier intentionally not handled — gold cards are non-sellable in
+    // vanilla (all 11 have bVendorsCanSell=False and are filtered out above).
+    return False;
 }
 
 // Phase B of vendor support: when a vendor's `MakePurchase` spawns a vanilla
@@ -476,7 +599,13 @@ function ReplaceVendorSpawnedCards()
             Log("[Archipelago] APCardWatcher.ReplaceVendorSpawnedCards: Spawn returned None for " $ string(markerClass) $ " at " $ string(spawnLoc));
             continue;
         }
-        APCardMarker(spawned).MarkAsLoose();
+        // Vendor-spawned markers are ephemeral, not design-time placements,
+        // so do NOT call MarkAsLoose (which would keep bPersistent=True and
+        // make the marker survive level exit, leading to ghost-stacking when
+        // the player buys the same card twice). Set bPersistent=False
+        // immediately to close the 0.05s race window before the marker's own
+        // Timer event runs.
+        spawned.bPersistent = False;
         replacedCount++;
     }
     if (replacedCount > 0)
@@ -664,6 +793,10 @@ function Snapshot()
     // including ones the player has already AP-checked. Re-clear them so the
     // vendors don't offer them.
     SweepVendorAssignments();
+    // Then run our own marker-aware vendor-assignment pass so cards left in
+    // chest/loose markers in this level become vendor-available (vanilla's
+    // pass can't see our markers because of the Default.Id=200 sentinel).
+    AssignMarkersToVendors();
 }
 
 function bool IsHarryOwned(int id)

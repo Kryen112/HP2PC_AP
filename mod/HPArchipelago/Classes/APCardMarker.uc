@@ -27,6 +27,15 @@ var int CardLocationId;
 // the Timer to avoid the 18-marker-stacking bug.
 var bool bIsLooseSpawn;
 
+// "Bronze" / "Silver" / "Gold" — set by gen_apworld.py per generated subclass
+// (mirrors the parent vanilla class's tier). Used by
+// APCardWatcher.AssignMarkersToVendors to pick the right si (siBronze /
+// siSilver / siGold) when assigning vendor ownership for missed cards.
+// `bVendorsCanSell` and `strVendorOwnedAfterGState` are inherited from
+// `WizardCardIcon` — generated subclasses override them via defaultproperties
+// with the per-card vanilla values so vendors see our markers as sellable.
+var string MarkerTier;
+
 function PostBeginPlay()
 {
     Super.PostBeginPlay();
@@ -133,7 +142,16 @@ function Touch(Actor Other)
     h = harry(Other);
     if (h == None) return;
     if (CardLocationId <= 0 || CardLocationId > 101) return;
-    if (class'APCardWatcher'.default.LocationChecked[CardLocationId] == 1) return;
+    // Already AP-checked: this is a stale duplicate (e.g. vendor spawned a
+    // second copy of the same card before the player picked up the first).
+    // Destroy self instead of returning silently — leaving the actor in the
+    // world makes it an intangible ghost the player walks through forever.
+    if (class'APCardWatcher'.default.LocationChecked[CardLocationId] == 1)
+    {
+        Log("[Archipelago] APCardMarker.Touch: location " $ CardLocationId $ " already checked - destroying stale duplicate marker");
+        Destroy();
+        return;
+    }
 
     Log("[Archipelago] APCardMarker.Touch: firing CHECK " $ CardLocationId);
 

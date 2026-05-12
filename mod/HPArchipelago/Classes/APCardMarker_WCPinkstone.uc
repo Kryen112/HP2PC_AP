@@ -6,4 +6,7 @@ defaultproperties
 {
     CardLocationId=40
     soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_gold'
+    bVendorsCanSell=False
+    strVendorOwnedAfterGState=""
+    MarkerTier="Gold"
 }
