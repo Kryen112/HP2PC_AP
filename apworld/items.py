@@ -243,7 +243,7 @@ ITEM_GROUPS: dict[str, list[str]] = {
 
 FILLER_NAMES: list[str] = ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans']
 
-# Map UScript card class name → AP item display name. Used by the sidecar
+# Map UScript card class name → AP item display name. Used by the client
 # when forwarding 'GRANT <classname>' messages to the mod for cards.
 CARD_CLASS_TO_ITEM_NAME: dict[str, str] = {
     'WCAgrippa': 'Agrippa',

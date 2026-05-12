@@ -152,7 +152,7 @@ Within a few seconds you should see in the client terminal:
 
 ```
 Game connected from ('127.0.0.1', <port>)
-[game→sidecar] HELLO
+[game→client] HELLO
 ```
 
 The game window should pop a toast top-right when your starting items arrive ("Received Alohomora from <YourSlotName>" etc).

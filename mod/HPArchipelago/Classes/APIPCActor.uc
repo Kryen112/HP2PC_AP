@@ -16,16 +16,16 @@ var float NextGrantDrainEarliest;
 const POST_DEFER_STABILITY_SECS = 1.0;
 const POST_SNAPSHOT_WARMUP_SECS = 3.0;
 
-// Reconnect state. If the sidecar terminal closes / crashes mid-session, the
+// Reconnect state. If the client terminal closes / crashes mid-session, the
 // engine fires Closed() and the connection stays dead — previously the mod
 // sat silent for the rest of the session and the player had to restart the
 // game. Now Closed() schedules a retry; Timer() drives the actual attempts
-// with exponential backoff so a never-running sidecar doesn't spin Open()
+// with exponential backoff so a never-running client doesn't spin Open()
 // hot on every 0.25s tick.
 var bool bWantsReconnect;
 var float NextReconnectAttempt;
 var float ReconnectBackoff;
-// ReceivedText delivers raw TCP chunks, not one-line-per-event. When the sidecar
+// ReceivedText delivers raw TCP chunks, not one-line-per-event. When the client
 // burst-writes a resync (e.g. 39 GRANTs back-to-back), TCP coalesces them into
 // one or a few packets; UE1 fires ReceivedText with the whole blob. We have to
 // split on \n ourselves and carry any trailing partial line across the next
@@ -166,7 +166,7 @@ function HandleLine(string line)
     else if (Left(line, 5) == "SENT ")
     {
         // PrintJSON-driven "Sent X to Y" toast for items we sent to OTHER
-        // slots. Sidecar guarantees `receiving != self.slot` so own-slot
+        // slots. Client guarantees `receiving != self.slot` so own-slot
         // items don't double-toast (they go through ReceivedItems → GRANT
         // and produce a "Received X from Y" toast instead). No queueing —
         // toast is purely cosmetic, drop on the floor if no toast actor.
@@ -222,11 +222,11 @@ event Closed()
 {
     Log("[Archipelago] APIPCActor: Closed - scheduling reconnect");
     // RecvBuffer may hold a partial line from before the disconnect. A
-    // reconnected sidecar starts fresh, so any half-line we held is now
+    // reconnected client starts fresh, so any half-line we held is now
     // garbage — drop it.
     RecvBuffer = "";
     bWantsReconnect = True;
-    // First retry after Closed: short delay so a graceful sidecar restart
+    // First retry after Closed: short delay so a graceful client restart
     // reconnects fast. Subsequent failures back off via ScheduleNextReconnect.
     NextReconnectAttempt = Level.TimeSeconds + 1.0;
 }

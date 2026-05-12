@@ -12,7 +12,7 @@ An Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secret
        └─ class'IpDrv.TcpLink' ──► localhost:38281
                                        │
                                        ▼
-                          [Python sidecar (hp2_client.py)]
+                          [Python client (hp2_client.py)]
                                        │
                                        ▼ WebSocket
                             [archipelago.gg server]
@@ -25,7 +25,7 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 | Path | Purpose |
 | --- | --- |
 | `apworld/` | Python AP world definition (compiles to `harry_potter_2_pc.apworld`) |
-| `client/` | Python sidecar bridging UScript ↔ AP server |
+| `client/` | Python client bridging UScript ↔ AP server |
 | `mod/HPArchipelago/Classes/` | UnrealScript mod source, compiled with `ucc make` |
 | `data/items.yaml` | Item catalog — user-authored source of truth |
 | `data/locations.yaml` | Location catalog — user-authored source of truth |

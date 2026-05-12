@@ -281,7 +281,7 @@ event Timer()
     // Use the singleton directly instead of Level.Game.IPCActor. Save-load
     // skips APGameInfo.InitGame, leaving the post-save GameInfo with IPCActor=None
     // even though the persistent singleton is still alive. Pre-fix this dropped
-    // every game→sidecar CHECK after a save-load.
+    // every game→client CHECK after a save-load.
     ipc = class'APIPCActor'.static.GetInstance();
 
     for (id = 1; id <= MAX_CARD_ID; id++)

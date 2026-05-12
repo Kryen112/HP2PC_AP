@@ -1,4 +1,4 @@
-# Terminal B: run the AP-aware sidecar.
+# Terminal B: run the AP-aware client.
 # - Connects to AP MultiServer at localhost:38282 (matches host_seed.ps1)
 # - Listens for the HP2 mod on 127.0.0.1:38281
 

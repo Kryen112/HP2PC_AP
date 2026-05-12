@@ -1,4 +1,4 @@
-"""HP2PC_AP sidecar stub for M2/M3 — proves the UScript ↔ Python TCP path.
+"""HP2PC_AP client stub for M2/M3 — proves the UScript ↔ Python TCP path.
 
 Listens on localhost:38281, accepts game connections in a loop. Echoes incoming
 lines from the game to stdout, forwards stdin lines to the active connection,
@@ -42,7 +42,7 @@ def reader_loop(conn: socket.socket) -> None:
         while b"\n" in buf:
             line, buf = buf.split(b"\n", 1)
             decoded = line.decode("utf-8", errors="replace").rstrip("\r")
-            print(f"[game→sidecar] {decoded}", flush=True)
+            print(f"[game→client] {decoded}", flush=True)
 
             if decoded.startswith("CHECK "):
                 checks_seen += 1
@@ -54,7 +54,7 @@ def reader_loop(conn: socket.socket) -> None:
                     msg = f"GRANT {TEST_GRANT_CARD}\n"
                     try:
                         conn.sendall(msg.encode("utf-8"))
-                        print(f"[sidecar→game] auto-reply: GRANT {TEST_GRANT_CARD}", flush=True)
+                        print(f"[client→game] auto-reply: GRANT {TEST_GRANT_CARD}", flush=True)
                     except OSError:
                         pass
 
@@ -67,7 +67,7 @@ def writer_loop(conn: socket.socket, stop: threading.Event) -> None:
             continue
         try:
             conn.sendall((line + "\n").encode("utf-8"))
-            print(f"[sidecar→game] {line}", flush=True)
+            print(f"[client→game] {line}", flush=True)
         except OSError:
             return
 
@@ -90,8 +90,8 @@ def main() -> None:
         srv.bind((HOST, PORT))
         srv.listen(5)
         srv.settimeout(0.5)
-        print(f"[sidecar] listening on {HOST}:{PORT}", flush=True)
-        print("[sidecar] waiting for game connection...", flush=True)
+        print(f"[client] listening on {HOST}:{PORT}", flush=True)
+        print("[client] waiting for game connection...", flush=True)
         try:
             while True:
                 try:
@@ -99,12 +99,12 @@ def main() -> None:
                 except socket.timeout:
                     continue
                 with conn:
-                    print(f"[sidecar] game connected from {addr}", flush=True)
+                    print(f"[client] game connected from {addr}", flush=True)
                     handle_connection(conn)
-                print("[sidecar] connection closed, ready for next", flush=True)
-                print("[sidecar] waiting for game connection...", flush=True)
+                print("[client] connection closed, ready for next", flush=True)
+                print("[client] waiting for game connection...", flush=True)
         except KeyboardInterrupt:
-            print("[sidecar] shutting down", flush=True)
+            print("[client] shutting down", flush=True)
 
 
 if __name__ == "__main__":

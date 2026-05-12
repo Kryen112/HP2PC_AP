@@ -1,4 +1,4 @@
-"""HP2PC_AP — Archipelago-aware sidecar.
+"""HP2PC_AP — Archipelago-aware client.
 
 Subclasses Archipelago's CommonContext to speak the real AP protocol over
 WebSocket against a hosted seed, while also accepting a local TCP connection
@@ -13,12 +13,12 @@ The script imports Archipelago/CommonClient from the cwd, so it must be run
 from inside the Archipelago repo (or with that directory on sys.path).
 
 Mod-side protocol (newline-delimited text):
-    HELLO                       (game → sidecar, on connect)
-    CHECK <id>                  (game → sidecar, on card pickup)
-    CHECK_SPELL <name>          (game → sidecar, on spell learned)
-    CHECK_KEYITEM <name>        (game → sidecar, on Boomslang/Bicorn pickup or BitOGoyle interaction)
-    GOAL_COMPLETE               (game → sidecar, once when post-Basilisk credits start)
-    GRANT <classname>           (sidecar → game, on item received)
+    HELLO                       (game → client, on connect)
+    CHECK <id>                  (game → client, on card pickup)
+    CHECK_SPELL <name>          (game → client, on spell learned)
+    CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
+    GOAL_COMPLETE               (game → client, once when post-Basilisk credits start)
+    GRANT <classname>           (client → game, on item received)
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -69,7 +69,7 @@ import CommonClient
 from CommonClient import CommonContext, ClientCommandProcessor, get_base_parser, server_loop, gui_enabled
 from NetUtils import ClientStatus
 
-# Pull data tables from our apworld so the sidecar uses the same canonical
+# Pull data tables from our apworld so the client uses the same canonical
 # mappings as the AP framework / generator.
 from worlds.harry_potter_2_pc.locations import (
     CARD_CLASS_TO_LOCATION_NAME,
@@ -111,7 +111,7 @@ SPELL_TO_LOCATION_NAME = {
 # Map UScript special progression name to its AP check. v1: empty — Boomslang,
 # Bicorn, and BitOGoyle are not randomized, they flow through vanilla story.
 # The watcher still fires CHECK_KEYITEM when it sees a vanilla pickup; the
-# sidecar's _send_named_location_check then logs "no AP location mapping" and
+# client's _send_named_location_check then logs "no AP location mapping" and
 # silently skips. Add entries back when these become AP checks again.
 KEYITEM_TO_LOCATION_NAME: dict[str, str] = {}
 
@@ -148,7 +148,7 @@ class HP2Context(CommonContext):
         # because replaying filler would duplicate a consumable/spendable state.
         self.durable_grants: list[Optional[str]] = []
         # Outbound AP messages queued while the AP server is offline. Drained
-        # on every successful Connected. In-memory only — a sidecar crash
+        # on every successful Connected. In-memory only — a client crash
         # during an AP outage loses these. Disk persistence is parked for v2
         # alongside bean durability (see docs/DESIGN.md#v2-parking-lot).
         self.pending_ap_outbound: list[dict] = []
@@ -273,7 +273,7 @@ class HP2Context(CommonContext):
                 if not line_bytes:
                     break
                 line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
-                logger.info(f"[game→sidecar] {line}")
+                logger.info(f"[game→client] {line}")
                 await self._handle_game_line(line)
         except (ConnectionResetError, ConnectionAbortedError):
             # Normal on Windows when the game window closes — the OS resets
@@ -285,7 +285,7 @@ class HP2Context(CommonContext):
             # ProactorEventLoop the previous game's readline can wake up
             # *after* a new game has already connected and replaced
             # self.game_writer; clobbering it here would strand the new
-            # connection until sidecar restart.
+            # connection until client restart.
             if self.game_writer is writer:
                 self.game_writer = None
             try:
@@ -466,7 +466,7 @@ async def main_async(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = get_base_parser(description="HP2 Archipelago client (sidecar bridge to HP2 mod).")
+    parser = get_base_parser(description="HP2 Archipelago client (client bridge to HP2 mod).")
     parser.add_argument("--name", default=None, help="AP slot name to connect as.")
     parser.add_argument("url", nargs="?", help="Archipelago connection url.")
     args = parser.parse_args()

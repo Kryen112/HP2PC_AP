@@ -1,6 +1,6 @@
 # Terminal A, step 2: host the most recent HP2 seed on port 38282.
 # Port 38282 (not the AP default 38281) so the game-side TCP listener
-# in the sidecar - which binds 127.0.0.1:38281 - doesn't clash.
+# in the client - which binds 127.0.0.1:38281 - doesn't clash.
 
 $ErrorActionPreference = 'Stop'
 $ap = 'C:\Users\kryen\Documents\Archipelago-play\Archipelago'

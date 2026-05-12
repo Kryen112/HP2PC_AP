@@ -430,7 +430,7 @@ def emit_items(items: dict) -> str:
     lines.append("")
     lines.append(f"FILLER_NAMES: list[str] = {filler_names!r}")
     lines.append("")
-    lines.append("# Map UScript card class name → AP item display name. Used by the sidecar")
+    lines.append("# Map UScript card class name → AP item display name. Used by the client")
     lines.append("# when forwarding 'GRANT <classname>' messages to the mod for cards.")
     lines.append("CARD_CLASS_TO_ITEM_NAME: dict[str, str] = {")
     for ucls, iname in card_class_to_item_name:
@@ -487,7 +487,7 @@ def emit_locations(locations: dict) -> str:
         lines.append(f"    {name!r}: {group!r},")
     lines.append("}")
     lines.append("")
-    lines.append("# Map UScript card class name → AP location name. Used by the sidecar to")
+    lines.append("# Map UScript card class name → AP location name. Used by the client to")
     lines.append("# resolve a game CHECK to the right AP location for LocationChecks.")
     lines.append("CARD_CLASS_TO_LOCATION_NAME: dict[str, str] = {")
     for ucls, loc_name in card_class_to_loc:
@@ -495,7 +495,7 @@ def emit_locations(locations: dict) -> str:
     lines.append("}")
     lines.append("")
     lines.append("# Map game-side card Id (the UScript WC*.uc default Id property) → AP")
-    lines.append("# location name. Sidecar receives 'CHECK <int>' from the mod and uses")
+    lines.append("# location name. Client receives 'CHECK <int>' from the mod and uses")
     lines.append("# this to find the AP location to send LocationChecks for.")
     lines.append("CARD_GAME_ID_TO_LOCATION_NAME: dict[int, str] = {")
     for game_id, loc_name in sorted(card_game_id_to_loc_name):

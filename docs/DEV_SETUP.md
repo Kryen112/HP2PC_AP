@@ -165,7 +165,7 @@ To search logs from PowerShell:
 Get-Content -LiteralPath 'C:\Users\kryen\Documents\Harry - Coding Evolved\Game.log' -Encoding Unicode | Select-String -Pattern 'Archipelago'
 ```
 
-For M2+ (with sidecar): activate the project venv, run `python client/hp2_client.py` (sidecar listens on `localhost:38281`), then launch the game.
+For M2+ (with client): activate the project venv, run `python client/hp2_client.py` (client listens on `localhost:38281`), then launch the game.
 
 ## Building the player release client (PyInstaller)
 

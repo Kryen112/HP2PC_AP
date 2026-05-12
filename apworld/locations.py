@@ -326,7 +326,7 @@ LOCATION_GROUPS: dict[str, str] = {
     'Chamber of Secrets - Card Slytherin': 'CardLocations',
 }
 
-# Map UScript card class name → AP location name. Used by the sidecar to
+# Map UScript card class name → AP location name. Used by the client to
 # resolve a game CHECK to the right AP location for LocationChecks.
 CARD_CLASS_TO_LOCATION_NAME: dict[str, str] = {
     'WCAgrippa': 'Bicorn Level - Card Agrippa',
@@ -433,7 +433,7 @@ CARD_CLASS_TO_LOCATION_NAME: dict[str, str] = {
 }
 
 # Map game-side card Id (the UScript WC*.uc default Id property) → AP
-# location name. Sidecar receives 'CHECK <int>' from the mod and uses
+# location name. Client receives 'CHECK <int>' from the mod and uses
 # this to find the AP location to send LocationChecks for.
 CARD_GAME_ID_TO_LOCATION_NAME: dict[int, str] = {
     1: 'Spongify Challenge - Card Merlin',

@@ -18,7 +18,7 @@ Done. Toolchain proven via `APGameInfo` subclass + `DefaultGame=` registration. 
 
 **Goal:** prove UScript can talk to a Python process.
 
-Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists across level transitions via singleton + `bGameRelevant=True`/`bAlwaysRelevant=True`. Sidecar (`client/hp2_client.py`) is an accept-loop, multi-thread reader/writer Python stub. Bidirectional traffic verified.
+Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists across level transitions via singleton + `bGameRelevant=True`/`bAlwaysRelevant=True`. Client (`client/hp2_client.py`) is an accept-loop, multi-thread reader/writer Python stub. Bidirectional traffic verified.
 
 ## M3 — One card round-trip ✅ (commit 5cedc10)
 
@@ -26,7 +26,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **Done:**
 - `APCardWatcher` polls all 3 status tiers every 0.25s and fires `CHECK <id>` on diff. Catches every grant pathway (cutscene, chest, walk-over). Verified for Hesper Starkey (cutscene, id=7) and Joscelind Wadcock (chest, id=36).
-- Sidecar test mode: skip first CHECK, auto-reply `GRANT WCAgrippa` to second.
+- Client test mode: skip first CHECK, auto-reply `GRANT WCAgrippa` to second.
 - `APGameInfo.ApplyGrant` parses `GRANT <classname>` and applies the card directly via `siCard.SetCardOwner(Id, CardOwner_Harry)` + `sgCards.RemoveHarryOwnedCardsFromLevel(None)` — bypassing the spawn-and-Touch chain (whose `CanPickupNow` precondition was short-circuiting before line 131 of vanilla `WizardCardIcon.Touch`). Album persistence confirmed; M212 Discord answer (2026-05-07) pointed at the missing `RemoveHarryOwnedCardsFromLevel` call.
 - Watcher confirms the SetCardOwner write via re-detection (CHECK fires for the granted Id).
 
@@ -51,7 +51,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - `data/items.yaml` (114 entries: 7 spells + 3 special progression items + 101 cards + 3 filler tiers) and the v1 location model (108 checks: 4 classrooms + 101 card locations + Boomslang/Bicorn/BitOGoyle special checks).
 - `scripts/gen_apworld.py` — reads `data/*.yaml`, validates uniqueness + cross-references, emits `apworld/items.py` and `apworld/locations.py`. Includes hardcoded `CARD_GAME_ID_TO_CLASS` map extracted from `StatusItemWizardCards.GetCardClassFromId`.
 - `apworld/__init__.py` refactored to consume the generated modules; full pool seeds generate cleanly under AP 0.6.5.
-- Sidecar uses real `card_game_id → AP location` and `AP item name → UScript class` mappings, with grant-echo deduplication so a sidecar GRANT doesn't trigger an infinite cascade via the watcher's re-detection.
+- Client uses real `card_game_id → AP location` and `AP item name → UScript class` mappings, with grant-echo deduplication so a client GRANT doesn't trigger an infinite cascade via the watcher's re-detection.
 - `APCardWatcher` polls cards (via `IsOwnedByHarry`), spells (via `harry.IsInSpellBook`), and key items (via `StatusItemBoomslang/Bicorn/BitOGoyle.nCount` in `StatusGroupPolyIngr`). Initial-snapshot baselines starter spells (Lumos/Flipendo/Alohomora) so cutscene-grants don't fire as fake CHECKs.
 - `APIPCActor` sends differentiated `CHECK <int>` (cards), `CHECK_SPELL <name>`, `CHECK_KEYITEM <name>`.
 - `APGameInfo.ApplyGrant` handles four grant types: cards (via `Spawn`+`Touch` chain), spells (via `harry.AddToSpellBookByString`), key items (via `managerStatus.AddBoomslang/AddBicorn` and `IncrementCount` for BitOGoyle), and filler beans (via `managerStatus.AddBeans` with 25/50/100 per tier).
@@ -59,7 +59,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 > **Cards path superseded in M6.** The `Spawn`+`Touch` chain for card grants was replaced by `MarkAsGranted` + direct `siCard.SetCardOwner` write (no Spawn, no Touch, no celebration cutscene). Spell / key item / bean grant paths described above remain current. See `docs/DESIGN.md#card-pickup-architecture-apcardmarker`.
 
 **Deferred to M6:**
-- AP location mapping for `CHECK_SPELL` (which classroom location does each spell-tutorial map to?) and the three special pickup/interact checks. Sidecar logs these but doesn't yet send `LocationChecks` for them — the mapping needs playtest data.
+- AP location mapping for `CHECK_SPELL` (which classroom location does each spell-tutorial map to?) and the three special pickup/interact checks. Client logs these but doesn't yet send `LocationChecks` for them — the mapping needs playtest data.
 - Spell-start-state policy (DESIGN.md open question 7).
 
 **De-risks:** the data pipeline. After M5, adding/changing items is a YAML edit + regen.
@@ -81,13 +81,13 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - `HP2World.get_filler_item_name()` returns a random `FILLER_NAMES` choice. Default would pick any item name including cards, producing duplicate `Card_X: <existing-card>` placements when the pool shrinks (e.g. via start_inventory_from_pool).
 - `tests/HP2_Test.yaml` configured for solo playthrough: starter spells are precollected by the APWorld, 4 non-starter spells plando'd at their classrooms (spell-challenge-softlock workaround), Card_*-level placements all random.
 - `scripts/gen_seed.ps1` now reads from the repo's `tests/` (was reading a stale copy in `Archipelago\hp2_only_players\`). Single source of truth.
-- Sidecar quality-of-life: INFO logs now visible (`logging.basicConfig` not just `setLevel`); items received before the game connects are queued and drained on game connect (was warning + dropping); graceful Ctrl+C (skip `wait_closed()` plus loop-level `ConnectionResetError` filter); `pkg_resources` deprecation warning silenced.
+- Client quality-of-life: INFO logs now visible (`logging.basicConfig` not just `setLevel`); items received before the game connects are queued and drained on game connect (was warning + dropping); graceful Ctrl+C (skip `wait_closed()` plus loop-level `ConnectionResetError` filter); `pkg_resources` deprecation warning silenced.
 
 **Done (2026-05-10):**
 - Removed level-completion locations/rules from source data and generated APWorld output.
 - Added `Special_Boomslang`, `Special_Bicorn`, and `Special_BitOGoyle` checks.
 - Updated the generator to treat `special_checks` as a first-class location category and to support direct goal logic rules.
-- Updated the sidecar special-item mapping to send Boomslang/Bicorn/BitOGoyle checks to the new special locations.
+- Updated the client special-item mapping to send Boomslang/Bicorn/BitOGoyle checks to the new special locations.
 - Moved Lumos/Flipendo/Alohomora into mandatory APWorld precollection so the 111 unique non-filler items fit the 108-location v1 model.
 - Verified AP generation under the 108-check model; `Generate.py` fills 104 random items after 3 precollected starter spells and 4 classroom plandos.
 
@@ -114,9 +114,9 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 **Done:**
 - `APIPCActor.SendGoalComplete()` adds a one-shot `GOAL_COMPLETE` IPC line.
 - `APCardWatcher.Timer()` polls `FEBook.bInEndGame` (set True by `ShowCredits` at `FEBook.uc:1392` when the post-Basilisk credits cutscene runs) via `HPConsole(HarryRef.Player.Console).menuBook`, fires `SendGoalComplete()` on False→True transition with a `WasInEndGame` one-shot guard. Reuses the existing 0.25s timer rather than adding a separate `APGoalDetector` actor — the original plan's standalone-actor design folded into the watcher because the access pattern is identical.
-- Sidecar `_handle_game_line` adds a `GOAL_COMPLETE` branch that sends `{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}` to the AP WebSocket, with a `goal_sent` dedupe flag for defence-in-depth.
+- Client `_handle_game_line` adds a `GOAL_COMPLETE` branch that sends `{"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL}` to the AP WebSocket, with a `goal_sent` dedupe flag for defence-in-depth.
 
-**Verified 2026-05-11:** post-Basilisk Great-Hall walk-in (cutscene skipped) fires `bInEndGame=True`, mod sends `GOAL_COMPLETE`, sidecar relays `ClientStatus.CLIENT_GOAL` to the AP server, AP releases items and marks the slot complete. End-to-end working.
+**Verified 2026-05-11:** post-Basilisk Great-Hall walk-in (cutscene skipped) fires `bInEndGame=True`, mod sends `GOAL_COMPLETE`, client relays `ClientStatus.CLIENT_GOAL` to the AP server, AP releases items and marks the slot complete. End-to-end working.
 
 **De-risks:** end-of-run signal correctness.
 
@@ -129,17 +129,17 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 - Chest persistence: opened chest + collected card → chest stays open with Jellybean on re-entry (vanilla post-pickup parity); opened + not collected → chest resets to closed-and-spell-vulnerable so the player can try again (no softlock).
 - Loose-icon persistence: marker survives via cache for unpicked loose cards; on twin-level pickup the cached marker self-destroys via `PostBeginPlay`'s LocationChecked guard.
 - Twin-level card chests (Wadcock day/night): once picked up on either side, the other side bean-swaps to Jellybean.
-- IPC robustness: `ReceivedText` now buffers across TCP chunks so multi-line packets aren't truncated; `APIPCActor.GetInstance()` singleton accessor used everywhere (save-load resilient); sidecar `game_writer` race fixed on reconnect.
+- IPC robustness: `ReceivedText` now buffers across TCP chunks so multi-line packets aren't truncated; `APIPCActor.GetInstance()` singleton accessor used everywhere (save-load resilient); client `game_writer` race fixed on reconnect.
 - Save-load spell-revert fix: `APCardWatcher.EnsureLatestRegistration` clears `bSnapshotted` so the post-save-load instance re-snapshots before its revert loop runs, preventing the "Flipendo/Lumos/Rictusempra/Skurge wiped after save reload" bug.
 - **Playable-state grant gate.** `APGameInfo.IsPlayerInPlayableState(harry, out reason)` is now the authoritative "Harry is actually playing" check called from `APIPCActor.TryDrainPendingGrants` after the existing `Level.Pauser` / `FindGrantReadyHarry` / `watcher.bSnapshotted` gates. Whitelists `harry.GetStateName()=='PlayerWalking'` only (`PlayerSwimming` not used in v1; every other state — `stateCutIdle`, `SpellLearning`, `harryfrozen`, `stateDead`, `GameEnded`, `exittoMenu`, `stateInactive`, `Mounting`/`MountFinish`, Quidditch, dueling, `statePickupItem`, `statePotionMixing*`, `wingspell`, `LookAtActor`, `ChessDeath`, `CelebrateCardSet`, etc. — defers). Also rejects `bIsCaptured` (Filch/Snape capture), `bKeepStationary` (vendor engagement), and `HPHud(myHUD).IsCutSceneOrPopupInProgress()` (covers the tick window between cutscene start and `stateCutIdle` transition, and cutscene-skip border animation). Removed the previous 8s post-connect warmup — every condition it was hedging against (watcher not yet snapshotted, loading-screen leak, post-load cutscene, resync flood) is now explicitly gated by either this helper or the pre-existing checks plus the 0.75s drain spacing.
-- **IPC reconnect resilience.** Sidecar terminal closes / crashes used to leave the mod silent for the rest of the session — `APIPCActor.Closed` was a one-line log. Now `Closed()` clears `RecvBuffer` (any partial line is stale post-disconnect), sets `bWantsReconnect=True`, and schedules `TryReconnect` via the existing 0.25s Timer with exponential backoff (1s → 16s cap, reset to 1s on `Opened`). `PreBeginPlay`'s initial connect now goes through the same `TryReconnect` path so a sidecar not yet running at game boot reconnects automatically when it comes up.
-- **Outbound AP-offline queue.** Previously the sidecar dropped CHECK / CHECK_SPELL / CHECK_KEYITEM / GOAL_COMPLETE on the floor when `self.server` was None, with no recovery — fatal because `APCardMarker.Touch` self-destroys the marker so the location can't be re-checked by re-walking. New `pending_ap_outbound: list[dict]` in `HP2Context.__init__`, drained from `on_package("Connected")` via `_flush_pending_ap_outbound`. `_send_or_queue_ap_msg(msg, label)` is the single funnel for all four outbound message types. `goal_sent` semantic refined: tracks "have we claimed the goal locally" (set immediately on first `GOAL_COMPLETE` line), while the actual AP delivery rides the queue so an AP outage during goal time still completes the slot on reconnect. In-memory only; disk persistence parked alongside bean durability (see `docs/DESIGN.md#v2-parking-lot`).
+- **IPC reconnect resilience.** Client terminal closes / crashes used to leave the mod silent for the rest of the session — `APIPCActor.Closed` was a one-line log. Now `Closed()` clears `RecvBuffer` (any partial line is stale post-disconnect), sets `bWantsReconnect=True`, and schedules `TryReconnect` via the existing 0.25s Timer with exponential backoff (1s → 16s cap, reset to 1s on `Opened`). `PreBeginPlay`'s initial connect now goes through the same `TryReconnect` path so a client not yet running at game boot reconnects automatically when it comes up.
+- **Outbound AP-offline queue.** Previously the client dropped CHECK / CHECK_SPELL / CHECK_KEYITEM / GOAL_COMPLETE on the floor when `self.server` was None, with no recovery — fatal because `APCardMarker.Touch` self-destroys the marker so the location can't be re-checked by re-walking. New `pending_ap_outbound: list[dict]` in `HP2Context.__init__`, drained from `on_package("Connected")` via `_flush_pending_ap_outbound`. `_send_or_queue_ap_msg(msg, label)` is the single funnel for all four outbound message types. `goal_sent` semantic refined: tracks "have we claimed the goal locally" (set immediately on first `GOAL_COMPLETE` line), while the actual AP delivery rides the queue so an AP outage during goal time still completes the slot on reconnect. In-memory only; disk persistence parked alongside bean durability (see `docs/DESIGN.md#v2-parking-lot`).
 
 **Still TODO:**
 - ~~Bookcase challenge blocks~~ ✅ All four (Rictusempra / Skurge / Diffindo / Spongify) implemented and verified. Spongify reuses the Rictusempra cutscene anchor in the shared DADA room, gated on `harry.iGameState >= 130` (post-Slytherin-Common-Room story beat).
 - ~~Vendor card sales~~ ✅ Phases A (filter) + B (replacement) + C (assignment) all implemented. Vendors keep selling missed cards; the spawned `WCXxx` is rewritten to an `APCardMarker_<class>` so the sale fires the original card location's AP CHECK rather than granting the vanilla card. AP-checked locations are filtered out so vendors don't re-offer them. See `docs/MOD_TODO.md` for the breakdown.
-- ~~HUD toast actor~~ ✅ `APHUDToast.uc` extends `HProp`, registers with `HPHud.propArray`, draws "Received <tier> card X from Y" / "Sent X to Y" with `HGame.Icons.leftPanel` panel background and `vendor_spawn_WC` woosh sound. Sidecar `on_print_json` filter routes ItemSend broadcasts back as `SENT <item>|<receiver>` for cross-slot deliveries; ReceivedItems handles own-slot grants via the existing GRANT path.
-- ~~Player-facing `docs/PLAYER_SETUP.md` walkthrough~~ ✅ End-to-end install + first-run guide covering HP2 retail + M212 patch, dropping the precompiled `HPArchipelago.u`, both INI patches (`Default.ini` + `HP.ini` `EditPackages`, `Game.ini` `DefaultGame`), Archipelago install + `.apworld` drop into `custom_worlds/`, sidecar invocation, and a troubleshooting section keyed to the most likely symptoms.
+- ~~HUD toast actor~~ ✅ `APHUDToast.uc` extends `HProp`, registers with `HPHud.propArray`, draws "Received <tier> card X from Y" / "Sent X to Y" with `HGame.Icons.leftPanel` panel background and `vendor_spawn_WC` woosh sound. Client `on_print_json` filter routes ItemSend broadcasts back as `SENT <item>|<receiver>` for cross-slot deliveries; ReceivedItems handles own-slot grants via the existing GRANT path.
+- ~~Player-facing `docs/PLAYER_SETUP.md` walkthrough~~ ✅ End-to-end install + first-run guide covering HP2 retail + M212 patch, dropping the precompiled `HPArchipelago.u`, both INI patches (`Default.ini` + `HP.ini` `EditPackages`, `Game.ini` `DefaultGame`), Archipelago install + `.apworld` drop into `custom_worlds/`, client invocation, and a troubleshooting section keyed to the most likely symptoms.
 - ~~`tests/test_generation.py`~~ ✅ Subprocess-driven smoke test that runs AP `Generate.py` against `tests/HP2_Test.yaml` N times (default 25, configurable via `--count`) in a fresh temp `--player_files_path` and `--outputpath` per run. Catches logic.yaml regressions, item/location count mismatches, broken plando, and unfillable seed shapes without touching the game. ~4s/seed (mostly AP framework startup); 100-run pre-release pass is ~7 min.
 - ~~Standalone client exe~~ ✅ `scripts/build_client_exe.ps1` produces `dist/hp2_ap_client.exe` (~85 MB single-file PyInstaller bundle including Python, the AP framework, and the apworld). Stages a minimal `worlds/` tree (AP bootstrap files + our apworld) so AP's `worlds/__init__.py` runtime `os.scandir` works without bundling the full ~100 MB AP `worlds/` dir. Players don't need a Python install; rebuild whenever AP framework or apworld changes.
 - Tagged `v1.0.0` GitHub release zip.
