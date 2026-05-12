@@ -76,7 +76,9 @@ Lockhart's class and other spell tutorials become **AP checks**. Cutscene plays 
 
 ## Vendors
 
-**Vendor card sales disabled in v1.** In vanilla, vendors sell missed cards for beans. With AP randomization, vendors selling cards would let the player short-circuit the multiworld. Since each level is now infinitely replayable, the player can always go back and find a card the seed placed somewhere.
+**Vendor card sales kept, rewritten as AP recovery path.** Vendors keep their vanilla "sell you a missed card" role — but the spawned `WCXxx` is rewritten on the fly to the corresponding `APCardMarker_<class>`, so the sale fires the AP CHECK for the original card location instead of granting a duplicate vanilla card. AP-checked locations are filtered out of vendor stock (see `APCardWatcher.ClearVendorOwnershipForLocation` / `SweepVendorAssignments`) so vendors won't re-offer them after vanilla `AssignVendorCards` re-stamps `CardOwner_Vendor` on every save / level transition. End-effect: vendors become a beans-funded recovery path for cards in un-replayable levels (Goyle, Slytherin Common Room, etc.) without short-circuiting the multiworld.
+
+Implementation status (in progress): Phase A (filter) and Phase B (replacement) are landed but inert without Phase C — vanilla `AssignVendorCards` reads `slotClass.Default.Id` and `slotClass.Default.bVendorsCanSell`, both of which are wrong on our markers (sentinel Id=200 for bean-swap immunity; bVendorsCanSell=False inherited from `WizardCardIcon` base). Phase C will copy per-card vendor flags into each generated marker subclass and run our own assignment pass that uses `CardLocationId`. See `docs/MOD_TODO.md` for the full breakdown.
 
 ## Logic graph
 
@@ -148,7 +150,7 @@ Features explicitly deferred from v1. Each of these came up during design and wa
 - **Entrance shuffle** — randomize the level-to-level graph (Floo destinations, etc.). Requires per-entrance/exit cataloguing, softlock prevention, possibly cutscene re-stitching. Big, separate piece of work.
 - **Alternative goal modes** — selectable via YAML: "all gold cards (requires silver cards)", "mcguffin hunt". v1 = Basilisk only. Data structures should leave room for these without schema breakage.
 - **Tier 3 check expansion** — Quidditch matches, dueling club, every collectible bean, hidden bean stashes, time trials. v1 sticks to cards + spell classrooms + the three special progression checks.
-- **Vendor card sales re-enabled (vanity only)** — vendors could sell duplicates of cards the player has already received from AP. Lore-flavorful, complicates economy. Defer.
+- ~~**Vendor card sales re-enabled (vanity only)**~~ Resolved differently in v1 — vendors stay enabled and sell rewrites that fire AP CHECKs for missed locations (see `## Vendors` above).
 - **Original spell-teaching cutscene replays for received spells (option B)** — replay Lockhart's full teach cutscene when AP grants you Flipendo. Considered, parked as flavor option.
 - **Item-on-floor delivery (option D)** — spawn AP items as world pickups Harry walks over rather than instant grants. More immersive, more work.
 - **Bundled launcher .exe** that orchestrates client + game start.

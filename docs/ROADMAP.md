@@ -137,8 +137,8 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 
 **Still TODO:**
 - ~~Bookcase challenge blocks~~ ✅ All four (Rictusempra / Skurge / Diffindo / Spongify) implemented and verified. Spongify reuses the Rictusempra cutscene anchor in the shared DADA room, gated on `harry.iGameState >= 130` (post-Slytherin-Common-Room story beat).
+- **Vendor card sales** — Phases A (filter) + B (replacement) implemented; Phase C (assignment) still TODO. Without Phase C, vanilla can't see our markers (Default.Id sentinel + inherited bVendorsCanSell=False) so vendors stay out-of-stock and A/B never fire. See `docs/MOD_TODO.md` for the full breakdown.
 - HUD toast actor (`APHUDToast.uc`) — on-screen "Received X from Y" notification, queued, drains during safe states.
-- Vendor card sales disabled.
 - Player-facing `docs/PLAYER_SETUP.md` walkthrough.
 - `tests/test_generation.py`: "100 seeds generate without error".
 - Tagged `v1.0.0` GitHub release zip.

@@ -12,7 +12,7 @@ This file is for the next Claude that boots into this repo. Read it top-to-botto
 - Diffindo offsets are WORLD coords (no rotation transformation) — we switched from local coords because the cutscene's `Yaw=49136 (≈270°)` rotation made diagonal stepping in local space too painful to reason about. World coords match exactly what the spawnLoc log lines show. Bookcase ORIENTATION is still derived from `cs.Rotation + 32768 yaw` so the bookcases face Harry's approach; only POSITION is world-coords.
 - All Diffindo machinery (idempotency dropped for multi-bookcase, tag-scan removal of all 3, save-load resilience via `APCardWatcher.TrySpawnClassroomBlockers`) is in place and working.
 
-**What still needs doing in M8**: HUD toast, vendor card sales disable, `docs/PLAYER_SETUP.md`, `tests/test_generation.py`, v1.0.0 release zip. All four bookcase blockers (Ricta / Skurge / Diffindo / Spongify) are now in place. See `docs/ROADMAP.md` M8 + `docs/MOD_TODO.md`.
+**What still needs doing in M8**: vendor Phase C (marker → vendor stock assignment — without it Phases A/B are inert and vendors stay out-of-stock), HUD toast, `docs/PLAYER_SETUP.md`, `tests/test_generation.py`, v1.0.0 release zip. All four bookcase blockers (Ricta / Skurge / Diffindo / Spongify) and vendor Phases A (filter) + B (replacement) are in place. See `docs/ROADMAP.md` M8 + `docs/MOD_TODO.md`.
 
 ---
 
@@ -47,7 +47,7 @@ The seed is end-to-end playable, including goal completion. Stefan ran from `Adv
 
 All four classroom challenge blockers (Rictusempra / Skurge / Diffindo / Spongify) are implemented and verified. Spongify reuses the Rictusempra cutscene anchor at the shared DADA doorway, gated on `harry.iGameState >= 130` (post-Slytherin-Common-Room story beat) so it only spawns once vanilla would prompt the Spongify lesson.
 
-Other M8 work: HUD toast, vendor card sales disable, player-facing setup walkthrough, seed-gen smoke test.
+Other M8 work: HUD toast, player-facing setup walkthrough, seed-gen smoke test.
 
 ---
 
@@ -86,7 +86,7 @@ The project is **HP2PC_AP**, an Archipelago multiworld randomizer for *Harry Pot
 | M5 — Full pool + hooks | ✅ `91ddc48`, `a167dfa`, `fcd68a5` | All grant types wired |
 | M6 — Logic + seed gen | ✅ (this session) | 105 locations, 108 items, 38 per-location rules, fully solvable |
 | M7 — Goal detection | ✅ (verified this session) | `bInEndGame` poll → `GOAL_COMPLETE` → AP slot completion |
-| M8 — UX polish | ⏳ in progress | Bookcase blockers + HUD toast + vendor disable + release zip |
+| M8 — UX polish | ⏳ in progress | Bookcase blockers + vendor card rewrite + HUD toast + release zip |
 
 ### Card pickup architecture — APCardMarker
 
@@ -162,7 +162,7 @@ See `docs/DESIGN.md#v2-parking-lot` for full descriptions.
 - **Boomslang / Bicorn / BitOGoyle as AP items/checks** — pulled from v1 pool (vanilla story progression). Reinstate when the mod-side trigger work is reliable (AP marker/icon at Boomslang and Bicorn pickup, end-of-Goyle touch for BitOGoyle).
 - **Spell-challenge auto-transition + locked exit door** for Skurge / Diffindo / Spongify. v1 workaround: AP plando-places each spell at its own classroom and all four mod-side bookcase blockers (Rictusempra / Skurge / Diffindo / Spongify) prevent entry without the spell.
 - **Save-load vs new-game distinction.** Currently no protection against loading a save from a different multiworld slot.
-- Various v2 features: entrance shuffle, alt goal modes, Tier-3 check expansion (Quidditch matches, vendor purchases, dueling), vendor card sales, trap items, etc.
+- Various v2 features: entrance shuffle, alt goal modes, Tier-3 check expansion (Quidditch matches, vendor purchases, dueling), trap items, etc.
 
 ## Read these in order on resume
 

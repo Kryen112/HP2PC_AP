@@ -126,6 +126,7 @@ begin:
 function Touch(Actor Other)
 {
     local APIPCActor ipc;
+    local APCardWatcher w;
     local harry h;
     local Rotator rotPickupFX;
 
@@ -151,6 +152,16 @@ function Touch(Actor Other)
     }
 
     class'APCardWatcher'.default.LocationChecked[CardLocationId] = 1;
+
+    // Phase A vendor support: clear any vendor ownership of this card so the
+    // next AssignVendorCards pass (every save / level transition) doesn't
+    // re-offer it. The watcher holds the bound siBronze/siSilver/siGold refs
+    // we need for the lookup.
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w != None)
+    {
+        w.ClearVendorOwnershipForLocation(CardLocationId);
+    }
 
     // AP-themed pickup feedback: spawn the 6 Archipelago-logo-coloured star
     // bursts, then play the per-tier pickup sound (set by gen_apworld.py in each

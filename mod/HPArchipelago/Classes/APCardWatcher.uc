@@ -91,6 +91,61 @@ function MarkKeyItemAsGranted(string KeyItemName)
     }
 }
 
+// Phase A of vendor support: clear vendor ownership of an AP-checked card
+// location. Without this, vanilla `AssignVendorCards` (run from
+// `harry.CopyCardStatusFromManagerToHarry` on every save / level transition,
+// plus `AssignAllSilverToVendors` at iGameState >= 180) re-assigns AP-checked
+// cards to vendors because our markers never set Harry-owned ownership.
+// Vendors then offer them for sale — wasting beans for a duplicate CHECK that
+// AP dedupes. Cleared cards are CardOwner_None, which `GetFirstVendorCardId`
+// skips. Called from APCardMarker.Touch (per-pickup) and from the watcher's
+// fallback polling path (if a vanilla wci pickup slipped past Phase B).
+function ClearVendorOwnershipForLocation(int id)
+{
+    if (id <= 0 || id > MAX_CARD_ID) return;
+    if (siBronze != None && siBronze.GetCardOwner(id) == siBronze.ECardOwner.CardOwner_Vendor)
+    {
+        siBronze.SetCardOwner(id, siBronze.ECardOwner.CardOwner_None);
+        Log("[Archipelago] APCardWatcher.ClearVendorOwnership: Bronze[" $ id $ "] vendor -> none (location AP-checked)");
+        return;
+    }
+    if (siSilver != None && siSilver.GetCardOwner(id) == siSilver.ECardOwner.CardOwner_Vendor)
+    {
+        siSilver.SetCardOwner(id, siSilver.ECardOwner.CardOwner_None);
+        Log("[Archipelago] APCardWatcher.ClearVendorOwnership: Silver[" $ id $ "] vendor -> none (location AP-checked)");
+        return;
+    }
+    if (siGold != None && siGold.GetCardOwner(id) == siGold.ECardOwner.CardOwner_Vendor)
+    {
+        siGold.SetCardOwner(id, siGold.ECardOwner.CardOwner_None);
+        Log("[Archipelago] APCardWatcher.ClearVendorOwnership: Gold[" $ id $ "] vendor -> none (location AP-checked)");
+        return;
+    }
+}
+
+// Snapshot-time / rebind sweep: walk every AP-checked location and clear any
+// vendor ownership that vanilla just stamped during save load or level
+// transition. This catches the case where the player was mid-game with N
+// AP-checked cards, transitioned levels (vanilla AssignVendorCards re-assigned
+// them all), and the new level's watcher needs to undo that.
+function SweepVendorAssignments()
+{
+    local int id, cleared;
+    cleared = 0;
+    for (id = 1; id <= MAX_CARD_ID; id++)
+    {
+        if (default.LocationChecked[id] == 1)
+        {
+            ClearVendorOwnershipForLocation(id);
+            cleared++;
+        }
+    }
+    if (cleared > 0)
+    {
+        Log("[Archipelago] APCardWatcher.SweepVendorAssignments: re-asserted CardOwner_None on " $ cleared $ " AP-checked location(s)");
+    }
+}
+
 function RevertVanillaPickup(int id)
 {
     if (siBronze != None && siBronze.IsOwnedByHarry(id))
@@ -233,6 +288,36 @@ event Timer()
                 ipc.SendCheck(id);
             }
             RevertVanillaPickup(id);
+            // Stamp LocationChecked + clear vendor ownership so a future level
+            // re-entry doesn't re-offer this card. Mirrors what APCardMarker.Touch
+            // does when the marker path catches the pickup.
+            default.LocationChecked[id] = 1;
+            ClearVendorOwnershipForLocation(id);
+        }
+    }
+
+    ReplaceVendorSpawnedCards();
+
+    // Lesson-start hook for the four spell-tutorial location checks.
+    // Bug it fixes: the IsInSpellBook poll below only fires CHECK_SPELL on a
+    // not-having → having transition. If AP grants the spell BEFORE Harry
+    // visits the classroom (any plando placement that doesn't put the spell
+    // at its own classroom), the lesson plays but Harry already has the spell —
+    // no transition, no CHECK_SPELL, location lost. Polling harry.CurrSpellLesson
+    // fires at the moment SpellLessonTrigger.Activate sets it (regardless of
+    // spell ownership). Shares WasSpellOwned[] with the IsInSpellBook fallback
+    // so the two paths dedupe against each other.
+    if (HarryRef.CurrSpellLesson != None)
+    {
+        i = LessonShapeToSpellIndex(HarryRef.CurrSpellLesson);
+        if (i >= 0 && WasSpellOwned[i] == 0)
+        {
+            WasSpellOwned[i] = 1;
+            Log("[Archipelago] APCardWatcher: SpellLessonTrigger active for " $ SpellNames[i] $ " - firing CHECK_SPELL (lesson-start hook)");
+            if (ipc != None)
+            {
+                ipc.SendCheckSpell(SpellNames[i]);
+            }
         }
     }
 
@@ -327,6 +412,91 @@ event Timer()
         HeartbeatCounter = 0;
         Log("[Archipelago] APCardWatcher: nCount heartbeat - Bronze=" $ siBronze.nCount $ " Silver=" $ siSilver.nCount $ " Gold=" $ siGold.nCount);
     }
+}
+
+// Phase B of vendor support: when a vendor's `MakePurchase` spawns a vanilla
+// `WCXxx` actor (`Characters.uc:646`), replace it with the corresponding
+// APCardMarker_<class> on the next watcher tick. The marker's clean Touch
+// path then fires CHECK + Destroy without going through vanilla's
+// SetCardOwner(Harry) (which would briefly show the card in the album before
+// our revert logic clears it).
+//
+// Race window: 0-0.25s between vendor spawn and our replacement. Vendor cards
+// arc-bounce for ~1-2s before they're pickup-able, so the player almost
+// never beats the swap. If they do, the watcher's existing IsHarryOwned
+// polling path catches it as a fallback (CHECK still fires, just with the
+// album flicker).
+//
+// Skips actors that are already APCardMarker subclasses (idempotent), have
+// id 0 / out-of-range, or have an unknown class (no marker subclass for
+// this card type — leave alone, fallback path will still work). For
+// already-checked locations, destroys the vanilla wci with no replacement
+// (mirrors the chest-loose-icon path in ReplaceCardChests).
+function ReplaceVendorSpawnedCards()
+{
+    local WizardCardIcon wci;
+    local class<Actor> markerClass;
+    local Vector spawnLoc;
+    local Rotator spawnRot;
+    local Actor spawned;
+    local int id;
+    local int replacedCount;
+
+    replacedCount = 0;
+    foreach AllActors(class'WizardCardIcon', wci)
+    {
+        if (ClassIsChildOf(wci.Class, class'APCardMarker'))
+        {
+            continue;
+        }
+        id = wci.Id;
+        if (id <= 0 || id > MAX_CARD_ID)
+        {
+            continue;
+        }
+        if (default.LocationChecked[id] == 1)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceVendorSpawnedCards: vendor card id=" $ id $ " is already AP-checked - destroying vanilla wci with no replacement");
+            wci.Destroy();
+            replacedCount++;
+            continue;
+        }
+        markerClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(wci.Class.Name), class'Class'));
+        if (markerClass == None)
+        {
+            continue;
+        }
+        spawnLoc = wci.Location;
+        spawnRot = wci.Rotation;
+        Log("[Archipelago] APCardWatcher.ReplaceVendorSpawnedCards: replacing vanilla " $ string(wci.Class.Name) $ " (id=" $ id $ ") at " $ string(spawnLoc) $ " with " $ string(markerClass));
+        wci.Destroy();
+        spawned = Spawn(markerClass, , , spawnLoc, spawnRot);
+        if (spawned == None)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceVendorSpawnedCards: Spawn returned None for " $ string(markerClass) $ " at " $ string(spawnLoc));
+            continue;
+        }
+        APCardMarker(spawned).MarkAsLoose();
+        replacedCount++;
+    }
+    if (replacedCount > 0)
+    {
+        Log("[Archipelago] APCardWatcher.ReplaceVendorSpawnedCards: replaced/destroyed " $ replacedCount $ " loose vanilla card(s) (vendor-spawned)");
+    }
+}
+
+// Maps a SpellLessonTrigger.LessonShape enum value to our SpellNames[] index.
+// Returns -1 for unrecognized shapes. Compared via the enum's ELessonShape
+// member rather than int casts so the mapping survives any future enum
+// reordering. Index mapping mirrors APCardWatcher.PreBeginPlay's SpellNames[].
+function int LessonShapeToSpellIndex(SpellLessonTrigger lesson)
+{
+    if (lesson == None) return -1;
+    if (lesson.LessonShape == lesson.ELessonShape.LessonShape_Rictusempra) return 4;
+    if (lesson.LessonShape == lesson.ELessonShape.LessonShape_Skurge)      return 5;
+    if (lesson.LessonShape == lesson.ELessonShape.LessonShape_Diffindo)    return 1;
+    if (lesson.LessonShape == lesson.ELessonShape.LessonShape_Spongify)    return 6;
+    return -1;
 }
 
 function bool Bind()
@@ -488,6 +658,12 @@ function Snapshot()
     LastSilverCount = siSilver.nCount;
     LastGoldCount   = siGold.nCount;
     Log("[Archipelago] APCardWatcher: initial nCount snapshot - Bronze=" $ LastBronzeCount $ " Silver=" $ LastSilverCount $ " Gold=" $ LastGoldCount);
+
+    // Vanilla AssignVendorCards (run during the level transition that brought
+    // us here) just re-stamped CardOwner_Vendor on every silver/eligible card
+    // including ones the player has already AP-checked. Re-clear them so the
+    // vendors don't offer them.
+    SweepVendorAssignments();
 }
 
 function bool IsHarryOwned(int id)
