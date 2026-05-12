@@ -152,6 +152,53 @@ function HandleLine(string line)
     {
         QueueGrant(Mid(line, 6));
     }
+    else if (Left(line, 5) == "SENT ")
+    {
+        // PrintJSON-driven "Sent X to Y" toast for items we sent to OTHER
+        // slots. Sidecar guarantees `receiving != self.slot` so own-slot
+        // items don't double-toast (they go through ReceivedItems → GRANT
+        // and produce a "Received X from Y" toast instead). No queueing —
+        // toast is purely cosmetic, drop on the floor if no toast actor.
+        HandleSent(Mid(line, 5));
+    }
+}
+
+// Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the
+// HUD toast actor as "Sent <item> to <receiver>".
+function HandleSent(string Body)
+{
+    local string ItemName, Receiver, toastText;
+    local int pipeIdx;
+    local APHUDToast toast;
+
+    pipeIdx = InStr(Body, "|");
+    if (pipeIdx >= 0)
+    {
+        ItemName = Left(Body, pipeIdx);
+        Receiver = Mid(Body, pipeIdx + 1);
+    }
+    else
+    {
+        ItemName = Body;
+        Receiver = "";
+    }
+
+    if (Receiver != "")
+    {
+        toastText = "Sent " $ ItemName $ " to " $ Receiver;
+    }
+    else
+    {
+        toastText = "Sent " $ ItemName;
+    }
+
+    Log("[Archipelago] APIPCActor.HandleSent: " $ toastText);
+
+    toast = class'APHUDToast'.static.GetInstance();
+    if (toast != None)
+    {
+        toast.EnqueueToast(toastText);
+    }
 }
 
 event Timer()

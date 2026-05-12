@@ -12,7 +12,7 @@ This file is for the next Claude that boots into this repo. Read it top-to-botto
 - Diffindo offsets are WORLD coords (no rotation transformation) — we switched from local coords because the cutscene's `Yaw=49136 (≈270°)` rotation made diagonal stepping in local space too painful to reason about. World coords match exactly what the spawnLoc log lines show. Bookcase ORIENTATION is still derived from `cs.Rotation + 32768 yaw` so the bookcases face Harry's approach; only POSITION is world-coords.
 - All Diffindo machinery (idempotency dropped for multi-bookcase, tag-scan removal of all 3, save-load resilience via `APCardWatcher.TrySpawnClassroomBlockers`) is in place and working.
 
-**What still needs doing in M8**: HUD toast, `docs/PLAYER_SETUP.md`, `tests/test_generation.py`, v1.0.0 release zip. All four bookcase blockers (Ricta / Skurge / Diffindo / Spongify) and the full vendor card-sale rewrite (Phases A filter / B replacement / C assignment) are in place. See `docs/ROADMAP.md` M8 + `docs/MOD_TODO.md`.
+**What still needs doing in M8**: `docs/PLAYER_SETUP.md`, `tests/test_generation.py`, v1.0.0 release zip. All four bookcase blockers (Ricta / Skurge / Diffindo / Spongify), the full vendor card-sale rewrite (Phases A filter / B replacement / C assignment), and the HUD toast (`APHUDToast.uc` with panel bg + woosh sound + tier in text + sender/recipient slot name) are in place. See `docs/ROADMAP.md` M8 + `docs/MOD_TODO.md`.
 
 ---
 
@@ -47,7 +47,7 @@ The seed is end-to-end playable, including goal completion. Stefan ran from `Adv
 
 All four classroom challenge blockers (Rictusempra / Skurge / Diffindo / Spongify) are implemented and verified. Spongify reuses the Rictusempra cutscene anchor at the shared DADA doorway, gated on `harry.iGameState >= 130` (post-Slytherin-Common-Room story beat) so it only spawns once vanilla would prompt the Spongify lesson.
 
-Other M8 work: HUD toast, player-facing setup walkthrough, seed-gen smoke test.
+Other M8 work: player-facing setup walkthrough, seed-gen smoke test, v1.0.0 release zip.
 
 ---
 
@@ -86,7 +86,7 @@ The project is **HP2PC_AP**, an Archipelago multiworld randomizer for *Harry Pot
 | M5 — Full pool + hooks | ✅ `91ddc48`, `a167dfa`, `fcd68a5` | All grant types wired |
 | M6 — Logic + seed gen | ✅ (this session) | 105 locations, 108 items, 38 per-location rules, fully solvable |
 | M7 — Goal detection | ✅ (verified this session) | `bInEndGame` poll → `GOAL_COMPLETE` → AP slot completion |
-| M8 — UX polish | ⏳ in progress | Bookcase blockers + vendor card rewrite + HUD toast + release zip |
+| M8 — UX polish | ⏳ in progress | Bookcase blockers + vendor card rewrite + HUD toast done; setup doc + seed-gen test + release zip remaining |
 
 ### Card pickup architecture — APCardMarker
 

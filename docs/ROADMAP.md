@@ -138,7 +138,7 @@ Done. `APIPCActor` extends `IpDrv.TcpLink` with hardcoded 127.0.0.1, persists ac
 **Still TODO:**
 - ~~Bookcase challenge blocks~~ ✅ All four (Rictusempra / Skurge / Diffindo / Spongify) implemented and verified. Spongify reuses the Rictusempra cutscene anchor in the shared DADA room, gated on `harry.iGameState >= 130` (post-Slytherin-Common-Room story beat).
 - ~~Vendor card sales~~ ✅ Phases A (filter) + B (replacement) + C (assignment) all implemented. Vendors keep selling missed cards; the spawned `WCXxx` is rewritten to an `APCardMarker_<class>` so the sale fires the original card location's AP CHECK rather than granting the vanilla card. AP-checked locations are filtered out so vendors don't re-offer them. See `docs/MOD_TODO.md` for the breakdown.
-- HUD toast actor (`APHUDToast.uc`) — on-screen "Received X from Y" notification, queued, drains during safe states.
+- ~~HUD toast actor~~ ✅ `APHUDToast.uc` extends `HProp`, registers with `HPHud.propArray`, draws "Received <tier> card X from Y" / "Sent X to Y" with `HGame.Icons.leftPanel` panel background and `vendor_spawn_WC` woosh sound. Sidecar `on_print_json` filter routes ItemSend broadcasts back as `SENT <item>|<receiver>` for cross-slot deliveries; ReceivedItems handles own-slot grants via the existing GRANT path.
 - Player-facing `docs/PLAYER_SETUP.md` walkthrough.
 - `tests/test_generation.py`: "100 seeds generate without error".
 - Tagged `v1.0.0` GitHub release zip.

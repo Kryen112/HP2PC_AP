@@ -172,12 +172,48 @@ class HP2Context(CommonContext):
                 # key-item / beans branches.
                 ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
                 payload = ucls if ucls else item_name
+                # Sender's slot name for the HUD toast ("from <sender>"). For
+                # items the seed placed in your own world, sender == self.slot
+                # (i.e. shows your own name — matches AP client UX). Mod's
+                # ApplyGrant parses the pipe-separated form back out;
+                # legacy mod builds without the parse just see the full
+                # `<payload>|<sender>` as the item name and fall through to
+                # the unknown-item branch. To keep the durable resync
+                # backward-compatible, store with sender so a later resync
+                # round-trips identically.
+                sender_name = self.player_names.get(item.player, f"player_{item.player}")
+                payload_with_sender = f"{payload}|{sender_name}"
                 if item_name not in NON_DURABLE_ITEM_NAMES:
-                    self._remember_durable_grant(payload, package_index)
-                logger.info(f"Received item: {item_name} (id={item_id}) → forwarding as GRANT {payload}")
-                self._send_to_game(f"GRANT {payload}")
+                    self._remember_durable_grant(payload_with_sender, package_index)
+                logger.info(f"Received item: {item_name} (id={item_id}) from {sender_name} → forwarding as GRANT {payload_with_sender}")
+                self._send_to_game(f"GRANT {payload_with_sender}")
                 if isinstance(package_index, int):
                     package_index += 1
+
+    def on_print_json(self, args: dict) -> None:
+        # Toast feedback for items WE send to other slots ("Sent X to Y").
+        # AP server broadcasts an ItemSend PrintJSON for every cross-slot
+        # delivery; we filter to ones where item.player == self.slot (we're
+        # the sender). Skip if receiving == self.slot — that's our own item
+        # and ReceivedItems already triggers a "Received X from Y" toast,
+        # so a SENT toast on top would be a duplicate per Stefan's spec.
+        try:
+            if args.get("type") == "ItemSend":
+                item = args.get("item")
+                receiving_slot = args.get("receiving")
+                if (
+                    item is not None
+                    and receiving_slot is not None
+                    and item.player == self.slot
+                    and receiving_slot != self.slot
+                ):
+                    receiver_name = self.player_names.get(receiving_slot, f"player_{receiving_slot}")
+                    item_name = self.item_names.lookup_in_slot(item.item, receiving_slot) or f"item_{item.item}"
+                    logger.info(f"Sent item: {item_name} → {receiver_name} (slot {receiving_slot})")
+                    self._send_to_game(f"SENT {item_name}|{receiver_name}")
+        except Exception as e:
+            logger.exception(f"on_print_json: failed to handle ItemSend: {e}")
+        super().on_print_json(args)
 
     def run_gui(self) -> None:
         # CLI-only for now; CommonContext supports GUI but we keep it minimal.
