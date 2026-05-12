@@ -27,6 +27,10 @@ dist-temp/
 *.archipelago
 tmp_seed_check*/
 
+# PyInstaller client-exe build artifacts (scripts/build_client_exe.ps1).
+# The 85 MB onefile exe ships in the release zip, not in git.
+dist/
+
 # Reference checkouts (kept outside repo)
 /uscript/
 /wiki-clone/

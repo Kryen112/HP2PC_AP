@@ -167,6 +167,19 @@ Get-Content -LiteralPath 'C:\Users\kryen\Documents\Harry - Coding Evolved\Game.l
 
 For M2+ (with sidecar): activate the project venv, run `python client/hp2_client.py` (sidecar listens on `localhost:38281`), then launch the game.
 
+## Building the player release client (PyInstaller)
+
+End users get a self-contained `hp2_ap_client.exe` (Python + AP framework + our apworld bundled) so they don't need a Python install. Built via `scripts/build_client_exe.ps1`:
+
+```powershell
+py -3.12 -m pip install pyinstaller   # one-time
+& '.\scripts\build_client_exe.ps1'    # rebuilds dist\hp2_ap_client.exe (~85 MB)
+```
+
+The script stages a minimal `worlds\` tree (AP bootstrap files + our apworld) into `dist\staging\`, then PyInstaller bundles via `--add-data "$staging\worlds;worlds"`. Without the staged tree the bundle would either ship the full ~100 MB AP `worlds\` directory or hit a `FileNotFoundError` at runtime when AP's `worlds\__init__.py` does `os.scandir(local_folder)`.
+
+Rebuild whenever the AP framework or the apworld changes; ship the rebuilt exe with the release zip.
+
 **Heads-up: `[Engine.GameEngine] ServerActors=` does not work** for runtime registration on M212/HP2 (verified 2026-05-07). The mutator chain *is* alive — `Base Mutator is <Level>.Mutator<N>` shows up per level transition — so the next experiment for runtime hookup is mutator-via-URL on the launcher shortcut. See `docs/MOD_TODO.md`.
 
 ## Fresh-PC bootstrap

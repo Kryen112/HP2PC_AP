@@ -38,28 +38,32 @@ from typing import Optional
 # CommonClient below so the filter is in place when the warning would emit.
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
 
-# Bootstrap: make sure Archipelago is importable. Try a couple of locations:
+# Bootstrap: make sure Archipelago is importable. When running as a PyInstaller
+# `--onefile` bundle (player release), `CommonClient` and the apworld are
+# already inside the bundled import space — no sys.path manipulation needed.
+# When running from source (dev), look at common locations:
 # (1) sibling of HP2PC_AP/'s parent (Archipelago-play/Archipelago/) and
 # (2) the current working directory (e.g. when invoked from inside Archipelago).
 import os
 
-_HERE = Path(__file__).resolve()
-_CANDIDATES = [
-    _HERE.parent.parent.parent.parent / "Archipelago",
-    Path(os.getcwd()),
-]
-for _c in _CANDIDATES:
-    if (_c / "CommonClient.py").is_file():
-        if str(_c) not in sys.path:
-            sys.path.insert(0, str(_c))
-        break
-else:
-    raise RuntimeError(
-        "Cannot find Archipelago framework. Tried: "
-        + ", ".join(str(c) for c in _CANDIDATES)
-        + ". Either run this script from inside the Archipelago repo, or ensure "
-          "Archipelago lives at ../../Archipelago relative to this client."
-    )
+if not getattr(sys, "frozen", False):
+    _HERE = Path(__file__).resolve()
+    _CANDIDATES = [
+        _HERE.parent.parent.parent.parent / "Archipelago",
+        Path(os.getcwd()),
+    ]
+    for _c in _CANDIDATES:
+        if (_c / "CommonClient.py").is_file():
+            if str(_c) not in sys.path:
+                sys.path.insert(0, str(_c))
+            break
+    else:
+        raise RuntimeError(
+            "Cannot find Archipelago framework. Tried: "
+            + ", ".join(str(c) for c in _CANDIDATES)
+            + ". Either run this script from inside the Archipelago repo, or ensure "
+              "Archipelago lives at ../../Archipelago relative to this client."
+        )
 
 import CommonClient
 from CommonClient import CommonContext, ClientCommandProcessor, get_base_parser, server_loop, gui_enabled
