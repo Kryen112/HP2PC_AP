@@ -36,6 +36,18 @@ var bool bIsLooseSpawn;
 // with the per-card vanilla values so vendors see our markers as sellable.
 var string MarkerTier;
 
+// Set True by gen_apworld.py for cards the level designer placed mid-air
+// (e.g., `WCToothill` floating above the Grand Staircase, vanilla intent: reach
+// it via Spongify-jump). Vanilla level-loaded `WizardCardIcon` defaults to
+// `Physics=PHYS_None` (no Physics line in `WizardCardIcon.defaultproperties`)
+// so it stays pinned. Our `Spawned()` normally overrides to `PHYS_Falling` so
+// chest-ejected cards fall and mover-carried cards (Chamber-II descending
+// platform → `WCElphick`) get pushed by mover collision — but that breaks the
+// floating placements. With this flag set, `Spawned()` keeps `PHYS_None` to
+// preserve the design-time Z. Set per-card via `FLOATING_CARDS` in
+// scripts/gen_apworld.py.
+var bool bIsFloatingCard;
+
 function PostBeginPlay()
 {
     Super.PostBeginPlay();
@@ -81,7 +93,16 @@ event Timer()
 // the marker drops straight down to land at its spawn x/y, then sits in Wait.
 function Spawned()
 {
-    SetPhysics(PHYS_Falling);
+    if (bIsFloatingCard)
+    {
+        // Pin at design-time location. Mirrors vanilla level-loaded
+        // WizardCardIcon's default PHYS_None.
+        SetPhysics(PHYS_None);
+    }
+    else
+    {
+        SetPhysics(PHYS_Falling);
+    }
     bBouncingState = False;
     GotoState('Wait');
 }

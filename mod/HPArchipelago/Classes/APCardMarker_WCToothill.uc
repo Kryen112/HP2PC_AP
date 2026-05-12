@@ -9,4 +9,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE180"
     MarkerTier="Silver"
+    bIsFloatingCard=True
 }
