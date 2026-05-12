@@ -20,6 +20,13 @@ var class<baseSpell> SpellClasses[7];
 var string SpellNames[7];
 var byte WasSpellOwned[7];
 var byte APGrantedSpell[7];
+// Lesson-start hook dedupe. Mirrors LocationChecked[] but for the 4 spell-
+// tutorial locations. Separate from WasSpellOwned[] because Snapshot baselines
+// WasSpellOwned=1 for spells Harry already has at watcher init (so the
+// IsInSpellBook revert loop doesn't fire on a legitimately-AP-granted spell);
+// the lesson-start hook needs to fire even when Harry already has the spell.
+// Class-default so it persists across watcher instances within a session.
+var byte LessonCheckFired[7];
 
 var StatusItem KeyItemStatus[3];
 var string KeyItemNames[3];
@@ -310,9 +317,9 @@ event Timer()
     if (HarryRef.CurrSpellLesson != None)
     {
         i = LessonShapeToSpellIndex(HarryRef.CurrSpellLesson);
-        if (i >= 0 && WasSpellOwned[i] == 0)
+        if (i >= 0 && default.LessonCheckFired[i] == 0)
         {
-            WasSpellOwned[i] = 1;
+            default.LessonCheckFired[i] = 1;
             Log("[Archipelago] APCardWatcher: SpellLessonTrigger active for " $ SpellNames[i] $ " - firing CHECK_SPELL (lesson-start hook)");
             if (ipc != None)
             {
@@ -332,6 +339,7 @@ event Timer()
             if (WasSpellOwned[i] == 0)
             {
                 WasSpellOwned[i] = 1;
+                default.LessonCheckFired[i] = 1;
                 Log("[Archipelago] APCardWatcher: new vanilla spell learned: " $ SpellNames[i]);
                 if (ipc != None)
                 {
