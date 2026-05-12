@@ -68,6 +68,10 @@ regions:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge"
     notes: "Bicorn horn collection level. Reached after Skurge challenge completion. v1: Bicorn itself is vanilla-only, not an AP item. All 6 cards inside require Alohomora. Dueling unlocks on completion (v2 Tier-3 candidate)."
 
+  DuelingClub:
+    entry: "Lumos & Flipendo & Rictusempra & Skurge"
+    notes: "Dueling Club opens post-Bicorn (vanilla iGameState >= 80). 10 ranked duels (Rank 1-10) each fire an AP check on win. Region entry mirrors BicornLevel minus Alohomora (no locks to pick in the dueling room). v2 Tier-3 expansion, opt-in via enable_duel_checks (default off). Intra-rank ordering not encoded in logic per the 'spell/item requires only' rule — vanilla gameplay enforces sequential rank progression on its own."
+
   DiffindoChallenge:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo"
     notes: "Auto-teleport from Sprout's classroom after the Diffindo bookcase clears (bookcase TODO). All 8 cards inside require Alohomora."
@@ -185,6 +189,38 @@ locations:
   # on top of region entry. Bean balance is currency, not a logic item.
   "Castle Exterior - Nimbus 2001": { requires: "Rictusempra" }
   "Castle Exterior - Quidditch Armour": { requires: "Rictusempra" }
+
+  # ── Dueling Club ranked duels (region entry already requires Lumos+Flipendo+Rictusempra+Skurge) ─
+  # Placeholder `requires: "true"` per duel. Real per-rank gating to be
+  # filled during Stefan's playthrough — higher-rank duels may need spells
+  # / items the floor doesn't have. Vanilla enforces sequential rank
+  # progression in gameplay; AP doesn't model intra-system ordering per the
+  # "spell/item requires only" decision, but each rank's actual spell
+  # requirement will be observed and encoded after the playthrough.
+  "Dueling Club - Duel Rank 1":  { requires: "true" }
+  "Dueling Club - Duel Rank 2":  { requires: "true" }
+  "Dueling Club - Duel Rank 3":  { requires: "true" }
+  "Dueling Club - Duel Rank 4":  { requires: "true" }
+  "Dueling Club - Duel Rank 5":  { requires: "true" }
+  "Dueling Club - Duel Rank 6":  { requires: "true" }
+  "Dueling Club - Duel Rank 7":  { requires: "true" }
+  "Dueling Club - Duel Rank 8":  { requires: "true" }
+  "Dueling Club - Duel Rank 9":  { requires: "true" }
+  "Dueling Club - Duel Rank 10": { requires: "true" }
+
+  # ── Quidditch matches (region entry already requires Lumos+Flipendo+Rictusempra) ─
+  # Placeholder `requires: "true"` per match. Real per-match gating to be
+  # filled during Stefan's playthrough — matches unlock further into the
+  # story (likely keyed to iGameState progression / story-spell ownership),
+  # so later matches may need Skurge / Diffindo / Spongify on top of region
+  # entry. Nimbus 2001 / Quidditch Armour are "useful" not "required" per
+  # their classification, so they don't appear in the gating expressions.
+  "Quidditch - Match 1 (Hufflepuff)": { requires: "true" }
+  "Quidditch - Match 2 (Ravenclaw)":  { requires: "true" }
+  "Quidditch - Match 3 (Slytherin)":  { requires: "true" }
+  "Quidditch - Match 4 (Hufflepuff)": { requires: "true" }
+  "Quidditch - Match 5 (Ravenclaw)":  { requires: "true" }
+  "Quidditch - Match 6 (Slytherin)":  { requires: "true" }
 
   # All other cards inherit their region's entry rule (which now includes
   # Alohomora for the universally-locked regions: RictusempraChallenge,

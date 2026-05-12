@@ -84,6 +84,84 @@ quidditch_purchases:
   - { id_offset: 5, name: "Castle Exterior - Nimbus 2001",      vendor_class: FredWeasley,   vanilla_sells: Sells_Nimbus2001, region: CastleExterior, group: QuidditchPurchases, notes: "Fred Weasley sells the Nimbus broom for ~700 beans on the Castle Exterior grounds. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned VendorNimbusBroom actor and swaps to APCardMarker_PHCard." }
   - { id_offset: 6, name: "Castle Exterior - Quidditch Armour", vendor_class: GeorgeWeasley, vanilla_sells: Sells_QArmor,     region: CastleExterior, group: QuidditchPurchases, notes: "George Weasley sells the Quidditch armour. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned QArmor actor and swaps to APCardMarker_PHCard." }
 
+# 10 duel-win locations at the Dueling Club, one per ranked duel. Each check
+# fires when Harry wins the corresponding Duel0N standalone level. `duel_rank`
+# (1..10) is the stable handle used by the win-detection watcher to resolve
+# which AP location maps to a given TriggerEvent('HarryWonDuel') firing —
+# vanilla `harry.DuelRankHarry` carries the rank Harry just defeated.
+# `duel_level` is the source .unr file so the catalogue is grep-able.
+#
+# Generation gate: `enable_duel_checks` YAML option (Toggle, default false).
+# When false the 10 locations aren't emitted and duel wins fire no AP check.
+# Locations only — no paired items are added to the pool (these checks hold
+# whatever AP places at them, like cards or secrets do).
+#
+# Vanilla gate: duels unlock at `iGameState >= 80` (post-Bicorn), with a
+# blacklist of mid-story states `[120, 150, 160, 170]` where the dueling
+# room is taken over by story beats. AP logic encodes the post-Bicorn floor
+# via the DuelingClub region entry; intra-system rank ordering is left to
+# vanilla gameplay (per the "spell/item requires only" decision — AP doesn't
+# enforce 'must win Rank N-1 before Rank N').
+#
+# Per-rank requires in data/logic.yaml currently default to "true" (just
+# region access). Real per-rank spell/item gating will be filled in during
+# Stefan's playthrough — higher-rank duels likely need more spells than
+# Rictusempra alone, but the exact gating is observation-pending.
+#
+# Mod wiring (planned for the watcher-wiring session alongside secrets/stars):
+#   - A listener actor with Tag='HarryWonDuel' (matching Duellist's default
+#     WonEventName) catches TriggerEvent dispatch from `Duellist.HarryWonDuel`
+#     (Duellist.uc:588), reads `harry.DuelRankHarry`, fires CHECK via
+#     APIPCActor for the corresponding duel_rank's location id.
+#   - DuelLocationChecked[11] (1-indexed) dedupes per-rank so re-entering a
+#     Duel0N level after AP check doesn't refire (duels are replayable in
+#     vanilla once won, but the AP check only counts the first win).
+duels:
+  - { id_offset: 600, name: "Dueling Club - Duel Rank 1",  duel_rank: 1,  duel_level: Duel01, region: DuelingClub, group: Duels, notes: "Lowest-tier duel. ~10 beans reward in vanilla." }
+  - { id_offset: 601, name: "Dueling Club - Duel Rank 2",  duel_rank: 2,  duel_level: Duel02, region: DuelingClub, group: Duels }
+  - { id_offset: 602, name: "Dueling Club - Duel Rank 3",  duel_rank: 3,  duel_level: Duel03, region: DuelingClub, group: Duels }
+  - { id_offset: 603, name: "Dueling Club - Duel Rank 4",  duel_rank: 4,  duel_level: Duel04, region: DuelingClub, group: Duels }
+  - { id_offset: 604, name: "Dueling Club - Duel Rank 5",  duel_rank: 5,  duel_level: Duel05, region: DuelingClub, group: Duels }
+  - { id_offset: 605, name: "Dueling Club - Duel Rank 6",  duel_rank: 6,  duel_level: Duel06, region: DuelingClub, group: Duels }
+  - { id_offset: 606, name: "Dueling Club - Duel Rank 7",  duel_rank: 7,  duel_level: Duel07, region: DuelingClub, group: Duels }
+  - { id_offset: 607, name: "Dueling Club - Duel Rank 8",  duel_rank: 8,  duel_level: Duel08, region: DuelingClub, group: Duels }
+  - { id_offset: 608, name: "Dueling Club - Duel Rank 9",  duel_rank: 9,  duel_level: Duel09, region: DuelingClub, group: Duels }
+  - { id_offset: 609, name: "Dueling Club - Duel Rank 10", duel_rank: 10, duel_level: Duel10, region: DuelingClub, group: Duels, notes: "Highest-tier duel. ~200 beans reward in vanilla." }
+
+# 6 Quidditch match win locations. Vanilla `harry.curQuidMatchNum` tracks
+# match index 0..5 and `harry.quidGameResults[match_index].bWon` is set True
+# at win. `match_index` here is the same index AP uses to identify which
+# match was just won. Opponent cycle (vanilla): Hufflepuff, Ravenclaw,
+# Slytherin, Hufflepuff, Ravenclaw, Slytherin. Match 6 (index 5) is the
+# final match and fires `MatchEvents_Final.Won` instead of `MatchEvents.Won`.
+#
+# Generation gate: `enable_quidditch_match_checks` YAML option (Toggle,
+# default false). When false the 6 locations aren't emitted and match wins
+# fire no AP check. Locations only — no paired items in the pool.
+#
+# Per-match requires in data/logic.yaml currently default to "true" (just
+# region access). Matches unlock further into the story in vanilla — later
+# matches likely need Skurge / Diffindo / Spongify on top of the
+# Rictusempra floor in the Quidditch region entry. Real per-match gating
+# will be filled in during Stefan's playthrough.
+#
+# Mod wiring (planned for the watcher-wiring session):
+#   - Watcher subscribes to BOTH TriggerEvent(MatchEvents.Won) and
+#     TriggerEvent(MatchEvents_Final.Won) from QuidditchDirector (the event
+#     names are configurable name-vars on the director, so the listener
+#     uses Tag-matching on the runtime name values pulled at level entry —
+#     or, more robustly, polls `harry.quidGameResults[i].bWon` on its tick
+#     and fires CHECK on the False→True transition for any match_index).
+#   - MatchLocationChecked[6] dedupes per-match so post-win level reload
+#     doesn't refire.
+quidditch_matches:
+  - { id_offset: 620, name: "Quidditch - Match 1 (Hufflepuff)", match_index: 0, opponent: Hufflepuff, region: Quidditch, group: QuidditchMatches, notes: "First match." }
+  - { id_offset: 621, name: "Quidditch - Match 2 (Ravenclaw)",  match_index: 1, opponent: Ravenclaw,  region: Quidditch, group: QuidditchMatches }
+  - { id_offset: 622, name: "Quidditch - Match 3 (Slytherin)",  match_index: 2, opponent: Slytherin,  region: Quidditch, group: QuidditchMatches }
+  - { id_offset: 623, name: "Quidditch - Match 4 (Hufflepuff)", match_index: 3, opponent: Hufflepuff, region: Quidditch, group: QuidditchMatches }
+  - { id_offset: 624, name: "Quidditch - Match 5 (Ravenclaw)",  match_index: 4, opponent: Ravenclaw,  region: Quidditch, group: QuidditchMatches }
+  - { id_offset: 625, name: "Quidditch - Match 6 (Slytherin)",  match_index: 5, opponent: Slytherin,  region: Quidditch, group: QuidditchMatches, notes: "Final match. Fires MatchEvents_Final.Won instead of MatchEvents.Won; watcher must subscribe to both event names." }
+
 # 101 card pickup locations. One per card. Region = vanilla level the card lives in.
 # `card_class` matches data/items.yaml `class` so the mod can use card.Id to
 # resolve location. Regions catalogued from Stefan's open-hub playthrough.

@@ -118,6 +118,37 @@ class EnableChallengeStarsChecks(DefaultOnToggle):
     display_name = "Enable Challenge Stars Checks"
 
 
+class EnableDuelChecks(Toggle):
+    """If true, winning each of the 10 ranked duels at the Dueling Club
+    becomes an AP location check (Dueling Club - Duel Rank 1..10).
+
+    Cataloged in data/locations.yaml under `duels`. Defaults to OFF — duels
+    are an opt-in v2 Tier-3 expansion. Locations only; no paired items are
+    added to the multiworld pool. The checks hold whatever the seed places
+    at them (filler, cards, progression items, etc.) — same model as cards
+    and secrets. Generation is a no-op until gen_apworld.py consumes the
+    section and the watcher-side TriggerEvent('HarryWonDuel') listener
+    lands (v2 scope).
+    """
+    display_name = "Enable Duel Win Checks"
+
+
+class EnableQuidditchMatchChecks(Toggle):
+    """If true, winning each of the 6 Quidditch matches becomes an AP
+    location check (Quidditch - Match 1..6 (Opponent)).
+
+    Cataloged in data/locations.yaml under `quidditch_matches`. Defaults to
+    OFF — Quidditch matches are an opt-in v2 Tier-3 expansion. Locations
+    only; no paired items added to the pool. Independent of
+    `enable_quidditch_purchases` — a player can enable the Fred/George
+    vendor checks without enabling match-win checks, or vice versa.
+    Generation is a no-op until gen_apworld.py consumes the section and
+    the watcher-side MatchEvents.Won / MatchEvents_Final.Won listener (or
+    quidGameResults[].bWon poller) lands (v2 scope).
+    """
+    display_name = "Enable Quidditch Match Win Checks"
+
+
 class EnableQuidditchPurchases(DefaultOnToggle):
     """If true, the two Castle Exterior Weasley-vendor purchases become AP
     locations (Castle Exterior - Nimbus 2001 from Fred and Castle Exterior -
@@ -169,6 +200,8 @@ class HP2Options(PerGameCommonOptions):
     enable_secrets_checks: EnableSecretsChecks
     enable_challenge_stars_checks: EnableChallengeStarsChecks
     enable_quidditch_purchases: EnableQuidditchPurchases
+    enable_duel_checks: EnableDuelChecks
+    enable_quidditch_match_checks: EnableQuidditchMatchChecks
     allow_secrets_progression: AllowSecretsProgression
 
 
