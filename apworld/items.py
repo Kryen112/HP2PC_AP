@@ -12,7 +12,7 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     'Rictusempra': 5750005,
     'Skurge': 5750006,
     'Spongify': 5750007,
-    'Cornelius Agrippa': 5750100,
+    'Agrippa': 5750100,
     'Alderton': 5750101,
     'Barbary': 5750102,
     'Barkwith': 5750103,
@@ -113,9 +113,9 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     'Potter': 5750198,
     'Ravenclaw': 5750199,
     'Slytherin': 5750200,
-    'BeansSmall': 5750300,
-    'BeansMedium': 5750301,
-    'BeansLarge': 5750302,
+    'Small Pile of Beans': 5750300,
+    'Medium Pile of Beans': 5750301,
+    'Large Pile of Beans': 5750302,
 }
 
 ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
@@ -126,7 +126,7 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     'Rictusempra': ItemClassification.progression,
     'Skurge': ItemClassification.progression,
     'Spongify': ItemClassification.progression,
-    'Cornelius Agrippa': ItemClassification.useful,
+    'Agrippa': ItemClassification.useful,
     'Alderton': ItemClassification.useful,
     'Barbary': ItemClassification.useful,
     'Barkwith': ItemClassification.useful,
@@ -227,26 +227,26 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     'Potter': ItemClassification.useful,
     'Ravenclaw': ItemClassification.useful,
     'Slytherin': ItemClassification.useful,
-    'BeansSmall': ItemClassification.filler,
-    'BeansMedium': ItemClassification.filler,
-    'BeansLarge': ItemClassification.filler,
+    'Small Pile of Beans': ItemClassification.filler,
+    'Medium Pile of Beans': ItemClassification.filler,
+    'Large Pile of Beans': ItemClassification.filler,
 }
 
 ITEM_GROUPS: dict[str, list[str]] = {
     'Spells': ['Alohomora', 'Diffindo', 'Flipendo', 'Lumos', 'Rictusempra', 'Skurge', 'Spongify'],
     'Key Items': [],
-    'Cards (Bronze)': ['Cornelius Agrippa', 'Alderton', 'Barbary', 'Barkwith', 'Belby', 'Blane', 'Bloxam', 'Bonham', 'Catchlove', 'Elphick', 'Ethelred', 'Fancourt', 'Goshawk', 'Graves', 'Gunhilda', 'Hipworth', 'Kegg', 'Ketteridge', 'Marjoribanks', 'Merlin', 'Merwyn', 'Muldoon', 'Ollerton', 'Peakes', 'Pilliwickle', 'Platt', 'Plumpton', 'Po', 'Pokeby', 'Sawbridge', 'Scamander', 'Starkey', 'Stroulger', 'Stump', 'Sweeting', 'Sykes', 'Thruston', 'Toke', 'Twonk', 'Ulric', 'Vablatsky', 'Waffling', 'Wagtail', 'Warbeck', 'Wellbeloved', 'Wenlock', 'Whitehorn', 'Wintringham', 'Withers', 'Woodcroft'],
+    'Cards (Bronze)': ['Agrippa', 'Alderton', 'Barbary', 'Barkwith', 'Belby', 'Blane', 'Bloxam', 'Bonham', 'Catchlove', 'Elphick', 'Ethelred', 'Fancourt', 'Goshawk', 'Graves', 'Gunhilda', 'Hipworth', 'Kegg', 'Ketteridge', 'Marjoribanks', 'Merlin', 'Merwyn', 'Muldoon', 'Ollerton', 'Peakes', 'Pilliwickle', 'Platt', 'Plumpton', 'Po', 'Pokeby', 'Sawbridge', 'Scamander', 'Starkey', 'Stroulger', 'Stump', 'Sweeting', 'Sykes', 'Thruston', 'Toke', 'Twonk', 'Ulric', 'Vablatsky', 'Waffling', 'Wagtail', 'Warbeck', 'Wellbeloved', 'Wenlock', 'Whitehorn', 'Wintringham', 'Withers', 'Woodcroft'],
     'Cards (Silver)': ['Andros', 'Beamish', 'Chittock', 'Circe', 'Clagg', 'Cliodne', 'Cronk', 'Crumb', 'Dodderidge', 'Duke', 'Fay', 'Fulbert', 'Furmage', 'Gregory', 'Grunnion', 'Jones', 'Lufkin', 'Maeve', 'Montmorency', 'Mopsus', 'Nutcombe', 'Oglethorpe', 'Oldridge', 'Oliphant', 'Plunkett', 'Rastrick', 'Shimpling', 'Shingleton', 'Smethwyck', 'Stalk', 'Summerbee', 'Thurkell', 'Toothill', 'Tremlett', 'Tugwood', 'Wadcock', 'Wendelin', 'Wildsmith', 'Wright', 'Youdle'],
     'Cards (Gold)': ['Bott', 'Dumbledore', 'Gryffindor', 'Herpo', 'Hufflepuff', 'Knightley', 'Paracelsus', 'Pinkstone', 'Potter', 'Ravenclaw', 'Slytherin'],
-    'Filler': ['BeansSmall', 'BeansMedium', 'BeansLarge'],
+    'Filler': ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans'],
 }
 
-FILLER_NAMES: list[str] = ['BeansSmall', 'BeansMedium', 'BeansLarge']
+FILLER_NAMES: list[str] = ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans']
 
 # Map UScript card class name → AP item display name. Used by the sidecar
 # when forwarding 'GRANT <classname>' messages to the mod for cards.
 CARD_CLASS_TO_ITEM_NAME: dict[str, str] = {
-    'WCAgrippa': 'Cornelius Agrippa',
+    'WCAgrippa': 'Agrippa',
     'WCAlderton': 'Alderton',
     'WCBarbary': 'Barbary',
     'WCBarkwith': 'Barkwith',

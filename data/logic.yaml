@@ -52,10 +52,6 @@ regions:
     entry: "Lumos & Flipendo"
     notes: "Outdoor courtyard between castle and greenhouses. Alohomora not in entry because Sweeting/Sykes don't need it; per-location elsewhere."
 
-  Greenhouses:
-    entry: "Lumos & Flipendo"
-    notes: "Sprout's herbology classroom. Bookcase will gate the classroom location itself once implemented."
-
   RictusempraChallenge:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra"
     notes: "Auto-teleport from Lockhart's classroom after the Rictusempra bookcase clears. All 9 cards inside require Alohomora — encoded at region level."
@@ -64,13 +60,9 @@ regions:
     entry: "Lumos & Flipendo & Rictusempra"
     notes: "Quidditch training opens after Rictusempra challenge. Bean bonus room en route — no checks there. Fred/George vendor (Nimbus 2001, Quidditch armour) and Quidditch matches 1-6 are v2 Tier-3 expansion candidates."
 
-  Dungeons:
-    entry: "Lumos & Flipendo & Rictusempra"
-    notes: "Castle dungeons (geometry-wise just more castle interior). Door opens after Quidditch training. Alohomora per-location for the 4 cards."
-
   SkurgeChallenge:
     entry: "Lumos & Flipendo & Rictusempra & Skurge"
-    notes: "Auto-teleport from Flitwick's classroom after the Skurge bookcase clears (bookcase TODO). Alohomora not at region entry because Card_Gregory doesn't need it; per-location for the other 5."
+    notes: "Auto-teleport from Flitwick's classroom after the Skurge bookcase clears (bookcase TODO). Alohomora not at region entry because Skurge Challenge - Card Gregory doesn't need it; per-location for the other 5."
 
   BicornLevel:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge"
@@ -106,7 +98,7 @@ regions:
 
   ChamberOfSecrets:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify"
-    notes: "Final goal region. All 4 non-starter spells required for traversal and Basilisk; Alohomora at region entry too. Hosts Card_Elphick plus all 11 Gold cards — in vanilla, opening Gold chests needs 4 Gold keys earned from 40 Silver cards collected, but the generator's rule grammar doesn't currently support group counts so that constraint is not encoded here."
+    notes: "Final goal region. All 4 non-starter spells required for traversal and Basilisk; Alohomora at region entry too. Hosts Chamber of Secrets - Card Elphick plus all 11 Gold cards — in vanilla, opening Gold chests needs 4 Gold keys earned from 40 Silver cards collected, but the generator's rule grammar doesn't currently support group counts so that constraint is not encoded here."
 
 # Per-location rules. KEY = location.name from locations.yaml.
 # A location's effective rule is: region.entry AND location.requires.
@@ -117,19 +109,19 @@ locations:
   # Each spell classroom has a bookcase (real or planned) requiring the spell
   # taught there, plus all earlier spells. The seed must place that spell at
   # some reachable location elsewhere for the bookcase to ever clear.
-  Classroom_Lockhart_Rictusempra:
+  "Learned Rictusempra":
     {
       requires: "Rictusempra",
       notes: "Bookcase removed when AP grants Rictusempra (already implemented). Alohomora not required per Stefan's playtest.",
     }
-  Classroom_Flitwick_Skurge:
+  "Learned Skurge":
     { requires: "Rictusempra & Skurge", notes: "Bookcase to be implemented. Alohomora not required per Stefan's playtest." }
-  Classroom_Sprout_Diffindo:
+  "Learned Diffindo":
     {
       requires: "Alohomora & Rictusempra & Skurge & Diffindo",
       notes: "Bookcases to be implemented.",
     }
-  Classroom_Lockhart_Spongify:
+  "Learned Spongify":
     {
       requires: "Alohomora & Rictusempra & Skurge & Diffindo",
       notes: "Shares the DADA room with Rictusempra so a dedicated bookcase is impractical. Spongify itself is taught here so cannot gate.",
@@ -137,60 +129,61 @@ locations:
 
   # ── Hogwarts cards (region entry: Lumos & Flipendo) ────────────────────────
   # Most need Alohomora; Toothill/Oldridge are the exceptions (Spongify only).
-  Card_Sawbridge: { requires: "Alohomora" }
-  Card_Andros: { requires: "Alohomora" }
-  Card_Dodderidge: { requires: "Alohomora" }
-  Card_Ethelred: { requires: "Alohomora" }
-  Card_Maeve: { requires: "Alohomora" }
-  Card_Hipworth: { requires: "Alohomora" }
-  Card_Bonham: { requires: "Alohomora" }
-  Card_Wright: { requires: "Alohomora & Diffindo" }
-  Card_Barkwith: { requires: "Alohomora & Rictusempra" }
-  Card_Blane: { requires: "Alohomora & Rictusempra & Skurge" }
-  Card_Vablatsky: { requires: "Alohomora & Rictusempra & Skurge" }
-  Card_Mopsus: { requires: "Alohomora & Skurge & Diffindo" }
-  Card_Alderton: { requires: "Alohomora & Spongify" }
-  Card_Lufkin: { requires: "Alohomora & Skurge & Diffindo & Spongify" }
-  Card_Toothill: { requires: "Spongify" }
-  Card_Oldridge: { requires: "Spongify" }
-  Card_Jones: { requires: "Alohomora & Diffindo" }
+  "Hogwarts - Card Sawbridge": { requires: "Alohomora" }
+  "Hogwarts - Card Andros": { requires: "Alohomora" }
+  "Hogwarts - Card Dodderidge": { requires: "Alohomora" }
+  "Hogwarts - Card Ethelred": { requires: "Alohomora" }
+  "Hogwarts - Card Maeve": { requires: "Alohomora" }
+  "Hogwarts - Card Hipworth": { requires: "Alohomora" }
+  "Hogwarts - Card Bonham": { requires: "Alohomora" }
+  "Hogwarts - Card Wright": { requires: "Alohomora & Diffindo" }
+  "Hogwarts - Card Barkwith": { requires: "Alohomora & Rictusempra" }
+  "Hogwarts - Card Blane": { requires: "Alohomora & Rictusempra & Skurge" }
+  "Hogwarts - Card Vablatsky": { requires: "Alohomora & Rictusempra & Skurge" }
+  "Hogwarts - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
+  "Hogwarts - Card Alderton": { requires: "Alohomora & Spongify" }
+  "Hogwarts - Card Lufkin": { requires: "Alohomora & Skurge & Diffindo & Spongify" }
+  "Hogwarts - Card Toothill": { requires: "Spongify" }
+  "Hogwarts - Card Oldridge": { requires: "Spongify" }
+  "Hogwarts - Card Jones": { requires: "Alohomora & Diffindo" }
 
   # ── CastleExterior cards (region entry: Lumos & Flipendo) ──────────────────
   # Most need Alohomora; Sweeting (no extra) and Sykes (Spongify only) are exceptions.
-  Card_Wadcock: { requires: "Alohomora" }
-  Card_Sykes: { requires: "Spongify" }
-  Card_Twonk: { requires: "Alohomora & Diffindo" }
-  Card_Plunkett: { requires: "Alohomora & Diffindo" }
-  Card_Pokeby: { requires: "Alohomora & Rictusempra & Skurge" }
-  Card_Youdle: { requires: "Alohomora & Rictusempra & Skurge" }
-  Card_Marjoribanks: { requires: "Alohomora & Rictusempra & Skurge" }
-  Card_Oglethorpe:
+  "Castle Exterior - Card Wadcock": { requires: "Alohomora" }
+  "Castle Exterior - Card Sykes": { requires: "Spongify" }
+  "Castle Exterior - Card Twonk": { requires: "Alohomora & Diffindo" }
+  "Castle Exterior - Card Plunkett": { requires: "Alohomora & Diffindo" }
+  "Castle Exterior - Card Pokeby": { requires: "Alohomora & Rictusempra & Skurge" }
+  "Castle Exterior - Card Youdle": { requires: "Alohomora & Rictusempra & Skurge" }
+  "Castle Exterior - Card Marjoribanks": { requires: "Alohomora & Rictusempra & Skurge" }
+  "Castle Exterior - Card Oglethorpe":
     {
       requires: "Alohomora & Spongify & Diffindo",
       notes: "High-altitude perch in the courtyard; reachable in daytime grounds too (was originally placed in a HogwartsNight region — there is no day/night distinction for checks).",
     }
 
-  # ── Dungeons cards (region entry already requires Rictusempra) ─────────────
-  # All 4 need Alohomora per Stefan's playtest.
-  Card_Gunhilda: { requires: "Alohomora" }
-  Card_Shingleton: { requires: "Alohomora & Skurge" }
-  Card_Montmorency: { requires: "Alohomora & Skurge" }
-  Card_Wendelin: { requires: "Alohomora & Skurge & Diffindo" }
+  # ── Former Dungeons cards (now in Hogwarts; Rictusempra folded into per-location
+  # requires since Hogwarts entry doesn't include it). All 4 need Alohomora per
+  # Stefan's playtest.
+  "Hogwarts - Card Gunhilda": { requires: "Alohomora & Rictusempra" }
+  "Hogwarts - Card Shingleton": { requires: "Alohomora & Skurge & Rictusempra" }
+  "Hogwarts - Card Montmorency": { requires: "Alohomora & Skurge & Rictusempra" }
+  "Hogwarts - Card Wendelin": { requires: "Alohomora & Skurge & Diffindo & Rictusempra" }
 
   # ── SkurgeChallenge cards (region entry already requires Rictusempra+Skurge) ─
-  # 5 of 6 need Alohomora; Card_Gregory is the exception.
-  Card_Wenlock: { requires: "Alohomora" }
-  Card_Catchlove: { requires: "Alohomora" }
-  Card_Belby: { requires: "Alohomora" }
-  Card_Fulbert: { requires: "Alohomora" }
-  Card_Kegg: { requires: "Alohomora" }
+  # 5 of 6 need Alohomora; Skurge Challenge - Card Gregory is the exception.
+  "Skurge Challenge - Card Wenlock": { requires: "Alohomora" }
+  "Skurge Challenge - Card Catchlove": { requires: "Alohomora" }
+  "Skurge Challenge - Card Belby": { requires: "Alohomora" }
+  "Skurge Challenge - Card Fulbert": { requires: "Alohomora" }
+  "Skurge Challenge - Card Kegg": { requires: "Alohomora" }
 
   # All other cards inherit their region's entry rule (which now includes
   # Alohomora for the universally-locked regions: RictusempraChallenge,
   # BicornLevel, DiffindoChallenge, BoomslangLevel, DumbledoreStudy, GoyleLevel,
   # SlytherinCommon, SpongifyChallenge, ForbiddenForest, ChamberOfSecrets).
-  # Card_Starkey (WhompingWillow), Card_Gregory (SkurgeChallenge),
-  # Card_Sweeting (CastleExterior), Card_Toothill/Card_Oldridge (Hogwarts) are
+  # Whomping Willow - Card Starkey (WhompingWillow), Skurge Challenge - Card Gregory (SkurgeChallenge),
+  # Castle Exterior - Card Sweeting (CastleExterior), Hogwarts - Card Toothill/Hogwarts - Card Oldridge (Hogwarts) are
   # the no-Alohomora-required outliers.
 
 # Goal definition.

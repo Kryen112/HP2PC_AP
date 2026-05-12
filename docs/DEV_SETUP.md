@@ -88,10 +88,10 @@ description: HP2 full-playthrough seed for logic cataloguing
 game: Harry Potter 2 PC
 Harry Potter 2 PC:
   plando_items:
-    - { item: Rictusempra, location: Classroom_Lockhart_Rictusempra, from_pool: true, force: silent }
-    - { item: Skurge,      location: Classroom_Flitwick_Skurge,      from_pool: true, force: silent }
-    - { item: Diffindo,    location: Classroom_Sprout_Diffindo,      from_pool: true, force: silent }
-    - { item: Spongify,    location: Classroom_Lockhart_Spongify,    from_pool: true, force: silent }
+    - { item: Rictusempra, location: "Learned Rictusempra", from_pool: true, force: silent }
+    - { item: Skurge,      location: "Learned Skurge",      from_pool: true, force: silent }
+    - { item: Diffindo,    location: "Learned Diffindo",    from_pool: true, force: silent }
+    - { item: Spongify,    location: "Learned Spongify",    from_pool: true, force: silent }
 ```
 
 Why each entry:

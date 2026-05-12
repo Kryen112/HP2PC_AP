@@ -33,10 +33,10 @@ base_id: 5760000
 # The mod fires `CHECK_SPELL <name>` when Harry first learns a spell; the
 # sidecar maps name → location_id via `SPELL_TO_LOCATION` in hp2_ap_client.py.
 classrooms:
-  - { id_offset: 1, name: "Classroom_Lockhart_Rictusempra", region: Hogwarts,    group: Classrooms, notes: "Lockhart's first class (story step 1) — teaches Rictusempra after the in-classroom spell challenge" }
-  - { id_offset: 2, name: "Classroom_Flitwick_Skurge",      region: Hogwarts,    group: Classrooms, notes: "Flitwick's class (story step 4) — teaches Skurge after the spell challenge" }
-  - { id_offset: 3, name: "Classroom_Sprout_Diffindo",      region: Greenhouses, group: Classrooms, notes: "Sprout's Herbology class (story step 7) — teaches Diffindo after the spell challenge" }
-  - { id_offset: 4, name: "Classroom_Lockhart_Spongify",    region: Hogwarts,    group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge. Shares the DADA room with Rictusempra so a bookcase here is hard to deploy without blocking Rictusempra too." }
+  - { id_offset: 1, name: "Learned Rictusempra", region: Hogwarts,    group: Classrooms, notes: "Lockhart's first class (story step 1) — teaches Rictusempra after the in-classroom spell challenge" }
+  - { id_offset: 2, name: "Learned Skurge",      region: Hogwarts,    group: Classrooms, notes: "Flitwick's class (story step 4) — teaches Skurge after the spell challenge" }
+  - { id_offset: 3, name: "Learned Diffindo",      region: CastleExterior, group: Classrooms, notes: "Sprout's Herbology class (story step 7) — teaches Diffindo after the spell challenge" }
+  - { id_offset: 4, name: "Learned Spongify",    region: Hogwarts,    group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge. Shares the DADA room with Rictusempra so a bookcase here is hard to deploy without blocking Rictusempra too." }
 
 # Special progression checks were here in earlier drafts (Special_Boomslang /
 # _Bicorn / _BitOGoyle). v1 removes them — Boomslang, Bicorn, and BitOGoyle are
@@ -50,104 +50,104 @@ special_checks: []
 # `card_class` matches data/items.yaml `class` so the mod can use card.Id to
 # resolve location. Regions catalogued from Stefan's open-hub playthrough.
 cards:
-  - { id_offset: 100, name: "Card_Agrippa",       card_class: WCAgrippa,       region: BicornLevel,         group: CardLocations }
-  - { id_offset: 101, name: "Card_Alderton",      card_class: WCAlderton,      region: Hogwarts,            group: CardLocations }
-  - { id_offset: 102, name: "Card_Barbary",       card_class: WCBarbary,       region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 103, name: "Card_Barkwith",      card_class: WCBarkwith,      region: Hogwarts,            group: CardLocations }
-  - { id_offset: 104, name: "Card_Belby",         card_class: WCBelby,         region: SkurgeChallenge,     group: CardLocations }
-  - { id_offset: 105, name: "Card_Blane",         card_class: WCBlane,         region: Hogwarts,            group: CardLocations }
-  - { id_offset: 106, name: "Card_Bloxam",        card_class: WCBloxam,        region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 107, name: "Card_Bonham",        card_class: WCBonham,        region: Hogwarts,            group: CardLocations }
-  - { id_offset: 108, name: "Card_Catchlove",     card_class: WCCatchlove,     region: SkurgeChallenge,     group: CardLocations }
-  - { id_offset: 109, name: "Card_Elphick",       card_class: WCElphick,       region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 110, name: "Card_Ethelred",      card_class: WCEthelred,      region: Hogwarts,            group: CardLocations }
-  - { id_offset: 111, name: "Card_Fancourt",      card_class: WCFancourt,      region: ForbiddenForest,     group: CardLocations }
-  - { id_offset: 112, name: "Card_Goshawk",       card_class: WCGoshawk,       region: BicornLevel,         group: CardLocations }
-  - { id_offset: 113, name: "Card_Graves",        card_class: WCGraves,        region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 114, name: "Card_Gunhilda",      card_class: WCGunhilda,      region: Dungeons,            group: CardLocations }
-  - { id_offset: 115, name: "Card_Hipworth",      card_class: WCHipworth,      region: Hogwarts,            group: CardLocations }
-  - { id_offset: 116, name: "Card_Kegg",          card_class: WCKegg,          region: SkurgeChallenge,     group: CardLocations }
-  - { id_offset: 117, name: "Card_Ketteridge",    card_class: WCKetteridge,    region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 118, name: "Card_Marjoribanks",  card_class: WCMarjoribanks,  region: CastleExterior,      group: CardLocations }
-  - { id_offset: 119, name: "Card_Merlin",        card_class: WCMerlin,        region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 120, name: "Card_Merwyn",        card_class: WCMerwyn,        region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 121, name: "Card_Muldoon",       card_class: WCMuldoon,       region: DumbledoreStudy,     group: CardLocations }
-  - { id_offset: 122, name: "Card_Ollerton",      card_class: WCOllerton,      region: ForbiddenForest,     group: CardLocations }
-  - { id_offset: 123, name: "Card_Peakes",        card_class: WCPeakes,        region: BicornLevel,         group: CardLocations }
-  - { id_offset: 124, name: "Card_Pilliwickle",   card_class: WCPilliwickle,   region: SlytherinCommon,     group: CardLocations }
-  - { id_offset: 125, name: "Card_Platt",         card_class: WCPlatt,         region: SlytherinCommon,     group: CardLocations }
-  - { id_offset: 126, name: "Card_Plumpton",      card_class: WCPlumpton,      region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 127, name: "Card_Po",            card_class: WCPo,            region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 128, name: "Card_Pokeby",        card_class: WCPokeby,        region: CastleExterior,      group: CardLocations }
-  - { id_offset: 129, name: "Card_Sawbridge",     card_class: WCSawbridge,     region: Hogwarts,            group: CardLocations }
-  - { id_offset: 130, name: "Card_Scamander",     card_class: WCScamander,     region: ForbiddenForest,     group: CardLocations }
-  - { id_offset: 131, name: "Card_Starkey",       card_class: WCStarkey,       region: WhompingWillow,      group: CardLocations }
-  - { id_offset: 132, name: "Card_Stroulger",     card_class: WCStroulger,     region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 133, name: "Card_Stump",         card_class: WCStump,         region: BicornLevel,         group: CardLocations }
-  - { id_offset: 134, name: "Card_Sweeting",      card_class: WCSweeting,      region: CastleExterior,      group: CardLocations }
-  - { id_offset: 135, name: "Card_Sykes",         card_class: WCSykes,         region: CastleExterior,      group: CardLocations, notes: "Stefan correction 2026-05-11: this was the card he originally mis-listed as Furmage in Castle Exterior. Requires Spongify per his earlier listing." }
-  - { id_offset: 136, name: "Card_Thruston",      card_class: WCThruston,      region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 137, name: "Card_Toke",          card_class: WCToke,          region: BoomslangLevel,      group: CardLocations }
-  - { id_offset: 138, name: "Card_Twonk",         card_class: WCTwonk,         region: CastleExterior,      group: CardLocations }
-  - { id_offset: 139, name: "Card_Ulric",         card_class: WCUlric,         region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 140, name: "Card_Vablatsky",     card_class: WCVablatsky,     region: Hogwarts,            group: CardLocations }
-  - { id_offset: 141, name: "Card_Waffling",      card_class: WCWaffling,      region: SlytherinCommon,     group: CardLocations }
-  - { id_offset: 142, name: "Card_Wagtail",       card_class: WCWagtail,       region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 143, name: "Card_Warbeck",       card_class: WCWarbeck,       region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 144, name: "Card_Wellbeloved",   card_class: WCWellbeloved,   region: ForbiddenForest,     group: CardLocations }
-  - { id_offset: 145, name: "Card_Wenlock",       card_class: WCWenlock,       region: SkurgeChallenge,     group: CardLocations }
-  - { id_offset: 146, name: "Card_Whitehorn",     card_class: WCWhitehorn,     region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 147, name: "Card_Wintringham",   card_class: WCWintringham,   region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 148, name: "Card_Withers",       card_class: WCWithers,       region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 149, name: "Card_Woodcroft",     card_class: WCWoodcroft,     region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 150, name: "Card_Andros",        card_class: WCAndros,        region: Hogwarts,            group: CardLocations }
-  - { id_offset: 151, name: "Card_Beamish",       card_class: WCBeamish,       region: DumbledoreStudy,     group: CardLocations }
-  - { id_offset: 152, name: "Card_Chittock",      card_class: WCChittock,      region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 153, name: "Card_Circe",         card_class: WCCirce,         region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 154, name: "Card_Clagg",         card_class: WCClagg,         region: SlytherinCommon,     group: CardLocations }
-  - { id_offset: 155, name: "Card_Cliodne",       card_class: WCCliodne,       region: ForbiddenForest,     group: CardLocations }
-  - { id_offset: 156, name: "Card_Cronk",         card_class: WCCronk,         region: BicornLevel,         group: CardLocations }
-  - { id_offset: 157, name: "Card_Crumb",         card_class: WCCrumb,         region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 158, name: "Card_Dodderidge",    card_class: WCDodderidge,    region: Hogwarts,            group: CardLocations }
-  - { id_offset: 159, name: "Card_Duke",          card_class: WCDuke,          region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 160, name: "Card_Fay",           card_class: WCFay,           region: SlytherinCommon,     group: CardLocations }
-  - { id_offset: 161, name: "Card_Fulbert",       card_class: WCFulbert,       region: SkurgeChallenge,     group: CardLocations }
-  - { id_offset: 162, name: "Card_Furmage",       card_class: WCFurmage,       region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 163, name: "Card_Gregory",       card_class: WCGregory,       region: SkurgeChallenge,     group: CardLocations }
-  - { id_offset: 164, name: "Card_Grunnion",      card_class: WCGrunnion,      region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 165, name: "Card_Jones",         card_class: WCJones,         region: Hogwarts,            group: CardLocations }
-  - { id_offset: 166, name: "Card_Lufkin",        card_class: WCLufkin,        region: Hogwarts,            group: CardLocations }
-  - { id_offset: 167, name: "Card_Maeve",         card_class: WCMaeve,         region: Hogwarts,            group: CardLocations }
-  - { id_offset: 168, name: "Card_Montmorency",   card_class: WCMontmorency,   region: Dungeons,            group: CardLocations }
-  - { id_offset: 169, name: "Card_Mopsus",        card_class: WCMopsus,        region: Hogwarts,            group: CardLocations }
-  - { id_offset: 170, name: "Card_Nutcombe",      card_class: WCNutcombe,      region: BicornLevel,         group: CardLocations }
-  - { id_offset: 171, name: "Card_Oglethorpe",    card_class: WCOglethorpe,    region: CastleExterior,      group: CardLocations }
-  - { id_offset: 172, name: "Card_Oldridge",      card_class: WCOldridge,      region: Hogwarts,            group: CardLocations }
-  - { id_offset: 173, name: "Card_Oliphant",      card_class: WCOliphant,      region: ForbiddenForest,     group: CardLocations }
-  - { id_offset: 174, name: "Card_Plunkett",      card_class: WCPlunkett,      region: CastleExterior,      group: CardLocations }
-  - { id_offset: 175, name: "Card_Rastrick",      card_class: WCRastrick,      region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 176, name: "Card_Shimpling",     card_class: WCShimpling,     region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 177, name: "Card_Shingleton",    card_class: WCShingleton,    region: Dungeons,            group: CardLocations }
-  - { id_offset: 178, name: "Card_Smethwyck",     card_class: WCSmethwyck,     region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 179, name: "Card_Stalk",         card_class: WCStalk,         region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 180, name: "Card_Summerbee",     card_class: WCSummerbee,     region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 181, name: "Card_Thurkell",      card_class: WCThurkell,      region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 182, name: "Card_Toothill",      card_class: WCToothill,      region: Hogwarts,            group: CardLocations }
-  - { id_offset: 183, name: "Card_Tremlett",      card_class: WCTremlett,      region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 184, name: "Card_Tugwood",       card_class: WCTugwood,       region: BoomslangLevel,      group: CardLocations }
-  - { id_offset: 185, name: "Card_Wadcock",       card_class: WCWadcock,       region: CastleExterior,      group: CardLocations }
-  - { id_offset: 186, name: "Card_Wendelin",      card_class: WCWendelin,      region: Dungeons,            group: CardLocations }
-  - { id_offset: 187, name: "Card_Wildsmith",     card_class: WCWildsmith,     region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 188, name: "Card_Wright",        card_class: WCWright,        region: Hogwarts,            group: CardLocations }
-  - { id_offset: 189, name: "Card_Youdle",        card_class: WCYoudle,        region: CastleExterior,      group: CardLocations }
-  - { id_offset: 190, name: "Card_Bott",          card_class: WCBott,          region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 191, name: "Card_Dumbledore",    card_class: WCDumbledore,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 192, name: "Card_Gryffindor",    card_class: WCGriffindor,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 193, name: "Card_Herpo",         card_class: WCHerpo,         region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 194, name: "Card_Hufflepuff",    card_class: WCHufflepuff,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 195, name: "Card_Knightley",     card_class: WCKnightley,     region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 196, name: "Card_Paracelsus",    card_class: WCParacelsus,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 197, name: "Card_Pinkstone",     card_class: WCPinkstone,     region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 198, name: "Card_Potter",        card_class: WCPotter,        region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 199, name: "Card_Ravenclaw",     card_class: WCRavenclaw,     region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 200, name: "Card_Slytherin",     card_class: WCSlytherin,     region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 100, name: "Bicorn Level - Card Agrippa",       card_class: WCAgrippa,       region: BicornLevel,         group: CardLocations }
+  - { id_offset: 101, name: "Hogwarts - Card Alderton",      card_class: WCAlderton,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 102, name: "Rictusempra Challenge - Card Barbary",       card_class: WCBarbary,       region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 103, name: "Hogwarts - Card Barkwith",      card_class: WCBarkwith,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 104, name: "Skurge Challenge - Card Belby",         card_class: WCBelby,         region: SkurgeChallenge,     group: CardLocations }
+  - { id_offset: 105, name: "Hogwarts - Card Blane",         card_class: WCBlane,         region: Hogwarts,            group: CardLocations }
+  - { id_offset: 106, name: "Goyle Level - Card Bloxam",        card_class: WCBloxam,        region: GoyleLevel,          group: CardLocations }
+  - { id_offset: 107, name: "Hogwarts - Card Bonham",        card_class: WCBonham,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 108, name: "Skurge Challenge - Card Catchlove",     card_class: WCCatchlove,     region: SkurgeChallenge,     group: CardLocations }
+  - { id_offset: 109, name: "Chamber of Secrets - Card Elphick",       card_class: WCElphick,       region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 110, name: "Hogwarts - Card Ethelred",      card_class: WCEthelred,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 111, name: "Forbidden Forest - Card Fancourt",      card_class: WCFancourt,      region: ForbiddenForest,     group: CardLocations }
+  - { id_offset: 112, name: "Bicorn Level - Card Goshawk",       card_class: WCGoshawk,       region: BicornLevel,         group: CardLocations }
+  - { id_offset: 113, name: "Rictusempra Challenge - Card Graves",        card_class: WCGraves,        region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 114, name: "Hogwarts - Card Gunhilda",      card_class: WCGunhilda,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 115, name: "Hogwarts - Card Hipworth",      card_class: WCHipworth,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 116, name: "Skurge Challenge - Card Kegg",          card_class: WCKegg,          region: SkurgeChallenge,     group: CardLocations }
+  - { id_offset: 117, name: "Diffindo Challenge - Card Ketteridge",    card_class: WCKetteridge,    region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 118, name: "Castle Exterior - Card Marjoribanks",  card_class: WCMarjoribanks,  region: CastleExterior,      group: CardLocations }
+  - { id_offset: 119, name: "Spongify Challenge - Card Merlin",        card_class: WCMerlin,        region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 120, name: "Diffindo Challenge - Card Merwyn",        card_class: WCMerwyn,        region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 121, name: "Dumbledore's Study - Card Muldoon",       card_class: WCMuldoon,       region: DumbledoreStudy,     group: CardLocations }
+  - { id_offset: 122, name: "Forbidden Forest - Card Ollerton",      card_class: WCOllerton,      region: ForbiddenForest,     group: CardLocations }
+  - { id_offset: 123, name: "Bicorn Level - Card Peakes",        card_class: WCPeakes,        region: BicornLevel,         group: CardLocations }
+  - { id_offset: 124, name: "Slytherin Common Room - Card Pilliwickle",   card_class: WCPilliwickle,   region: SlytherinCommon,     group: CardLocations }
+  - { id_offset: 125, name: "Slytherin Common Room - Card Platt",         card_class: WCPlatt,         region: SlytherinCommon,     group: CardLocations }
+  - { id_offset: 126, name: "Goyle Level - Card Plumpton",      card_class: WCPlumpton,      region: GoyleLevel,          group: CardLocations }
+  - { id_offset: 127, name: "Spongify Challenge - Card Po",            card_class: WCPo,            region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 128, name: "Castle Exterior - Card Pokeby",        card_class: WCPokeby,        region: CastleExterior,      group: CardLocations }
+  - { id_offset: 129, name: "Hogwarts - Card Sawbridge",     card_class: WCSawbridge,     region: Hogwarts,            group: CardLocations }
+  - { id_offset: 130, name: "Forbidden Forest - Card Scamander",     card_class: WCScamander,     region: ForbiddenForest,     group: CardLocations }
+  - { id_offset: 131, name: "Whomping Willow - Card Starkey",       card_class: WCStarkey,       region: WhompingWillow,      group: CardLocations }
+  - { id_offset: 132, name: "Goyle Level - Card Stroulger",     card_class: WCStroulger,     region: GoyleLevel,          group: CardLocations }
+  - { id_offset: 133, name: "Bicorn Level - Card Stump",         card_class: WCStump,         region: BicornLevel,         group: CardLocations }
+  - { id_offset: 134, name: "Castle Exterior - Card Sweeting",      card_class: WCSweeting,      region: CastleExterior,      group: CardLocations }
+  - { id_offset: 135, name: "Castle Exterior - Card Sykes",         card_class: WCSykes,         region: CastleExterior,      group: CardLocations, notes: "Stefan correction 2026-05-11: this was the card he originally mis-listed as Furmage in Castle Exterior. Requires Spongify per his earlier listing." }
+  - { id_offset: 136, name: "Rictusempra Challenge - Card Thruston",      card_class: WCThruston,      region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 137, name: "Boomslang Level - Card Toke",          card_class: WCToke,          region: BoomslangLevel,      group: CardLocations }
+  - { id_offset: 138, name: "Castle Exterior - Card Twonk",         card_class: WCTwonk,         region: CastleExterior,      group: CardLocations }
+  - { id_offset: 139, name: "Diffindo Challenge - Card Ulric",         card_class: WCUlric,         region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 140, name: "Hogwarts - Card Vablatsky",     card_class: WCVablatsky,     region: Hogwarts,            group: CardLocations }
+  - { id_offset: 141, name: "Slytherin Common Room - Card Waffling",      card_class: WCWaffling,      region: SlytherinCommon,     group: CardLocations }
+  - { id_offset: 142, name: "Rictusempra Challenge - Card Wagtail",       card_class: WCWagtail,       region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 143, name: "Spongify Challenge - Card Warbeck",       card_class: WCWarbeck,       region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 144, name: "Forbidden Forest - Card Wellbeloved",   card_class: WCWellbeloved,   region: ForbiddenForest,     group: CardLocations }
+  - { id_offset: 145, name: "Skurge Challenge - Card Wenlock",       card_class: WCWenlock,       region: SkurgeChallenge,     group: CardLocations }
+  - { id_offset: 146, name: "Goyle Level - Card Whitehorn",     card_class: WCWhitehorn,     region: GoyleLevel,          group: CardLocations }
+  - { id_offset: 147, name: "Rictusempra Challenge - Card Wintringham",   card_class: WCWintringham,   region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 148, name: "Diffindo Challenge - Card Withers",       card_class: WCWithers,       region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 149, name: "Spongify Challenge - Card Woodcroft",     card_class: WCWoodcroft,     region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 150, name: "Hogwarts - Card Andros",        card_class: WCAndros,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 151, name: "Dumbledore's Study - Card Beamish",       card_class: WCBeamish,       region: DumbledoreStudy,     group: CardLocations }
+  - { id_offset: 152, name: "Rictusempra Challenge - Card Chittock",      card_class: WCChittock,      region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 153, name: "Goyle Level - Card Circe",         card_class: WCCirce,         region: GoyleLevel,          group: CardLocations }
+  - { id_offset: 154, name: "Slytherin Common Room - Card Clagg",         card_class: WCClagg,         region: SlytherinCommon,     group: CardLocations }
+  - { id_offset: 155, name: "Forbidden Forest - Card Cliodne",       card_class: WCCliodne,       region: ForbiddenForest,     group: CardLocations }
+  - { id_offset: 156, name: "Bicorn Level - Card Cronk",         card_class: WCCronk,         region: BicornLevel,         group: CardLocations }
+  - { id_offset: 157, name: "Rictusempra Challenge - Card Crumb",         card_class: WCCrumb,         region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 158, name: "Hogwarts - Card Dodderidge",    card_class: WCDodderidge,    region: Hogwarts,            group: CardLocations }
+  - { id_offset: 159, name: "Rictusempra Challenge - Card Duke",          card_class: WCDuke,          region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 160, name: "Slytherin Common Room - Card Fay",           card_class: WCFay,           region: SlytherinCommon,     group: CardLocations }
+  - { id_offset: 161, name: "Skurge Challenge - Card Fulbert",       card_class: WCFulbert,       region: SkurgeChallenge,     group: CardLocations }
+  - { id_offset: 162, name: "Spongify Challenge - Card Furmage",       card_class: WCFurmage,       region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 163, name: "Skurge Challenge - Card Gregory",       card_class: WCGregory,       region: SkurgeChallenge,     group: CardLocations }
+  - { id_offset: 164, name: "Spongify Challenge - Card Grunnion",      card_class: WCGrunnion,      region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 165, name: "Hogwarts - Card Jones",         card_class: WCJones,         region: Hogwarts,            group: CardLocations }
+  - { id_offset: 166, name: "Hogwarts - Card Lufkin",        card_class: WCLufkin,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 167, name: "Hogwarts - Card Maeve",         card_class: WCMaeve,         region: Hogwarts,            group: CardLocations }
+  - { id_offset: 168, name: "Hogwarts - Card Montmorency",   card_class: WCMontmorency,   region: Hogwarts,            group: CardLocations }
+  - { id_offset: 169, name: "Hogwarts - Card Mopsus",        card_class: WCMopsus,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 170, name: "Bicorn Level - Card Nutcombe",      card_class: WCNutcombe,      region: BicornLevel,         group: CardLocations }
+  - { id_offset: 171, name: "Castle Exterior - Card Oglethorpe",    card_class: WCOglethorpe,    region: CastleExterior,      group: CardLocations }
+  - { id_offset: 172, name: "Hogwarts - Card Oldridge",      card_class: WCOldridge,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 173, name: "Forbidden Forest - Card Oliphant",      card_class: WCOliphant,      region: ForbiddenForest,     group: CardLocations }
+  - { id_offset: 174, name: "Castle Exterior - Card Plunkett",      card_class: WCPlunkett,      region: CastleExterior,      group: CardLocations }
+  - { id_offset: 175, name: "Spongify Challenge - Card Rastrick",      card_class: WCRastrick,      region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 176, name: "Diffindo Challenge - Card Shimpling",     card_class: WCShimpling,     region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 177, name: "Hogwarts - Card Shingleton",    card_class: WCShingleton,    region: Hogwarts,            group: CardLocations }
+  - { id_offset: 178, name: "Diffindo Challenge - Card Smethwyck",     card_class: WCSmethwyck,     region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 179, name: "Diffindo Challenge - Card Stalk",         card_class: WCStalk,         region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 180, name: "Spongify Challenge - Card Summerbee",     card_class: WCSummerbee,     region: SpongifyChallenge,   group: CardLocations }
+  - { id_offset: 181, name: "Diffindo Challenge - Card Thurkell",      card_class: WCThurkell,      region: DiffindoChallenge,   group: CardLocations }
+  - { id_offset: 182, name: "Hogwarts - Card Toothill",      card_class: WCToothill,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 183, name: "Rictusempra Challenge - Card Tremlett",      card_class: WCTremlett,      region: RictusempraChallenge, group: CardLocations }
+  - { id_offset: 184, name: "Boomslang Level - Card Tugwood",       card_class: WCTugwood,       region: BoomslangLevel,      group: CardLocations }
+  - { id_offset: 185, name: "Castle Exterior - Card Wadcock",       card_class: WCWadcock,       region: CastleExterior,      group: CardLocations }
+  - { id_offset: 186, name: "Hogwarts - Card Wendelin",      card_class: WCWendelin,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 187, name: "Goyle Level - Card Wildsmith",     card_class: WCWildsmith,     region: GoyleLevel,          group: CardLocations }
+  - { id_offset: 188, name: "Hogwarts - Card Wright",        card_class: WCWright,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 189, name: "Castle Exterior - Card Youdle",        card_class: WCYoudle,        region: CastleExterior,      group: CardLocations }
+  - { id_offset: 190, name: "Chamber of Secrets - Card Bott",          card_class: WCBott,          region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 191, name: "Chamber of Secrets - Card Dumbledore",    card_class: WCDumbledore,    region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 192, name: "Chamber of Secrets - Card Gryffindor",    card_class: WCGriffindor,    region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 193, name: "Chamber of Secrets - Card Herpo",         card_class: WCHerpo,         region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 194, name: "Chamber of Secrets - Card Hufflepuff",    card_class: WCHufflepuff,    region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 195, name: "Chamber of Secrets - Card Knightley",     card_class: WCKnightley,     region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 196, name: "Chamber of Secrets - Card Paracelsus",    card_class: WCParacelsus,    region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 197, name: "Chamber of Secrets - Card Pinkstone",     card_class: WCPinkstone,     region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 198, name: "Chamber of Secrets - Card Potter",        card_class: WCPotter,        region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 199, name: "Chamber of Secrets - Card Ravenclaw",     card_class: WCRavenclaw,     region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 200, name: "Chamber of Secrets - Card Slytherin",     card_class: WCSlytherin,     region: ChamberOfSecrets,    group: CardLocations }

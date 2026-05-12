@@ -75,7 +75,7 @@ from worlds.harry_potter_2_pc.locations import (
 from worlds.harry_potter_2_pc.items import CARD_CLASS_TO_ITEM_NAME
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
-NON_DURABLE_ITEM_NAMES = {"BeansSmall", "BeansMedium", "BeansLarge"}
+NON_DURABLE_ITEM_NAMES = {"Small Pile of Beans", "Medium Pile of Beans", "Large Pile of Beans"}
 
 # Build UScript class → game-side card Id by composing the two maps:
 #   CARD_GAME_ID_TO_LOCATION_NAME  (game_id → "Card_Foo")
@@ -98,10 +98,10 @@ GAME_TCP_PORT = 38281
 # challenge. Story order: Rictusempra (Lockhart#1) → Skurge (Flitwick) →
 # Diffindo (Sprout) → Spongify (Lockhart#2). See data/locations.yaml.
 SPELL_TO_LOCATION_NAME = {
-    "Rictusempra": "Classroom_Lockhart_Rictusempra",
-    "Skurge":      "Classroom_Flitwick_Skurge",
-    "Diffindo":    "Classroom_Sprout_Diffindo",
-    "Spongify":    "Classroom_Lockhart_Spongify",
+    "Rictusempra": "Learned Rictusempra",
+    "Skurge":      "Learned Skurge",
+    "Diffindo":    "Learned Diffindo",
+    "Spongify":    "Learned Spongify",
 }
 
 # Map UScript special progression name to its AP check. v1: empty — Boomslang,

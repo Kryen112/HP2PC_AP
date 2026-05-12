@@ -1340,9 +1340,6 @@ function string FormatGrantText(string ItemName, string Sender)
         }
         base = "Received " $ tier $ "card " $ Mid(ItemName, 2);
     }
-    else if (ItemName == "BeansSmall")  base = "Received 25 beans";
-    else if (ItemName == "BeansMedium") base = "Received 50 beans";
-    else if (ItemName == "BeansLarge")  base = "Received 100 beans";
     else                                base = "Received " $ ItemName;
 
     if (Sender != "")
@@ -1430,22 +1427,22 @@ function ApplyGrant(string Body)
         return;
     }
 
-    if (ItemName == "BeansSmall")
+    if (ItemName == "Small Pile of Beans")
     {
         h.managerStatus.AddBeans(25);
-        Log("[Archipelago] ApplyGrant: granted BeansSmall (+25)");
+        Log("[Archipelago] ApplyGrant: granted Small Pile of Beans (+25)");
         return;
     }
-    if (ItemName == "BeansMedium")
+    if (ItemName == "Medium Pile of Beans")
     {
         h.managerStatus.AddBeans(50);
-        Log("[Archipelago] ApplyGrant: granted BeansMedium (+50)");
+        Log("[Archipelago] ApplyGrant: granted Medium Pile of Beans (+50)");
         return;
     }
-    if (ItemName == "BeansLarge")
+    if (ItemName == "Large Pile of Beans")
     {
         h.managerStatus.AddBeans(100);
-        Log("[Archipelago] ApplyGrant: granted BeansLarge (+100)");
+        Log("[Archipelago] ApplyGrant: granted Large Pile of Beans (+100)");
         return;
     }
 

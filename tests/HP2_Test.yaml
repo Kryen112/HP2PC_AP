@@ -12,19 +12,19 @@ Harry Potter 2 PC:
   # spell its own classroom's reward.
   plando_items:
     - item: Rictusempra
-      location: Classroom_Lockhart_Rictusempra
+      location: "Learned Rictusempra"
       from_pool: true
       force: silent
     - item: Skurge
-      location: Classroom_Flitwick_Skurge
+      location: "Learned Skurge"
       from_pool: true
       force: silent
     - item: Diffindo
-      location: Classroom_Sprout_Diffindo
+      location: "Learned Diffindo"
       from_pool: true
       force: silent
     - item: Spongify
-      location: Classroom_Lockhart_Spongify
+      location: "Learned Spongify"
       from_pool: true
       force: silent
     # v1: Boomslang/Bicorn/BitOGoyle plando entries removed. These items are

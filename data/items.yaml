@@ -30,7 +30,7 @@ key_items: []
 
 # 50 Bronze cards, IDs 5750100-5750149
 cards_bronze:
-  - { id_offset: 100, class: WCAgrippa,       name: "Cornelius Agrippa" }
+  - { id_offset: 100, class: WCAgrippa,       name: "Agrippa" }
   - { id_offset: 101, class: WCAlderton,      name: "Alderton" }
   - { id_offset: 102, class: WCBarbary,       name: "Barbary" }
   - { id_offset: 103, class: WCBarkwith,      name: "Barkwith" }
@@ -141,6 +141,6 @@ cards_gold:
 # Filler. Stacks — multiple copies allowed, count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).
 filler:
-  - { id_offset: 300, name: "BeansSmall",   classification: filler, group: Filler, notes: "Grants ~25 beans" }
-  - { id_offset: 301, name: "BeansMedium",  classification: filler, group: Filler, notes: "Grants ~50 beans" }
-  - { id_offset: 302, name: "BeansLarge",   classification: filler, group: Filler, notes: "Grants ~100 beans" }
+  - { id_offset: 300, name: "Small Pile of Beans",   classification: filler, group: Filler, notes: "Grants ~25 beans" }
+  - { id_offset: 301, name: "Medium Pile of Beans",  classification: filler, group: Filler, notes: "Grants ~50 beans" }
+  - { id_offset: 302, name: "Large Pile of Beans",   classification: filler, group: Filler, notes: "Grants ~100 beans" }
