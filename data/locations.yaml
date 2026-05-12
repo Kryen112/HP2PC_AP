@@ -31,7 +31,7 @@ base_id: 5760000
 # are deferred to v2's Tier-3 check expansion.
 #
 # The mod fires `CHECK_SPELL <name>` when Harry first learns a spell; the
-# client maps name → location_id via `SPELL_TO_LOCATION` in hp2_ap_client.py.
+# client maps name → location_id via `SPELL_TO_LOCATION_NAME` in apworld/Client.py.
 classrooms:
   - { id_offset: 1, name: "Learned Rictusempra", region: Hogwarts,    group: Classrooms, notes: "Lockhart's first class (story step 1) — teaches Rictusempra after the in-classroom spell challenge" }
   - { id_offset: 2, name: "Learned Skurge",      region: Hogwarts,    group: Classrooms, notes: "Flitwick's class (story step 4) — teaches Skurge after the spell challenge" }

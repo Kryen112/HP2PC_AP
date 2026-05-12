@@ -165,9 +165,25 @@ To search logs from PowerShell:
 Get-Content -LiteralPath 'C:\Users\kryen\Documents\Harry - Coding Evolved\Game.log' -Encoding Unicode | Select-String -Pattern 'Archipelago'
 ```
 
-## Building the player release client
+## Running the client (dev)
 
-End users get a self-contained `hp2_ap_client.exe` (Python + AP framework + our apworld bundled) so they don't need a Python install. Build tooling lives outside this repo. Rebuild whenever the AP framework or the apworld changes; ship the rebuilt exe with the release zip.
+The client is `apworld/Client.py` and is shipped inside `harry_potter_2_pc.apworld`. End users launch it via the **HP2 PC Client** button in ArchipelagoLauncher; no exe build step.
+
+For dev (running against a local seed), launch it as a module of the apworld so its relative imports resolve:
+
+```powershell
+$ap = 'C:\Users\kryen\Documents\Archipelago-play\Archipelago'
+Push-Location $ap
+try {
+    py -3.12 -m worlds.harry_potter_2_pc.Client --name HP2_Test --connect localhost:38282
+} finally {
+    Pop-Location
+}
+```
+
+This is what `scripts/run_client.ps1` does. Requires the apworld junction (see **Archipelago framework** section) so `worlds.harry_potter_2_pc` resolves to the repo's `apworld/` directory.
+
+Alternative: `ArchipelagoLauncher.exe "HP2 PC Client"` runs the launcher entry point directly (Kivy GUI), same path users take.
 
 **Heads-up: `[Engine.GameEngine] ServerActors=` does not work** for runtime registration on M212/HP2 (verified 2026-05-07). The mutator chain *is* alive — `Base Mutator is <Level>.Mutator<N>` shows up per level transition — so the next experiment for runtime hookup is mutator-via-URL on the launcher shortcut. See `../MOD_TODO.md`.
 

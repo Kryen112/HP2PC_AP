@@ -20,7 +20,7 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 | **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                              |
 | **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                          |
 | **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                        |
-| **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, `hp2_ap_client.exe` and this `PLAYER_SETUP.md`. |
+| **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, and this `PLAYER_SETUP.md`. The Python client is bundled inside the apworld — no separate exe. |
 
 OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
 
@@ -37,12 +37,11 @@ Run M212's installer. Point it at your HP2 install.
 
 ### 3. Drop the mod files
 
-You should have downloaded these five files from the GitHub release:
+You should have downloaded these four files from the GitHub release:
 
 - `HPArchipelago.u` (the compiled mod)
 - `Default.ini` (pre-patched engine config — replaces the one shipped with M212)
-- `harry_potter_2_pc.apworld` (the AP world)
-- `hp2_ap_client.exe` (the self-contained client)
+- `harry_potter_2_pc.apworld` (the AP world + bundled client)
 - `PLAYER_SETUP.md` (this file)
 
 Copy `HPArchipelago.u` and `Default.ini` into your M212 install, overwriting the existing `Default.ini`:
@@ -81,11 +80,7 @@ Drop `harry_potter_2_pc.apworld` into Archipelago's custom worlds folder:
 <Archipelago install>\custom_worlds\harry_potter_2_pc.apworld
 ```
 
-That's it. Archipelago discovers it automatically next time you launch.
-
-### 5. Keep `hp2_ap_client.exe` somewhere handy
-
-It's a single self-contained file. Put it anywhere you'll remember, e.g. next to the other release files. You'll launch it later when you start playing.
+That's it. Archipelago discovers it automatically next time you launch — `HP2 PC Client` will appear as a button in the Archipelago Launcher.
 
 ## Generate a seed (solo play)
 
@@ -109,33 +104,30 @@ You'll need three things running:
 
 ### Start the client
 
-Double-click `hp2_ap_client.exe`
-It might tell you that it is potentially harmful, but please run anyways
-In the client, type `/connect <server>:<port>`
-Then enter your slot name.
+Open `ArchipelagoLauncher.exe` and click **HP2 PC Client**. A Kivy window opens with the usual Archipelago client UI (server tab, items tab, command box at the bottom).
 
-OR run from a terminal:
+In the command box, type:
 
 ```
-"<path to>\hp2_ap_client.exe" --name <YourSlotName> --connect <server>:<port>
+/connect <server>:<port>
 ```
 
-Replace `<YourSlotName>` with your AP slot's name and `<server>:<port>` with the AP server. For solo on the same machine, that's typically `localhost:38281`.
+It will then prompt for your slot name; enter it and press Enter. For solo on the same machine, the server is typically `localhost:38281`.
 
-You should see:
+You should see in the log tab:
 
 ```
 Connected to AP server as slot <N> (<YourSlotName>)
 Game-side TCP listener up on ('127.0.0.1', 38281)
 ```
 
-Leave the terminal open.
+Leave the client window open.
 
 ### Launch the game
 
 Run `<HP2 install>\system\Game.exe` (or use the M212 Start Menu shortcut), and start a new game.
 
-Within a few seconds you should see in the client terminal:
+Within a few seconds you should see in the client log:
 
 ```
 Game connected from ('127.0.0.1', <port>)
@@ -152,7 +144,7 @@ Quick checklist after first launch:
 
 - **Toasts appear top-right** when items arrive. If not, the mod isn't loaded — see Troubleshooting below.
 - **Bookcases block the spell classrooms** you haven't been granted yet. If you can walk straight into Lockhart's DADA classroom and the spell-tutorial cutscene fires immediately, the mod isn't running.
-- **Picking up a wizard card** should fire a `CHECK <id>` line in the client terminal and (if you have any items waiting) hand you something back.
+- **Picking up a wizard card** should fire a `CHECK <id>` line in the client log and (if you have any items waiting) hand you something back.
 - **Goal:** the seed completes when you defeat the Basilisk and the post-Basilisk Great Hall walk-in fires the credits.
 
 ## Troubleshooting
@@ -165,10 +157,10 @@ Quick checklist after first launch:
 - If `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.ini` exists, it overrides both. Either delete it, or open it and make sure `[Engine.Engine]` has `DefaultGame=HPArchipelago.APGameInfo` (not `DefaultGame=Engine.GameInfo`).
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
 
-**Client exe won't start / antivirus quarantines it**:
+**"HP2 PC Client" button missing from Archipelago Launcher**:
 
-- Some antivirus engines flag self-contained tools like this heuristically. If your AV blocks it, whitelist `hp2_ap_client.exe` and re-download.
-- The exe runs on its own. The Archipelago install is only needed to generate or host seeds, not to run the client.
+- The apworld isn't installed where the launcher can see it. Confirm `harry_potter_2_pc.apworld` exists in `<Archipelago install>\custom_worlds\`.
+- Close and reopen ArchipelagoLauncher fully — launcher components are discovered on startup, not refreshed live.
 
 **Seed generation can't find the apworld**:
 
@@ -197,7 +189,7 @@ For bug reports, attach these:
 | What            | Where                                                                 |
 | --------------- | --------------------------------------------------------------------- |
 | Game-side log   | `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log` (UTF-16LE) |
-| Client terminal | the PowerShell window you ran the client in                           |
+| Client log      | Scroll the **Archipelago** tab of the HP2 PC Client window, or check `<Archipelago install>\logs\HP2PC_AP.txt` |
 | AP server log   | `<Archipelago install>\logs\`                                         |
 
 ## Where to ask for help

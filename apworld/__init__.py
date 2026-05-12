@@ -17,6 +17,7 @@ from typing import Any
 from BaseClasses import CollectionState, Item, ItemClassification, Location, Region
 from Options import PerGameCommonOptions, StartInventoryPool
 from worlds.AutoWorld import WebWorld, World
+from worlds.LauncherComponents import Component, Type, components, launch as launch_component
 
 from .items import (
     BASE_ID as ITEM_BASE_ID,
@@ -52,6 +53,29 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 
 DEFAULT_GOAL = "basilisk"
 STARTER_ITEM_NAMES: set[str] = {"Lumos", "Flipendo", "Alohomora"}
+
+
+def launch_client(*args: str) -> None:
+    # Lazy-import Client so apworld registration (this module's import side
+    # effects) doesn't pull in CommonClient / colorama / kivy until the user
+    # actually clicks the launcher button.
+    from .Client import launch
+    launch_component(launch, name="HP2 PC Client", args=args)
+
+
+# TODO 2026-05-12: launcher integration not yet end-to-end tested. Only
+# smoke-tested import + component registration. Still need to build a fresh
+# .apworld via "Build APWorlds", drop into custom_worlds/, confirm the
+# "HP2 PC Client" button appears, the Kivy GUI launches, and the game-side
+# TCP bridge still receives GRANT/CHECK lines after the move from client/.
+components.append(Component(
+    "HP2 PC Client",
+    func=launch_client,
+    component_type=Type.CLIENT,
+    game_name="Harry Potter 2 PC",
+    supports_uri=True,
+    description="Connect to a multiworld and bridge to the HP2 PC mod.",
+))
 
 
 class HP2Item(Item):

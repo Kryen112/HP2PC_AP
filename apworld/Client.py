@@ -1,16 +1,12 @@
-"""HP2PC_AP — Archipelago-aware client.
+"""HP2PC_AP — Archipelago-aware client (bundled apworld component).
 
 Subclasses Archipelago's CommonContext to speak the real AP protocol over
 WebSocket against a hosted seed, while also accepting a local TCP connection
 from the HP2 mod and bridging messages between the two.
 
-Usage (Stefan's Windows PC):
-    cd "C:\\Users\\kryen\\Documents\\Archipelago-play\\Archipelago"
-    py -3.12 "C:\\Users\\kryen\\Documents\\Archipelago-play\\Harry Potter 2 PC\\HP2PC_AP\\client\\hp2_ap_client.py" \\
-        --name HP2_Test --connect localhost:38281 --password ""
-
-The script imports Archipelago/CommonClient from the cwd, so it must be run
-from inside the Archipelago repo (or with that directory on sys.path).
+Launched via the Archipelago launcher's "HP2 PC Client" button, or directly
+during dev from inside the Archipelago repo:
+    py -3.12 -m worlds.harry_potter_2_pc.Client --name HP2_Test --connect localhost:38281
 
 Mod-side protocol (newline-delimited text):
     HELLO                       (game → client, on connect)
@@ -30,7 +26,6 @@ import asyncio
 import logging
 import sys
 import warnings
-from pathlib import Path
 from typing import Optional
 
 # Silence the upstream setuptools deprecation that fires every time AP imports
@@ -38,45 +33,16 @@ from typing import Optional
 # CommonClient below so the filter is in place when the warning would emit.
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
 
-# Bootstrap: make sure Archipelago is importable. When running as a PyInstaller
-# `--onefile` bundle (player release), `CommonClient` and the apworld are
-# already inside the bundled import space — no sys.path manipulation needed.
-# When running from source (dev), look at common locations:
-# (1) sibling of HP2PC_AP/'s parent (Archipelago-play/Archipelago/) and
-# (2) the current working directory (e.g. when invoked from inside Archipelago).
-import os
-
-if not getattr(sys, "frozen", False):
-    _HERE = Path(__file__).resolve()
-    _CANDIDATES = [
-        _HERE.parent.parent.parent.parent / "Archipelago",
-        Path(os.getcwd()),
-    ]
-    for _c in _CANDIDATES:
-        if (_c / "CommonClient.py").is_file():
-            if str(_c) not in sys.path:
-                sys.path.insert(0, str(_c))
-            break
-    else:
-        raise RuntimeError(
-            "Cannot find Archipelago framework. Tried: "
-            + ", ".join(str(c) for c in _CANDIDATES)
-            + ". Either run this script from inside the Archipelago repo, or ensure "
-              "Archipelago lives at ../../Archipelago relative to this client."
-        )
-
 import CommonClient
 from CommonClient import CommonContext, ClientCommandProcessor, get_base_parser, server_loop, gui_enabled
 from NetUtils import ClientStatus
 
-# Pull data tables from our apworld so the client uses the same canonical
-# mappings as the AP framework / generator.
-from worlds.harry_potter_2_pc.locations import (
+from .locations import (
     CARD_CLASS_TO_LOCATION_NAME,
     CARD_GAME_ID_TO_LOCATION_NAME,
     LOCATION_NAME_TO_ID,
 )
-from worlds.harry_potter_2_pc.items import CARD_CLASS_TO_ITEM_NAME
+from .items import CARD_CLASS_TO_ITEM_NAME
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 NON_DURABLE_ITEM_NAMES = {"Small Pile of Beans", "Medium Pile of Beans", "Large Pile of Beans"}
@@ -226,9 +192,13 @@ class HP2Context(CommonContext):
             logger.exception(f"on_print_json: failed to handle ItemSend: {e}")
         super().on_print_json(args)
 
-    def run_gui(self) -> None:
-        # CLI-only for now; CommonContext supports GUI but we keep it minimal.
-        pass
+    def make_gui(self) -> "type[kvui.GameManager]":
+        from kvui import GameManager
+
+        class HP2Manager(GameManager):
+            base_title = "Archipelago Harry Potter 2 PC Client"
+
+        return HP2Manager
 
     def _send_to_game(self, text: str) -> None:
         if self.game_writer is None or self.game_writer.is_closing():
@@ -454,22 +424,28 @@ def _suppress_socket_reset(loop: asyncio.AbstractEventLoop, context: dict) -> No
     loop.default_exception_handler(context)
 
 
-async def main_async(args: argparse.Namespace) -> None:
+async def _main(args: argparse.Namespace) -> None:
     asyncio.get_running_loop().set_exception_handler(_suppress_socket_reset)
     ctx = HP2Context(args.connect, args.password)
     ctx.auth = args.name
     ctx.server_task = asyncio.create_task(server_loop(ctx), name="ap server loop")
     ctx.tcp_server_task = asyncio.create_task(ctx.run_tcp_server(), name="game tcp server")
+    if gui_enabled:
+        ctx.run_gui()
     ctx.run_cli()
     await ctx.exit_event.wait()
     await ctx.shutdown()
 
 
-def main() -> None:
-    parser = get_base_parser(description="HP2 Archipelago client (client bridge to HP2 mod).")
+def launch(*launch_args: str) -> None:
+    """Entry point called by the Archipelago launcher (and dev __main__)."""
+    import colorama
+    colorama.just_fix_windows_console()
+
+    parser = get_base_parser(description="HP2 Archipelago client (bridge to HP2 PC mod).")
     parser.add_argument("--name", default=None, help="AP slot name to connect as.")
     parser.add_argument("url", nargs="?", help="Archipelago connection url.")
-    args = parser.parse_args()
+    args = parser.parse_args(launch_args)
     args = CommonClient.handle_url_arg(args, parser=parser)
     # basicConfig (not just setLevel) — without an explicit handler, INFO-level
     # logs fall through to logging's lastResort handler which drops anything
@@ -480,8 +456,8 @@ def main() -> None:
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
         datefmt="%H:%M:%S",
     )
-    asyncio.run(main_async(args))
+    asyncio.run(_main(args))
 
 
 if __name__ == "__main__":
-    main()
+    launch(*sys.argv[1:])

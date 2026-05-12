@@ -12,7 +12,9 @@ An Archipelago multiworld randomizer for *Harry Potter and the Chamber of Secret
        └─ class'IpDrv.TcpLink' ──► localhost:38281
                                        │
                                        ▼
-                          [Python client (hp2_ap_client.exe)]
+                          [HP2 PC Client — launched from
+                           Archipelago launcher, bundled
+                           inside harry_potter_2_pc.apworld]
                                        │
                                        ▼ WebSocket
                             [archipelago.gg server]
@@ -24,8 +26,7 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 
 | Path | Purpose |
 | --- | --- |
-| `apworld/` | Python AP world definition (compiles to `harry_potter_2_pc.apworld`) |
-| `client/` | Python client bridging UScript ↔ AP server |
+| `apworld/` | Python AP world definition + bundled `Client.py` (compiles to `harry_potter_2_pc.apworld`) |
 | `mod/HPArchipelago/Classes/` | UnrealScript mod source, compiled with `ucc make` |
 | `data/items.yaml` | Item catalog — user-authored source of truth |
 | `data/locations.yaml` | Location catalog — user-authored source of truth |
@@ -51,4 +52,4 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 - **Sphere 0:** 4 spell-teaching classrooms (no items required to reach in the open-hub model).
 - **Filler:** beans (3 tiers — small/medium/large).
 - **Placement constraint:** gold-card chest locations cannot hold silver-card items (would create a 40-silvers-to-unlock-gold-chest circular dependency).
-- **Distribution v1:** manual zip release (apworld + mod + Python client).
+- **Distribution v1:** single `harry_potter_2_pc.apworld` (client bundled) + the UScript mod. The launcher shows "HP2 PC Client" once the apworld is dropped into the user's `custom_worlds/` folder.
