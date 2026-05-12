@@ -56,11 +56,11 @@ STARTER_ITEM_NAMES: set[str] = {"Lumos", "Flipendo", "Alohomora"}
 
 
 class HP2Item(Item):
-    game = "Harry Potter 2"
+    game = "Harry Potter 2 PC"
 
 
 class HP2Location(Location):
-    game = "Harry Potter 2"
+    game = "Harry Potter 2 PC"
 
 
 class HP2WebWorld(WebWorld):
@@ -78,7 +78,7 @@ class HP2Options(PerGameCommonOptions):
 class HP2World(World):
     """Harry Potter and the Chamber of Secrets (PC) randomizer."""
 
-    game = "Harry Potter 2"
+    game = "Harry Potter 2 PC"
     web = HP2WebWorld()
     options_dataclass = HP2Options
 

@@ -60,17 +60,17 @@ pip install pyyaml
 
 Stefan's existing AP framework is at `C:\Users\kryen\Documents\Archipelago-play\Archipelago\` — currently on `main` at `0.6.2-rc2-60-g5da059d9` (close to 0.6.7 release; world-building API has been stable across these versions). HP2PC_AP integrates with this existing install rather than maintaining a separate clone.
 
-For HP2PC_AP development, the repo's `apworld/` directory is the AP-world source. To make AP discover it during seed generation, we mirror it into `Archipelago/worlds/harry_potter_2/` via a directory junction:
+For HP2PC_AP development, the repo's `apworld/` directory is the AP-world source. To make AP discover it during seed generation, we mirror it into `Archipelago/worlds/harry_potter_2_pc/` via a directory junction:
 
 ```powershell
 New-Item -ItemType Junction `
-  -Path   'C:\Users\kryen\Documents\Archipelago-play\Archipelago\worlds\harry_potter_2' `
+  -Path   'C:\Users\kryen\Documents\Archipelago-play\Archipelago\worlds\harry_potter_2_pc' `
   -Target 'C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP\apworld'
 ```
 
 (One-time setup. Edits in the repo's `apworld/` are immediately visible to the AP framework via the junction. No copy step.)
 
-> **Don't use `mklink /J` from PowerShell** even though it's the canonical UE1-modder snippet. `mklink` is a `cmd.exe` builtin; PowerShell strips the quotes around its args before cmd sees them, so a path with spaces silently truncates at the first space — producing a broken junction that points at a non-existent directory and a misleading `excluding harry_potter_2 ... no __init__.py` warning during seed gen. The `New-Item` form above doesn't have this problem.
+> **Don't use `mklink /J` from PowerShell** even though it's the canonical UE1-modder snippet. `mklink` is a `cmd.exe` builtin; PowerShell strips the quotes around its args before cmd sees them, so a path with spaces silently truncates at the first space — producing a broken junction that points at a non-existent directory and a misleading `excluding harry_potter_2_pc ... no __init__.py` warning during seed gen. The `New-Item` form above doesn't have this problem.
 
 If you ever need to recreate the junction (e.g., it got broken), `cmd /c rmdir <junction-path>` removes it safely without touching the target, then re-run the `New-Item` command.
 
@@ -85,8 +85,8 @@ For solo HP2 testing, one slot suffices. The current `tests/HP2_Test.yaml` is co
 ```yaml
 name: HP2_Test
 description: HP2 full-playthrough seed for logic cataloguing
-game: Harry Potter 2
-Harry Potter 2:
+game: Harry Potter 2 PC
+Harry Potter 2 PC:
   plando_items:
     - { item: Rictusempra, location: Classroom_Lockhart_Rictusempra, from_pool: true, force: silent }
     - { item: Skurge,      location: Classroom_Flitwick_Skurge,      from_pool: true, force: silent }
@@ -189,7 +189,7 @@ If you (or a future Claude) clones this repo on a new Windows machine, do these 
 - **Every UScript build needs elevated PowerShell** because `Modded\` is in `Program Files (x86)`. We considered `icacls` Modify-grants to enable non-admin builds; abandoned because the grants entangled with a freeze we couldn't reproduce afterward. Elevated PS is the simpler, safer default.
 - **Default.ini extends past the EditPackages list.** Lines ~389+ are graphics-adapter sections (`[Diamond Stealth III/...]`, `[ATI 3D Rage Pro]`, etc.). Inserting `EditPackages=HPArchipelago` via `Add-Content` or any append-to-end will land in the wrong section. Always insert *immediately after* `EditPackages=M212Share` — the snippet in the engine prep section above does this correctly.
 - **HP.ini overrides Default.ini at runtime AND for UCC.** First game launch copies `Default.ini`'s `[Editor.EditorEngine]` (`EditPackages=`) and `[Core.System]` (`Paths=`, render-device, etc.) into `Documents\Harry - Coding Evolved\HP.ini`. After that, both Game.exe and UCC.exe read from HP.ini — edits to Default.ini alone are ignored. If a Default.ini change doesn't take effect, also apply it to HP.ini. Bit us during fresh-laptop install: adding `EditPackages=IpDrv` to Default.ini alone left UCC failing with `Class APIPCActor has invalid parent IpDrv.TcpLink` until HP.ini was patched too. The engine prep snippet above handles both files.
-- **`mklink /J` from PowerShell silently truncates path args with spaces.** It's a `cmd.exe` builtin; PowerShell strips quoting before cmd sees it, so the second arg becomes just the part before the first space. The resulting junction is dead — points at a non-existent directory, and `Generate.py` reports `excluding harry_potter_2 ... no __init__.py`. Use `New-Item -ItemType Junction -Path <link> -Target <target>` (native PowerShell) instead — see Archipelago framework section. To recreate a broken junction, `cmd /c rmdir <junction>` removes it safely without touching the target.
+- **`mklink /J` from PowerShell silently truncates path args with spaces.** It's a `cmd.exe` builtin; PowerShell strips quoting before cmd sees it, so the second arg becomes just the part before the first space. The resulting junction is dead — points at a non-existent directory, and `Generate.py` reports `excluding harry_potter_2_pc ... no __init__.py`. Use `New-Item -ItemType Junction -Path <link> -Target <target>` (native PowerShell) instead — see Archipelago framework section. To recreate a broken junction, `cmd /c rmdir <junction>` removes it safely without touching the target.
 - **`[Engine.GameEngine] ServerActors=` is silently ignored** by M212/HP2 (verified 2026-05-07). A valid entry pointing at a real, compiled class produces zero log evidence and zero `PreBeginPlay` invocation. Don't design around it. The mutator chain works; investigate mutator-via-URL or HGame's GameInfo subclass for runtime hooks.
 - **File encodings differ between user-data files** in `Documents\Harry - Coding Evolved\`:
     - `Game.log` — UTF-16LE (BOM `FF FE`). Use `Get-Content -Encoding Unicode` / `Set-Content -Encoding Unicode`.

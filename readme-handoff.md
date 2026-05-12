@@ -122,7 +122,7 @@ Still in place as a safety net for any non-marker grant path (e.g., cutscene-scr
 - Repo: `C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP`
 - Archipelago framework checkout: `C:\Users\kryen\Documents\Archipelago-play\Archipelago` (sibling of the project)
 - HP2 UScript decompile (NEW since last handoff): `C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2UScriptDecompile\` — read it for vanilla reference instead of WebFetching GitHub.
-- The apworld lives at `Archipelago\worlds\harry_potter_2\` — Stefan uses an `mklink /J` junction so edits in `apworld/` flow into the AP repo for live testing.
+- The apworld lives at `Archipelago\worlds\harry_potter_2_pc\` — Stefan uses an `mklink /J` junction so edits in `apworld/` flow into the AP repo for live testing. (Renamed 2026-05-12 from `harry_potter_2` so future console ports — NGC/PS1/PS2/GBC — can claim their own world names without colliding.)
 - Python 3.12 + asyncio + websockets via AP's `CommonClient`.
 - UScript builds via `ucc make` in the Modded\System directory. **The script reports success even when the `.u` write fails** (game still running locks the file); always close the game before rebuilding, and if grants/checks behave like the old code, check `HPArchipelago.u` mtime vs source mtime.
 

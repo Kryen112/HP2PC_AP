@@ -24,7 +24,7 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 
 | Path | Purpose |
 | --- | --- |
-| `apworld/` | Python AP world definition (compiles to `harry_potter_2.apworld`) |
+| `apworld/` | Python AP world definition (compiles to `harry_potter_2_pc.apworld`) |
 | `client/` | Python sidecar bridging UScript ↔ AP server |
 | `mod/HPArchipelago/Classes/` | UnrealScript mod source, compiled with `ucc make` |
 | `data/items.yaml` | Item catalog — user-authored source of truth |

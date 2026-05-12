@@ -1,7 +1,7 @@
 name: HP2_Test
 description: HP2 full-playthrough seed for logic cataloguing
-game: Harry Potter 2
-Harry Potter 2:
+game: Harry Potter 2 PC
+Harry Potter 2 PC:
   # Lumos/Flipendo/Alohomora are mandatory precollected starter spells in the
   # APWorld now, because v1 has 108 checks and 111 unique non-filler items.
   # Plando each classroom to teach its own spell. Without this, walking into a

@@ -67,12 +67,12 @@ from NetUtils import ClientStatus
 
 # Pull data tables from our apworld so the sidecar uses the same canonical
 # mappings as the AP framework / generator.
-from worlds.harry_potter_2.locations import (
+from worlds.harry_potter_2_pc.locations import (
     CARD_CLASS_TO_LOCATION_NAME,
     CARD_GAME_ID_TO_LOCATION_NAME,
     LOCATION_NAME_TO_ID,
 )
-from worlds.harry_potter_2.items import CARD_CLASS_TO_ITEM_NAME
+from worlds.harry_potter_2_pc.items import CARD_CLASS_TO_ITEM_NAME
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 NON_DURABLE_ITEM_NAMES = {"BeansSmall", "BeansMedium", "BeansLarge"}
@@ -86,7 +86,7 @@ CARD_CLASS_TO_GAME_ID = {
     for game_id, loc_name in CARD_GAME_ID_TO_LOCATION_NAME.items()
 }
 
-GAME_NAME = "Harry Potter 2"
+GAME_NAME = "Harry Potter 2 PC"
 GAME_TCP_HOST = "127.0.0.1"
 GAME_TCP_PORT = 38281
 
