@@ -21,7 +21,7 @@
 #   1. Generate a seed with `start_inventory_from_pool: all` (the AP "unlock everything"
 #      option) and play through. Note which locations were physically blocked by what.
 #   2. Encode each observation as a rule here.
-#   3. Re-run scripts/gen_apworld.py to project rules.yaml into apworld/rules.py.
+#   3. Regenerate the apworld/*.py from data/*.yaml.
 #   4. Generate a normal (non-unlock-all) seed; verify it's solvable.
 #   5. Iterate.
 #

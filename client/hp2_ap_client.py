@@ -150,7 +150,7 @@ class HP2Context(CommonContext):
         # Outbound AP messages queued while the AP server is offline. Drained
         # on every successful Connected. In-memory only — a client crash
         # during an AP outage loses these. Disk persistence is parked for v2
-        # alongside bean durability (see docs/DESIGN.md#v2-parking-lot).
+        # alongside bean durability (see ../DESIGN.md#v2-parking-lot).
         self.pending_ap_outbound: list[dict] = []
         # Per-game-session set of GRANT/SENT lines successfully written to the
         # game writer. Reset every time a new game connects (handle_game_connection).

@@ -78,9 +78,9 @@ If Stefan ever needs to bump the AP framework version, do a controlled `git fetc
 
 ## Player files (AP slot YAMLs)
 
-`gen_seed.ps1` invokes `Generate.py --player_files_path "$repo\tests" --plando "items"`, reading every `.yaml` in the repo's `tests/` directory as a multiworld slot. Single source of truth — edit `tests/HP2_Test.yaml` and the next `gen_seed.ps1` run picks it up. (Earlier setup pointed at `Archipelago\hp2_only_players\`, which silently went stale; if that directory still exists on this machine, it's dead weight and can be removed.)
+`gen_seed.ps1` invokes `Generate.py --player_files_path "$ap\Players"`, reading every `.yaml` in the AP install's standard `Players/` directory. Drop your slot YAMLs there.
 
-For solo HP2 testing, one slot suffices. The current `tests/HP2_Test.yaml` is configured for full playthrough:
+For solo HP2 testing, one slot suffices. A typical `HP2_Test.yaml` for full playthrough:
 
 ```yaml
 name: HP2_Test
@@ -165,22 +165,11 @@ To search logs from PowerShell:
 Get-Content -LiteralPath 'C:\Users\kryen\Documents\Harry - Coding Evolved\Game.log' -Encoding Unicode | Select-String -Pattern 'Archipelago'
 ```
 
-For M2+ (with client): activate the project venv, run `python client/hp2_client.py` (client listens on `localhost:38281`), then launch the game.
+## Building the player release client
 
-## Building the player release client (PyInstaller)
+End users get a self-contained `hp2_ap_client.exe` (Python + AP framework + our apworld bundled) so they don't need a Python install. Build tooling lives outside this repo. Rebuild whenever the AP framework or the apworld changes; ship the rebuilt exe with the release zip.
 
-End users get a self-contained `hp2_ap_client.exe` (Python + AP framework + our apworld bundled) so they don't need a Python install. Built via `scripts/build_client_exe.ps1`:
-
-```powershell
-py -3.12 -m pip install pyinstaller   # one-time
-& '.\scripts\build_client_exe.ps1'    # rebuilds dist\hp2_ap_client.exe (~85 MB)
-```
-
-The script stages a minimal `worlds\` tree (AP bootstrap files + our apworld) into `dist\staging\`, then PyInstaller bundles via `--add-data "$staging\worlds;worlds"`. Without the staged tree the bundle would either ship the full ~100 MB AP `worlds\` directory or hit a `FileNotFoundError` at runtime when AP's `worlds\__init__.py` does `os.scandir(local_folder)`.
-
-Rebuild whenever the AP framework or the apworld changes; ship the rebuilt exe with the release zip.
-
-**Heads-up: `[Engine.GameEngine] ServerActors=` does not work** for runtime registration on M212/HP2 (verified 2026-05-07). The mutator chain *is* alive — `Base Mutator is <Level>.Mutator<N>` shows up per level transition — so the next experiment for runtime hookup is mutator-via-URL on the launcher shortcut. See `docs/MOD_TODO.md`.
+**Heads-up: `[Engine.GameEngine] ServerActors=` does not work** for runtime registration on M212/HP2 (verified 2026-05-07). The mutator chain *is* alive — `Base Mutator is <Level>.Mutator<N>` shows up per level transition — so the next experiment for runtime hookup is mutator-via-URL on the launcher shortcut. See `../MOD_TODO.md`.
 
 ## Fresh-PC bootstrap
 
@@ -195,7 +184,7 @@ If you (or a future Claude) clones this repo on a new Windows machine, do these 
 7. Create the apworld junction (**Archipelago framework** section above).
 8. Create the AP player files (**Player files** section above).
 9. Repoint any Start Menu shortcuts the M212 installer leaves under `ProgramData\...\M212\` if you renamed the modding copy folder (see the 2026-05-07 rename note above).
-10. Read `readme-handoff.md`, then `docs/DESIGN.md` and `docs/ROADMAP.md`.
+10. Read `../readme-handoff.md`, then `../DESIGN.md` and `../ROADMAP.md`.
 
 ## Known gotchas
 

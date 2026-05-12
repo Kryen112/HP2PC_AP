@@ -434,7 +434,7 @@ event Timer()
 // `Default.Id=200` (sentinel for vanilla bean-swap immunity, can't change),
 // so vanilla's lookup writes vendor ownership for nonexistent id 200 — no-op.
 // We re-do the pass with the marker's real `CardLocationId` and the per-card
-// `bVendorsCanSell` / `strVendorOwnedAfterGState` defaults that gen_apworld
+// `bVendorsCanSell` / `strVendorOwnedAfterGState` defaults that the codegen
 // copies from each WCXxx vanilla class. Result: cards left behind in any
 // level (replayable or not) become available at vendors once their game-state
 // gate has passed, mirroring vanilla's recovery path. Skips locations already

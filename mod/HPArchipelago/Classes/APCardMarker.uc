@@ -1,6 +1,6 @@
 // Base class for the AP-replacement card icons placed in chests/cauldrons/levels.
-// One concrete subclass per card class (APCardMarker_WCStarkey etc.) is generated
-// by scripts/gen_apworld.py from data/items.yaml; each subclass sets CardLocationId
+// One concrete subclass per card class (APCardMarker_WCStarkey etc.) is
+// auto-generated from data/items.yaml; each subclass sets CardLocationId
 // to the real card id.
 //
 // Why we extend WizardCardIcon: we want the vanilla visual experience (mesh,
@@ -27,7 +27,7 @@ var int CardLocationId;
 // the Timer to avoid the 18-marker-stacking bug.
 var bool bIsLooseSpawn;
 
-// "Bronze" / "Silver" / "Gold" — set by gen_apworld.py per generated subclass
+// "Bronze" / "Silver" / "Gold" — set per generated subclass
 // (mirrors the parent vanilla class's tier). Used by
 // APCardWatcher.AssignMarkersToVendors to pick the right si (siBronze /
 // siSilver / siGold) when assigning vendor ownership for missed cards.
@@ -36,7 +36,7 @@ var bool bIsLooseSpawn;
 // with the per-card vanilla values so vendors see our markers as sellable.
 var string MarkerTier;
 
-// Set True by gen_apworld.py for cards the level designer placed mid-air
+// Set True for cards the level designer placed mid-air
 // (e.g., `WCToothill` floating above the Grand Staircase, vanilla intent: reach
 // it via Spongify-jump). Vanilla level-loaded `WizardCardIcon` defaults to
 // `Physics=PHYS_None` (no Physics line in `WizardCardIcon.defaultproperties`)
@@ -44,8 +44,8 @@ var string MarkerTier;
 // chest-ejected cards fall and mover-carried cards (Chamber-II descending
 // platform → `WCElphick`) get pushed by mover collision — but that breaks the
 // floating placements. With this flag set, `Spawned()` keeps `PHYS_None` to
-// preserve the design-time Z. Set per-card via `FLOATING_CARDS` in
-// scripts/gen_apworld.py.
+// preserve the design-time Z. Set per-card via the FLOATING_CARDS list
+// in the codegen tooling.
 var bool bIsFloatingCard;
 
 function PostBeginPlay()
@@ -203,7 +203,7 @@ function Touch(Actor Other)
     }
 
     // AP-themed pickup feedback: spawn the 6 Archipelago-logo-coloured star
-    // bursts, then play the per-tier pickup sound (set by gen_apworld.py in each
+    // bursts, then play the per-tier pickup sound (set in each
     // generated APCardMarker_<X> subclass: pickup_WC_bronze/silver/gold).
     // The Pitch=16464 rotation matches vanilla WizardCardIcon.Touch's rotPickupFX
     // so the stars emit upward instead of into the floor.

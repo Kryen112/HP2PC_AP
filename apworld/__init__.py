@@ -1,8 +1,7 @@
 """HP2PC_AP — Harry Potter 2: Chamber of Secrets PC randomizer for Archipelago.
 
-M5: full item / location pool. Items + locations come from data/*.yaml via
-scripts/gen_apworld.py, which writes items.py and locations.py in this
-directory. Re-run the generator after every YAML edit.
+Items + locations come from data/*.yaml. The .py files in this directory
+are auto-generated; treat data/*.yaml as the source of truth.
 
 Generation models the Basilisk goal as the item/logic requirements needed to
 reach endgame. Runtime completion comes from the game-side GOAL_COMPLETE signal
