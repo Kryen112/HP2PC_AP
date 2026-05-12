@@ -46,6 +46,44 @@ classrooms:
 # behaviour, etc).
 special_checks: []
 
+# 2 vendor-purchase locations on the Castle Exterior grounds. The check
+# fires when Harry pays Fred (Nimbus 2001) or George (Quidditch Armour).
+# Each twin's vendor slot is visually swapped from its vanilla item drop
+# (VendorNimbusBroom or QArmor actor) to APCardMarker_PHCard with the
+# location's id baked in; the on-ground drop + pickup animation look like a
+# normal card pickup, so the player sees an AP-flavoured pickup instead of
+# the unique vanilla item. `vendor_class` is the in-level Characters subclass
+# whose MakePurchase fires the sale; `vanilla_sells` is the matching
+# ESells enum value from Characters.uc so the watcher knows which Characters
+# instance to scan for sale events.
+#
+# Spawn gate: Fred and George don't appear on the Castle Exterior grounds
+# until Harry has Rictusempra (vanilla story gate — they're keyed to the
+# post-Lockhart-class state). Logic for both locations therefore requires
+# Rictusempra on top of the CastleExterior region entry (Lumos & Flipendo).
+#
+# Generation gate: both locations live behind the `enable_quidditch_purchases`
+# YAML option (DefaultOnToggle). When the option is false the locations
+# aren't emitted at all and Fred/George keep their vanilla item drop. The
+# option ALSO gates the matching `equipment` items in data/items.yaml
+# (Nimbus 2001 / Quidditch Armour at items 8/9) — gen_apworld.py MUST drop
+# both the items and these locations together, otherwise the pool has 2
+# orphan items with no homes. The pairing is items 8/9 ↔ locations 5/6.
+#
+# Mod wiring (planned for the same session as secret/star watchers):
+#   - APCardWatcher gains a non-card `VendorLocationChecked[8]` (or similar)
+#     array so APCardMarker_PHCard can dedupe without colliding with the
+#     existing card-domain LocationChecked[].
+#   - APCardWatcher per-tick scan replaces newly-spawned VendorNimbusBroom /
+#     QArmor actors with APCardMarker_PHCard carrying the right
+#     CheckLocationId (mirrors ReplaceVendorSpawnedCards Phase B for cards).
+#   - APCardWatcher detects bHaveNimbus2001 / bHaveQArmor flipping False→True
+#     without a matching AP grant flag and reverts the flag, so the player
+#     doesn't get the equipment locally for free on top of the AP grant.
+quidditch_purchases:
+  - { id_offset: 5, name: "Castle Exterior - Nimbus 2001",      vendor_class: FredWeasley,   vanilla_sells: Sells_Nimbus2001, region: CastleExterior, group: QuidditchPurchases, notes: "Fred Weasley sells the Nimbus broom for ~700 beans on the Castle Exterior grounds. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned VendorNimbusBroom actor and swaps to APCardMarker_PHCard." }
+  - { id_offset: 6, name: "Castle Exterior - Quidditch Armour", vendor_class: GeorgeWeasley, vanilla_sells: Sells_QArmor,     region: CastleExterior, group: QuidditchPurchases, notes: "George Weasley sells the Quidditch armour. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned QArmor actor and swaps to APCardMarker_PHCard." }
+
 # 101 card pickup locations. One per card. Region = vanilla level the card lives in.
 # `card_class` matches data/items.yaml `class` so the mod can use card.Id to
 # resolve location. Regions catalogued from Stefan's open-hub playthrough.

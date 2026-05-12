@@ -178,6 +178,14 @@ locations:
   "Skurge Challenge - Card Fulbert": { requires: "Alohomora" }
   "Skurge Challenge - Card Kegg": { requires: "Alohomora" }
 
+  # ── Quidditch vendor purchases on Castle Exterior grounds ─────────────────
+  # Region entry: Lumos & Flipendo (CastleExterior). Fred and George don't
+  # spawn until Harry has Rictusempra (vanilla story gate keyed to the
+  # post-Lockhart-class state), so per-location requires adds Rictusempra
+  # on top of region entry. Bean balance is currency, not a logic item.
+  "Castle Exterior - Nimbus 2001": { requires: "Rictusempra" }
+  "Castle Exterior - Quidditch Armour": { requires: "Rictusempra" }
+
   # All other cards inherit their region's entry rule (which now includes
   # Alohomora for the universally-locked regions: RictusempraChallenge,
   # BicornLevel, DiffindoChallenge, BoomslangLevel, DumbledoreStudy, GoyleLevel,

@@ -10,7 +10,7 @@
 #   group         grouping for AP/yaml category options (e.g. "Cards (Bronze)")
 #   notes         free text, optional
 #
-# Total: 108 unique items + 8 filler types = 116 entries (filler stacks as needed).
+# Total: 110 unique items + 8 filler types = 118 entries (filler stacks as needed).
 # Filler `weight:` is the relative frequency when the generator picks a filler
 # item via get_filler_item_name (multiworld.random.choices). Probabilities are
 # weight / sum(weights). Sum across the 8 filler types = 35; example expected
@@ -28,6 +28,25 @@ spells:
   - { id_offset: 5, name: Rictusempra,classification: progression, group: Spells }
   - { id_offset: 6, name: Skurge,     classification: progression, group: Spells }
   - { id_offset: 7, name: Spongify,   classification: progression, group: Spells }
+
+# 2 unique pieces of Quidditch equipment sold by Fred & George on the vanilla
+# Castle Exterior grounds (post-Rictusempra spawn gate). v2 randomized as
+# "useful" items: still useful for the Quidditch progression sub-track (when
+# v2 adds match/practice locations) but not strictly required for the
+# Basilisk goal. Each is a one-time purchase.
+#
+# Generation gate: this entire section is paired with the
+# `quidditch_purchases` section in data/locations.yaml under the
+# `enable_quidditch_purchases` YAML option (DefaultOnToggle). When the option
+# is false, gen_apworld.py MUST skip both these items AND the two matching
+# locations together — leaving them unpaired would produce a 2-item item-vs-
+# location mismatch in the pool. The pairing is items 8/9 ↔ locations 5/6.
+#
+# Grant handlers in APGameInfo.ApplyGrant set the corresponding harry.bHaveX
+# flag plus increment the StatusGroupQGear status item so the HUD updates.
+equipment:
+  - { id_offset: 8, name: "Nimbus 2001",      classification: useful, group: Equipment, notes: "Fred Weasley vendor in Quidditch courtyard, ~700 beans in vanilla. Grant sets harry.bHaveNimbus2001 = True (mirrors Characters.uc:631)." }
+  - { id_offset: 9, name: "Quidditch Armour", classification: useful, group: Equipment, notes: "George Weasley vendor. Grant sets harry.bHaveQArmor = True (mirrors Characters.uc:635)." }
 
 # v1: Boomslang / Bicorn / BitOGoyle are NOT randomized. They flow through
 # vanilla story progression. Add back when the key-item AP path is reliable

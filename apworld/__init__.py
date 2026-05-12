@@ -118,6 +118,27 @@ class EnableChallengeStarsChecks(DefaultOnToggle):
     display_name = "Enable Challenge Stars Checks"
 
 
+class EnableQuidditchPurchases(DefaultOnToggle):
+    """If true, the two Castle Exterior Weasley-vendor purchases become AP
+    locations (Castle Exterior - Nimbus 2001 from Fred and Castle Exterior -
+    Quidditch Armour from George), AND the matching Nimbus 2001 / Quidditch
+    Armour useful items are added to the multiworld pool.
+
+    Items and locations are paired and gated together — gen_apworld.py drops
+    both sides when this toggle is off, otherwise the pool would carry two
+    items (item ids 8 and 9 in data/items.yaml `equipment`) with no homes
+    after the two `quidditch_purchases` locations (location ids 5 and 6 in
+    data/locations.yaml) drop out.
+
+    Enabled by default. When false, Fred/George keep their vanilla item
+    drops (no APCardMarker_PHCard swap), there's no AP check at the vendor
+    sale, and the unique gear never appears in any other player's seed
+    either. Generation is a no-op until gen_apworld.py consumes the YAML
+    sections and the watcher-side vendor-flow interception lands (v2 scope).
+    """
+    display_name = "Enable Quidditch Vendor Purchases"
+
+
 class AllowSecretsProgression(Toggle):
     """If true (and `enable_secrets_checks` is true), missable secrets in
     un-replayable levels (Willow, Bicorn, Boomslang, Goyle, Slytherin Common,
@@ -147,6 +168,7 @@ class HP2Options(PerGameCommonOptions):
     # option names + defaults in place early.
     enable_secrets_checks: EnableSecretsChecks
     enable_challenge_stars_checks: EnableChallengeStarsChecks
+    enable_quidditch_purchases: EnableQuidditchPurchases
     allow_secrets_progression: AllowSecretsProgression
 
 

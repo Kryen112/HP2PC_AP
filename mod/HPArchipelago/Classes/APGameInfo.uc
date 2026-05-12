@@ -1036,6 +1036,43 @@ function PlayCardRewardFX(harry h, class<WizardCardIcon> cardClass, int nOldCard
     }
 }
 
+// Quidditch equipment grants — Nimbus 2001 (Fred) and Quidditch Armour (George).
+// Both items live in StatusGroupQGear (StatusItemNimbus / StatusItemQArmor)
+// and are gated on harry.bHaveNimbus2001 / bHaveQArmor for gameplay logic
+// (Quidditch readiness, vendor "out of stock" checks, etc.). Idempotent —
+// re-grants are no-ops, mirroring TryApplyKeyItem's already-owned guard.
+function bool TryApplyEquipment(string Name, harry h)
+{
+    if (h == None || h.managerStatus == None) return False;
+    if (Name != "Nimbus 2001" && Name != "Quidditch Armour") return False;
+
+    if (Name == "Nimbus 2001")
+    {
+        if (h.bHaveNimbus2001)
+        {
+            Log("[Archipelago] ApplyGrant: Nimbus 2001 already owned - no-op");
+            return True;
+        }
+        h.managerStatus.AddNimbus(1);
+        h.bHaveNimbus2001 = True;
+        Log("[Archipelago] ApplyGrant: granted Nimbus 2001 (bHaveNimbus2001=True, StatusItemNimbus+1)");
+        return True;
+    }
+    if (Name == "Quidditch Armour")
+    {
+        if (h.bHaveQArmor)
+        {
+            Log("[Archipelago] ApplyGrant: Quidditch Armour already owned - no-op");
+            return True;
+        }
+        h.managerStatus.AddQArmor(1);
+        h.bHaveQArmor = True;
+        Log("[Archipelago] ApplyGrant: granted Quidditch Armour (bHaveQArmor=True, StatusItemQArmor+1)");
+        return True;
+    }
+    return False;
+}
+
 function bool TryApplyKeyItem(string Name, harry h)
 {
     local APCardWatcher watcher;
@@ -1423,6 +1460,11 @@ function ApplyGrant(string Body)
     }
 
     if (TryApplyKeyItem(ItemName, h))
+    {
+        return;
+    }
+
+    if (TryApplyEquipment(ItemName, h))
     {
         return;
     }
