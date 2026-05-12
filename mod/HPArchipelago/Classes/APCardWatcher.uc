@@ -805,6 +805,19 @@ function Snapshot()
     // chest/loose markers in this level become vendor-available (vanilla's
     // pass can't see our markers because of the Default.Id=200 sentinel).
     AssignMarkersToVendors();
+
+    // Post-snapshot warmup. Without this, the very first drain happens the
+    // moment Snapshot() returns — but level-load cutscenes haven't yet hit
+    // their `Play()` call (CutScene.uc:411 sleeps 0.2s in Idle.begin), so
+    // every cutscene-presence gate (bPlaying / bIsCaptured / IsCutSceneOrPopupInProgress)
+    // returns False and the drain leaks an item during the intro. Pushing
+    // the earliest-drain time forward gives the level's bLevelLoadStarts
+    // cutscenes time to enter Running state so the existing gates take over.
+    if (class'APIPCActor'.static.GetInstance() != None)
+    {
+        // 3.0s mirrors APIPCActor.POST_SNAPSHOT_WARMUP_SECS.
+        class'APIPCActor'.static.GetInstance().PushDrainStability(3.0);
+    }
 }
 
 function bool IsHarryOwned(int id)

@@ -1229,8 +1229,39 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason)
         return False;
     }
 
+    // Direct cutscene-actor check. `IsCutSceneOrPopupInProgress` only returns
+    // True after the cutscene script has executed CAPTURE (which calls
+    // HPHud.StartCutScene to flip bCutSceneMode/bCutPopupMode). For
+    // bLevelLoadStarts cutscenes (the opening scenes that fire on level entry),
+    // there's a window between "cutscene actor enters Running state" and
+    // "cutscene script issues CAPTURE" where harry is briefly in PlayerWalking
+    // with bIsCaptured=False and HUD cutscene mode is False — and our drain
+    // would fire, applying start_inventory items mid-intro. Iterating active
+    // CutScene actors closes that gap: any cutscene currently `bPlaying` means
+    // we wait. Bounded N (a level holds <100 cutscene actors).
+    if (HasActiveCutScene(h, DeferReason))
+    {
+        return False;
+    }
+
     DeferReason = "";
     return True;
+}
+
+static function bool HasActiveCutScene(harry h, out string DeferReason)
+{
+    local CutScene cs;
+
+    if (h == None) return False;
+    foreach h.AllActors(class'CutScene', cs)
+    {
+        if (cs.bPlaying)
+        {
+            DeferReason = "CutScene playing: " $ cs.FileName;
+            return True;
+        }
+    }
+    return False;
 }
 
 static function harry FindGrantReadyHarry(Actor caller)

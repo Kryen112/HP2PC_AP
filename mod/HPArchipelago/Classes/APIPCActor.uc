@@ -4,6 +4,17 @@ var APIPCActor PersistentInstance;
 var array<string> PendingGrants;
 var bool bLoggedGrantDeferral;
 var float NextGrantDrainTime;
+// Stability gate. Bumped to `Level.TimeSeconds + N` whenever any drain check
+// defers OR when the watcher first snapshots in a level. Closes the
+// 0.25s-tick race where harry transiently flickers through PlayerWalking
+// between cutscene segments (or the gap between watcher snapshot and the
+// level's first cutscene actor entering Running state — CutScene.uc:411
+// Sleep(0.2) before Play). Without this, a single Timer tick of harry in
+// PlayerWalking is enough to leak a grant during the intro sequence. See
+// `PushDrainStability` for the bump rules.
+var float NextGrantDrainEarliest;
+const POST_DEFER_STABILITY_SECS = 1.0;
+const POST_SNAPSHOT_WARMUP_SECS = 3.0;
 
 // Reconnect state. If the sidecar terminal closes / crashes mid-session, the
 // engine fires Closed() and the connection stays dead — previously the mod
@@ -251,6 +262,19 @@ function QueueGrant(string ItemName)
     TryDrainPendingGrants();
 }
 
+// Pushes the earliest-allowed drain time forward by `seconds` from now. Only
+// bumps if the new candidate is later than the current value, so multiple
+// simultaneous defer reasons don't compound.
+function PushDrainStability(float seconds)
+{
+    local float candidate;
+    candidate = Level.TimeSeconds + seconds;
+    if (candidate > NextGrantDrainEarliest)
+    {
+        NextGrantDrainEarliest = candidate;
+    }
+}
+
 function TryDrainPendingGrants()
 {
     local APGameInfo gi;
@@ -265,10 +289,19 @@ function TryDrainPendingGrants()
         return;
     }
 
+    // Stability cooldown — set whenever anything below defers, or by
+    // APCardWatcher.Snapshot for the post-snapshot warmup. Silent re-poll
+    // (no log spam): the original defer already logged its reason.
+    if (Level.TimeSeconds < NextGrantDrainEarliest)
+    {
+        return;
+    }
+
     gi = APGameInfo(Level.Game);
     if (gi == None)
     {
         Log("[Archipelago] APIPCActor: cannot drain pending grants - Level.Game is not APGameInfo yet");
+        PushDrainStability(POST_DEFER_STABILITY_SECS);
         return;
     }
 
@@ -286,6 +319,7 @@ function TryDrainPendingGrants()
                 $ " grant(s) - Level.Pauser=" $ Level.Pauser $ " (menu/loading/cutscene)");
             bLoggedGrantDeferral = True;
         }
+        PushDrainStability(POST_DEFER_STABILITY_SECS);
         return;
     }
 
@@ -297,6 +331,7 @@ function TryDrainPendingGrants()
             Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length) $ " grant(s) - no ready gameplay harry yet");
             bLoggedGrantDeferral = True;
         }
+        PushDrainStability(POST_DEFER_STABILITY_SECS);
         return;
     }
 
@@ -309,6 +344,7 @@ function TryDrainPendingGrants()
                 $ " grant(s) - watcher not snapshotted yet");
             bLoggedGrantDeferral = True;
         }
+        PushDrainStability(POST_DEFER_STABILITY_SECS);
         return;
     }
 
@@ -320,6 +356,7 @@ function TryDrainPendingGrants()
                 $ " grant(s) - " $ deferReason);
             bLoggedGrantDeferral = True;
         }
+        PushDrainStability(POST_DEFER_STABILITY_SECS);
         return;
     }
 
