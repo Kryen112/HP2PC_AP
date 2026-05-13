@@ -37,10 +37,10 @@ spells:
 #
 # Generation gate: this entire section is paired with the
 # `quidditch_purchases` section in data/locations.yaml under the
-# `enable_quidditch_purchases` YAML option (DefaultOnToggle). When the option
-# is false, gen_apworld.py MUST skip both these items AND the two matching
-# locations together — leaving them unpaired would produce a 2-item item-vs-
-# location mismatch in the pool. The pairing is items 8/9 ↔ locations 5/6.
+# `enable_quidditch_upgrades` YAML option (Toggle, default off). When the
+# option is false, gen_apworld.py MUST skip both these items AND the two
+# matching locations together — leaving them unpaired would produce a 2-item
+# item-vs-location mismatch in the pool. The pairing is items 8/9 ↔ locations 5/6.
 #
 # Grant handlers in APGameInfo.ApplyGrant set the corresponding harry.bHaveX
 # flag plus increment the StatusGroupQGear status item so the HUD updates.

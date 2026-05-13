@@ -89,14 +89,14 @@ If you're playing solo (just you, no other AP slots):
 1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`. (If you don't see the yaml, make sure you have the apworld installed and close and re-open the launcher.)
 2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 6 category toggles control what becomes an AP check:
 
-   | Toggle                              | Default | What it enables                                                                                  |
-   | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
-   | `enable_wizard_cards`               | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
-   | `enable_secrets_checks`             | on      | 109 secret-area pickups across all levels.                                                       |
-   | `enable_challenge_stars_checks`     | on      | 44 challenge stars across the 4 spell-challenge levels.                                          |
-   | `enable_duel_checks`                | off     | 10 Dueling Club ranked-duel wins.                                                                |
-   | `enable_quidditch_match_checks`     | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                            |
-   | `enable_quidditch_purchases`        | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool. |
+   | Toggle                       | Default | What it enables                                                                                  |
+   | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+   | `enable_wizard_cards`        | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
+   | `enable_secrets`             | on      | 109 secret-area pickups across all levels.                                                       |
+   | `enable_challenge_stars`     | on      | 44 challenge stars across the 4 spell-challenge levels.                                          |
+   | `enable_duelling`            | off     | 10 Dueling Club ranked-duel wins.                                                                |
+   | `enable_quidditch_matches`   | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                            |
+   | `enable_quidditch_upgrades`  | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool. |
 
    The 4 spell-tutorial classrooms are always on — randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.
 

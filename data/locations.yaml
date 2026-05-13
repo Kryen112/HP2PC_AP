@@ -62,8 +62,8 @@ special_checks: []
 # post-Lockhart-class state). Logic for both locations therefore requires
 # Rictusempra on top of the CastleExterior region entry (Lumos & Flipendo).
 #
-# Generation gate: both locations live behind the `enable_quidditch_purchases`
-# YAML option (DefaultOnToggle). When the option is false the locations
+# Generation gate: both locations live behind the `enable_quidditch_upgrades`
+# YAML option (Toggle, default off). When the option is false the locations
 # aren't emitted at all and Fred/George keep their vanilla item drop. The
 # option ALSO gates the matching `equipment` items in data/items.yaml
 # (Nimbus 2001 / Quidditch Armour at items 8/9) — gen_apworld.py MUST drop
@@ -91,7 +91,7 @@ quidditch_purchases:
 # vanilla `harry.DuelRankHarry` carries the rank Harry just defeated.
 # `duel_level` is the source .unr file so the catalogue is grep-able.
 #
-# Generation gate: `enable_duel_checks` YAML option (Toggle, default false).
+# Generation gate: `enable_duelling` YAML option (Toggle, default false).
 # When false the 10 locations aren't emitted and duel wins fire no AP check.
 # Locations only — no paired items are added to the pool (these checks hold
 # whatever AP places at them, like cards or secrets do).
@@ -135,7 +135,7 @@ duels:
 # Slytherin, Hufflepuff, Ravenclaw, Slytherin. Match 6 (index 5) is the
 # final match and fires `MatchEvents_Final.Won` instead of `MatchEvents.Won`.
 #
-# Generation gate: `enable_quidditch_match_checks` YAML option (Toggle,
+# Generation gate: `enable_quidditch_matches` YAML option (Toggle,
 # default false). When false the 6 locations aren't emitted and match wins
 # fire no AP check. Locations only — no paired items in the pool.
 #

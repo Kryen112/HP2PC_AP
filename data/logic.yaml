@@ -70,7 +70,7 @@ regions:
 
   DuelingClub:
     entry: "Lumos & Flipendo & Rictusempra & Skurge"
-    notes: "Dueling Club opens post-Bicorn (vanilla iGameState >= 80). 10 ranked duels (Rank 1-10) each fire an AP check on win. Region entry mirrors BicornLevel minus Alohomora (no locks to pick in the dueling room). v2 Tier-3 expansion, opt-in via enable_duel_checks (default off). Intra-rank ordering not encoded in logic per the 'spell/item requires only' rule — vanilla gameplay enforces sequential rank progression on its own."
+    notes: "Dueling Club opens post-Bicorn (vanilla iGameState >= 80). 10 ranked duels (Rank 1-10) each fire an AP check on win. Region entry mirrors BicornLevel minus Alohomora (no locks to pick in the dueling room). v2 Tier-3 expansion, opt-in via enable_duelling (default off). Intra-rank ordering not encoded in logic per the 'spell/item requires only' rule — vanilla gameplay enforces sequential rank progression on its own."
 
   DiffindoChallenge:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo"

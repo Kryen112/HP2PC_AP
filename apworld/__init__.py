@@ -14,38 +14,23 @@ import random as _random
 from dataclasses import dataclass
 from typing import Any
 
-from BaseClasses import CollectionState, Item, ItemClassification, Location, Region
-from Options import DefaultOnToggle, PerGameCommonOptions, StartInventoryPool, Toggle
+from BaseClasses import (CollectionState, Item, ItemClassification, Location,
+                         Region)
+from Options import (DefaultOnToggle, PerGameCommonOptions, StartInventoryPool,
+                     Toggle)
 from worlds.AutoWorld import WebWorld, World
-from worlds.LauncherComponents import Component, Type, components, launch as launch_component
+from worlds.LauncherComponents import Component, Type, components
+from worlds.LauncherComponents import launch as launch_component
 
-from .items import (
-    BASE_ID as ITEM_BASE_ID,
-    CARD_CLASS_TO_ITEM_NAME,
-    FILLER_NAMES,
-    ITEM_CLASSIFICATIONS,
-    ITEM_GROUPS,
-    ITEM_NAME_TO_ID,
-)
-from .locations import (
-    BASE_ID as LOCATION_BASE_ID,
-    CARD_CLASS_TO_LOCATION_NAME,
-    CARD_GAME_ID_TO_LOCATION_NAME,
-    LOCATION_GROUPS,
-    LOCATION_NAME_TO_ID,
-    LOCATION_REGIONS,
-)
-from .regions import (
-    REGION_ENTRY_RULES,
-    REGION_NAMES,
-    START_REGION,
-)
-from .rules import (
-    GOAL_LOCATION_REQUIREMENTS,
-    GOAL_RULES,
-    LOCATION_RULES,
-)
-
+from .items import BASE_ID as ITEM_BASE_ID
+from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES,
+                    ITEM_CLASSIFICATIONS, ITEM_GROUPS, ITEM_NAME_TO_ID)
+from .locations import BASE_ID as LOCATION_BASE_ID
+from .locations import (CARD_CLASS_TO_LOCATION_NAME,
+                        CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
+                        LOCATION_NAME_TO_ID, LOCATION_REGIONS)
+from .regions import REGION_ENTRY_RULES, REGION_NAMES, START_REGION
+from .rules import GOAL_LOCATION_REQUIREMENTS, GOAL_RULES, LOCATION_RULES
 
 PROGRESSION_ITEM_NAMES: list[str] = [
     name for name, c in ITEM_CLASSIFICATIONS.items() if c == ItemClassification.progression
@@ -63,11 +48,6 @@ def launch_client(*args: str) -> None:
     launch_component(launch, name="HP2 PC Client", args=args)
 
 
-# TODO 2026-05-12: launcher integration not yet end-to-end tested. Only
-# smoke-tested import + component registration. Still need to build a fresh
-# .apworld via "Build APWorlds", drop into custom_worlds/, confirm the
-# "HP2 PC Client" button appears, the Kivy GUI launches, and the game-side
-# TCP bridge still receives GRANT/CHECK lines after the move from client/.
 components.append(Component(
     "HP2 PC Client",
     func=launch_client,
@@ -90,106 +70,59 @@ class HP2WebWorld(WebWorld):
     """Web frontend metadata for archipelago.gg."""
 
 
-class EnableWizardCardChecks(DefaultOnToggle):
-    """If true, the 101 vanilla wizard-card pickup spots become AP locations
-    AND the 101 tier-prefixed card items (Bronze/Silver/Gold Card - X) enter
-    the multiworld pool together.
-
-    Cards are the core checks; on by default. When false, gen_apworld
-    emits the location-name and item-name maps unchanged (stable id space),
-    but HP2World filters both sides out together at world build time —
-    vanilla cards keep their vanilla item drops and never appear in any
-    other player's seed. The Fred/George vendor pairing in
-    `enable_quidditch_purchases` follows the same items+locations-together
-    contract.
-
-    With this off, the only remaining locations are the 4 classroom spell
-    learnings (which can't be disabled) plus whichever of the secrets /
-    stars / vendors / duels / matches toggles are on. With everything off,
-    only the 4 classrooms remain — pair with `start_inventory_from_pool`
-    for the 4 non-starter spells, since the classrooms self-lock on their
-    own spell.
+class EnableWizardCards(DefaultOnToggle):
+    """If true, the 101 wizard cards become AP locations.
     """
-    display_name = "Enable Wizard Card Checks"
+    display_name = "Enable Wizard Cards"
 
 
-class EnableSecretsChecks(DefaultOnToggle):
-    """If true, the 109 SecretAreaMarker pickups become AP locations.
+class EnableSecrets(DefaultOnToggle):
+    """If true, the 109 Secrets become AP locations.
 
-    Cataloged in data/secrets_catalogue.yaml. Enabled by default — secrets
-    are intended to be standard checks. Pair with `allow_secrets_progression`
-    for the missable-vs-replayable progression eligibility split.
+    Pair with `allow_secrets_progression`for the missable-vs-replayable
+    progression eligibility split.
     """
-    display_name = "Enable Secrets Checks"
-
-
-class EnableChallengeStarsChecks(DefaultOnToggle):
-    """If true, the 44 ChallengeStar pickups across the 4 spell-challenge
-    levels (Rictusempra, Skurge, Diffindo, Spongify) become AP locations.
-
-    Cataloged in data/challenge_stars_catalogue.yaml. Enabled by default —
-    stars are intended to be standard checks. All challenge levels are
-    replayable so stars are always progression-eligible (no equivalent of
-    `allow_secrets_progression` needed).
-    """
-    display_name = "Enable Challenge Stars Checks"
-
-
-class EnableDuelChecks(Toggle):
-    """If true, winning each of the 10 ranked duels at the Dueling Club
-    becomes an AP location check (Dueling Club - Duel Rank 1..10).
-
-    Cataloged in data/locations.yaml under `duels`. Defaults to OFF —
-    duels are an opt-in Tier-3 expansion. Locations only; no paired items
-    are added to the multiworld pool. The checks hold whatever the seed
-    places at them (filler, cards, progression items, etc.) — same model
-    as cards and secrets.
-    """
-    display_name = "Enable Duel Win Checks"
-
-
-class EnableQuidditchMatchChecks(Toggle):
-    """If true, winning each of the 6 Quidditch matches becomes an AP
-    location check (Quidditch - Match 1..6 (Opponent)).
-
-    Cataloged in data/locations.yaml under `quidditch_matches`. Defaults
-    to OFF — Quidditch matches are an opt-in Tier-3 expansion. Locations
-    only; no paired items added to the pool. Independent of
-    `enable_quidditch_purchases` — a player can enable the Fred/George
-    vendor checks without enabling match-win checks, or vice versa.
-    """
-    display_name = "Enable Quidditch Match Win Checks"
-
-
-class EnableQuidditchPurchases(Toggle):
-    """If true, the two Castle Exterior Weasley-vendor purchases become AP
-    locations (Castle Exterior - Nimbus 2001 from Fred and Castle Exterior -
-    Quidditch Armour from George), AND the matching Nimbus 2001 / Quidditch
-    Armour useful items are added to the multiworld pool.
-
-    Items and locations are paired and gated together — HP2World drops both
-    sides when this toggle is off, otherwise the pool would carry two items
-    with no homes after the two locations drop out. Defaults to OFF (the
-    Fred/George purchase flow is an opt-in Tier-3 expansion). When false,
-    Fred/George keep their vanilla item drops, no AP location exists at the
-    vendor sale, and the unique gear never appears in any other player's
-    seed either.
-    """
-    display_name = "Enable Quidditch Vendor Purchases"
+    display_name = "Enable Secrets"
 
 
 class AllowSecretsProgression(Toggle):
-    """If true (and `enable_secrets_checks` is true), missable secrets in
+    """If true (and `enable_secrets` is true), missable secrets in
     un-replayable levels (Willow, Bicorn, Boomslang, Goyle, Slytherin Common,
     Forest, Chamber) are allowed to hold progression items.
 
-    If false (default), missable secrets are filler-only — safer because the
+    If false, missable secrets are filler-only, which is safer because the
     player can't soft-lock by missing a story-replay secret. Replayable
     secrets (Hogwarts, Castle Exterior, the 4 spell challenges) always allow
     progression regardless of this setting; this flag only gates the
     un-replayable subset.
     """
-    display_name = "Allow Secrets Progression"
+    display_name = "Allow Secrets progression"
+
+
+class EnableChallengeStars(DefaultOnToggle):
+    """If true, the 44 Challenge Stars across the 4 spell-challenges
+    (Rictusempra, Skurge, Diffindo, Spongify) become AP locations.
+    """
+    display_name = "Enable Challenge Stars"
+
+
+class EnableDuelling(Toggle):
+    """If true, each of the 10 duels at the Dueling Club become a location.
+    """
+    display_name = "Enable Duelling"
+
+
+class EnableQuidditchMatches(Toggle):
+    """If true, each of the 6 Quidditch matches becomes a location.
+    """
+    display_name = "Enable Quidditch matches"
+
+
+class EnableQuidditchUpgrades(Toggle):
+    """If true, the Nimbus 2001 from Fred and the Quidditch Armour from George
+    become locations.
+    """
+    display_name = "Enable Quidditch upgrades"
 
 
 @dataclass
@@ -205,13 +138,13 @@ class HP2Options(PerGameCommonOptions):
     # core experience, so spells are always in the pool and classrooms are
     # always seed locations. With every toggle false the seed has only the 4
     # classrooms and 4 non-starter spells.
-    enable_wizard_cards: EnableWizardCardChecks
-    enable_secrets_checks: EnableSecretsChecks
-    enable_challenge_stars_checks: EnableChallengeStarsChecks
-    enable_quidditch_purchases: EnableQuidditchPurchases
-    enable_duel_checks: EnableDuelChecks
-    enable_quidditch_match_checks: EnableQuidditchMatchChecks
+    enable_wizard_cards: EnableWizardCards
+    enable_secrets: EnableSecrets
     allow_secrets_progression: AllowSecretsProgression
+    enable_challenge_stars: EnableChallengeStars
+    enable_quidditch_upgrades: EnableQuidditchUpgrades
+    enable_duelling: EnableDuelling
+    enable_quidditch_matches: EnableQuidditchMatches
 
 
 class HP2World(World):
@@ -240,11 +173,11 @@ class HP2World(World):
     # never filtered — spells need somewhere to live.
     _LOC_GROUP_TO_OPT: dict[str, str] = {
         "CardLocations":      "enable_wizard_cards",
-        "Secrets":            "enable_secrets_checks",
-        "ChallengeStars":     "enable_challenge_stars_checks",
-        "QuidditchPurchases": "enable_quidditch_purchases",
-        "Duels":              "enable_duel_checks",
-        "QuidditchMatches":   "enable_quidditch_match_checks",
+        "Secrets":            "enable_secrets",
+        "ChallengeStars":     "enable_challenge_stars",
+        "QuidditchPurchases": "enable_quidditch_upgrades",
+        "Duels":              "enable_duelling",
+        "QuidditchMatches":   "enable_quidditch_matches",
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
     # Spells / Key Items / Filler aren't listed — always in the pool.
@@ -252,7 +185,7 @@ class HP2World(World):
         "Cards (Bronze)": "enable_wizard_cards",
         "Cards (Silver)": "enable_wizard_cards",
         "Cards (Gold)":   "enable_wizard_cards",
-        "Equipment":      "enable_quidditch_purchases",
+        "Equipment":      "enable_quidditch_upgrades",
     }
 
     def _location_enabled(self, loc_name: str) -> bool:
@@ -330,7 +263,7 @@ class HP2World(World):
                 self.multiworld.itempool.append(self.create_item(name))
 
     def set_rules(self) -> None:
-        from worlds.generic.Rules import set_rule, add_item_rule, add_rule
+        from worlds.generic.Rules import add_item_rule, add_rule, set_rule
 
         for loc_name, rule_fn in LOCATION_RULES.items():
             try:

@@ -496,7 +496,7 @@ def emit_items(items: dict) -> str:
     for entry in items.get("key_items", []):
         add(entry, None, keys_names)
     for entry in items.get("equipment", []):
-        # Fred/George vendor items. Paired with `enable_quidditch_purchases`:
+        # Fred/George vendor items. Paired with `enable_quidditch_upgrades`:
         # gen_apworld emits them into ITEM_NAME_TO_ID unconditionally (stable
         # AP id space across toggle flips) but HP2World.create_items skips
         # them when the toggle is off, alongside the matching locations.
