@@ -55,6 +55,18 @@ var APCardWatcher LatestInstance;
 // CHECK; APCardMarker.PostBeginPlay self-destroys if its id is already checked.
 var byte LocationChecked[102];
 
+// Class-default tracking of which WCn curtain events DropOwnedGoldCardCurtains
+// has fired this session. The Ch6WizardCard curtain movers are
+// InitialState=TriggerToggle and HP2 preserves mover keyframe state across
+// level exits within a session, so refiring a TriggerEvent('WCn') on
+// re-entry toggles the mover BACK to closed. Tracking once-fired-per-session
+// here keeps each curtain stably open after the first fire. Cross-session
+// note: on a fresh game launch this resets to all zeros, so if the save
+// preserved the mover position as open from a prior session, the first
+// re-entry will toggle it back to closed once before stabilising —
+// acceptable as a known edge case.
+var byte WCnFiredThisSession[12];
+
 // Per-spell flag for the in-progress-lesson detection. Set to 1 each tick the
 // watcher sees `HarryRef.CurrSpellLesson` resolve to a known lesson shape; on
 // the next tick where `CurrSpellLesson` is None, the flag's spell index fires
@@ -861,6 +873,12 @@ function Snapshot()
     // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla
     // score. Already-checked stars stay vanilla, so replay still scores.
     ReplaceChallengeStars();
+    // Drop the per-card curtain in Ch6WizardCard for every gold card Harry
+    // currently owns. Vanilla's RemoveHarryOwnedCardsFromLevel destroys
+    // owned wci silently with no TriggerEvent, so the per-card curtain
+    // movers (Mover76..86 tagged WC1..WC11) would otherwise stay closed
+    // on reload. See DropOwnedGoldCardCurtains for the WCn → card mapping.
+    DropOwnedGoldCardCurtains();
 
     // Post-snapshot warmup. Without this, the very first drain happens the
     // moment Snapshot() returns — but level-load cutscenes haven't yet hit
@@ -879,6 +897,86 @@ function Snapshot()
 function bool IsHarryOwned(int id)
 {
     return siBronze.IsOwnedByHarry(id) || siSilver.IsOwnedByHarry(id) || siGold.IsOwnedByHarry(id);
+}
+
+// Per-card curtain mapping for Ch6WizardCard.unr (the Gold Card Room): each
+// gold-card display is fronted by a Mover (Mover76..86) tagged WC1..WC11.
+// Vanilla `WizardCardIcon.Touch` fires `TriggerEvent(wci.Event)` per-pickup
+// where the editor data wired each WCBott/WCDumbledore/etc. instance's
+// `Event` field to the matching WCn. Our ReplaceCardChests destroys the
+// vanilla wci on first visit, so on every later visit the curtain mover
+// spawns at its initial closed keyframe and stays up — vanilla's
+// RemoveHarryOwnedCardsFromLevel destroys owned wci silently without
+// re-firing the event. DropOwnedGoldCardCurtains re-fires WCn at level
+// entry for each gold card Harry owns, restoring the curtain-down state.
+//
+// WC1 = WCBott is confirmed via Dispatcher13 ('WC1Dispatcher', OutEvents
+// include 'WC1') sitting right next to WCBott at ~(0, -455, 800). WC2..WC11
+// are best-guess in physical walking order; swap entries if a curtain
+// visibly drops in the wrong slot.
+function int WCNumForGoldCardId(int id)
+{
+    // Card ids from gen_apworld.CARD_GAME_ID_TO_CLASS (Goldcards subset).
+    switch (id)
+    {
+        case 69:  return 1;  // WCBott        (entrance, confirmed)
+        case 101: return 2;  // WCDumbledore  (Y=-1264)
+        case 41:  return 3;  // WCGriffindor  (Y=-3002)
+        case 11:  return 4;  // WCHerpo       (Y=-4224)
+        case 48:  return 5;  // WCSlytherin   (Y=-5529, right side)
+        case 72:  return 6;  // WCHufflepuff  (Y=-5505, left side)
+        case 74:  return 7;  // WCKnightley   (Y=-4733)
+        case 15:  return 8;  // WCParacelsus  (Y=-4237, X=-4780)
+        case 40:  return 9;  // WCPinkstone   (Y=-1824)
+        case 82:  return 10; // WCRavenclaw   (Y=-515)
+        case 100: return 11; // WCPotter      (Y=2879, far behind)
+    }
+    return 0;
+}
+
+// Fire the per-card curtain event for each gold card Harry currently owns.
+// Iterates the APCardMarker actors in the current level (which carry
+// CardLocationId from the original game-side card id), looks up the WC
+// mover tag via WCNumForGoldCardId, fires TriggerEvent(WCn). The curtain
+// movers (Mover76..86 in Ch6WizardCard) have bTriggerOnceOnly=True so each
+// fire is a stable drop. No-op outside Ch6WizardCard since no WCn movers
+// exist in other levels.
+function DropOwnedGoldCardCurtains()
+{
+    local APCardMarker marker;
+    local int wcN, firedCount;
+    local name evtName;
+
+    Log("[Archipelago] DropOwnedGoldCardCurtains: entry, siGold=" $ string(siGold));
+    if (siGold == None) return;
+
+    firedCount = 0;
+    foreach AllActors(class'APCardMarker', marker)
+    {
+        if (marker.CardLocationId <= 0 || marker.CardLocationId > 101) continue;
+        if (!siGold.IsOwnedByHarry(marker.CardLocationId)) continue;
+        wcN = WCNumForGoldCardId(marker.CardLocationId);
+        if (wcN <= 0)
+        {
+            Log("[Archipelago] DropOwnedGoldCardCurtains: id=" $ marker.CardLocationId $ " (" $ string(marker.Class.Name) $ ") owned but no WC mapping");
+            continue;
+        }
+        // Curtain movers are TriggerToggle and HP2 preserves their state
+        // across level exits in a session — firing twice toggles them back
+        // to closed. Class-default WCnFiredThisSession[] ensures one fire
+        // per WCn per session, so the mover stays open after first trigger.
+        if (default.WCnFiredThisSession[wcN] == 1)
+        {
+            Log("[Archipelago] DropOwnedGoldCardCurtains: WC" $ wcN $ " (id " $ marker.CardLocationId $ ") already fired this session, skipping to preserve open state");
+            continue;
+        }
+        evtName = name("WC" $ string(wcN));
+        Log("[Archipelago] DropOwnedGoldCardCurtains: id=" $ marker.CardLocationId $ " (" $ string(marker.Class.Name) $ ") owned - firing TriggerEvent(" $ string(evtName) $ ")");
+        TriggerEvent(evtName, self, None);
+        default.WCnFiredThisSession[wcN] = 1;
+        firedCount++;
+    }
+    Log("[Archipelago] DropOwnedGoldCardCurtains: done - " $ firedCount $ " WCn event(s) fired");
 }
 
 // Per-tick poll of SecretAreaMarker actors. When `bFound` is True and the
