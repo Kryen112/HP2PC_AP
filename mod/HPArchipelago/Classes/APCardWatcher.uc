@@ -55,6 +55,17 @@ var APCardWatcher LatestInstance;
 // CHECK; APCardMarker.PostBeginPlay self-destroys if its id is already checked.
 var byte LocationChecked[102];
 
+// Per-spell flag for the in-progress-lesson detection. Set to 1 each tick the
+// watcher sees `HarryRef.CurrSpellLesson` resolve to a known lesson shape; on
+// the next tick where `CurrSpellLesson` is None, the flag's spell index fires
+// CHECK_SPELL and the flag clears. Class-default so the transition survives
+// the level change between EndLesson() and the auto-teleport to the
+// matching challenge level (vanilla EndLesson clears CurrSpellLesson, then
+// TriggerEvent likely fires the teleport on the same frame — the new
+// watcher in the challenge level still observes the cleared flag and the
+// stamped InLessonForSpell entry, and fires the check there).
+var byte InLessonForSpell[7];
+
 static function APCardWatcher GetLatest()
 {
     if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
@@ -320,22 +331,48 @@ event Timer()
     ScanDuelWins(ipc);
     ScanMatchWins(ipc);
 
-    // Lesson-start hook for the four spell-tutorial location checks.
-    // Bug it fixes: the IsInSpellBook poll below only fires CHECK_SPELL on a
-    // not-having → having transition. If AP grants the spell BEFORE Harry
-    // visits the classroom (any plando placement that doesn't put the spell
-    // at its own classroom), the lesson plays but Harry already has the spell —
-    // no transition, no CHECK_SPELL, location lost. Polling harry.CurrSpellLesson
-    // fires at the moment SpellLessonTrigger.Activate sets it (regardless of
-    // spell ownership). Shares WasSpellOwned[] with the IsInSpellBook fallback
-    // so the two paths dedupe against each other.
+    // Lesson-end hook for the four spell-tutorial location checks.
+    // Fires CHECK_SPELL the tick after harry.CurrSpellLesson transitions from
+    // a valid lesson to None — which vanilla `harry.EndSpellLearning()` does
+    // inside `SpellLessonTrigger.EndLesson()` (uc:842-879), right after
+    // `AddToSpellBook(...)` and before the teleport-to-challenge-level event.
+    // The transition is what the player perceives as "minigame finished".
+    //
+    // Workaround case (Bug the earlier lesson-start hook fixed): when AP has
+    // already granted the spell (e.g. start_inventory_from_pool), the
+    // IsInSpellBook poll below cannot fire on the lesson because there's no
+    // not-having → having transition. Detecting the CurrSpellLesson clear is
+    // independent of spell ownership, so this hook still fires the check.
+    //
+    // Class-default InLessonForSpell[] is set every tick the lesson is
+    // active; the next tick CurrSpellLesson is None we fire + clear. Storing
+    // class-default lets the transition span the watcher death between the
+    // classroom level and the challenge level — the new watcher inherits
+    // InLessonForSpell[i] = 1 and fires there if it missed the transition
+    // before the level change.
     if (HarryRef.CurrSpellLesson != None)
     {
         i = LessonShapeToSpellIndex(HarryRef.CurrSpellLesson);
-        if (i >= 0 && default.LessonCheckFired[i] == 0)
+        if (i >= 0)
         {
+            default.InLessonForSpell[i] = 1;
+        }
+    }
+    else
+    {
+        for (i = 0; i < NUM_SPELLS; i++)
+        {
+            if (default.InLessonForSpell[i] == 0) continue;
+            default.InLessonForSpell[i] = 0;
+            if (default.LessonCheckFired[i] == 1) continue;
             default.LessonCheckFired[i] = 1;
-            Log("[Archipelago] APCardWatcher: SpellLessonTrigger active for " $ SpellNames[i] $ " - firing CHECK_SPELL (lesson-start hook)");
+            // Mark WasSpellOwned baseline so the IsInSpellBook poll below
+            // doesn't re-fire CHECK_SPELL for the same spell on this same
+            // tick (vanilla AddToSpellBook in EndLesson sets IsInSpellBook
+            // True simultaneously with CurrSpellLesson going None). Revert
+            // path still runs because it's outside the WasSpellOwned guard.
+            WasSpellOwned[i] = 1;
+            Log("[Archipelago] APCardWatcher: SpellLessonTrigger ended for " $ SpellNames[i] $ " - firing CHECK_SPELL (lesson-end hook)");
             if (ipc != None)
             {
                 ipc.SendCheckSpell(SpellNames[i]);
