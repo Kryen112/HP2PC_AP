@@ -1047,6 +1047,8 @@ function ReplaceChallengeStars()
     local APChallengeStarMarker apStar;
     local Vector loc;
     local Rotator rot;
+    local Actor vanillaBase;
+    local Name vanillaTag;
     local string levelName, markerName;
     local int locId, slot, replaced;
 
@@ -1063,8 +1065,19 @@ function ReplaceChallengeStars()
         if (slot < 0 || slot >= 700) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
 
+        // Capture mover-attachment state before destroying the vanilla star.
+        // Many challenge-level stars ride moving platforms — the mover wires
+        // each star's Base at level load by matching its AttachTag against
+        // the star's Tag. A naive Destroy + Spawn at the same Location/
+        // Rotation drops the Base linkage, leaving the new actor sitting
+        // stationary while its platform travels off. Copying Tag (defensive,
+        // for any system that later inspects it) and re-running SetBase on
+        // the replacement restores the linkage so the engine carries the
+        // replacement along with the platform every tick like vanilla.
         loc = star.Location;
         rot = star.Rotation;
+        vanillaBase = star.Base;
+        vanillaTag = star.Tag;
         star.Destroy();
         apStar = Spawn(class'APChallengeStarMarker', , , loc, rot);
         if (apStar == None)
@@ -1074,6 +1087,14 @@ function ReplaceChallengeStars()
             continue;
         }
         apStar.CheckLocationId = locId;
+        if (vanillaTag != 'None')
+        {
+            apStar.Tag = vanillaTag;
+        }
+        if (vanillaBase != None)
+        {
+            apStar.SetBase(vanillaBase);
+        }
         replaced++;
     }
     if (replaced > 0)
