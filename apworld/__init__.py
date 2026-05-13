@@ -356,14 +356,28 @@ class HP2World(World):
             set_rule(loc, lambda state, fn=rule_fn, player=self.player: fn(state, player))
 
         # Placement constraint: gold card locations cannot hold silver card
-        # items. Vanilla opens gold chests with gold keys earned by collecting
-        # 4×10 silver cards, so a silver card buried in a gold chest can create
-        # a circular dependency where the player can't reach 40 silvers to
-        # unlock the chest that contains that silver. Enforced at fill time.
+        # items. Vanilla opens the gold card room after collecting 40 silver
+        # cards (=4 gold keys), so a silver card buried in a gold-room
+        # location creates a circular dependency where the player can't reach
+        # 40 silvers to unlock the room that contains that silver. Enforced
+        # at fill time.
+        #
+        # Resolve item-name → location-name via the two card maps emitted to
+        # locations.py / items.py (CARD_CLASS_TO_ITEM_NAME and
+        # CARD_CLASS_TO_LOCATION_NAME). The earlier `f"Card_{item_name}"`
+        # lookup never matched any real location (names are
+        # "Gold Card Room - Card Bott", not "Card_Bott"), so the
+        # try/except KeyError silently swallowed the entire constraint.
         silver_items = frozenset(ITEM_GROUPS.get("Cards (Silver)", []))
         gold_card_item_names = ITEM_GROUPS.get("Cards (Gold)", [])
+        item_name_to_card_class = {v: k for k, v in CARD_CLASS_TO_ITEM_NAME.items()}
         for item_name in gold_card_item_names:
-            loc_name = f"Card_{item_name}"
+            card_class = item_name_to_card_class.get(item_name)
+            if card_class is None:
+                continue
+            loc_name = CARD_CLASS_TO_LOCATION_NAME.get(card_class)
+            if loc_name is None:
+                continue
             try:
                 loc = self.multiworld.get_location(loc_name, self.player)
             except KeyError:
