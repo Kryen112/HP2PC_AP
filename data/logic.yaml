@@ -197,16 +197,16 @@ locations:
   # progression in gameplay; AP doesn't model intra-system ordering per the
   # "spell/item requires only" decision, but each rank's actual spell
   # requirement will be observed and encoded after the playthrough.
-  "Dueling Club - Duel Rank 1":  { requires: "true" }
-  "Dueling Club - Duel Rank 2":  { requires: "true" }
-  "Dueling Club - Duel Rank 3":  { requires: "true" }
-  "Dueling Club - Duel Rank 4":  { requires: "true" }
-  "Dueling Club - Duel Rank 5":  { requires: "true" }
-  "Dueling Club - Duel Rank 6":  { requires: "true" }
-  "Dueling Club - Duel Rank 7":  { requires: "true" }
-  "Dueling Club - Duel Rank 8":  { requires: "true" }
-  "Dueling Club - Duel Rank 9":  { requires: "true" }
-  "Dueling Club - Duel Rank 10": { requires: "true" }
+  "Dueling Club - Duel Rank 1":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 2":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 3":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 4":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 5":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 6":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 7":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 8":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 9":  { requires: "Rictusempra & Skurge & Alohomora" }
+  "Dueling Club - Duel Rank 10":  { requires: "Rictusempra & Skurge & Alohomora" }
 
   # ── Quidditch matches (region entry already requires Lumos+Flipendo+Rictusempra) ─
   # Placeholder `requires: "true"` per match. Real per-match gating to be
@@ -215,12 +215,12 @@ locations:
   # so later matches may need Skurge / Diffindo / Spongify on top of region
   # entry. Nimbus 2001 / Quidditch Armour are "useful" not "required" per
   # their classification, so they don't appear in the gating expressions.
-  "Quidditch - Match 1 (Hufflepuff)": { requires: "true" }
-  "Quidditch - Match 2 (Ravenclaw)":  { requires: "true" }
-  "Quidditch - Match 3 (Slytherin)":  { requires: "true" }
-  "Quidditch - Match 4 (Hufflepuff)": { requires: "true" }
-  "Quidditch - Match 5 (Ravenclaw)":  { requires: "true" }
-  "Quidditch - Match 6 (Slytherin)":  { requires: "true" }
+  "Quidditch - Match 1 (Hufflepuff)": { requires: "Rictusempra" }
+  "Quidditch - Match 2 (Ravenclaw)": { requires: "Rictusempra & Skurge" }
+  "Quidditch - Match 3 (Slytherin)": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Quidditch - Match 4 (Hufflepuff)": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Quidditch - Match 5 (Ravenclaw)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Quidditch - Match 6 (Slytherin)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
 
   # All other cards inherit their region's entry rule (which now includes
   # Alohomora for the universally-locked regions: RictusempraChallenge,
