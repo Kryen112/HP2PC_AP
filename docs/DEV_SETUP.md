@@ -17,7 +17,7 @@ How this dev machine is configured and the daily build/run loop. Update whenever
 | **Python** | **3.12.x** (currently 3.12.10) | AP 0.6.4 dropped 3.10. 3.12 is the safe middle of AP's supported range (3.11 / 3.12 / 3.13). |
 | **Archipelago framework** | **0.6.7** (release tag) | Released 2026-04-01. Pinned to a tag, **not `main`** — `main` breaks. Bump deliberately, not by drift. |
 | **M212 HP2Engine** | **3.4** | From the FAQ doc's "Version 3.4" header. |
-| **HP2PC_AP** | v1.0 | First public release. |
+| **HP2PC_AP** | v1.1 | Adds secrets, challenge stars, duels, Quidditch matches, Fred & George vendors, tier-prefixed cards, gold-card-room region, per-category yaml toggles. |
 
 ## Installed paths (this PC)
 

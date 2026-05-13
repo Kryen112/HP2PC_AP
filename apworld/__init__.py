@@ -92,9 +92,10 @@ class HP2WebWorld(WebWorld):
 
 class EnableWizardCardChecks(DefaultOnToggle):
     """If true, the 101 vanilla wizard-card pickup spots become AP locations
-    AND the 101 Card_<Name> items enter the multiworld pool together.
+    AND the 101 tier-prefixed card items (Bronze/Silver/Gold Card - X) enter
+    the multiworld pool together.
 
-    Cards are the v1 core checks; on by default. When false, gen_apworld
+    Cards are the core checks; on by default. When false, gen_apworld
     emits the location-name and item-name maps unchanged (stable id space),
     but HP2World filters both sides out together at world build time —
     vanilla cards keep their vanilla item drops and never appear in any
@@ -113,15 +114,11 @@ class EnableWizardCardChecks(DefaultOnToggle):
 
 
 class EnableSecretsChecks(DefaultOnToggle):
-    """If true, the 110 SecretAreaMarker pickups become AP locations.
+    """If true, the 109 SecretAreaMarker pickups become AP locations.
 
     Cataloged in data/secrets_catalogue.yaml. Enabled by default — secrets
     are intended to be standard checks. Pair with `allow_secrets_progression`
-    for the missable-vs-replayable progression eligibility split. Generation
-    is a no-op for this toggle until per-secret `requires:` is filled in
-    across the catalogue and gen_apworld.py is taught to consume it (v2
-    scope), but the default is set now so the player-yaml-template reads
-    correctly the moment that wiring lands.
+    for the missable-vs-replayable progression eligibility split.
     """
     display_name = "Enable Secrets Checks"
 
@@ -133,9 +130,7 @@ class EnableChallengeStarsChecks(DefaultOnToggle):
     Cataloged in data/challenge_stars_catalogue.yaml. Enabled by default —
     stars are intended to be standard checks. All challenge levels are
     replayable so stars are always progression-eligible (no equivalent of
-    `allow_secrets_progression` needed). Generation is a no-op until per-star
-    `requires:` is filled in and gen_apworld.py is taught to consume the
-    catalogue (v2 scope).
+    `allow_secrets_progression` needed).
     """
     display_name = "Enable Challenge Stars Checks"
 
@@ -144,13 +139,11 @@ class EnableDuelChecks(Toggle):
     """If true, winning each of the 10 ranked duels at the Dueling Club
     becomes an AP location check (Dueling Club - Duel Rank 1..10).
 
-    Cataloged in data/locations.yaml under `duels`. Defaults to OFF — duels
-    are an opt-in v2 Tier-3 expansion. Locations only; no paired items are
-    added to the multiworld pool. The checks hold whatever the seed places
-    at them (filler, cards, progression items, etc.) — same model as cards
-    and secrets. Generation is a no-op until gen_apworld.py consumes the
-    section and the watcher-side TriggerEvent('HarryWonDuel') listener
-    lands (v2 scope).
+    Cataloged in data/locations.yaml under `duels`. Defaults to OFF —
+    duels are an opt-in Tier-3 expansion. Locations only; no paired items
+    are added to the multiworld pool. The checks hold whatever the seed
+    places at them (filler, cards, progression items, etc.) — same model
+    as cards and secrets.
     """
     display_name = "Enable Duel Win Checks"
 
@@ -159,14 +152,11 @@ class EnableQuidditchMatchChecks(Toggle):
     """If true, winning each of the 6 Quidditch matches becomes an AP
     location check (Quidditch - Match 1..6 (Opponent)).
 
-    Cataloged in data/locations.yaml under `quidditch_matches`. Defaults to
-    OFF — Quidditch matches are an opt-in v2 Tier-3 expansion. Locations
+    Cataloged in data/locations.yaml under `quidditch_matches`. Defaults
+    to OFF — Quidditch matches are an opt-in Tier-3 expansion. Locations
     only; no paired items added to the pool. Independent of
     `enable_quidditch_purchases` — a player can enable the Fred/George
     vendor checks without enabling match-win checks, or vice versa.
-    Generation is a no-op until gen_apworld.py consumes the section and
-    the watcher-side MatchEvents.Won / MatchEvents_Final.Won listener (or
-    quidGameResults[].bWon poller) lands (v2 scope).
     """
     display_name = "Enable Quidditch Match Win Checks"
 
@@ -179,17 +169,11 @@ class EnableQuidditchPurchases(Toggle):
 
     Items and locations are paired and gated together — HP2World drops both
     sides when this toggle is off, otherwise the pool would carry two items
-    (item ids 8 and 9 in data/items.yaml `equipment`) with no homes after
-    the two `quidditch_purchases` locations (location ids 5 and 6 in
-    data/locations.yaml) drop out.
-
-    Defaults to OFF: the vendor-flow interception watcher isn't wired yet,
-    so enabling produces a seed where the two vendor locations exist but
-    never fire a CHECK in-game (the purchase still goes through with
-    vanilla effect — you just don't bank an AP location by buying).
-    When false, Fred/George keep their vanilla item drops, no AP location
-    exists at the vendor sale, and the unique gear never appears in any
-    other player's seed either. Flip on once the vendor watcher lands.
+    with no homes after the two locations drop out. Defaults to OFF (the
+    Fred/George purchase flow is an opt-in Tier-3 expansion). When false,
+    Fred/George keep their vanilla item drops, no AP location exists at the
+    vendor sale, and the unique gear never appears in any other player's
+    seed either.
     """
     display_name = "Enable Quidditch Vendor Purchases"
 

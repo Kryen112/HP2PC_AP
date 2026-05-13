@@ -9,7 +9,7 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 ## What you're getting
 
 - An Archipelago multiworld randomizer for HP2 (PC, KnowWonder 2002 release).
-- 105 checks (101 wizard cards plus 4 spell-tutorial classrooms), 108 items in the pool.
+- Up to 276 checks across 7 categories — 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, and 2 Fred & George vendor purchases. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
 - Goal: defeat the Basilisk.
 - Plays solo or as a slot in a larger AP multiworld.
 
@@ -87,7 +87,19 @@ That's it. Archipelago discovers it automatically next time you launch — `HP2 
 If you're playing solo (just you, no other AP slots):
 
 1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`. (If you don't see the yaml, make sure you have the apworld installed and close and re-open the launcher.)
-2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to whatever you want your in-game player name to be. Anything else in the template can stay at defaults for v1.
+2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 6 category toggles control what becomes an AP check:
+
+   | Toggle                              | Default | What it enables                                                                                  |
+   | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
+   | `enable_wizard_cards`               | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
+   | `enable_secrets_checks`             | on      | 109 secret-area pickups across all levels.                                                       |
+   | `enable_challenge_stars_checks`     | on      | 44 challenge stars across the 4 spell-challenge levels.                                          |
+   | `enable_duel_checks`                | off     | 10 Dueling Club ranked-duel wins.                                                                |
+   | `enable_quidditch_match_checks`     | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                            |
+   | `enable_quidditch_purchases`        | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool. |
+
+   The 4 spell-tutorial classrooms are always on — randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.
+
 3. **Generate.** ArchipelagoLauncher → **Generate**, pick your YAML when prompted. The generator drops a seed zip in `<Archipelago install>\output\`.
 
 Skip this section if you're joining someone else's multiworld. They'll send you a server address, port, and your slot name.
@@ -169,7 +181,7 @@ Quick checklist after first launch:
 **Client disconnects mid-session**:
 
 - The mod auto-reconnects with exponential backoff (1s up to a 16s cap). Just restart the client; the game will reconnect on the next try.
-- Items the AP server delivered while the client was down get replayed on reconnect (durable items: cards, spells; bean filler is non-durable in v1 and can be lost across a client crash).
+- Items the AP server delivered while the client was down get replayed on reconnect. Most items are durable across crashes (cards, spells, equipment, the new filler types — Massive Beans / Wiggenweld / Wiggentree Bark / Flobberworm Mucous / Chocolate Frog). The Small / Medium / Large Pile of Beans are intentionally non-durable and can be lost across a client crash; that's the only filler category that doesn't replay.
 
 **Game crashes at level transition**:
 
