@@ -90,6 +90,28 @@ class HP2WebWorld(WebWorld):
     """Web frontend metadata for archipelago.gg."""
 
 
+class EnableWizardCardChecks(DefaultOnToggle):
+    """If true, the 101 vanilla wizard-card pickup spots become AP locations
+    AND the 101 Card_<Name> items enter the multiworld pool together.
+
+    Cards are the v1 core checks; on by default. When false, gen_apworld
+    emits the location-name and item-name maps unchanged (stable id space),
+    but HP2World filters both sides out together at world build time —
+    vanilla cards keep their vanilla item drops and never appear in any
+    other player's seed. The Fred/George vendor pairing in
+    `enable_quidditch_purchases` follows the same items+locations-together
+    contract.
+
+    With this off, the only remaining locations are the 4 classroom spell
+    learnings (which can't be disabled) plus whichever of the secrets /
+    stars / vendors / duels / matches toggles are on. With everything off,
+    only the 4 classrooms remain — pair with `start_inventory_from_pool`
+    for the 4 non-starter spells, since the classrooms self-lock on their
+    own spell.
+    """
+    display_name = "Enable Wizard Card Checks"
+
+
 class EnableSecretsChecks(DefaultOnToggle):
     """If true, the 110 SecretAreaMarker pickups become AP locations.
 
@@ -149,23 +171,25 @@ class EnableQuidditchMatchChecks(Toggle):
     display_name = "Enable Quidditch Match Win Checks"
 
 
-class EnableQuidditchPurchases(DefaultOnToggle):
+class EnableQuidditchPurchases(Toggle):
     """If true, the two Castle Exterior Weasley-vendor purchases become AP
     locations (Castle Exterior - Nimbus 2001 from Fred and Castle Exterior -
     Quidditch Armour from George), AND the matching Nimbus 2001 / Quidditch
     Armour useful items are added to the multiworld pool.
 
-    Items and locations are paired and gated together — gen_apworld.py drops
-    both sides when this toggle is off, otherwise the pool would carry two
-    items (item ids 8 and 9 in data/items.yaml `equipment`) with no homes
-    after the two `quidditch_purchases` locations (location ids 5 and 6 in
+    Items and locations are paired and gated together — HP2World drops both
+    sides when this toggle is off, otherwise the pool would carry two items
+    (item ids 8 and 9 in data/items.yaml `equipment`) with no homes after
+    the two `quidditch_purchases` locations (location ids 5 and 6 in
     data/locations.yaml) drop out.
 
-    Enabled by default. When false, Fred/George keep their vanilla item
-    drops (no APCardMarker_PHCard swap), there's no AP check at the vendor
-    sale, and the unique gear never appears in any other player's seed
-    either. Generation is a no-op until gen_apworld.py consumes the YAML
-    sections and the watcher-side vendor-flow interception lands (v2 scope).
+    Defaults to OFF: the vendor-flow interception watcher isn't wired yet,
+    so enabling produces a seed where the two vendor locations exist but
+    never fire a CHECK in-game (the purchase still goes through with
+    vanilla effect — you just don't bank an AP location by buying).
+    When false, Fred/George keep their vanilla item drops, no AP location
+    exists at the vendor sale, and the unique gear never appears in any
+    other player's seed either. Flip on once the vendor watcher lands.
     """
     display_name = "Enable Quidditch Vendor Purchases"
 
@@ -190,13 +214,14 @@ class HP2Options(PerGameCommonOptions):
     # StartInventoryPool (add-and-remove-from-pool). Keep it available for
     # playtest YAMLs; v1's three starter spells are precollected by the world.
     start_inventory_from_pool: StartInventoryPool
-    # v2 (not yet shipped): toggles for the secrets/stars catalogues. The two
-    # enable_* default to true (secrets/stars are core v2 checks); the
-    # progression-allowance flag defaults to false (missable secrets stay
-    # filler-only by default). Generation is unaffected by these until
-    # gen_apworld.py learns to consume data/secrets_catalogue.yaml and
-    # data/challenge_stars_catalogue.yaml — scaffolded here to lock the
-    # option names + defaults in place early.
+    # Per-category check toggles. Each gates both the matching locations and
+    # any paired items (currently: wizard cards, vendor equipment) — generator
+    # emits both sides into the stable id space, HP2World filters at build
+    # time. Spells + classrooms have no toggle: a spell-randomized run is the
+    # core experience, so spells are always in the pool and classrooms are
+    # always seed locations. With every toggle false the seed has only the 4
+    # classrooms and 4 non-starter spells.
+    enable_wizard_cards: EnableWizardCardChecks
     enable_secrets_checks: EnableSecretsChecks
     enable_challenge_stars_checks: EnableChallengeStarsChecks
     enable_quidditch_purchases: EnableQuidditchPurchases
@@ -224,6 +249,40 @@ class HP2World(World):
         # shrunk the pool). Default would pick any item name including cards,
         # producing card duplicates in the seed. Restrict to bean tiers.
         return self.multiworld.random.choice(FILLER_NAMES)
+
+    # Location-group → option-attr map. Locations whose group is in this map
+    # and whose corresponding option is False are filtered out of the seed.
+    # Locations not listed here (currently only the Classrooms group) are
+    # never filtered — spells need somewhere to live.
+    _LOC_GROUP_TO_OPT: dict[str, str] = {
+        "CardLocations":      "enable_wizard_cards",
+        "Secrets":            "enable_secrets_checks",
+        "ChallengeStars":     "enable_challenge_stars_checks",
+        "QuidditchPurchases": "enable_quidditch_purchases",
+        "Duels":              "enable_duel_checks",
+        "QuidditchMatches":   "enable_quidditch_match_checks",
+    }
+    # Item-group → option-attr map. Same shape, applies to paired items.
+    # Spells / Key Items / Filler aren't listed — always in the pool.
+    _ITEM_GROUP_TO_OPT: dict[str, str] = {
+        "Cards (Bronze)": "enable_wizard_cards",
+        "Cards (Silver)": "enable_wizard_cards",
+        "Cards (Gold)":   "enable_wizard_cards",
+        "Equipment":      "enable_quidditch_purchases",
+    }
+
+    def _location_enabled(self, loc_name: str) -> bool:
+        group = LOCATION_GROUPS.get(loc_name)
+        opt_attr = self._LOC_GROUP_TO_OPT.get(group or "")
+        if opt_attr is None:
+            return True
+        return bool(getattr(self.options, opt_attr))
+
+    def _item_enabled(self, item_name: str) -> bool:
+        for group_name, opt_attr in self._ITEM_GROUP_TO_OPT.items():
+            if item_name in ITEM_GROUPS.get(group_name, []):
+                return bool(getattr(self.options, opt_attr))
+        return True
 
     def create_regions(self) -> None:
         # Build every region declared in logic.yaml plus a "TBD" placeholder for
@@ -253,6 +312,8 @@ class HP2World(World):
                 )
 
         for loc_name, region_name in LOCATION_REGIONS.items():
+            if not self._location_enabled(loc_name):
+                continue
             r = regions_by_name.get(region_name) or regions_by_name["TBD"]
             loc_id = LOCATION_NAME_TO_ID[loc_name]
             r.locations.append(HP2Location(self.player, loc_name, loc_id, r))
@@ -260,7 +321,7 @@ class HP2World(World):
     def create_items(self) -> None:
         non_filler = [
             name for name in ITEM_NAME_TO_ID
-            if name not in FILLER_NAMES
+            if name not in FILLER_NAMES and self._item_enabled(name)
         ]
         placeable_non_filler = [
             name for name in non_filler
@@ -272,7 +333,12 @@ class HP2World(World):
                 continue
             self.multiworld.itempool.append(self.create_item(name))
 
-        delta = len(LOCATION_NAME_TO_ID) - len(placeable_non_filler)
+        # delta uses the FILTERED location count, not the full id-space size,
+        # so disabled categories don't bloat the pool with orphan filler.
+        active_location_count = sum(
+            1 for loc_name in LOCATION_NAME_TO_ID if self._location_enabled(loc_name)
+        )
+        delta = active_location_count - len(placeable_non_filler)
         if delta > 0:
             rng: _random.Random = self.multiworld.random if hasattr(self.multiworld, "random") else _random.Random()
             for _ in range(delta):

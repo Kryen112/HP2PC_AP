@@ -4,6 +4,16 @@ const MAX_CARD_ID = 101;
 const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
 
+// AP location base id (locations.yaml `base_id`). Used to index
+// NonCardLocationChecked[] by `apId - LOC_BASE` for secrets/stars/etc.
+// Mirrors `BASE_ID` in apworld/locations.py.
+const LOC_BASE = 5760000;
+// Class-default dedup for non-card AP locations (secrets, stars, vendors, duels,
+// matches). Indexed by `apId - LOC_BASE`. Sized to fit the current id-space
+// upper bound (~625 for Quidditch match 6) with headroom. Class-default so it
+// persists across level transitions in a session, like LocationChecked[].
+var byte NonCardLocationChecked[700];
+
 var harry HarryRef;
 var StatusItemWizardCards siBronze;
 var StatusItemWizardCards siSilver;
@@ -179,7 +189,8 @@ event PreBeginPlay()
 {
     local int i;
     Super.PreBeginPlay();
-    Log("[Archipelago] APCardWatcher.PreBeginPlay - starting timer (Level=" $ string(Level) $ ")");
+    Log("[Archipelago] APCardWatcher.PreBeginPlay - starting timer (Level=" $ string(Level)
+        $ " Level.Outer.Name=" $ string(Level.Outer.Name) $ ")");
     default.LatestInstance = self;
     SetTimer(0.25, true);
 
@@ -304,6 +315,10 @@ event Timer()
     }
 
     ReplaceVendorSpawnedCards();
+    ReplaceVendorEquipment();
+    ScanSecretMarkers(ipc);
+    ScanDuelWins(ipc);
+    ScanMatchWins(ipc);
 
     // Lesson-start hook for the four spell-tutorial location checks.
     // Bug it fixes: the IsInSpellBook poll below only fires CHECK_SPELL on a
@@ -805,6 +820,10 @@ function Snapshot()
     // chest/loose markers in this level become vendor-available (vanilla's
     // pass can't see our markers because of the Default.Id=200 sentinel).
     AssignMarkersToVendors();
+    // Subclass-replace each unchecked vanilla challenge star with an
+    // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla
+    // score. Already-checked stars stay vanilla, so replay still scores.
+    ReplaceChallengeStars();
 
     // Post-snapshot warmup. Without this, the very first drain happens the
     // moment Snapshot() returns — but level-load cutscenes haven't yet hit
@@ -823,6 +842,208 @@ function Snapshot()
 function bool IsHarryOwned(int id)
 {
     return siBronze.IsOwnedByHarry(id) || siSilver.IsOwnedByHarry(id) || siGold.IsOwnedByHarry(id);
+}
+
+// Per-tick poll of SecretAreaMarker actors. When `bFound` is True and the
+// marker maps to a registered AP location id (via the generated
+// APLocationRegistry), fire CHECK_LOCID once. Class-default
+// NonCardLocationChecked[] dedupes across level re-entries within a session;
+// the vanilla `bPersistent=True` on SecretAreaMarker keeps `bFound` True on
+// re-entry so we'd otherwise re-fire forever. Markers not in the registry
+// (locId==0) are skipped — they live in levels we haven't catalogued.
+function ScanSecretMarkers(APIPCActor ipc)
+{
+    local SecretAreaMarker marker;
+    local string levelName;
+    local int locId;
+    local int slot;
+
+    levelName = string(Level.Outer.Name);
+    foreach AllActors(class'SecretAreaMarker', marker)
+    {
+        if (!marker.bFound) continue;
+        locId = class'APLocationRegistry'.static.GetSecretLocationId(levelName, string(marker.Name));
+        if (locId == 0) continue;
+        slot = locId - LOC_BASE;
+        if (slot < 0 || slot >= 700) continue;
+        if (default.NonCardLocationChecked[slot] == 1) continue;
+        default.NonCardLocationChecked[slot] = 1;
+        Log("[Archipelago] APCardWatcher: secret bFound in " $ levelName
+            $ " marker=" $ string(marker.Name) $ " - firing CHECK_LOCID " $ locId);
+        if (ipc != None) ipc.SendCheckLocationId(locId);
+    }
+}
+
+// Per-tick poll of harry.DuelRankHarry. Vanilla `UpdateDuelingRanks(True)`
+// increments DuelRankHarry by 1 on each duel win when Harry equals the
+// opponent's rank (harry.uc:6197-6210). So at any moment, ranks Harry has
+// won are exactly {1..DuelRankHarry-1}. Fire CHECK_LOCID once per rank not
+// yet checked. Idempotent: resync after save-load just re-fires already-
+// banked AP CHECKs (the AP server and client both dedupe).
+// AP location id = 5760600 + (rank - 1), per data/locations.yaml `duels`.
+function ScanDuelWins(APIPCActor ipc)
+{
+    local int rank, locId, slot;
+
+    if (HarryRef == None) return;
+
+    for (rank = 1; rank < HarryRef.DuelRankHarry && rank <= 10; rank++)
+    {
+        locId = 5760600 + (rank - 1);
+        slot = locId - LOC_BASE;
+        if (slot < 0 || slot >= 700) continue;
+        if (default.NonCardLocationChecked[slot] == 1) continue;
+        default.NonCardLocationChecked[slot] = 1;
+        Log("[Archipelago] APCardWatcher: duel rank " $ rank
+            $ " won (DuelRankHarry=" $ HarryRef.DuelRankHarry
+            $ ") - firing CHECK_LOCID " $ locId);
+        if (ipc != None) ipc.SendCheckLocationId(locId);
+    }
+}
+
+// Per-tick poll of harry.quidGameResults[0..5].bWon. Vanilla sets bWon=True
+// when Harry wins a Quidditch match (also persists via travel-class). Match
+// index 5 is the final match — same poll handles both regular and final.
+// AP location id = 5760620 + match_index, per data/locations.yaml
+// `quidditch_matches`. Idempotent for the same reason as ScanDuelWins.
+function ScanMatchWins(APIPCActor ipc)
+{
+    local int i, locId, slot;
+
+    if (HarryRef == None) return;
+
+    for (i = 0; i < 6; i++)
+    {
+        if (!HarryRef.quidGameResults[i].bWon) continue;
+        locId = 5760620 + i;
+        slot = locId - LOC_BASE;
+        if (slot < 0 || slot >= 700) continue;
+        if (default.NonCardLocationChecked[slot] == 1) continue;
+        default.NonCardLocationChecked[slot] = 1;
+        Log("[Archipelago] APCardWatcher: quidditch match " $ (i + 1)
+            $ " won (vs " $ HarryRef.quidGameResults[i].Opponent
+            $ ") - firing CHECK_LOCID " $ locId);
+        if (ipc != None) ipc.SendCheckLocationId(locId);
+    }
+}
+
+// Per-tick scan for VendorNimbusBroom / QArmor actors freshly spawned by
+// Characters.MakePurchase (line 631-636 in vanilla Characters.uc). Each one
+// is destroyed and replaced with our AP-aware subclass at the same
+// Location/Rotation, with CheckLocationId baked in. The replacement's Touch
+// fires CHECK_LOCID instead of granting the inventory item, so AP retains
+// control over what the player actually receives from buying.
+//
+// Skips actors that are already our subclass so re-running is idempotent.
+// If the location is already AP-checked (e.g. the player bought once already
+// in this session and AP banked it), destroy the freshly-spawned vanilla
+// item with no replacement — buying twice shouldn't double-fire.
+//
+// Mirrors ReplaceVendorSpawnedCards's structure for the cards path.
+function ReplaceVendorEquipment()
+{
+    local VendorNimbusBroom broom;
+    local QArmor armor;
+    local APVendorMarker_Nimbus apNimbus;
+    local APVendorMarker_QArmor apArmor;
+    local Vector loc;
+    local Rotator rot;
+    local int slot;
+
+    foreach AllActors(class'VendorNimbusBroom', broom)
+    {
+        if (ClassIsChildOf(broom.Class, class'APVendorMarker_Nimbus')) continue;
+        slot = 5760005 - LOC_BASE;  // "Castle Exterior - Nimbus 2001" id_offset 5
+        if (default.NonCardLocationChecked[slot] == 1)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: Nimbus location already AP-checked - destroying vanilla broom with no replacement");
+            broom.Destroy();
+            continue;
+        }
+        loc = broom.Location;
+        rot = broom.Rotation;
+        Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: swapping VendorNimbusBroom -> APVendorMarker_Nimbus at " $ string(loc));
+        broom.Destroy();
+        apNimbus = Spawn(class'APVendorMarker_Nimbus', , , loc, rot);
+        if (apNimbus == None)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: Spawn(APVendorMarker_Nimbus) returned None");
+            continue;
+        }
+        apNimbus.CheckLocationId = 5760005;
+    }
+
+    foreach AllActors(class'QArmor', armor)
+    {
+        if (ClassIsChildOf(armor.Class, class'APVendorMarker_QArmor')) continue;
+        slot = 5760006 - LOC_BASE;  // "Castle Exterior - Quidditch Armour" id_offset 6
+        if (default.NonCardLocationChecked[slot] == 1)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: QArmor location already AP-checked - destroying vanilla armor with no replacement");
+            armor.Destroy();
+            continue;
+        }
+        loc = armor.Location;
+        rot = armor.Rotation;
+        Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: swapping QArmor -> APVendorMarker_QArmor at " $ string(loc));
+        armor.Destroy();
+        apArmor = Spawn(class'APVendorMarker_QArmor', , , loc, rot);
+        if (apArmor == None)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: Spawn(APVendorMarker_QArmor) returned None");
+            continue;
+        }
+        apArmor.CheckLocationId = 5760006;
+    }
+}
+
+// Snapshot-time: subclass-replace each unchecked vanilla ChallengeStar with
+// an APChallengeStarMarker carrying the AP location id baked in. The marker
+// inherits the entire ChallengeStar pickup pipeline (mesh, sound, fly-to-HUD,
+// PickedUpStar score increment via PickupProp.EndState's Super call); it only
+// adds the CHECK_LOCID fire. Already-checked locations are left as vanilla
+// stars so level replay still grants vanilla score but never re-fires AP.
+// Skips actors already of our subclass so re-running is idempotent.
+function ReplaceChallengeStars()
+{
+    local ChallengeStar star;
+    local APChallengeStarMarker apStar;
+    local Vector loc;
+    local Rotator rot;
+    local string levelName, markerName;
+    local int locId, slot, replaced;
+
+    levelName = string(Level.Outer.Name);
+    replaced = 0;
+    foreach AllActors(class'ChallengeStar', star)
+    {
+        if (ClassIsChildOf(star.Class, class'APChallengeStarMarker')) continue;
+
+        markerName = string(star.Name);
+        locId = class'APLocationRegistry'.static.GetStarLocationId(levelName, markerName);
+        if (locId == 0) continue;
+        slot = locId - LOC_BASE;
+        if (slot < 0 || slot >= 700) continue;
+        if (default.NonCardLocationChecked[slot] == 1) continue;
+
+        loc = star.Location;
+        rot = star.Rotation;
+        star.Destroy();
+        apStar = Spawn(class'APChallengeStarMarker', , , loc, rot);
+        if (apStar == None)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceChallengeStars: Spawn returned None at "
+                $ string(loc) $ " for AP id " $ locId);
+            continue;
+        }
+        apStar.CheckLocationId = locId;
+        replaced++;
+    }
+    if (replaced > 0)
+    {
+        Log("[Archipelago] APCardWatcher.ReplaceChallengeStars: replaced " $ replaced
+            $ " vanilla star(s) with AP markers in " $ levelName);
+    }
 }
 
 event Destroyed()

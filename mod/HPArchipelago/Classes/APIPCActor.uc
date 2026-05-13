@@ -237,6 +237,17 @@ function SendCheck(int CardId)
     Log("[Archipelago] APIPCActor: sent CHECK " $ CardId);
 }
 
+// CHECK_LOCID carries a raw AP location id (e.g. 5760318) instead of a game-side
+// card id (1..101). Used by the secret/star pollers — those locations have no
+// game-side numeric handle, so the watcher resolves marker → AP id via the
+// generated APLocationRegistry and ships the resulting AP id directly. Client
+// passes it straight to LocationChecks without a card-table lookup.
+function SendCheckLocationId(int LocationId)
+{
+    SendText("CHECK_LOCID " $ LocationId $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent CHECK_LOCID " $ LocationId);
+}
+
 function SendCheckSpell(string SpellName)
 {
     SendText("CHECK_SPELL " $ SpellName $ Chr(10));

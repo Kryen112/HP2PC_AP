@@ -12,6 +12,8 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     'Rictusempra': 5750005,
     'Skurge': 5750006,
     'Spongify': 5750007,
+    'Nimbus 2001': 5750008,
+    'Quidditch Armour': 5750009,
     'Agrippa': 5750100,
     'Alderton': 5750101,
     'Barbary': 5750102,
@@ -116,6 +118,11 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     'Small Pile of Beans': 5750300,
     'Medium Pile of Beans': 5750301,
     'Large Pile of Beans': 5750302,
+    'Massive Pile of Beans': 5750303,
+    'Wiggenweld Potion': 5750304,
+    'Wiggentree Bark': 5750305,
+    'Flobberworm Mucous': 5750306,
+    'Chocolate Frog': 5750307,
 }
 
 ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
@@ -126,6 +133,8 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     'Rictusempra': ItemClassification.progression,
     'Skurge': ItemClassification.progression,
     'Spongify': ItemClassification.progression,
+    'Nimbus 2001': ItemClassification.useful,
+    'Quidditch Armour': ItemClassification.useful,
     'Agrippa': ItemClassification.useful,
     'Alderton': ItemClassification.useful,
     'Barbary': ItemClassification.useful,
@@ -230,18 +239,24 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     'Small Pile of Beans': ItemClassification.filler,
     'Medium Pile of Beans': ItemClassification.filler,
     'Large Pile of Beans': ItemClassification.filler,
+    'Massive Pile of Beans': ItemClassification.filler,
+    'Wiggenweld Potion': ItemClassification.filler,
+    'Wiggentree Bark': ItemClassification.filler,
+    'Flobberworm Mucous': ItemClassification.filler,
+    'Chocolate Frog': ItemClassification.filler,
 }
 
 ITEM_GROUPS: dict[str, list[str]] = {
     'Spells': ['Alohomora', 'Diffindo', 'Flipendo', 'Lumos', 'Rictusempra', 'Skurge', 'Spongify'],
     'Key Items': [],
+    'Equipment': ['Nimbus 2001', 'Quidditch Armour'],
     'Cards (Bronze)': ['Agrippa', 'Alderton', 'Barbary', 'Barkwith', 'Belby', 'Blane', 'Bloxam', 'Bonham', 'Catchlove', 'Elphick', 'Ethelred', 'Fancourt', 'Goshawk', 'Graves', 'Gunhilda', 'Hipworth', 'Kegg', 'Ketteridge', 'Marjoribanks', 'Merlin', 'Merwyn', 'Muldoon', 'Ollerton', 'Peakes', 'Pilliwickle', 'Platt', 'Plumpton', 'Po', 'Pokeby', 'Sawbridge', 'Scamander', 'Starkey', 'Stroulger', 'Stump', 'Sweeting', 'Sykes', 'Thruston', 'Toke', 'Twonk', 'Ulric', 'Vablatsky', 'Waffling', 'Wagtail', 'Warbeck', 'Wellbeloved', 'Wenlock', 'Whitehorn', 'Wintringham', 'Withers', 'Woodcroft'],
     'Cards (Silver)': ['Andros', 'Beamish', 'Chittock', 'Circe', 'Clagg', 'Cliodne', 'Cronk', 'Crumb', 'Dodderidge', 'Duke', 'Fay', 'Fulbert', 'Furmage', 'Gregory', 'Grunnion', 'Jones', 'Lufkin', 'Maeve', 'Montmorency', 'Mopsus', 'Nutcombe', 'Oglethorpe', 'Oldridge', 'Oliphant', 'Plunkett', 'Rastrick', 'Shimpling', 'Shingleton', 'Smethwyck', 'Stalk', 'Summerbee', 'Thurkell', 'Toothill', 'Tremlett', 'Tugwood', 'Wadcock', 'Wendelin', 'Wildsmith', 'Wright', 'Youdle'],
     'Cards (Gold)': ['Bott', 'Dumbledore', 'Gryffindor', 'Herpo', 'Hufflepuff', 'Knightley', 'Paracelsus', 'Pinkstone', 'Potter', 'Ravenclaw', 'Slytherin'],
-    'Filler': ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans'],
+    'Filler': ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans', 'Massive Pile of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog'],
 }
 
-FILLER_NAMES: list[str] = ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans']
+FILLER_NAMES: list[str] = ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans', 'Massive Pile of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog']
 
 # Map UScript card class name → AP item display name. Used by the client
 # when forwarding 'GRANT <classname>' messages to the mod for cards.

@@ -16,6 +16,8 @@ LOCATION_RULES: dict[str, Callable[[CollectionState, int], bool]] = {
     'Castle Exterior - Card Twonk': lambda state, player: state.has('Alohomora', player)  and  state.has('Diffindo', player),
     'Castle Exterior - Card Wadcock': lambda state, player: state.has('Alohomora', player),
     'Castle Exterior - Card Youdle': lambda state, player: state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player),
+    'Castle Exterior - Nimbus 2001': lambda state, player: state.has('Rictusempra', player),
+    'Castle Exterior - Quidditch Armour': lambda state, player: state.has('Rictusempra', player),
     'Hogwarts - Card Alderton': lambda state, player: state.has('Alohomora', player)  and  state.has('Spongify', player),
     'Hogwarts - Card Andros': lambda state, player: state.has('Alohomora', player),
     'Hogwarts - Card Barkwith': lambda state, player: state.has('Alohomora', player)  and  state.has('Rictusempra', player),

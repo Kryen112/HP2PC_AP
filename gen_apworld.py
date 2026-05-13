@@ -21,7 +21,42 @@ DATA_DIR = REPO_ROOT / "data"
 APWORLD_DIR = REPO_ROOT / "apworld"
 MOD_CLASSES_DIR = REPO_ROOT / "mod" / "HPArchipelago" / "Classes"
 
-LOCATION_CATEGORIES = ("classrooms", "special_checks", "cards")
+LOCATION_CATEGORIES = (
+    "classrooms",
+    "special_checks",
+    "cards",
+    "quidditch_purchases",
+    "duels",
+    "quidditch_matches",
+    "secrets",
+    "challenge_stars",
+)
+
+
+# Secret catalogue section key → AP region name (must match logic.yaml regions).
+SECRET_SECTION_TO_REGION: dict[str, str] = {
+    "bicorn_level":          "BicornLevel",
+    "boomslang_level":       "BoomslangLevel",
+    "castle_exterior":       "CastleExterior",
+    "chamber_of_secrets":    "ChamberOfSecrets",
+    "diffindo_challenge":    "DiffindoChallenge",
+    "forbidden_forest":      "ForbiddenForest",
+    "goyle_level":           "GoyleLevel",
+    "hogwarts":              "Hogwarts",
+    "rictusempra_challenge": "RictusempraChallenge",
+    "skurge_challenge":      "SkurgeChallenge",
+    "slytherin_common":      "SlytherinCommon",
+    "spongify_challenge":    "SpongifyChallenge",
+    "whomping_willow":       "WhompingWillow",
+}
+
+# Star catalogue section key → AP region name. All four challenge regions.
+STAR_SECTION_TO_REGION: dict[str, str] = {
+    "rictusempra_challenge": "RictusempraChallenge",
+    "skurge_challenge":      "SkurgeChallenge",
+    "diffindo_challenge":    "DiffindoChallenge",
+    "spongify_challenge":    "SpongifyChallenge",
+}
 
 
 # UScript card Id (set on each WC*.uc class default) → UScript class name.
@@ -194,6 +229,70 @@ def load_data() -> tuple[dict, dict, dict]:
     return items, locations, logic
 
 
+# Loads secrets_catalogue.yaml / challenge_stars_catalogue.yaml and projects every
+# row into `locations[<category>]` so the existing emit pipeline picks them up
+# (same shape as classrooms/cards rows). Also projects per-row `requires` into
+# `logic['locations']` so the existing rule emitter handles them. Mutates both
+# dicts in place. The catalogue's `level` field is preserved on the row so the
+# UScript registry emitter can read it without re-loading the file.
+#
+# Region resolution: catalogue section key → AP region via the section maps.
+# Requires translation: null/empty → "true" (region access only); list of item
+# names → "&"-joined string (matches the existing rule grammar). String values
+# pass through unchanged for forward-compat in case Stefan writes raw
+# expressions during the playthrough.
+def merge_catalogues(locations: dict, logic: dict) -> tuple[int, int]:
+    secrets_rows: list[dict] = []
+    stars_rows: list[dict] = []
+    logic_locations = logic.setdefault("locations", {}) or {}
+    logic["locations"] = logic_locations
+
+    def project(section_to_region: dict[str, str], catalogue_path: Path, kind: str) -> list[dict]:
+        out: list[dict] = []
+        catalogue = yaml.safe_load(catalogue_path.read_text(encoding="utf-8")) or {}
+        for section_key, entries in catalogue.items():
+            if not isinstance(entries, list):
+                continue
+            region = section_to_region.get(section_key)
+            if region is None:
+                raise ValueError(
+                    f"{catalogue_path.name}: section {section_key!r} has no entry in the "
+                    f"{kind} region map. Add it to SECRET_SECTION_TO_REGION / "
+                    f"STAR_SECTION_TO_REGION in gen_apworld.py."
+                )
+            for entry in entries:
+                requires_raw = entry.get("requires")
+                if requires_raw is None or (isinstance(requires_raw, list) and not requires_raw):
+                    requires_str = "true"
+                elif isinstance(requires_raw, list):
+                    requires_str = " & ".join(requires_raw)
+                elif isinstance(requires_raw, str):
+                    requires_str = requires_raw
+                else:
+                    raise ValueError(
+                        f"{catalogue_path.name}: {entry['name']!r} has unsupported "
+                        f"requires type {type(requires_raw).__name__}"
+                    )
+                row = {
+                    "id_offset": entry["id_offset"],
+                    "name":      entry["name"],
+                    "region":    region,
+                    "group":     "Secrets" if kind == "secret" else "ChallengeStars",
+                    "level":     entry["level"],
+                    "marker":    entry["marker"],
+                }
+                out.append(row)
+                if requires_str != "true":
+                    logic_locations[entry["name"]] = {"requires": requires_str}
+        return out
+
+    secrets_rows = project(SECRET_SECTION_TO_REGION, DATA_DIR / "secrets_catalogue.yaml", "secret")
+    stars_rows = project(STAR_SECTION_TO_REGION, DATA_DIR / "challenge_stars_catalogue.yaml", "star")
+    locations["secrets"] = secrets_rows
+    locations["challenge_stars"] = stars_rows
+    return len(secrets_rows), len(stars_rows)
+
+
 def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
     """Convert a logic.yaml rule string to a Python expression body.
 
@@ -314,7 +413,7 @@ def validate(items: dict, locations: dict) -> None:
     item_ids: set[int] = set()
     item_names: set[str] = set()
     item_base = items["base_id"]
-    for category in ("spells", "key_items", "cards_bronze", "cards_silver", "cards_gold", "filler"):
+    for category in ("spells", "key_items", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"):
         for entry in items.get(category, []):
             iid = item_base + entry["id_offset"]
             if iid in item_ids:
@@ -375,6 +474,7 @@ def emit_items(items: dict) -> str:
     rows: list[tuple[str, int, str, str]] = []
     spells_names: list[str] = []
     keys_names: list[str] = []
+    equipment_names: list[str] = []
     bronze_names: list[str] = []
     silver_names: list[str] = []
     gold_names: list[str] = []
@@ -394,6 +494,12 @@ def emit_items(items: dict) -> str:
         add(entry, None, spells_names)
     for entry in items.get("key_items", []):
         add(entry, None, keys_names)
+    for entry in items.get("equipment", []):
+        # Fred/George vendor items. Paired with `enable_quidditch_purchases`:
+        # gen_apworld emits them into ITEM_NAME_TO_ID unconditionally (stable
+        # AP id space across toggle flips) but HP2World.create_items skips
+        # them when the toggle is off, alongside the matching locations.
+        add(entry, None, equipment_names)
     for entry in items.get("cards_bronze", []):
         # cards inherit classification = useful unless overridden (cards aren't progression in v1).
         e2 = {**entry, "classification": entry.get("classification", "useful")}
@@ -422,6 +528,7 @@ def emit_items(items: dict) -> str:
     lines.append("ITEM_GROUPS: dict[str, list[str]] = {")
     lines.append(f"    'Spells': {spells_names!r},")
     lines.append(f"    'Key Items': {keys_names!r},")
+    lines.append(f"    'Equipment': {equipment_names!r},")
     lines.append(f"    'Cards (Bronze)': {bronze_names!r},")
     lines.append(f"    'Cards (Silver)': {silver_names!r},")
     lines.append(f"    'Cards (Gold)': {gold_names!r},")
@@ -619,6 +726,75 @@ def emit_rules(logic: dict, locations: dict) -> str:
     return "\n".join(lines)
 
 
+def emit_location_registry(locations: dict, base_id: int) -> int:
+    """Emit mod/HPArchipelago/Classes/APLocationRegistry.uc.
+
+    Two static lookups: secret-marker (LevelName, MarkerName) → AP location id
+    and star-marker (LevelName, MarkerName) → AP location id. Returns 0 if a
+    given marker isn't registered (e.g. star in a non-challenge level, secret
+    in a level we haven't catalogued). The watcher uses these to fire
+    CHECK_LOCID on the correct AP location when bFound flips / star vanishes.
+    Level names are normalised via Caps() in both the emitter and the watcher
+    so case differences between Level.Outer.Name and the catalogue don't bite.
+    Returns the total number of registered (level, marker) pairs.
+    """
+
+    def expand_levels(level_field: Any) -> list[str]:
+        if isinstance(level_field, list):
+            return list(level_field)
+        return [level_field]
+
+    secret_entries: list[tuple[str, str, int]] = []
+    for row in locations.get("secrets", []):
+        ap_id = base_id + row["id_offset"]
+        for lvl in expand_levels(row["level"]):
+            secret_entries.append((lvl.upper(), row["marker"], ap_id))
+
+    star_entries: list[tuple[str, str, int]] = []
+    for row in locations.get("challenge_stars", []):
+        ap_id = base_id + row["id_offset"]
+        for lvl in expand_levels(row["level"]):
+            star_entries.append((lvl.upper(), row["marker"], ap_id))
+
+    def emit_lookup(fn_name: str, entries: list[tuple[str, str, int]]) -> list[str]:
+        by_level: dict[str, list[tuple[str, int]]] = {}
+        for lvl, marker, ap_id in entries:
+            by_level.setdefault(lvl, []).append((marker, ap_id))
+        # UScript string literals use double-quotes; single-quote is reserved
+        # for Name literals. Comparison is case-sensitive, hence Caps() on
+        # LevelName + uppercase keys. Marker names keep original case; vanilla
+        # Name preserves it on serialization.
+        body: list[str] = [
+            f"static function int {fn_name}(string LevelName, string MarkerName)",
+            "{",
+            "    LevelName = Caps(LevelName);",
+        ]
+        for i, (lvl, pairs) in enumerate(sorted(by_level.items())):
+            keyword = "if" if i == 0 else "else if"
+            body.append(f'    {keyword} (LevelName == "{lvl}")')
+            body.append("    {")
+            for marker, ap_id in sorted(pairs):
+                body.append(f'        if (MarkerName == "{marker}") return {ap_id};')
+            body.append("    }")
+        body.append("    return 0;")
+        body.append("}")
+        return body
+
+    out_path = MOD_CLASSES_DIR / "APLocationRegistry.uc"
+    lines = [
+        "// Auto-generated. Do not edit by hand; regenerate from",
+        "// data/secrets_catalogue.yaml + data/challenge_stars_catalogue.yaml.",
+        "class APLocationRegistry extends Object;",
+        "",
+    ]
+    lines += emit_lookup("GetSecretLocationId", secret_entries)
+    lines.append("")
+    lines += emit_lookup("GetStarLocationId", star_entries)
+    lines.append("")
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return len(secret_entries) + len(star_entries)
+
+
 def emit_card_markers(items: dict) -> int:
     """Emit one APCardMarker_<ClassName>.uc per card in CARD_GAME_ID_TO_CLASS.
 
@@ -640,9 +816,12 @@ def emit_card_markers(items: dict) -> int:
         for entry in items.get(f"cards_{tier}", []):
             class_to_tier[entry["class"]] = tier
 
-    # Clean any previously-generated APCardMarker_*.uc files to avoid stale entries
-    # if data/items.yaml ever shrinks.
-    for stale in MOD_CLASSES_DIR.glob("APCardMarker_*.uc"):
+    # Clean any previously-generated APCardMarker_WC*.uc files to avoid stale
+    # entries if data/items.yaml ever shrinks. Scoped to the WC prefix so the
+    # cleanup never sweeps up hand-authored APCardMarker_* subclasses (the
+    # generated set is always WC-prefixed because every card class in
+    # CARD_GAME_ID_TO_CLASS starts with "WC").
+    for stale in MOD_CLASSES_DIR.glob("APCardMarker_WC*.uc"):
         stale.unlink()
 
     written = 0
@@ -685,6 +864,7 @@ def emit_card_markers(items: dict) -> int:
 
 def main() -> int:
     items, locations, logic = load_data()
+    n_secrets, n_stars = merge_catalogues(locations, logic)
     known_items = collect_known_items(items)
     try:
         validate(items, locations)
@@ -703,16 +883,18 @@ def main() -> int:
     rules_py.write_text(emit_rules(logic, locations), encoding="utf-8")
 
     n_markers = emit_card_markers(items)
+    n_registry = emit_location_registry(locations, locations["base_id"])
 
-    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "cards_bronze", "cards_silver", "cards_gold", "filler"))
+    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
     n_regions = len(all_regions)
     n_loc_rules = sum(1 for m in (logic.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")
-    print(f"Wrote {locations_py} ({n_locs} locations)")
+    print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars merged from catalogues)")
     print(f"Wrote {regions_py} ({n_regions} regions, start={start_region!r})")
     print(f"Wrote {rules_py} ({n_loc_rules} per-location overrides, {len(logic.get('goal') or {})} goal(s))")
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
+    print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star registrations)")
     return 0
 
 

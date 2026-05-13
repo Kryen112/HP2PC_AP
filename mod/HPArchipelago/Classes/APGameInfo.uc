@@ -1422,10 +1422,12 @@ function ApplyGrant(string Body)
     // HUD toast feedback. Fires once per successful grant arrival — past
     // FindGrantReadyHarry means delivery is happening (or about to). The
     // grant queue's drain spacing (0.75s) prevents toast flooding.
+    // Chocolate Frog gets a per-item override sound (the vanilla frog
+    // pickup ribbit) instead of the generic vendor whoosh.
     toast = class'APHUDToast'.static.GetInstance();
     if (toast != None)
     {
-        toast.EnqueueToast(FormatGrantText(ItemName, Sender));
+        toast.EnqueueToast(FormatGrantText(ItemName, Sender), GetGrantSoundForItem(ItemName));
     }
 
     if (IsKnownSpellName(ItemName))
@@ -1487,6 +1489,48 @@ function ApplyGrant(string Body)
         Log("[Archipelago] ApplyGrant: granted Large Pile of Beans (+100)");
         return;
     }
+    if (ItemName == "Massive Pile of Beans")
+    {
+        h.managerStatus.AddBeans(250);
+        Log("[Archipelago] ApplyGrant: granted Massive Pile of Beans (+250)");
+        return;
+    }
+    // Wiggenweld Potion: usable inventory item that auto-refills HP at low
+    // health (and is manually-usable from the in-game menu). Mirrors vanilla
+    // `harry.AddWiggenwellPotion` path which calls IncrementCount on
+    // StatusGroupPotions/StatusItemWiggenwell. Adds +1 to the held-potion count.
+    if (ItemName == "Wiggenweld Potion")
+    {
+        h.managerStatus.IncrementCount(class'StatusGroupPotions', class'StatusItemWiggenwell', 1);
+        Log("[Archipelago] ApplyGrant: granted Wiggenweld Potion (+1 to StatusItemWiggenwell)");
+        return;
+    }
+    // Wiggentree Bark + Flobberworm Mucous: cauldron-brewing ingredients held
+    // in the StatusGroupPotionIngr inventory. Mirrors StatusManager.AddBark /
+    // AddMucus (StatusManager.uc:248-263). Adds +1 to the ingredient stack;
+    // player can then brew a Wiggenweld Potion from a cauldron when they have
+    // both ingredients.
+    if (ItemName == "Wiggentree Bark")
+    {
+        h.managerStatus.IncrementCount(class'StatusGroupPotionIngr', class'StatusItemWiggenBark', 1);
+        Log("[Archipelago] ApplyGrant: granted Wiggentree Bark (+1 to StatusItemWiggenBark)");
+        return;
+    }
+    if (ItemName == "Flobberworm Mucous")
+    {
+        h.managerStatus.IncrementCount(class'StatusGroupPotionIngr', class'StatusItemFlobberMucus', 1);
+        Log("[Archipelago] ApplyGrant: granted Flobberworm Mucous (+1 to StatusItemFlobberMucus)");
+        return;
+    }
+    // Chocolate Frog: partial HP refill. Vanilla `ChocolateFrog.nPickupIncrement=40`
+    // on a StatusGroupHealth/StatusItemHealth pickup — we replicate that by
+    // calling managerStatus.AddHealth(40), which caps at the current max.
+    if (ItemName == "Chocolate Frog")
+    {
+        h.managerStatus.AddHealth(40);
+        Log("[Archipelago] ApplyGrant: granted Chocolate Frog (+40 HP)");
+        return;
+    }
 
     if (TryApplyCard(ItemName, h))
     {
@@ -1494,6 +1538,18 @@ function ApplyGrant(string Body)
     }
 
     Log("[Archipelago] ApplyGrant: unknown item " $ ItemName);
+}
+
+// Returns a per-item toast sound override so audible feedback matches the
+// granted item's flavor instead of the generic vendor whoosh. None for items
+// without a flavor sound — the toast falls back to its default ToastSound.
+function Sound GetGrantSoundForItem(string ItemName)
+{
+    if (ItemName == "Chocolate Frog")
+    {
+        return Sound(DynamicLoadObject("HPSounds.Critters_sfx.pickup_frog", class'Sound'));
+    }
+    return None;
 }
 
 defaultproperties

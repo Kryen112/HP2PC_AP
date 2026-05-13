@@ -96,10 +96,15 @@ function bool TryRegisterWithHUD()
     return True;
 }
 
-function EnqueueToast(string text)
+// `overrideSound` (optional) plays in place of the default vendor-whoosh —
+// caller passes per-item flavor (e.g. chocolate frog ribbit for the Chocolate
+// Frog grant) without losing the toast's HUD-level audio cue. Null override
+// falls back to ToastSound.
+function EnqueueToast(string text, optional Sound overrideSound)
 {
     local int i;
     local harry h;
+    local Sound soundToPlay;
 
     if (text == "") return;
 
@@ -118,14 +123,22 @@ function EnqueueToast(string text)
     ToastCount++;
     Log("[Archipelago] APHUDToast.EnqueueToast: '" $ text $ "' (queue=" $ ToastCount $ ")");
 
-    // Whoosh feedback. Play through harry so it's at the camera (UI-loud)
+    // Audio feedback. Play through harry so it's at the camera (UI-loud)
     // rather than from this hidden actor's world position.
-    if (ToastSound != None)
+    if (overrideSound != None)
+    {
+        soundToPlay = overrideSound;
+    }
+    else
+    {
+        soundToPlay = ToastSound;
+    }
+    if (soundToPlay != None)
     {
         h = harry(Level.PlayerHarryActor);
         if (h != None)
         {
-            h.PlaySound(ToastSound);
+            h.PlaySound(soundToPlay);
         }
     }
 }

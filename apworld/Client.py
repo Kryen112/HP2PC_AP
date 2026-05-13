@@ -10,7 +10,8 @@ during dev from inside the Archipelago repo:
 
 Mod-side protocol (newline-delimited text):
     HELLO                       (game → client, on connect)
-    CHECK <id>                  (game → client, on card pickup)
+    CHECK <id>                  (game → client, on card pickup — game-side card id 1..101)
+    CHECK_LOCID <id>            (game → client, on secret/star pickup — raw AP location id)
     CHECK_SPELL <name>          (game → client, on spell learned)
     CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
     GOAL_COMPLETE               (game → client, once when post-Basilisk credits start)
@@ -296,6 +297,20 @@ class HP2Context(CommonContext):
                 kind="key item",
                 game_name=key_item_name,
                 name_to_location=KEYITEM_TO_LOCATION_NAME,
+            )
+            return
+        if line.startswith("CHECK_LOCID "):
+            try:
+                location_id = int(line[len("CHECK_LOCID "):].strip())
+            except ValueError:
+                logger.warning(f"Unparseable CHECK_LOCID: {line!r}")
+                return
+            if location_id in self.checked_locations_seen:
+                return
+            self.checked_locations_seen.add(location_id)
+            await self._send_or_queue_ap_msg(
+                {"cmd": "LocationChecks", "locations": [location_id]},
+                label=f"LocationChecks for AP location id {location_id} (raw CHECK_LOCID)",
             )
             return
         if line.startswith("CHECK "):
