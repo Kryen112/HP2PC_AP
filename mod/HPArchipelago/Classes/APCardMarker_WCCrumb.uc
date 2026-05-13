@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE020"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Crumb"
 }

@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE170"
     MarkerTier="Bronze"
+    DisplayName="Bronze Card - Elphick"
 }

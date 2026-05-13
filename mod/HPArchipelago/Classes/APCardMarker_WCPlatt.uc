@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE120"
     MarkerTier="Bronze"
+    DisplayName="Bronze Card - Platt"
 }

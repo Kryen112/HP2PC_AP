@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE100"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Beamish"
 }

@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE065"
     MarkerTier="Bronze"
+    DisplayName="Bronze Card - Agrippa"
 }

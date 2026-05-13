@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE100"
     MarkerTier="Bronze"
+    DisplayName="Bronze Card - Muldoon"
 }

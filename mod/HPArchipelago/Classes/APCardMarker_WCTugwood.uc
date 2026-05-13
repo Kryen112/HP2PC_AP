@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE090"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Tugwood"
 }

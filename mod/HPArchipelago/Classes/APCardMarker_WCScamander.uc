@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE150"
     MarkerTier="Bronze"
+    DisplayName="Bronze Card - Scamander"
 }

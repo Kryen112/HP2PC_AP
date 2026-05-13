@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE050"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Fulbert"
 }

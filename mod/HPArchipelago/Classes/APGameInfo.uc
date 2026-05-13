@@ -1367,31 +1367,27 @@ static function harry FindGrantReadyHarry(Actor caller)
     return None;
 }
 
-// Player-facing string for the HUD toast. Builds "Received <tier> card: X
-// from <Y>" for cards (tier read from the corresponding APCardMarker_<X>
-// subclass's MarkerTier defaultprop), translates
-// bean tiers to counts, and otherwise passes the raw item name through.
+// Player-facing string for the HUD toast. Echoes the AP display name as-is —
+// for cards, that name lives on the generated APCardMarker_<X>.DisplayName
+// defaultprop (sourced from items.yaml, e.g. "Silver Card - Duke"); for
+// non-cards, the GRANT payload itself already IS the AP item name.
 // `Sender` is empty when the IPC payload had no sender field (older client
 // builds, or any path that bypasses the GRANT pipe-encoded format).
 function string FormatGrantText(string ItemName, string Sender)
 {
     local class<APCardMarker> markerCls;
-    local string base, tier;
+    local string display, base;
 
+    display = ItemName;
     if (Left(ItemName, 2) == "WC")
     {
         markerCls = class<APCardMarker>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ ItemName, class'Class'));
-        if (markerCls != None)
+        if (markerCls != None && markerCls.default.DisplayName != "")
         {
-            if      (markerCls.default.MarkerTier == "Bronze") tier = "bronze ";
-            else if (markerCls.default.MarkerTier == "Silver") tier = "silver ";
-            else if (markerCls.default.MarkerTier == "Gold")   tier = "gold ";
-            else                                                tier = "";
+            display = markerCls.default.DisplayName;
         }
-        base = "Received " $ tier $ "card " $ Mid(ItemName, 2);
     }
-    else                                base = "Received " $ ItemName;
-
+    base = "Received " $ display;
     if (Sender != "")
     {
         base = base $ " from " $ Sender;

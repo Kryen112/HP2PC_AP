@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE110"
     MarkerTier="Bronze"
+    DisplayName="Bronze Card - Plumpton"
 }

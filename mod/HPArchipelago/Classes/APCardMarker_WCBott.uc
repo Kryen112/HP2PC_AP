@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=False
     strVendorOwnedAfterGState=""
     MarkerTier="Gold"
+    DisplayName="Gold Card - Bott"
 }

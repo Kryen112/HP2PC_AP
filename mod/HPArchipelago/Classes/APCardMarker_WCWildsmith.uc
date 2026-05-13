@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE110"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Wildsmith"
 }

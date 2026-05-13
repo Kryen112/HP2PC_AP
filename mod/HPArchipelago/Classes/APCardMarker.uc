@@ -36,6 +36,12 @@ var bool bIsLooseSpawn;
 // with the per-card vanilla values so vendors see our markers as sellable.
 var string MarkerTier;
 
+// AP item display name (e.g. "Silver Card - Duke"), set per generated subclass
+// from items.yaml's `name` field. APGameInfo.FormatGrantText reads this so the
+// HUD toast shows the real AP name instead of synthesising "Received silver
+// card Duke" from class + MarkerTier.
+var string DisplayName;
+
 // Set True for cards the level designer placed mid-air
 // (e.g., `WCToothill` floating above the Grand Staircase, vanilla intent: reach
 // it via Spongify-jump). Vanilla level-loaded `WizardCardIcon` defaults to

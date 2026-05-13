@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE080"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Smethwyck"
 }

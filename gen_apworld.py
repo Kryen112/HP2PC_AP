@@ -821,11 +821,16 @@ def emit_card_markers(items: dict) -> int:
 
     Returns the number of marker files written.
     """
-    # Build class -> tier from items.yaml's three card lists.
+    # Build class -> tier and class -> AP display name from items.yaml's three
+    # card lists. DisplayName flows into the emitted marker defaults so the mod
+    # can echo the real AP item string (e.g. "Silver Card - Duke") in HUD
+    # toasts via APGameInfo.FormatGrantText.
     class_to_tier: dict[str, str] = {}
+    class_to_display: dict[str, str] = {}
     for tier in ("bronze", "silver", "gold"):
         for entry in items.get(f"cards_{tier}", []):
             class_to_tier[entry["class"]] = tier
+            class_to_display[entry["class"]] = entry["name"]
 
     # Clean any previously-generated APCardMarker_WC*.uc files to avoid stale
     # entries if data/items.yaml ever shrinks. Scoped to the WC prefix so the
@@ -853,6 +858,7 @@ def emit_card_markers(items: dict) -> int:
         bvc_uc = "True" if bvc else "False"
         floating = ucls in FLOATING_CARDS
         floating_line = "    bIsFloatingCard=True\n" if floating else ""
+        display_name = class_to_display[ucls]
         path = MOD_CLASSES_DIR / f"APCardMarker_{ucls}.uc"
         path.write_text(
             "// Auto-generated. Do not edit by hand; regenerate from data/items.yaml.\n"
@@ -865,6 +871,7 @@ def emit_card_markers(items: dict) -> int:
             f"    bVendorsCanSell={bvc_uc}\n"
             f"    strVendorOwnedAfterGState=\"{gst}\"\n"
             f"    MarkerTier=\"{marker_tier}\"\n"
+            f"    DisplayName=\"{display_name}\"\n"
             f"{floating_line}"
             "}\n",
             encoding="utf-8",

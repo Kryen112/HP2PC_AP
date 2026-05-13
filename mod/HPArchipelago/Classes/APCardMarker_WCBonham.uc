@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=False
     strVendorOwnedAfterGState=""
     MarkerTier="Bronze"
+    DisplayName="Bronze Card - Bonham"
 }

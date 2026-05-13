@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE150"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Oliphant"
 }

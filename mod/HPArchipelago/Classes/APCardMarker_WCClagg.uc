@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE120"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Clagg"
 }

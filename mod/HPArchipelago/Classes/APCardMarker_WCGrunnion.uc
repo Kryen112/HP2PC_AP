@@ -8,4 +8,5 @@ defaultproperties
     bVendorsCanSell=True
     strVendorOwnedAfterGState="GSTATE130"
     MarkerTier="Silver"
+    DisplayName="Silver Card - Grunnion"
 }
