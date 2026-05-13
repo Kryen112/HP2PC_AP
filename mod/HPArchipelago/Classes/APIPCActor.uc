@@ -316,12 +316,12 @@ function TryDrainPendingGrants()
         return;
     }
 
-    // Don't drain while the game is paused (in-game menu, save/load). The
-    // IsPlayerInPlayableState gate below is the authoritative "Harry is
-    // actually playing" check; Level.Pauser is kept as a cheap early-out
-    // for the pause-menu case. Level.Pauser is a string in HP2 (UE1
-    // retail), not an object ref — compare to "" not None. See
-    // HPConsole.uc:752.
+    // Don't drain while the engine is paused (HPConsole sets Level.Pauser
+    // briefly during e.g. exec-script sleeps; load screens; dev `pause`).
+    // Note: HP2's in-game menu does NOT flip Level.Pauser — that case is
+    // caught further down by IsPlayerInPlayableState's `menuBook.bIsOpen`
+    // check. Level.Pauser is a string in HP2 (UE1 retail), not an object
+    // ref — compare to "" not None. See HPConsole.uc:752.
     if (Level.Pauser != "")
     {
         if (!bLoggedGrantDeferral)

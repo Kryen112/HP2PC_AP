@@ -1266,6 +1266,19 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason)
         return False;
     }
 
+    // In-game pause menu (FEBook on the console). `bIsOpen` is True from
+    // OpenBook (FEBook.uc:840) until CloseBook (FEBook.uc:880), covering
+    // both the in-game pause menu (TogglePauseMenu → OpenBook("INGAME"))
+    // and any other menu page. `bGamePlaying` was the wrong gate — it only
+    // flips False on MainPage (title screen), not on the in-game menu.
+    if (HPConsole(h.Player.Console) != None
+        && HPConsole(h.Player.Console).menuBook != None
+        && HPConsole(h.Player.Console).menuBook.bIsOpen)
+    {
+        DeferReason = "menuBook.bIsOpen=True (in-game menu open)";
+        return False;
+    }
+
     // Direct cutscene-actor check. `IsCutSceneOrPopupInProgress` only returns
     // True after the cutscene script has executed CAPTURE (which calls
     // HPHud.StartCutScene to flip bCutSceneMode/bCutPopupMode). For
