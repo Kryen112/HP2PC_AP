@@ -102,7 +102,11 @@ regions:
 
   ChamberOfSecrets:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify"
-    notes: "Final goal region. All 4 non-starter spells required for traversal and Basilisk; Alohomora at region entry too. Hosts Chamber of Secrets - Card Elphick plus all 11 Gold cards — in vanilla, opening Gold chests needs 4 Gold keys earned from 40 Silver cards collected, but the generator's rule grammar doesn't currently support group counts so that constraint is not encoded here."
+    notes: "Final goal region. All 4 non-starter spells required for traversal and Basilisk; Alohomora at region entry too. Hosts Chamber of Secrets - Card Elphick only — the 11 Gold cards moved to GoldCardRoom 2026-05-13 (correct vanilla home is Ch6WizardCard, not the Chamber level)."
+
+  GoldCardRoom:
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify"
+    notes: "Ch6WizardCard.unr — the gold card vault. Vanilla unlocks this room after collecting 40 Silver cards (=4 Gold keys), which the current rule grammar can't express. Entry mirrors ChamberOfSecrets's full-spell prereq as a safe approximation — by the time a player has all 7 spells they have typically earned >=40 Silvers, and AP-granted silvers count toward the 40-silver gate when delivered. AP doesn't model the silver-count door itself; vanilla still enforces it in-game."
 
 # Per-location rules. KEY = location.name from locations.yaml.
 # A location's effective rule is: region.entry AND location.requires.

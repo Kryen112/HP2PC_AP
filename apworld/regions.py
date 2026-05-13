@@ -6,7 +6,7 @@ from BaseClasses import CollectionState
 
 START_REGION: str = 'Menu'
 
-REGION_NAMES: list[str] = ['BicornLevel', 'BoomslangLevel', 'CastleExterior', 'ChamberOfSecrets', 'DiffindoChallenge', 'DuelingClub', 'DumbledoreStudy', 'ForbiddenForest', 'GoyleLevel', 'Hogwarts', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
+REGION_NAMES: list[str] = ['BicornLevel', 'BoomslangLevel', 'CastleExterior', 'ChamberOfSecrets', 'DiffindoChallenge', 'DuelingClub', 'DumbledoreStudy', 'ForbiddenForest', 'GoldCardRoom', 'GoyleLevel', 'Hogwarts', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
 
 # region_name -> rule(state, player) -> bool. The rule is the requirement to
 # enter the region from the start region (Menu) in the open-hub v1 model. Any
@@ -20,6 +20,7 @@ REGION_ENTRY_RULES: dict[str, Callable[[CollectionState, int], bool]] = {
     'DuelingClub': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player),
     'DumbledoreStudy': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
     'ForbiddenForest': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player),
+    'GoldCardRoom': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player),
     'GoyleLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
     'Hogwarts': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
     'Quidditch': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player),

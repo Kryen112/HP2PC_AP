@@ -256,14 +256,14 @@ cards:
   - { id_offset: 187, name: "Goyle Level - Card Wildsmith",     card_class: WCWildsmith,     region: GoyleLevel,          group: CardLocations }
   - { id_offset: 188, name: "Hogwarts - Card Wright",        card_class: WCWright,        region: Hogwarts,            group: CardLocations }
   - { id_offset: 189, name: "Castle Exterior - Card Youdle",        card_class: WCYoudle,        region: CastleExterior,      group: CardLocations }
-  - { id_offset: 190, name: "Chamber of Secrets - Card Bott",          card_class: WCBott,          region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 191, name: "Chamber of Secrets - Card Dumbledore",    card_class: WCDumbledore,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 192, name: "Chamber of Secrets - Card Gryffindor",    card_class: WCGriffindor,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 193, name: "Chamber of Secrets - Card Herpo",         card_class: WCHerpo,         region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 194, name: "Chamber of Secrets - Card Hufflepuff",    card_class: WCHufflepuff,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 195, name: "Chamber of Secrets - Card Knightley",     card_class: WCKnightley,     region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 196, name: "Chamber of Secrets - Card Paracelsus",    card_class: WCParacelsus,    region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 197, name: "Chamber of Secrets - Card Pinkstone",     card_class: WCPinkstone,     region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 198, name: "Chamber of Secrets - Card Potter",        card_class: WCPotter,        region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 199, name: "Chamber of Secrets - Card Ravenclaw",     card_class: WCRavenclaw,     region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 200, name: "Chamber of Secrets - Card Slytherin",     card_class: WCSlytherin,     region: ChamberOfSecrets,    group: CardLocations }
+  - { id_offset: 190, name: "Gold Card Room - Card Bott",          card_class: WCBott,          region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 191, name: "Gold Card Room - Card Dumbledore",    card_class: WCDumbledore,    region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 192, name: "Gold Card Room - Card Gryffindor",    card_class: WCGriffindor,    region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 193, name: "Gold Card Room - Card Herpo",         card_class: WCHerpo,         region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 194, name: "Gold Card Room - Card Hufflepuff",    card_class: WCHufflepuff,    region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 195, name: "Gold Card Room - Card Knightley",     card_class: WCKnightley,     region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 196, name: "Gold Card Room - Card Paracelsus",    card_class: WCParacelsus,    region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 197, name: "Gold Card Room - Card Pinkstone",     card_class: WCPinkstone,     region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 198, name: "Gold Card Room - Card Potter",        card_class: WCPotter,        region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 199, name: "Gold Card Room - Card Ravenclaw",     card_class: WCRavenclaw,     region: GoldCardRoom,    group: CardLocations }
+  - { id_offset: 200, name: "Gold Card Room - Card Slytherin",     card_class: WCSlytherin,     region: GoldCardRoom,    group: CardLocations }
