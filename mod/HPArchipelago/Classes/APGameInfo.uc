@@ -104,10 +104,36 @@ event InitGame(string Options, out string Error)
     }
 
     ReplaceCardChests();
+    DestroyUnobtainableSecretMarkers();
     BlockRictaClassroomIfMissing();
     BlockSkurgeClassroomIfMissing();
     BlockDiffindoClassroomIfMissing();
     BlockSpongifyClassroomIfMissing();
+}
+
+// Destroy SecretAreaMarker instances that AP dropped from the catalogue
+// because they're unobtainable in normal play. Vanilla's pause menu counts
+// secrets via AllActors(Class'SecretAreaMarker') in FEInGamePage.GetSecretsCount,
+// so leaving the marker in the level inflates the denominator (e.g. Chamber
+// of Secrets Part 2 would show X/4 when only 3 are actually findable).
+// Destroying at level entry removes them from the AllActors enumeration.
+function DestroyUnobtainableSecretMarkers()
+{
+    local SecretAreaMarker m;
+    local string levelName;
+
+    levelName = Caps(string(Level.Outer.Name));
+    if (levelName == "ADV11BSECRETS")
+    {
+        foreach AllActors(class'SecretAreaMarker', m)
+        {
+            if (m.Name == 'SecretAreaMarker0')
+            {
+                Log("[Archipelago] DestroyUnobtainableSecretMarkers: " $ levelName $ "." $ string(m.Name) $ " - destroying so pause menu shows X/3 not X/4");
+                m.Destroy();
+            }
+        }
+    }
 }
 
 // If the player doesn't already own Rictusempra (per APCardWatcher's AP-grant
