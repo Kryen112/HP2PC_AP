@@ -40,6 +40,7 @@ SECRET_SECTION_TO_REGION: dict[str, str] = {
     "castle_exterior":       "CastleExterior",
     "chamber_of_secrets":    "ChamberOfSecrets",
     "diffindo_challenge":    "DiffindoChallenge",
+    "dumbledore_study":      "DumbledoreStudy",
     "forbidden_forest":      "ForbiddenForest",
     "goyle_level":           "GoyleLevel",
     "hogwarts":              "Hogwarts",

@@ -13,9 +13,9 @@ static function int GetSecretLocationId(string LevelName, string MarkerName)
     }
     else if (LevelName == "ADV11BSECRETS")
     {
-        if (MarkerName == "SecretAreaMarker0") return 5760321;
         if (MarkerName == "SecretAreaMarker1") return 5760322;
         if (MarkerName == "SecretAreaMarker2") return 5760323;
+        if (MarkerName == "SecretAreaMarker3") return 5760324;
     }
     else if (LevelName == "ADV1WILLOW")
     {
