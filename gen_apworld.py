@@ -507,7 +507,17 @@ def emit_items(items: dict) -> str:
         add(e2, None, bronze_names)
         card_class_to_item_name.append((entry["class"], entry["name"]))
     for entry in items.get("cards_silver", []):
-        e2 = {**entry, "classification": entry.get("classification", "useful")}
+        # Silvers default to progression_skip_balancing (not useful). The
+        # HP2World.set_rules silver-gate on GoldCardRoom locations requires
+        # state.has(silver, player) to return True for every silver, and
+        # state.has only tracks items in `prog_items` — advancement-flagged
+        # items (progression OR progression_skip_balancing). Useful-tier
+        # items skip prog_items so the gate could never be satisfied even
+        # after all 40 silvers were collected. skip_balancing variant keeps
+        # silvers out of progression rebalancing (they aren't strictly
+        # required for the basilisk goal) while still flagging them as
+        # advancement so state.has + the accessibility sweep both work.
+        e2 = {**entry, "classification": entry.get("classification", "progression_skip_balancing")}
         add(e2, None, silver_names)
         card_class_to_item_name.append((entry["class"], entry["name"]))
     for entry in items.get("cards_gold", []):

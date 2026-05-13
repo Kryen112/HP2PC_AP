@@ -346,7 +346,7 @@ class HP2World(World):
                 self.multiworld.itempool.append(self.create_item(name))
 
     def set_rules(self) -> None:
-        from worlds.generic.Rules import set_rule, add_item_rule
+        from worlds.generic.Rules import set_rule, add_item_rule, add_rule
 
         for loc_name, rule_fn in LOCATION_RULES.items():
             try:
@@ -369,6 +369,7 @@ class HP2World(World):
         # "Gold Card Room - Card Bott", not "Card_Bott"), so the
         # try/except KeyError silently swallowed the entire constraint.
         silver_items = frozenset(ITEM_GROUPS.get("Cards (Silver)", []))
+        silver_items_list = tuple(ITEM_GROUPS.get("Cards (Silver)", []))
         gold_card_item_names = ITEM_GROUPS.get("Cards (Gold)", [])
         item_name_to_card_class = {v: k for k, v in CARD_CLASS_TO_ITEM_NAME.items()}
         for item_name in gold_card_item_names:
@@ -383,6 +384,14 @@ class HP2World(World):
             except KeyError:
                 continue
             add_item_rule(loc, lambda item, silvers=silver_items: item.name not in silvers)
+            # Reachability gate: the Gold Card Room only opens after the
+            # player has 4 Silver keys, earned at the 1-per-10-Silvers rate,
+            # i.e. all 40 Silver cards. The rule grammar can't express group
+            # counts, so the closure ANDs an explicit "have every Silver item
+            # in the pool" check onto each Gold location. Composes with the
+            # GoldCardRoom region entry (full-spell prereq) via add_rule.
+            add_rule(loc, lambda state, silvers=silver_items_list, player=self.player:
+                all(state.has(s, player) for s in silvers))
 
         goal_locations = GOAL_LOCATION_REQUIREMENTS.get(DEFAULT_GOAL, [])
         goal_rule = GOAL_RULES.get(DEFAULT_GOAL)

@@ -20,7 +20,7 @@ REGION_ENTRY_RULES: dict[str, Callable[[CollectionState, int], bool]] = {
     'DuelingClub': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player),
     'DumbledoreStudy': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
     'ForbiddenForest': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player),
-    'GoldCardRoom': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player),
+    'GoldCardRoom': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
     'GoyleLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player),
     'Hogwarts': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
     'Quidditch': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player),

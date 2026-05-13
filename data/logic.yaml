@@ -105,8 +105,8 @@ regions:
     notes: "Final goal region. All 4 non-starter spells required for traversal and Basilisk; Alohomora at region entry too. Hosts Chamber of Secrets - Card Elphick only — the 11 Gold cards moved to GoldCardRoom 2026-05-13 (correct vanilla home is Ch6WizardCard, not the Chamber level)."
 
   GoldCardRoom:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify"
-    notes: "Ch6WizardCard.unr — the gold card vault. Vanilla unlocks this room after collecting 40 Silver cards (=4 Gold keys), which the current rule grammar can't express. Entry mirrors ChamberOfSecrets's full-spell prereq as a safe approximation — by the time a player has all 7 spells they have typically earned >=40 Silvers, and AP-granted silvers count toward the 40-silver gate when delivered. AP doesn't model the silver-count door itself; vanilla still enforces it in-game."
+    entry: "Lumos & Flipendo"
+    notes: "Ch6WizardCard.unr — the gold card vault, reached via a door in the Grand Staircase (Hogwarts sub-area), so the region entry mirrors Hogwarts (Lumos & Flipendo only) rather than the full-spell endgame gate. The vanilla 40-silver-card door (=4 Gold keys at 10 silvers each) is modelled in HP2World.set_rules as a Python-side add_rule that ANDs `state.has(every silver, player)` onto each gold-card location; the rule grammar itself can't express group counts. Per-card spell requirements inside the room are TBD pending a full playthrough — most gold cards may need additional spells to physically reach within the room."
 
 # Per-location rules. KEY = location.name from locations.yaml.
 # A location's effective rule is: region.entry AND location.requires.
@@ -225,6 +225,26 @@ locations:
   "Quidditch - Match 4 (Hufflepuff)": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
   "Quidditch - Match 5 (Ravenclaw)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
   "Quidditch - Match 6 (Slytherin)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+
+  # ── Gold Card Room cards (region entry: Lumos & Flipendo via Grand Staircase) ─
+  # The Python-side add_rule silver-gate (all 40 silvers required) ANDs onto
+  # each of these in HP2World.set_rules, so the effective rule per card is
+  # region entry AND (per-location requires below) AND (all 40 silvers).
+  # Level is replayable infinitely once the silver gate is met — picking up
+  # already-AP-checked gold cards on replay fires no-op CHECKs (deduped).
+  # `(Rictusempra | Spongify)` captures the two alternate routes through the
+  # vault (Rictusempra-strike or Spongify-bounce) the player can use.
+  "Gold Card Room - Card Bott":       { requires: "Rictusempra | Spongify" }
+  "Gold Card Room - Card Dumbledore": { requires: "Alohomora & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Gryffindor": { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Herpo":      { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Slytherin":  { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Hufflepuff": { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Knightley":  { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Paracelsus": { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Pinkstone":  { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Ravenclaw":  { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
+  "Gold Card Room - Card Potter":     { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
 
   # All other cards inherit their region's entry rule (which now includes
   # Alohomora for the universally-locked regions: RictusempraChallenge,
