@@ -16,8 +16,8 @@ from typing import Any
 
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          Region)
-from Options import (DefaultOnToggle, PerGameCommonOptions, StartInventoryPool,
-                     Toggle)
+from Options import (Choice, DefaultOnToggle, PerGameCommonOptions,
+                     StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
@@ -68,6 +68,21 @@ class HP2Location(Location):
 
 class HP2WebWorld(WebWorld):
     """Web frontend metadata for archipelago.gg."""
+
+
+class GameMode(Choice):
+    """Which install layout this seed targets.
+
+    `vanilla` (default): retail HP2 + M212 patch. Lumos / Flipendo / Alohomora
+    are precollected starters; the other 4 spells are in the AP pool.
+
+    `bingo`: the bingo-distribution maps (open castle, every door unlocked).
+    NO spells are precollected, all 7 land as AP items.
+    """
+    display_name = "Game Mode"
+    option_vanilla = 0
+    option_bingo = 1
+    default = 0
 
 
 class EnableWizardCards(DefaultOnToggle):
@@ -131,6 +146,7 @@ class HP2Options(PerGameCommonOptions):
     # StartInventoryPool (add-and-remove-from-pool). Keep it available for
     # playtest YAMLs; v1's three starter spells are precollected by the world.
     start_inventory_from_pool: StartInventoryPool
+    game_mode: GameMode
     # Per-category check toggles. Each gates both the matching locations and
     # any paired items (currently: wizard cards, vendor equipment) — generator
     # emits both sides into the stable id space, HP2World filters at build
@@ -235,17 +251,27 @@ class HP2World(World):
             loc_id = LOCATION_NAME_TO_ID[loc_name]
             r.locations.append(HP2Location(self.player, loc_name, loc_id, r))
 
+    def _starter_names(self) -> set[str]:
+        # Bingo maps have base cutscenes (incl. the Privet Drive / intro grants
+        # of Lumos / Flipendo / Alohomora) removed, so no spell is owned at
+        # spawn — every spell must come from AP. In vanilla, the 3 cutscene
+        # starters stay precollected so AP logic treats Harry as owning them.
+        if self.options.game_mode.current_key == "bingo":
+            return set()
+        return STARTER_ITEM_NAMES
+
     def create_items(self) -> None:
+        starters = self._starter_names()
         non_filler = [
             name for name in ITEM_NAME_TO_ID
             if name not in FILLER_NAMES and self._item_enabled(name)
         ]
         placeable_non_filler = [
             name for name in non_filler
-            if name not in STARTER_ITEM_NAMES
+            if name not in starters
         ]
         for name in non_filler:
-            if name in STARTER_ITEM_NAMES:
+            if name in starters:
                 self.multiworld.push_precollected(self.create_item(name))
                 continue
             self.multiworld.itempool.append(self.create_item(name))

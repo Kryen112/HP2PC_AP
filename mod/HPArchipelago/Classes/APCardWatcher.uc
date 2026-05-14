@@ -67,6 +67,14 @@ var byte LocationChecked[102];
 // acceptable as a known edge case.
 var byte WCnFiredThisSession[12];
 
+// Sticky bingo-mode flag. Set once Snapshot finds an MGBingoLearnAllSpells
+// actor in any level; persists for the rest of the session via class-default
+// write. In bingo mode, Snapshot skips the APGrantedSpell baseline so the
+// revert loop wipes MGBingo's R/Sk/D/Sp grants (and any other spell Harry
+// owns at snapshot time) — AP must deliver every spell. Vanilla mode is
+// unchanged: cutscene starters get baselined and survive.
+var byte bBingoMode;
+
 // Per-spell flag for the in-progress-lesson detection. Set to 1 each tick the
 // watcher sees `HarryRef.CurrSpellLesson` resolve to a known lesson shape; on
 // the next tick where `CurrSpellLesson` is None, the flag's spell index fires
@@ -819,6 +827,50 @@ function EnsureLatestRegistration()
     }
 }
 
+// Detect bingo-distribution maps by looking for an MGBingoLearnAllSpells
+// actor placed in the level (the package MGBingo.u ships only with the
+// bingo install, so we identify by class-name string to avoid a hard
+// reference that would prevent HPArchipelago.u from loading on the
+// vanilla/Modded install). Once detected, the flag persists for the rest
+// of the session via class-default write; sub-levels without the actor
+// still get treated as bingo mode.
+function DetectBingoMode()
+{
+    local Actor a;
+    local int i;
+
+    if (default.bBingoMode == 1)
+    {
+        return;
+    }
+    foreach AllActors(class'Actor', a)
+    {
+        if (string(a.Class.Name) == "MGBingoLearnAllSpells")
+        {
+            default.bBingoMode = 1;
+            bBingoMode = 1;
+            Log("[Archipelago] APCardWatcher: DetectBingoMode - found " $ string(a.Class.Name) $ " - entering bingo mode (sticky)");
+            // Wipe stale AP-grant flags carried over from previous vanilla-seed
+            // sessions. MarkSpellAsAPGrantedDefault sticks default.APGrantedSpell
+            // across save/load, so a prior vanilla seed that precollected
+            // Lumos/Flipendo/Alohomora as starters would leave those flags set
+            // forever — the bingo revert loop would then skip them and the
+            // player keeps L/F/A despite bingo wanting them in the AP pool.
+            // Resetting both default and instance flags forces the revert loop
+            // to wipe every spell Harry currently has; the AP client's durable
+            // resync re-sets the flag for spells legitimately granted by THIS
+            // seed as they arrive over IPC via ApplyGrant.
+            for (i = 0; i < NUM_SPELLS; i++)
+            {
+                default.APGrantedSpell[i] = 0;
+                APGrantedSpell[i] = 0;
+            }
+            Log("[Archipelago] APCardWatcher: DetectBingoMode - reset APGrantedSpell[] (AP grants this session will re-set as they arrive)");
+            return;
+        }
+    }
+}
+
 function Snapshot()
 {
     local int id, i, ownedCardCount, ownedSpellCount;
@@ -834,18 +886,36 @@ function Snapshot()
     }
     Log("[Archipelago] APCardWatcher: initial snapshot - Harry already owns " $ ownedCardCount $ " cards");
 
+    DetectBingoMode();
+
     ownedSpellCount = 0;
     for (i = 0; i < NUM_SPELLS; i++)
     {
         if (HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
         {
+            // WasSpellOwned suppresses the "new vanilla spell learned"
+            // CHECK_SPELL transition in the revert loop. In bingo mode we
+            // still want that suppression (MGBingo's PostBeginPlay grants
+            // are not a player action) — we just skip APGrantedSpell so the
+            // revert loop wipes the spell on its next pass. In vanilla mode
+            // both flags get set, which preserves the spell as if AP granted it.
             WasSpellOwned[i] = 1;
-            APGrantedSpell[i] = 1;
-            default.APGrantedSpell[i] = 1;
+            if (default.bBingoMode == 0)
+            {
+                APGrantedSpell[i] = 1;
+                default.APGrantedSpell[i] = 1;
+            }
             ownedSpellCount++;
         }
     }
-    Log("[Archipelago] APCardWatcher: initial snapshot - Harry already knows " $ ownedSpellCount $ " spells (baselined as AP-granted, no revert)");
+    if (default.bBingoMode == 1)
+    {
+        Log("[Archipelago] APCardWatcher: initial snapshot - Harry knows " $ ownedSpellCount $ " spells (bingo mode: will revert non-AP spells next tick)");
+    }
+    else
+    {
+        Log("[Archipelago] APCardWatcher: initial snapshot - Harry already knows " $ ownedSpellCount $ " spells (baselined as AP-granted, no revert)");
+    }
 
     for (i = 0; i < NUM_KEY_ITEMS; i++)
     {

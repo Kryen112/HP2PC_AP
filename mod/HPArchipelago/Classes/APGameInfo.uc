@@ -105,10 +105,34 @@ event InitGame(string Options, out string Error)
 
     ReplaceCardChests();
     DestroyUnobtainableSecretMarkers();
+    ForceCutScenesSkippable();
     BlockRictaClassroomIfMissing();
     BlockSkurgeClassroomIfMissing();
     BlockDiffindoClassroomIfMissing();
     BlockSpongifyClassroomIfMissing();
+}
+
+// Bingo-distribution .unr maps ship with bSkipAllowed=False on intro
+// cutscenes (the bingo card UI). bSkipAllowed is a var() flag on CutScene;
+// flipping it back to True per-instance at level entry restores the
+// vanilla skip behaviour without needing to re-edit the maps.
+function ForceCutScenesSkippable()
+{
+    local CutScene cs;
+    local int patched;
+
+    foreach AllActors(class'CutScene', cs)
+    {
+        if (!cs.bSkipAllowed)
+        {
+            cs.bSkipAllowed = True;
+            patched++;
+        }
+    }
+    if (patched > 0)
+    {
+        Log("[Archipelago] ForceCutScenesSkippable: re-enabled skip on " $ patched $ " cutscene(s)");
+    }
 }
 
 // Destroy SecretAreaMarker instances that AP dropped from the catalogue

@@ -15,11 +15,11 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 
 ## Prerequisites
 
-| Thing                                            | Where to get it                                                                                                                                                 |
-| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                              |
-| **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                          |
-| **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                        |
+| Thing                                            | Where to get it                                                                                                                                                                                                |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                             |
+| **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                                                                         |
+| **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                       |
 | **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, and this `PLAYER_SETUP.md`. The Python client is bundled inside the apworld — no separate exe. |
 
 OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
@@ -70,6 +70,19 @@ Your `Save\` folder is fine to keep. If `Harry - Coding Evolved\` doesn't exist 
 
 > The shipped `Default.ini` is already patched with `EditPackages=IpDrv`, `EditPackages=HPArchipelago`, and `DefaultGame=HPArchipelago.APGameInfo`. No hand-editing required.
 
+### Optional: install the bingo distribution too
+
+The randomizer also supports the **HP2 Bingo** community pack — open castle from spawn. You can keep your vanilla install AND a separate bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
+
+If you only want vanilla story play, skip to step 4. If you want bingo:
+
+1. **Install HP2 retail to a separate folder** (e.g. `C:\Program Files (x86)\EA Games\Bingo`) so it doesn't collide with the vanilla install.
+2. **Get the Bingo Client** from the HP2 speedrunning community (https://www.speedrun.com/hpcc/resources) (the **[2PC] Bingo Client V4.5** download). Copy its `Harry Potter and the Chamber of Secrets\` contents over the install from the previous step.
+3. **Run the M212 installer again**, pointing at your bingo folder. M212 layers cleanly over bingo's map edits.
+4. **Copy `HPArchipelago.u` and `Default.ini`** into `<Bingo install>\Modded\system\`, same as step 3 above. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files), so no separate INI cleanup is needed.
+
+That's the install side. The yaml side is one line — see "Configure your slot" below for the `game_mode: bingo` option.
+
 ### 4. Install Archipelago and the apworld
 
 Install Archipelago using its Windows installer. Default location works (`C:\ProgramData\Archipelago\` on most systems).
@@ -89,16 +102,26 @@ If you're playing solo (just you, no other AP slots):
 1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`. (If you don't see the yaml, make sure you have the apworld installed and close and re-open the launcher.)
 2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 6 category toggles control what becomes an AP check:
 
-   | Toggle                       | Default | What it enables                                                                                  |
-   | ---------------------------- | ------- | ------------------------------------------------------------------------------------------------ |
-   | `enable_wizard_cards`        | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
-   | `enable_secrets`             | on      | 109 secret-area pickups across all levels.                                                       |
-   | `enable_challenge_stars`     | on      | 44 challenge stars across the 4 spell-challenge levels.                                          |
-   | `enable_duelling`            | off     | 10 Dueling Club ranked-duel wins.                                                                |
-   | `enable_quidditch_matches`   | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                            |
-   | `enable_quidditch_upgrades`  | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool. |
+   | Toggle                      | Default | What it enables                                                                                            |
+   | --------------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
+   | `enable_wizard_cards`       | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
+   | `enable_secrets`            | on      | 109 secret-area pickups across all levels.                                                                 |
+   | `enable_challenge_stars`    | on      | 44 challenge stars across the 4 spell-challenge levels.                                                    |
+   | `enable_duelling`           | off     | 10 Dueling Club ranked-duel wins.                                                                          |
+   | `enable_quidditch_matches`  | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
+   | `enable_quidditch_upgrades` | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
 
    The 4 spell-tutorial classrooms are always on — randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.
+
+   **Game mode** — one extra setting selects the install layout your seed targets:
+
+   ```yaml
+   Harry Potter 2 PC:
+     game_mode: vanilla # default — retail + M212; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
+     # game_mode: bingo   # bingo install — NO spells precollected, all 7 land as AP items
+   ```
+
+   The mod side handles the runtime difference itself (auto-detects bingo via the `MGBingoLearnAllSpells` actor and reverts the bingo client's PostBeginPlay spell grants). You can confirm it kicked in by checking `Game.log` for `DetectBingoMode - found MGBingoLearnAllSpells - entering bingo mode (sticky)` shortly after launching.
 
 3. **Generate.** ArchipelagoLauncher → **Generate**, pick your YAML when prompted. The generator drops a seed zip in `<Archipelago install>\output\`.
 
@@ -198,11 +221,11 @@ Quick checklist after first launch:
 
 For bug reports, attach these:
 
-| What            | Where                                                                 |
-| --------------- | --------------------------------------------------------------------- |
-| Game-side log   | `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log` (UTF-16LE) |
-| Client log      | Scroll the **Archipelago** tab of the HP2 PC Client window, or check `<Archipelago install>\logs\HP2PC_AP.txt` |
-| AP server log   | `<Archipelago install>\logs\`                                         |
+| What          | Where                                                                                                          |
+| ------------- | -------------------------------------------------------------------------------------------------------------- |
+| Game-side log | `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log` (UTF-16LE)                                          |
+| Client log    | Scroll the **Archipelago** tab of the HP2 PC Client window, or check `<Archipelago install>\logs\HP2PC_AP.txt` |
+| AP server log | `<Archipelago install>\logs\`                                                                                  |
 
 ## Where to ask for help
 
