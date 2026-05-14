@@ -113,27 +113,87 @@ event InitGame(string Options, out string Error)
     SpawnAllBingoBlockers();
 }
 
-// Bingo-distribution .unr maps ship with bSkipAllowed=False on intro
-// cutscenes (the bingo card UI). bSkipAllowed is a var() flag on CutScene;
-// flipping it back to True per-instance at level entry restores the
-// vanilla skip behaviour without needing to re-edit the maps.
+// Minimal-touch cutscene skip policy:
+//   1. WHITELIST (force bSkipAllowed=True): a handful of intro cutscenes
+//      that the bingo distribution ships as non-skippable but we want
+//      skippable (Privet/Dobby opening etc.). Matched by FileName substring
+//      via IsCutSceneAllowedToSkip.
+//   2. BLACKLIST (force bSkipAllowed=False): specific cutscenes that
+//      soft-lock the game when their fastforward path runs (e.g.
+//      Grandstaircase_hub.CutScene40 secret-opening cutscene). Matched by
+//      (level name, cutscene Name) via IsCutSceneBlocked.
+//   3. DEFAULT: leave bSkipAllowed alone. Most cutscenes ship with the
+//      correct skip behaviour and the player needs them skippable for
+//      sane play.
+//
+// Per-level: called from both APGameInfo.InitGame (initial game) AND
+// APCardWatcher.TrySpawnClassroomBlockers (post-save-load path that bypasses
+// InitGame). Idempotent — re-applying the same bSkipAllowed value is a no-op.
 function ForceCutScenesSkippable()
 {
     local CutScene cs;
-    local int patched;
+    local int allowed, denied;
+    local string levelName, csName;
+
+    levelName = Caps(string(Level.Outer.Name));
 
     foreach AllActors(class'CutScene', cs)
     {
-        if (!cs.bSkipAllowed)
+        csName = string(cs.Name);
+        if (IsCutSceneAllowedToSkip(cs.FileName))
         {
-            cs.bSkipAllowed = True;
-            patched++;
+            if (!cs.bSkipAllowed)
+            {
+                cs.bSkipAllowed = True;
+                allowed++;
+                Log("[Archipelago] ForceCutScenesSkippable: ALLOW skip on " $ levelName $ "." $ csName $ " FileName='" $ cs.FileName $ "' (whitelisted)");
+            }
         }
+        else if (IsCutSceneBlocked(levelName, csName))
+        {
+            if (cs.bSkipAllowed)
+            {
+                cs.bSkipAllowed = False;
+                denied++;
+                Log("[Archipelago] ForceCutScenesSkippable: DENY skip on " $ levelName $ "." $ csName $ " FileName='" $ cs.FileName $ "' (blacklisted - known softlock)");
+            }
+        }
+        // Else: leave bSkipAllowed at the map-shipped value.
     }
-    if (patched > 0)
+    if (allowed > 0 || denied > 0)
     {
-        Log("[Archipelago] ForceCutScenesSkippable: re-enabled skip on " $ patched $ " cutscene(s)");
+        Log("[Archipelago] ForceCutScenesSkippable: " $ allowed $ " allowed, " $ denied $ " denied");
     }
+}
+
+// FileName-substring whitelist for cutscenes that bingo ships as non-skippable
+// but we want skippable. Substring-match so all parts of a multi-part intro
+// (00001PrivetIntro / 00001PrivetIntroPart2 / 00001PrivetIntroPart3) flip
+// together. Add patterns here as we identify more safe-to-skip cutscenes.
+function bool IsCutSceneAllowedToSkip(string FileName)
+{
+    if (InStr(FileName, "PrivetIntro") >= 0) return True;  // Dobby opening (3 parts)
+    return False;
+}
+
+// Per-(level, cutscene-name) blacklist of cutscenes that softlock the game
+// when their fastforward path runs. Names are stable per map-save. Level
+// name comparison is uppercase (caller already Caps()'d it) so casing drift
+// between bingo versions doesn't matter. Add entries as Stefan identifies
+// more softlock-prone cutscenes from gameplay.
+function bool IsCutSceneBlocked(string LevelNameUpper, string CutSceneName)
+{
+    // Grand Staircase secret-opening cutscenes with empty FileName — confirmed
+    // softlocks on skip during bingo playtest 2026-05-14.
+    if (LevelNameUpper == "GRANDSTAIRCASE_HUB")
+    {
+        if (CutSceneName == "CutScene12") return True;
+        if (CutSceneName == "CutScene14") return True;
+        if (CutSceneName == "CutScene39") return True;
+        if (CutSceneName == "CutScene40") return True;
+        if (CutSceneName == "CutScene63") return True;
+    }
+    return False;
 }
 
 // Destroy SecretAreaMarker instances that AP dropped from the catalogue

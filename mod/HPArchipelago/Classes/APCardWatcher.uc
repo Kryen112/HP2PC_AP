@@ -861,6 +861,9 @@ function TrySpawnClassroomBlockers()
     gi.BlockDiffindoClassroomIfMissing();
     gi.BlockSpongifyClassroomIfMissing();
     gi.SpawnAllBingoBlockers();
+    // Re-apply per-level so save-load (which skips APGameInfo.InitGame)
+    // still gets cutscene skip policy enforced for the freshly-loaded level.
+    gi.ForceCutScenesSkippable();
 }
 
 function EnsureLatestRegistration()
