@@ -10,9 +10,10 @@
 // as a 3D mesh in HUD space). The actor itself is hidden, non-colliding, and
 // has no physics.
 //
-// Lifetime: per level. Class-default `LatestInstance` lets APGameInfo.ApplyGrant
-// reach us via `class'APHUDToast'.static.GetInstance()` regardless of whether
-// it's the per-level GameInfo or a post-save-load instance with no spawn ref.
+// Lifetime: per level. NOT bGameRelevant — each level transition destroys
+// the toast and the next InitGame (or APCardWatcher.TrySpawnClassroomBlockers
+// on save-load) spawns a fresh one. Class-default `LatestInstance` lets
+// APGameInfo.ApplyGrant reach the active toast via GetInstance().
 //
 // Queue: simple parallel arrays (UScript has no nice struct vec). When full,
 // drops the OLDEST toast to make room for a new one — newer info matters more
@@ -26,7 +27,12 @@ const TICK_INTERVAL = 0.1;
 var string ToastText[8];
 var float ToastRemaining[8];
 var int ToastCount;
-var bool bRegisteredWithHUD;
+// HPHud we're currently registered with. `transient` so a saved-state
+// deserialized toast doesn't bring back a stale ref that fools the dedupe
+// path into thinking we're already in propArray when we aren't. Each new
+// instance (freshly spawned OR deserialized) starts with RegisteredHud=None
+// and registers via TryRegisterWithHUD on its first Timer tick.
+var transient HPHud RegisteredHud;
 
 // Background texture drawn behind each toast line. `HGame.Icons.leftPanel`
 // is the same panel CutSceneManager uses for its cutscene border bars and
@@ -51,6 +57,7 @@ static function APHUDToast GetInstance()
 event PreBeginPlay()
 {
     Super.PreBeginPlay();
+
     default.LatestInstance = self;
     SetTimer(TICK_INTERVAL, true);
 
@@ -78,20 +85,24 @@ event Destroyed()
 }
 
 // Try to register with the live HPHud. May fail on early ticks before harry
-// is fully spawned; Timer retries until success.
+// is fully spawned; Timer retries until success. Idempotent on repeat calls
+// against the same HPHud (cheap ref compare). When harry's myHUD points at a
+// different HPHud than the one we previously registered with (level/save-load
+// rebuilt it), re-register with the new instance.
 function bool TryRegisterWithHUD()
 {
     local harry h;
     local HPHud hud;
 
-    if (bRegisteredWithHUD) return True;
     h = harry(Level.PlayerHarryActor);
     if (h == None) return False;
     hud = HPHud(h.myHUD);
     if (hud == None) return False;
 
+    if (RegisteredHud == hud) return True;
+
     hud.RegisterPickupProp(self);
-    bRegisteredWithHUD = True;
+    RegisteredHud = hud;
     Log("[Archipelago] APHUDToast registered with HPHud (" $ string(hud) $ ")");
     return True;
 }
@@ -147,10 +158,19 @@ event Timer()
 {
     local int i, j;
 
-    if (!bRegisteredWithHUD)
+    // Defensive: a deserialized toast (from .usa save) doesn't run PreBeginPlay
+    // so default.LatestInstance may be None when its Timer first fires. Claim
+    // it here so GetInstance() returns us and ApplyGrant routes to the right
+    // place. Logs once when it kicks in.
+    if (default.LatestInstance == None || default.LatestInstance.bDeleteMe)
     {
-        TryRegisterWithHUD();
+        default.LatestInstance = self;
+        Log("[Archipelago] APHUDToast.Timer: reclaimed default.LatestInstance -> self");
     }
+
+    // TryRegisterWithHUD self-dedupes against RegisteredHud so a no-op call
+    // is cheap, and a changed HPHud (post-travel) re-registers.
+    TryRegisterWithHUD();
 
     i = 0;
     while (i < ToastCount)
@@ -255,5 +275,12 @@ defaultproperties
     bBlockActors=False
     bBlockPlayers=False
     Physics=PHYS_None
-    bGameRelevant=True
+    // NOT bGameRelevant. The toast is a per-level HUD widget — each level
+    // gets a fresh one via APGameInfo.InitGame on regular load, and via
+    // APCardWatcher.TrySpawnClassroomBlockers on save-load (which skips
+    // InitGame). Persisting via bGameRelevant=True previously caused multi-
+    // instance bugs: Entry-spawned toasts survived into Grandstaircase with
+    // a stale Level reference, fighting the saved/deserialized toast for
+    // default.LatestInstance ownership while only one was in HPHud's
+    // propArray.
 }

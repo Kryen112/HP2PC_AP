@@ -92,6 +92,36 @@ event InitGame(string Options, out string Error)
         Log("[Archipelago] APGameInfo: APCardWatcher class load FAILED");
     }
 
+    // APHUDToast is per-level (not bGameRelevant) so each InitGame spawns a
+    // fresh one. Save-load (ProcessServerTravel) skips InitGame; the fallback
+    // spawn for that path lives in APCardWatcher.TrySpawnClassroomBlockers.
+    SpawnAPHUDToastIfMissing();
+
+    ReplaceCardChests();
+    DestroyUnobtainableSecretMarkers();
+    ForceCutScenesSkippable();
+    BlockRictaClassroomIfMissing();
+    BlockSkurgeClassroomIfMissing();
+    BlockDiffindoClassroomIfMissing();
+    BlockSpongifyClassroomIfMissing();
+    SpawnAllBingoBlockers();
+}
+
+// Spawn an APHUDToast in the current level if one doesn't already exist.
+// Called from both APGameInfo.InitGame (regular load path) and
+// APCardWatcher.TrySpawnClassroomBlockers (save-load path that bypasses
+// InitGame). Idempotent — extra calls find the existing instance and skip.
+function SpawnAPHUDToastIfMissing()
+{
+    local class<Actor> cls;
+    local APHUDToast existing;
+
+    existing = class'APHUDToast'.static.GetInstance();
+    if (existing != None && existing.Level == Level)
+    {
+        return;
+    }
+
     cls = class<Actor>(DynamicLoadObject("HPArchipelago.APHUDToast", class'Class'));
     if (cls != None)
     {
@@ -102,15 +132,6 @@ event InitGame(string Options, out string Error)
     {
         Log("[Archipelago] APGameInfo: APHUDToast class load FAILED");
     }
-
-    ReplaceCardChests();
-    DestroyUnobtainableSecretMarkers();
-    ForceCutScenesSkippable();
-    BlockRictaClassroomIfMissing();
-    BlockSkurgeClassroomIfMissing();
-    BlockDiffindoClassroomIfMissing();
-    BlockSpongifyClassroomIfMissing();
-    SpawnAllBingoBlockers();
 }
 
 // Minimal-touch cutscene skip policy:

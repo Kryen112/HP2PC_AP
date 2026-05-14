@@ -864,6 +864,9 @@ function TrySpawnClassroomBlockers()
     // Re-apply per-level so save-load (which skips APGameInfo.InitGame)
     // still gets cutscene skip policy enforced for the freshly-loaded level.
     gi.ForceCutScenesSkippable();
+    // APHUDToast is per-level; save-load needs it spawned here since
+    // APGameInfo.InitGame doesn't run on that path.
+    gi.SpawnAPHUDToastIfMissing();
 }
 
 function EnsureLatestRegistration()
