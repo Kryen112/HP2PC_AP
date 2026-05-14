@@ -259,7 +259,7 @@ function BlockRictaClassroomIfMissing()
 
     // Bingo mode supersedes this helper with BlockBingoRictusempraEntryIfMissing
     // (level-transition bookcase in Entryhall_hub, gated on the Rictusempra
-    // Classroom Key item rather than on the spell). Skip the cutscene-anchored
+    // Challenge Key item rather than on the spell). Skip the cutscene-anchored
     // blocker so we don't double up in Entryhall_hub.
     if (class'APCardWatcher'.default.bBingoMode == 1)
     {

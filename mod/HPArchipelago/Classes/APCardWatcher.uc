@@ -255,18 +255,18 @@ event PreBeginPlay()
     // indexed by this. Keep in sync with items.yaml bingo_keys section and
     // with TryApplyBingoKey / RemoveBingo<X>Blocker dispatch in APGameInfo.
     BingoKeyNames[0]  = "Chamber of Secrets Key";
-    BingoKeyNames[1]  = "Spongify Classroom Key";
-    BingoKeyNames[2]  = "Skurge Classroom Key";
-    BingoKeyNames[3]  = "Rictusempra Classroom Key";
-    BingoKeyNames[4]  = "Diffindo Classroom Key";
+    BingoKeyNames[1]  = "Spongify Challenge Key";
+    BingoKeyNames[2]  = "Skurge Challenge Key";
+    BingoKeyNames[3]  = "Rictusempra Challenge Key";
+    BingoKeyNames[4]  = "Diffindo Challenge Key";
     BingoKeyNames[5]  = "Boomslang Level Key";
     BingoKeyNames[6]  = "Whomping Willow Key";
     BingoKeyNames[7]  = "Forbidden Forest Key";
     BingoKeyNames[8]  = "Slytherin Common Room Key";
     BingoKeyNames[9]  = "Goyle Level Key";
     BingoKeyNames[10] = "Bicorn Level Key";
-    BingoKeyNames[11] = "Duelling Club Key";
-    BingoKeyNames[12] = "Quidditch Pitch Key";
+    BingoKeyNames[11] = "Duelling Key";
+    BingoKeyNames[12] = "Quidditch Key";
 
     // Inherit cross-session AP-grant flags from class default so a freshly
     // spawned watcher (e.g. after a save-load while AP grants arrived
@@ -329,18 +329,18 @@ static function MarkKeyItemAsAPGrantedDefault(string KeyItemName)
 static function int BingoKeyIndexFromName(string KeyName)
 {
     if (KeyName == "Chamber of Secrets Key")    return 0;
-    if (KeyName == "Spongify Classroom Key")    return 1;
-    if (KeyName == "Skurge Classroom Key")      return 2;
-    if (KeyName == "Rictusempra Classroom Key") return 3;
-    if (KeyName == "Diffindo Classroom Key")    return 4;
+    if (KeyName == "Spongify Challenge Key")    return 1;
+    if (KeyName == "Skurge Challenge Key")      return 2;
+    if (KeyName == "Rictusempra Challenge Key") return 3;
+    if (KeyName == "Diffindo Challenge Key")    return 4;
     if (KeyName == "Boomslang Level Key")       return 5;
     if (KeyName == "Whomping Willow Key")       return 6;
     if (KeyName == "Forbidden Forest Key")      return 7;
     if (KeyName == "Slytherin Common Room Key") return 8;
     if (KeyName == "Goyle Level Key")           return 9;
     if (KeyName == "Bicorn Level Key")          return 10;
-    if (KeyName == "Duelling Club Key")         return 11;
-    if (KeyName == "Quidditch Pitch Key")       return 12;
+    if (KeyName == "Duelling Key")              return 11;
+    if (KeyName == "Quidditch Key")             return 12;
     return -1;
 }
 

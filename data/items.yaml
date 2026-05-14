@@ -177,18 +177,18 @@ cards_gold:
 # APCardWatcher.MarkBingoKeyAsGrantedDefault(name) + RemoveBingo<X>Blocker.
 bingo_keys:
   - { id_offset: 250, name: "Chamber of Secrets Key",    classification: progression, group: "Bingo Keys" }
-  - { id_offset: 251, name: "Spongify Classroom Key",    classification: progression, group: "Bingo Keys" }
-  - { id_offset: 252, name: "Skurge Classroom Key",      classification: progression, group: "Bingo Keys" }
-  - { id_offset: 253, name: "Rictusempra Classroom Key", classification: progression, group: "Bingo Keys" }
-  - { id_offset: 254, name: "Diffindo Classroom Key",    classification: progression, group: "Bingo Keys" }
+  - { id_offset: 251, name: "Spongify Challenge Key",    classification: progression, group: "Bingo Keys" }
+  - { id_offset: 252, name: "Skurge Challenge Key",      classification: progression, group: "Bingo Keys" }
+  - { id_offset: 253, name: "Rictusempra Challenge Key", classification: progression, group: "Bingo Keys" }
+  - { id_offset: 254, name: "Diffindo Challenge Key",    classification: progression, group: "Bingo Keys" }
   - { id_offset: 255, name: "Boomslang Level Key",       classification: progression, group: "Bingo Keys" }
   - { id_offset: 256, name: "Whomping Willow Key",       classification: progression, group: "Bingo Keys" }
   - { id_offset: 257, name: "Forbidden Forest Key",      classification: progression, group: "Bingo Keys" }
   - { id_offset: 258, name: "Slytherin Common Room Key", classification: progression, group: "Bingo Keys" }
   - { id_offset: 259, name: "Goyle Level Key",           classification: progression, group: "Bingo Keys" }
   - { id_offset: 260, name: "Bicorn Level Key",          classification: progression, group: "Bingo Keys" }
-  - { id_offset: 261, name: "Duelling Club Key",         classification: progression, group: "Bingo Keys" }
-  - { id_offset: 262, name: "Quidditch Pitch Key",       classification: progression, group: "Bingo Keys" }
+  - { id_offset: 261, name: "Duelling Key",              classification: progression, group: "Bingo Keys" }
+  - { id_offset: 262, name: "Quidditch Key",             classification: progression, group: "Bingo Keys" }
 
 # Filler. Stacks — multiple copies allowed, count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).
