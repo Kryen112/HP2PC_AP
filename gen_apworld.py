@@ -223,11 +223,12 @@ FLOATING_CARDS: set[str] = {
 }
 
 
-def load_data() -> tuple[dict, dict, dict]:
+def load_data() -> tuple[dict, dict, dict, dict]:
     items = yaml.safe_load((DATA_DIR / "items.yaml").read_text(encoding="utf-8"))
     locations = yaml.safe_load((DATA_DIR / "locations.yaml").read_text(encoding="utf-8"))
-    logic = yaml.safe_load((DATA_DIR / "logic.yaml").read_text(encoding="utf-8"))
-    return items, locations, logic
+    logic_vanilla = yaml.safe_load((DATA_DIR / "logic_vanilla.yaml").read_text(encoding="utf-8"))
+    logic_bingo = yaml.safe_load((DATA_DIR / "logic_bingo.yaml").read_text(encoding="utf-8"))
+    return items, locations, logic_vanilla, logic_bingo
 
 
 # Loads secrets_catalogue.yaml / challenge_stars_catalogue.yaml and projects every
@@ -634,18 +635,31 @@ def emit_locations(locations: dict) -> str:
     return "\n".join(lines)
 
 
-def emit_regions(logic: dict, start_region: str, all_regions: list[str]) -> str:
-    """Emit apworld/regions.py: REGION_NAMES, START_REGION, REGION_ENTRY_RULES."""
-    regions = logic.get("regions") or {}
-    known_items = set()  # already validated; pass empty so unknown-check is skipped here
-    # We re-parse rules but with the items set we get from the logic-validated state.
-    # Caller has already validated, so passing an unrestricted set just for emission:
-    return _emit_regions_impl(regions, start_region, all_regions)
+def _emit_region_table(table_name: str, regions: dict, start_region: str) -> list[str]:
+    out = [
+        f"{table_name}: dict[str, Callable[[CollectionState, int], bool]] = {{",
+    ]
+    for region_name in sorted(regions.keys()):
+        meta = regions[region_name] or {}
+        if region_name == start_region:
+            continue
+        rule_str = meta.get("entry", "true")
+        body = _emit_rule_body(rule_str)
+        out.append(f"    {region_name!r}: lambda state, player: {body},")
+    out.append("}")
+    out.append("")
+    return out
 
 
-def _emit_regions_impl(regions: dict, start_region: str, all_regions: list[str]) -> str:
+def _emit_regions_dual(
+    regions_vanilla: dict,
+    regions_bingo: dict,
+    start_region: str,
+    all_regions: list[str],
+) -> str:
+    """Emit apworld/regions.py with both vanilla and bingo entry-rule tables."""
     lines: list[str] = [
-        '"""Auto-generated. Do not edit by hand; regenerate from data/logic.yaml."""',
+        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_bingo.yaml."""',
         "",
         "from typing import Callable",
         "",
@@ -655,22 +669,11 @@ def _emit_regions_impl(regions: dict, start_region: str, all_regions: list[str])
         "",
         f"REGION_NAMES: list[str] = {all_regions!r}",
         "",
-        "# region_name -> rule(state, player) -> bool. The rule is the requirement to",
-        "# enter the region from the start region (Menu) in the open-hub v1 model. Any",
-        "# region not listed here is considered always-reachable (entry rule = True).",
-        "REGION_ENTRY_RULES: dict[str, Callable[[CollectionState, int], bool]] = {",
+        "# region_name -> rule(state, player) -> bool. Mode-dependent: HP2World",
+        "# selects vanilla or bingo at gen time via self.options.game_mode.",
     ]
-    for region_name in sorted(regions.keys()):
-        meta = regions[region_name] or {}
-        if region_name == start_region:
-            continue  # start region has no entry rule (you're already there)
-        rule_str = meta.get("entry", "true")
-        # Re-parse with empty known set since validate_logic already checked.
-        # Use a fake set that allows anything — we need to extract item names.
-        body = _emit_rule_body(rule_str)
-        lines.append(f"    {region_name!r}: lambda state, player: {body},")
-    lines.append("}")
-    lines.append("")
+    lines += _emit_region_table("REGION_ENTRY_RULES_VANILLA", regions_vanilla, start_region)
+    lines += _emit_region_table("REGION_ENTRY_RULES_BINGO", regions_bingo, start_region)
     return "\n".join(lines)
 
 
@@ -684,67 +687,79 @@ def _emit_rule_body(rule_str: str) -> str:
         return "False"
 
     def replace_ident(m: re.Match) -> str:
-        ident = m.group(0)
+        text = m.group(0)
+        ident = text[1:-1] if text.startswith("'") else text
         if ident in ("true", "True", "TBD"):
             return "True"
         if ident in ("false", "False"):
             return "False"
         return f"state.has({ident!r}, player)"
 
-    body = re.sub(r"[A-Za-z_][A-Za-z0-9_]*", replace_ident, s)
+    body = re.sub(r"'[^']+'|[A-Za-z_][A-Za-z0-9_]*", replace_ident, s)
     return body.replace("&", " and ").replace("|", " or ")
 
 
-def emit_rules(logic: dict, locations: dict) -> str:
-    """Emit apworld/rules.py: LOCATION_RULES, GOAL_RULES, GOAL_LOCATION_REQUIREMENTS."""
-    location_rules = logic.get("locations") or {}
-    goal = logic.get("goal") or {}
-
-    # locations.yaml is the authoritative source for location->region; logic.yaml
-    # entries with `region:` should match. Per-location `requires:` is the only
-    # thing we emit (a rule on top of region entry).
-    lines: list[str] = [
-        '"""Auto-generated. Do not edit by hand; regenerate from data/logic.yaml."""',
-        "",
-        "from typing import Callable",
-        "",
-        "from BaseClasses import CollectionState",
-        "",
-        "# Per-location additional rules. Location is reachable iff its region's",
-        "# entry rule passes AND this rule passes. Locations not listed here have no",
-        "# extra requirement (the region's entry rule alone gates reachability).",
-        "LOCATION_RULES: dict[str, Callable[[CollectionState, int], bool]] = {",
-    ]
+def _emit_location_table(table_name: str, location_rules: dict) -> list[str]:
+    out = [f"{table_name}: dict[str, Callable[[CollectionState, int], bool]] = {{"]
     for loc_name in sorted(location_rules.keys()):
         meta = location_rules[loc_name] or {}
-        rule_str = meta.get("requires", "true")
-        # Skip emitting rules that are trivially True (no override).
-        body = _emit_rule_body(rule_str)
+        body = _emit_rule_body(meta.get("requires", "true"))
         if body == "True":
             continue
-        lines.append(f"    {loc_name!r}: lambda state, player: {body},")
-    lines.append("}")
-    lines.append("")
-    lines.append("# goal_name -> direct item/logic rule for victory generation.")
-    lines.append("# Runtime completion still comes from the game-side GOAL_COMPLETE signal.")
-    lines.append("GOAL_RULES: dict[str, Callable[[CollectionState, int], bool]] = {")
+        out.append(f"    {loc_name!r}: lambda state, player: {body},")
+    out.append("}")
+    out.append("")
+    return out
+
+
+def _emit_goal_rule_table(table_name: str, goal: dict) -> list[str]:
+    out = [f"{table_name}: dict[str, Callable[[CollectionState, int], bool]] = {{"]
     for goal_name in sorted(goal.keys()):
         meta = goal[goal_name] or {}
         body = _emit_rule_body(meta.get("requires", "true"))
         if body == "True":
             continue
-        lines.append(f"    {goal_name!r}: lambda state, player: {body},")
-    lines.append("}")
-    lines.append("")
-    lines.append("# Optional goal_name -> location names that must be reachable for victory.")
-    lines.append("GOAL_LOCATION_REQUIREMENTS: dict[str, list[str]] = {")
+        out.append(f"    {goal_name!r}: lambda state, player: {body},")
+    out.append("}")
+    out.append("")
+    return out
+
+
+def _emit_goal_locations_table(table_name: str, goal: dict) -> list[str]:
+    out = [f"{table_name}: dict[str, list[str]] = {{"]
     for goal_name in sorted(goal.keys()):
         meta = goal[goal_name] or {}
         reqs = meta.get("requires_completed", [])
         if reqs:
-            lines.append(f"    {goal_name!r}: {reqs!r},")
-    lines.append("}")
-    lines.append("")
+            out.append(f"    {goal_name!r}: {reqs!r},")
+    out.append("}")
+    out.append("")
+    return out
+
+
+def emit_rules_dual(logic_vanilla: dict, logic_bingo: dict, locations: dict) -> str:
+    """Emit apworld/rules.py with both vanilla and bingo rule tables."""
+    lines: list[str] = [
+        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_bingo.yaml."""',
+        "",
+        "from typing import Callable",
+        "",
+        "from BaseClasses import CollectionState",
+        "",
+        "# Per-location additional rules (on top of region entry).",
+        "# Mode-dependent: HP2World selects vanilla or bingo at gen time.",
+    ]
+    lines += _emit_location_table("LOCATION_RULES_VANILLA", logic_vanilla.get("locations") or {})
+    lines += _emit_location_table("LOCATION_RULES_BINGO", logic_bingo.get("locations") or {})
+
+    lines.append("# goal_name -> direct item/logic rule for victory generation.")
+    lines.append("# Runtime completion still comes from the game-side GOAL_COMPLETE signal.")
+    lines += _emit_goal_rule_table("GOAL_RULES_VANILLA", logic_vanilla.get("goal") or {})
+    lines += _emit_goal_rule_table("GOAL_RULES_BINGO", logic_bingo.get("goal") or {})
+
+    lines.append("# Optional goal_name -> location names that must be reachable for victory.")
+    lines += _emit_goal_locations_table("GOAL_LOCATION_REQUIREMENTS_VANILLA", logic_vanilla.get("goal") or {})
+    lines += _emit_goal_locations_table("GOAL_LOCATION_REQUIREMENTS_BINGO", logic_bingo.get("goal") or {})
     return "\n".join(lines)
 
 
@@ -892,15 +907,30 @@ def emit_card_markers(items: dict) -> int:
 
 
 def main() -> int:
-    items, locations, logic = load_data()
-    n_secrets, n_stars = merge_catalogues(locations, logic)
+    items, locations, logic_vanilla, logic_bingo = load_data()
+    # Catalogue merges (secrets + stars) project per-location `requires` into
+    # logic.locations; same set applies to both modes.
+    n_secrets, n_stars = merge_catalogues(locations, logic_vanilla)
+    merge_catalogues(locations, logic_bingo)
     known_items = collect_known_items(items)
     try:
         validate(items, locations)
-        start_region, all_regions = validate_logic(logic, locations, known_items)
+        start_v, all_v = validate_logic(logic_vanilla, locations, known_items)
+        start_b, all_b = validate_logic(logic_bingo, locations, known_items)
     except ValueError as e:
         print(f"VALIDATION ERROR: {e}", file=sys.stderr)
         return 1
+    if start_v != start_b:
+        print(f"VALIDATION ERROR: vanilla start region {start_v!r} != bingo {start_b!r}", file=sys.stderr)
+        return 1
+    if all_v != all_b:
+        print(
+            f"VALIDATION ERROR: vanilla and bingo region sets differ. "
+            f"vanilla-only={sorted(set(all_v) - set(all_b))}, bingo-only={sorted(set(all_b) - set(all_v))}",
+            file=sys.stderr,
+        )
+        return 1
+    start_region, all_regions = start_v, all_v
 
     items_py = APWORLD_DIR / "items.py"
     locations_py = APWORLD_DIR / "locations.py"
@@ -908,8 +938,16 @@ def main() -> int:
     rules_py = APWORLD_DIR / "rules.py"
     items_py.write_text(emit_items(items), encoding="utf-8")
     locations_py.write_text(emit_locations(locations), encoding="utf-8")
-    regions_py.write_text(_emit_regions_impl(logic.get("regions") or {}, start_region, all_regions), encoding="utf-8")
-    rules_py.write_text(emit_rules(logic, locations), encoding="utf-8")
+    regions_py.write_text(
+        _emit_regions_dual(
+            logic_vanilla.get("regions") or {},
+            logic_bingo.get("regions") or {},
+            start_region,
+            all_regions,
+        ),
+        encoding="utf-8",
+    )
+    rules_py.write_text(emit_rules_dual(logic_vanilla, logic_bingo, locations), encoding="utf-8")
 
     n_markers = emit_card_markers(items)
     n_registry = emit_location_registry(locations, locations["base_id"])
@@ -917,11 +955,12 @@ def main() -> int:
     n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
     n_regions = len(all_regions)
-    n_loc_rules = sum(1 for m in (logic.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
+    n_loc_rules_v = sum(1 for m in (logic_vanilla.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
+    n_loc_rules_b = sum(1 for m in (logic_bingo.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")
     print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars merged from catalogues)")
     print(f"Wrote {regions_py} ({n_regions} regions, start={start_region!r})")
-    print(f"Wrote {rules_py} ({n_loc_rules} per-location overrides, {len(logic.get('goal') or {})} goal(s))")
+    print(f"Wrote {rules_py} (vanilla: {n_loc_rules_v} per-loc rules, {len(logic_vanilla.get('goal') or {})} goal(s); bingo: {n_loc_rules_b}, {len(logic_bingo.get('goal') or {})})")
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
     print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star registrations)")
     return 0

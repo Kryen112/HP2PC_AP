@@ -29,8 +29,12 @@ from .locations import BASE_ID as LOCATION_BASE_ID
 from .locations import (CARD_CLASS_TO_LOCATION_NAME,
                         CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS)
-from .regions import REGION_ENTRY_RULES, REGION_NAMES, START_REGION
-from .rules import GOAL_LOCATION_REQUIREMENTS, GOAL_RULES, LOCATION_RULES
+from .regions import (REGION_ENTRY_RULES_BINGO, REGION_ENTRY_RULES_VANILLA,
+                      REGION_NAMES, START_REGION)
+from .rules import (GOAL_LOCATION_REQUIREMENTS_BINGO,
+                    GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_BINGO,
+                    GOAL_RULES_VANILLA, LOCATION_RULES_BINGO,
+                    LOCATION_RULES_VANILLA)
 
 PROGRESSION_ITEM_NAMES: list[str] = [
     name for name, c in ITEM_CLASSIFICATIONS.items() if c == ItemClassification.progression
@@ -192,8 +196,10 @@ class HP2World(World):
 
     # Location-group → option-attr map. Locations whose group is in this map
     # and whose corresponding option is False are filtered out of the seed.
-    # Locations not listed here (currently only the Classrooms group) are
-    # never filtered — spells need somewhere to live.
+    # The Classrooms group has a bingo-mode special case in _location_enabled:
+    # the spell-teaching cutscenes are tied to the vanilla story flow that
+    # bingo's open castle skips, so those 4 checks are unreachable in bingo
+    # and get dropped entirely (their spells stay in the pool, placed elsewhere).
     _LOC_GROUP_TO_OPT: dict[str, str] = {
         "CardLocations":      "enable_wizard_cards",
         "Secrets":            "enable_secrets",
@@ -211,8 +217,25 @@ class HP2World(World):
         "Equipment":      "enable_quidditch_upgrades",
     }
 
+    def _is_bingo(self) -> bool:
+        return self.options.game_mode.current_key == "bingo"
+
+    def _region_rules(self) -> dict:
+        return REGION_ENTRY_RULES_BINGO if self._is_bingo() else REGION_ENTRY_RULES_VANILLA
+
+    def _location_rules(self) -> dict:
+        return LOCATION_RULES_BINGO if self._is_bingo() else LOCATION_RULES_VANILLA
+
+    def _goal_rules(self) -> dict:
+        return GOAL_RULES_BINGO if self._is_bingo() else GOAL_RULES_VANILLA
+
+    def _goal_location_requirements(self) -> dict:
+        return GOAL_LOCATION_REQUIREMENTS_BINGO if self._is_bingo() else GOAL_LOCATION_REQUIREMENTS_VANILLA
+
     def _location_enabled(self, loc_name: str) -> bool:
         group = LOCATION_GROUPS.get(loc_name)
+        if group == "Classrooms" and self._is_bingo():
+            return False
         opt_attr = self._LOC_GROUP_TO_OPT.get(group or "")
         if opt_attr is None:
             return True
@@ -242,7 +265,7 @@ class HP2World(World):
         for region_name, region in regions_by_name.items():
             if region_name == START_REGION:
                 continue
-            rule_fn = REGION_ENTRY_RULES.get(region_name)
+            rule_fn = self._region_rules().get(region_name)
             if rule_fn is None:
                 start.connect(region)
             else:
@@ -266,7 +289,7 @@ class HP2World(World):
         # Bingo: precollect nothing. All 7 spells AND all 13 bingo keys enter
         # the pool; the mod-side bookcases gate each level transition until the
         # matching key arrives via the AP grant flow.
-        if self.options.game_mode.current_key == "bingo":
+        if self._is_bingo():
             return set()
         return STARTER_ITEM_NAMES | BINGO_KEY_NAMES
 
@@ -301,7 +324,7 @@ class HP2World(World):
     def set_rules(self) -> None:
         from worlds.generic.Rules import add_item_rule, add_rule, set_rule
 
-        for loc_name, rule_fn in LOCATION_RULES.items():
+        for loc_name, rule_fn in self._location_rules().items():
             try:
                 loc = self.multiworld.get_location(loc_name, self.player)
             except KeyError:
@@ -346,8 +369,8 @@ class HP2World(World):
             add_rule(loc, lambda state, silvers=silver_items_list, player=self.player:
                 all(state.has(s, player) for s in silvers))
 
-        goal_locations = GOAL_LOCATION_REQUIREMENTS.get(DEFAULT_GOAL, [])
-        goal_rule = GOAL_RULES.get(DEFAULT_GOAL)
+        goal_locations = self._goal_location_requirements().get(DEFAULT_GOAL, [])
+        goal_rule = self._goal_rules().get(DEFAULT_GOAL)
         if not goal_locations and goal_rule is None:
             # Fallback: if logic.yaml has no goal defined, use M5 placeholder
             # (collect every progression item).

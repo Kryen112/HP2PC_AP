@@ -1,0 +1,450 @@
+# Bingo playthrough observation notes.
+#
+# Walk to every check in-game with all 7 spells precollected (use the
+# `hp2_allspells/playtest.yaml` slot + bingo install + debug mode to bypass
+# bookcase keys). For each location, replace TBD with the spell/item
+# combo you actually had to use to physically reach it.
+#
+# Grammar (same as logic_bingo.yaml):
+#   - "true"                              no extra requirement beyond region entry
+#   - "Lumos & Flipendo"                  AND of items
+#   - "Spongify | Rictusempra"            OR
+#   - "(Flipendo & Lumos) | Diffindo"     paren grouping
+#   - "TBD"                               leave for later (generates as always-reachable)
+#
+# Once filled in, the entries here get migrated into data/logic_bingo.yaml
+# under the `locations:` section. Classroom checks are listed for
+# completeness but are dropped from bingo seeds entirely.
+
+# ============================================================================
+# WhompingWillow  (3 locations)
+# ============================================================================
+WhompingWillow:
+  entry: Whomping Willow Key & Spongify
+  locations:
+    # --- card ---
+    "Whomping Willow - Card Starkey": Lumos & Flipendo
+    # --- secret ---
+    "Whomping Willow - Secret 1": Lumos & Alohomora
+    "Whomping Willow - Secret 2": Lumos & Flipendo & Alohomora
+
+# ============================================================================
+# Hogwarts  (45 locations)
+# ============================================================================
+Hogwarts:
+  entry: True  # what items are needed just to enter this region in bingo
+  locations:
+    # --- classroom ---
+    "Learned Rictusempra": TBD  # (dropped in bingo)
+    "Learned Skurge": TBD  # (dropped in bingo)
+    "Learned Spongify": TBD  # (dropped in bingo)
+    # --- card ---
+    "Hogwarts - Card Alderton": Spongify & Alohomora
+    "Hogwarts - Card Barkwith": Alohomora
+    "Hogwarts - Card Blane": Alohomora
+    "Hogwarts - Card Bonham": Alohomora
+    "Hogwarts - Card Ethelred": Alohomora
+    "Hogwarts - Card Gunhilda": Alohomora
+    "Hogwarts - Card Hipworth": Alohomora
+    "Hogwarts - Card Sawbridge": Alohomora
+    "Hogwarts - Card Vablatsky": Chamber of Secrets Key & Alohomora
+    "Hogwarts - Card Andros": Flipendo & Alohomora
+    "Hogwarts - Card Dodderidge": Alohomora
+    "Hogwarts - Card Jones": Flipendo & Diffindo & Alohomora
+    "Hogwarts - Card Lufkin": Alohomora & Skurge & Diffindo & Spongify
+    "Hogwarts - Card Maeve": Flipendo & Alohomora
+    "Hogwarts - Card Montmorency": Alohomora & Skurge
+    "Hogwarts - Card Mopsus": Alohomora & Skurge & Diffindo
+    "Hogwarts - Card Oldridge": Spongify & Alohomora
+    "Hogwarts - Card Shingleton": Alohomora & Lumos & Skurge
+    "Hogwarts - Card Toothill": Spongify
+    "Hogwarts - Card Wendelin": Skurge & Lumos & Diffindo & Alohomora
+    "Hogwarts - Card Wright": Diffindo & Alohomora
+    # --- secret ---
+    "Hogwarts - Secret 1": Alohomora & Lumos & Skurge
+    "Hogwarts - Secret 2": Alohomora & Skurge
+    "Hogwarts - Secret 3": Skurge & Lumos & Diffindo
+    "Hogwarts - Secret 4": Alohomora
+    "Hogwarts - Secret 5": Alohomora
+    "Hogwarts - Secret 6": Alohomora
+    "Hogwarts - Secret 7": Alohomora
+    "Hogwarts - Secret 8": Diffindo
+    "Hogwarts - Secret 9": Flipendo & Diffindo
+    "Hogwarts - Secret 10": Flipendo
+    "Hogwarts - Secret 11": Alohomora
+    "Hogwarts - Secret 12": Spongify
+    "Hogwarts - Secret 13": Alohomora
+    "Hogwarts - Secret 14": Alohomora
+    "Hogwarts - Secret 15": Alohomora
+    "Hogwarts - Secret 16": Flipendo
+    "Hogwarts - Secret 17": Spongify
+    "Hogwarts - Secret 18": Alohomora & Skurge & Diffindo & Spongify
+    "Hogwarts - Secret 19": True
+    "Hogwarts - Secret 20": Alohomora
+    "Hogwarts - Secret 21": Alohomora
+
+# ============================================================================
+# CastleExterior  (20 locations)
+# ============================================================================
+CastleExterior:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- classroom ---
+    "Learned Diffindo": TBD  # (dropped in bingo)
+    # --- card ---
+    "Castle Exterior - Card Marjoribanks": TBD
+    "Castle Exterior - Card Pokeby": TBD
+    "Castle Exterior - Card Sweeting": TBD
+    "Castle Exterior - Card Sykes": TBD
+    "Castle Exterior - Card Twonk": TBD
+    "Castle Exterior - Card Oglethorpe": TBD
+    "Castle Exterior - Card Plunkett": TBD
+    "Castle Exterior - Card Wadcock": TBD
+    "Castle Exterior - Card Youdle": TBD
+    # --- vendor ---
+    "Castle Exterior - Nimbus 2001": TBD
+    "Castle Exterior - Quidditch Armour": TBD
+    # --- secret ---
+    "Castle Exterior - Secret 1": TBD
+    "Castle Exterior - Secret 2": TBD
+    "Castle Exterior - Secret 3": TBD
+    "Castle Exterior - Secret 4": TBD
+    "Castle Exterior - Secret 5": TBD
+    "Castle Exterior - Secret 6": TBD
+    "Castle Exterior - Secret 7": TBD
+    "Castle Exterior - Secret 8": TBD
+
+# ============================================================================
+# GoldCardRoom  (11 locations)
+# ============================================================================
+GoldCardRoom:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Gold Card Room - Card Bott": TBD
+    "Gold Card Room - Card Dumbledore": TBD
+    "Gold Card Room - Card Gryffindor": TBD
+    "Gold Card Room - Card Herpo": TBD
+    "Gold Card Room - Card Hufflepuff": TBD
+    "Gold Card Room - Card Knightley": TBD
+    "Gold Card Room - Card Paracelsus": TBD
+    "Gold Card Room - Card Pinkstone": TBD
+    "Gold Card Room - Card Potter": TBD
+    "Gold Card Room - Card Ravenclaw": TBD
+    "Gold Card Room - Card Slytherin": TBD
+
+# ============================================================================
+# RictusempraChallenge  (26 locations)
+# ============================================================================
+RictusempraChallenge:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Rictusempra Challenge - Card Barbary": TBD
+    "Rictusempra Challenge - Card Graves": TBD
+    "Rictusempra Challenge - Card Thruston": TBD
+    "Rictusempra Challenge - Card Wagtail": TBD
+    "Rictusempra Challenge - Card Wintringham": TBD
+    "Rictusempra Challenge - Card Chittock": TBD
+    "Rictusempra Challenge - Card Crumb": TBD
+    "Rictusempra Challenge - Card Duke": TBD
+    "Rictusempra Challenge - Card Tremlett": TBD
+    # --- secret ---
+    "Rictusempra Challenge - Secret 1": TBD
+    "Rictusempra Challenge - Secret 3": TBD
+    "Rictusempra Challenge - Secret 5": TBD
+    "Rictusempra Challenge - Secret 4": TBD
+    "Rictusempra Challenge - Secret 6": TBD
+    "Rictusempra Challenge - Secret 7": TBD
+    "Rictusempra Challenge - Secret 2": TBD
+    # --- star ---
+    "Rictusempra Challenge - Challenge Star 3": TBD
+    "Rictusempra Challenge - Challenge Star 10": TBD
+    "Rictusempra Challenge - Challenge Star 2": TBD
+    "Rictusempra Challenge - Challenge Star 6": TBD
+    "Rictusempra Challenge - Challenge Star 1": TBD
+    "Rictusempra Challenge - Challenge Star 4": TBD
+    "Rictusempra Challenge - Challenge Star 8": TBD
+    "Rictusempra Challenge - Challenge Star 5": TBD
+    "Rictusempra Challenge - Challenge Star 7": TBD
+    "Rictusempra Challenge - Challenge Star 9": TBD
+
+# ============================================================================
+# Quidditch  (6 locations)
+# ============================================================================
+Quidditch:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- match ---
+    "Quidditch - Match 1 (Hufflepuff)": TBD
+    "Quidditch - Match 2 (Ravenclaw)": TBD
+    "Quidditch - Match 3 (Slytherin)": TBD
+    "Quidditch - Match 4 (Hufflepuff)": TBD
+    "Quidditch - Match 5 (Ravenclaw)": TBD
+    "Quidditch - Match 6 (Slytherin)": TBD
+
+# ============================================================================
+# SkurgeChallenge  (23 locations)
+# ============================================================================
+SkurgeChallenge:
+  entry: Skurge Challenge Key & Skurge  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Skurge Challenge - Card Belby": Flipendo & Lumos & Alohomora
+    "Skurge Challenge - Card Catchlove": Flipendo & Lumos & Alohomora
+    "Skurge Challenge - Card Kegg": Flipendo & Lumos
+    "Skurge Challenge - Card Wenlock": Alohomora
+    "Skurge Challenge - Card Fulbert": Flipendo & Lumos & Rictusempra & Alohomora
+    "Skurge Challenge - Card Gregory": Flipendo & Lumos
+    # --- secret ---
+    "Skurge Challenge - Secret 1": Alohomora
+    "Skurge Challenge - Secret 2": Flipendo & Alohomora
+    "Skurge Challenge - Secret 3": Flipendo & Lumos
+    "Skurge Challenge - Secret 4": Flipendo & Lumos & Rictusempra
+    "Skurge Challenge - Secret 5": Flipendo & Lumos & Alohomora
+    "Skurge Challenge - Secret 6": Flipendo & Lumos
+    "Skurge Challenge - Secret 7": Flipendo & Lumos & Alohomora
+    # --- star ---
+    "Skurge Challenge - Challenge Star 1": Flipendo
+    "Skurge Challenge - Challenge Star 2": Flipendo
+    "Skurge Challenge - Challenge Star 3": Flipendo & Alohomora
+    "Skurge Challenge - Challenge Star 4": Flipendo & Lumos
+    "Skurge Challenge - Challenge Star 5": Flipendo & Lumos
+    "Skurge Challenge - Challenge Star 6": Flipendo & Lumos & Alohomora
+    "Skurge Challenge - Challenge Star 7": Flipendo & Lumos
+    "Skurge Challenge - Challenge Star 10": Flipendo & Lumos & Alohomora
+    "Skurge Challenge - Challenge Star 9": Flipendo & Lumos
+    "Skurge Challenge - Challenge Star 8": Flipendo & Lumos
+
+# ============================================================================
+# BicornLevel  (13 locations)
+# ============================================================================
+BicornLevel:
+  entry: Bicorn Level Key & Skurge  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Bicorn Level - Card Agrippa": TBD
+    "Bicorn Level - Card Goshawk": TBD
+    "Bicorn Level - Card Peakes": TBD
+    "Bicorn Level - Card Stump": TBD
+    "Bicorn Level - Card Cronk": TBD
+    "Bicorn Level - Card Nutcombe": TBD
+    # --- secret ---
+    "Bicorn Level - Secret 2": TBD
+    "Bicorn Level - Secret 1": TBD
+    "Bicorn Level - Secret 6": TBD
+    "Bicorn Level - Secret 3": TBD
+    "Bicorn Level - Secret 4": TBD
+    "Bicorn Level - Secret 5": TBD
+    "Bicorn Level - Secret 7": TBD
+
+# ============================================================================
+# DuelingClub  (10 locations)
+# ============================================================================
+DuelingClub:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- duel ---
+    "Dueling Club - Duel Rank 1": TBD
+    "Dueling Club - Duel Rank 2": TBD
+    "Dueling Club - Duel Rank 3": TBD
+    "Dueling Club - Duel Rank 4": TBD
+    "Dueling Club - Duel Rank 5": TBD
+    "Dueling Club - Duel Rank 6": TBD
+    "Dueling Club - Duel Rank 7": TBD
+    "Dueling Club - Duel Rank 8": TBD
+    "Dueling Club - Duel Rank 9": TBD
+    "Dueling Club - Duel Rank 10": TBD
+
+# ============================================================================
+# DiffindoChallenge  (33 locations)
+# ============================================================================
+DiffindoChallenge:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Diffindo Challenge - Card Ketteridge": TBD
+    "Diffindo Challenge - Card Merwyn": TBD
+    "Diffindo Challenge - Card Ulric": TBD
+    "Diffindo Challenge - Card Withers": TBD
+    "Diffindo Challenge - Card Shimpling": TBD
+    "Diffindo Challenge - Card Smethwyck": TBD
+    "Diffindo Challenge - Card Stalk": TBD
+    "Diffindo Challenge - Card Thurkell": TBD
+    # --- secret ---
+    "Diffindo Challenge - Secret 1": TBD
+    "Diffindo Challenge - Secret 2": TBD
+    "Diffindo Challenge - Secret 3": TBD
+    "Diffindo Challenge - Secret 5": TBD
+    "Diffindo Challenge - Secret 6": TBD
+    "Diffindo Challenge - Secret 4": TBD
+    "Diffindo Challenge - Secret 7": TBD
+    "Diffindo Challenge - Secret 8": TBD
+    "Diffindo Challenge - Secret 9": TBD
+    "Diffindo Challenge - Secret 10": TBD
+    "Diffindo Challenge - Secret 11": TBD
+    # --- star ---
+    "Diffindo Challenge - Challenge Star 8": TBD
+    "Diffindo Challenge - Challenge Star 14": TBD
+    "Diffindo Challenge - Challenge Star 9": TBD
+    "Diffindo Challenge - Challenge Star 12": TBD
+    "Diffindo Challenge - Challenge Star 2": TBD
+    "Diffindo Challenge - Challenge Star 4": TBD
+    "Diffindo Challenge - Challenge Star 5": TBD
+    "Diffindo Challenge - Challenge Star 6": TBD
+    "Diffindo Challenge - Challenge Star 11": TBD
+    "Diffindo Challenge - Challenge Star 10": TBD
+    "Diffindo Challenge - Challenge Star 3": TBD
+    "Diffindo Challenge - Challenge Star 7": TBD
+    "Diffindo Challenge - Challenge Star 13": TBD
+    "Diffindo Challenge - Challenge Star 1": TBD
+
+# ============================================================================
+# BoomslangLevel  (5 locations)
+# ============================================================================
+BoomslangLevel:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Boomslang Level - Card Toke": TBD
+    "Boomslang Level - Card Tugwood": TBD
+    # --- secret ---
+    "Boomslang Level - Secret 3": TBD
+    "Boomslang Level - Secret 2": TBD
+    "Boomslang Level - Secret 1": TBD
+
+# ============================================================================
+# DumbledoreStudy  (3 locations)
+# ============================================================================
+DumbledoreStudy:
+  entry: Alohomora  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Dumbledore's Study - Card Muldoon": Alohomora
+    "Dumbledore's Study - Card Beamish": Alohomora & Flipendo
+    # --- secret ---
+    "Dumbledore's Study - Secret": Alohomora & Flipendo
+
+# ============================================================================
+# GoyleLevel  (14 locations)
+# ============================================================================
+GoyleLevel:
+  entry: Goyle Level Key  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Goyle Level - Card Bloxam": Diffindo & Alohomora
+    "Goyle Level - Card Plumpton": Alohomora
+    "Goyle Level - Card Stroulger": Diffindo & Rictusempra & Flipendo
+    "Goyle Level - Card Whitehorn": Diffindo & Rictusempra & Flipendo & Alohomora
+    "Goyle Level - Card Circe": Diffindo & Rictusempra & Flipendo & Alohomora
+    "Goyle Level - Card Wildsmith": Diffindo & Lumos & Alohomora
+    # --- secret ---
+    "Goyle Level - Secret 5": Diffindo & Rictusempra & Flipendo & Alohomora
+    "Goyle Level - Secret 6": Diffindo & Rictusempra & Flipendo & Lumos
+    "Goyle Level - Secret 8": Diffindo & Rictusempra & Flipendo & Alohomora & Lumos
+    "Goyle Level - Secret 7": Diffindo & Rictusempra & Flipendo & Alohomora
+    "Goyle Level - Secret 1": Diffindo & Lumos
+    "Goyle Level - Secret 3": Diffindo & Lumos
+    "Goyle Level - Secret 4": Diffindo & Lumos & Alohomora
+    "Goyle Level - Secret 2": Diffindo
+
+# ============================================================================
+# SlytherinCommon  (13 locations)
+# ============================================================================
+SlytherinCommon:
+  entry: Slytherin Common Room Key  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Slytherin Common Room - Card Pilliwickle": Flipendo & Diffindo & Skurge & Lumos & Alohomora
+    "Slytherin Common Room - Card Platt": Flipendo & Diffindo & Skurge & Lumos & Alohomora
+    "Slytherin Common Room - Card Waffling": Flipendo & Diffindo & Skurge & Lumos
+    "Slytherin Common Room - Card Clagg": Flipendo & Diffindo & Alohomora
+    "Slytherin Common Room - Card Fay": Flipendo & Diffindo & Skurge & Lumos & Alohomora
+    # --- secret ---
+    "Slytherin Common Room - Secret 7": Flipendo & Diffindo & Skurge & Lumos & Alohomora
+    "Slytherin Common Room - Secret 6": Flipendo & Diffindo & Skurge & Lumos & Alohomora
+    "Slytherin Common Room - Secret 5": Flipendo & Diffindo & Skurge & Lumos
+    "Slytherin Common Room - Secret 8": Flipendo & Diffindo & Skurge & Lumos
+    "Slytherin Common Room - Secret 4": Flipendo & Diffindo & Skurge & Lumos
+    "Slytherin Common Room - Secret 3": Flipendo & Diffindo & Skurge & Lumos
+    "Slytherin Common Room - Secret 2": Flipendo & Diffindo & Skurge & Lumos
+    "Slytherin Common Room - Secret 1": Flipendo & Diffindo
+
+# ============================================================================
+# SpongifyChallenge  (34 locations)
+# ============================================================================
+SpongifyChallenge:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Spongify Challenge - Card Merlin": TBD
+    "Spongify Challenge - Card Po": TBD
+    "Spongify Challenge - Card Warbeck": TBD
+    "Spongify Challenge - Card Woodcroft": TBD
+    "Spongify Challenge - Card Furmage": TBD
+    "Spongify Challenge - Card Grunnion": TBD
+    "Spongify Challenge - Card Rastrick": TBD
+    "Spongify Challenge - Card Summerbee": TBD
+    # --- secret ---
+    "Spongify Challenge - Secret 1": TBD
+    "Spongify Challenge - Secret 2": TBD
+    "Spongify Challenge - Secret 3": TBD
+    "Spongify Challenge - Secret 4": TBD
+    "Spongify Challenge - Secret 5": TBD
+    "Spongify Challenge - Secret 6": TBD
+    "Spongify Challenge - Secret 7": TBD
+    "Spongify Challenge - Secret 8": TBD
+    "Spongify Challenge - Secret 9": TBD
+    "Spongify Challenge - Secret 10": TBD
+    "Spongify Challenge - Secret 11": TBD
+    "Spongify Challenge - Secret 12": TBD
+    "Spongify Challenge - Secret 13": TBD
+    "Spongify Challenge - Secret 14": TBD
+    "Spongify Challenge - Secret 15": TBD
+    "Spongify Challenge - Secret 16": TBD
+    # --- star ---
+    "Spongify Challenge - Challenge Star 1": TBD
+    "Spongify Challenge - Challenge Star 3": TBD
+    "Spongify Challenge - Challenge Star 2": TBD
+    "Spongify Challenge - Challenge Star 4": TBD
+    "Spongify Challenge - Challenge Star 5": TBD
+    "Spongify Challenge - Challenge Star 6": TBD
+    "Spongify Challenge - Challenge Star 7": TBD
+    "Spongify Challenge - Challenge Star 8": TBD
+    "Spongify Challenge - Challenge Star 9": TBD
+    "Spongify Challenge - Challenge Star 10": TBD
+
+# ============================================================================
+# ForbiddenForest  (10 locations)
+# ============================================================================
+ForbiddenForest:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Forbidden Forest - Card Fancourt": TBD
+    "Forbidden Forest - Card Ollerton": TBD
+    "Forbidden Forest - Card Scamander": TBD
+    "Forbidden Forest - Card Wellbeloved": TBD
+    "Forbidden Forest - Card Cliodne": TBD
+    "Forbidden Forest - Card Oliphant": TBD
+    # --- secret ---
+    "Forbidden Forest - Secret 4": TBD
+    "Forbidden Forest - Secret 3": TBD
+    "Forbidden Forest - Secret 2": TBD
+    "Forbidden Forest - Secret 1": TBD
+
+# ============================================================================
+# ChamberOfSecrets  (7 locations)
+# ============================================================================
+ChamberOfSecrets:
+  entry: TBD  # what items are needed just to enter this region in bingo
+  locations:
+    # --- card ---
+    "Chamber of Secrets - Card Elphick": TBD
+    # --- secret ---
+    "Chamber of Secrets - Secret 3": TBD
+    "Chamber of Secrets - Secret 2": TBD
+    "Chamber of Secrets - Secret 1": TBD
+    "Chamber of Secrets - Secret 5": TBD
+    "Chamber of Secrets - Secret 4": TBD
+    "Chamber of Secrets - Secret 6": TBD

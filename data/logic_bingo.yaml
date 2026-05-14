@@ -41,43 +41,43 @@ regions:
     start: true
 
   WhompingWillow:
-    entry: "true"
-    notes: "Starting level. Player walks out the other side into Hogwarts."
+    entry: "'Whomping Willow Key'"
+    notes: "Starting level. Player walks out the other side into Hogwarts. Bingo key auto-precollected in vanilla mode."
 
   Hogwarts:
-    entry: "Lumos & Flipendo"
-    notes: "Castle interior hub — grand staircase, Lockhart's DADA classroom (Rictusempra + Spongify lessons), Flitwick's classroom (Skurge), entrance hall, library. Lumos+Flipendo gate is the willow exit. Alohomora not in entry because Toothill/Oldridge don't need it; per-location elsewhere."
+    entry: "true"
+    notes: "Castle interior hub — grand staircase, Lockhart's DADA classroom (Rictusempra + Spongify lessons), Flitwick's classroom (Skurge), entrance hall, library. Sphere-0 in bingo (open castle, walkable with no spells). In vanilla, Lumos+Flipendo are precollected starters so the physical Willow→Hogwarts gate is trivially passed regardless; per-card requires handle individual spell gating."
 
   CastleExterior:
-    entry: "Lumos & Flipendo"
-    notes: "Outdoor courtyard between castle and greenhouses. Alohomora not in entry because Sweeting/Sykes don't need it; per-location elsewhere."
+    entry: "true"
+    notes: "Outdoor courtyard between castle and greenhouses. Sphere-0 in bingo (open castle). In vanilla, Lumos+Flipendo are precollected starters so the prior 'Lumos & Flipendo' entry was trivially passed; per-card requires gate individual checks by spell."
 
   RictusempraChallenge:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & 'Rictusempra Challenge Key'"
     notes: "Auto-teleport from Lockhart's classroom after the Rictusempra bookcase clears. All 9 cards inside require Alohomora — encoded at region level."
 
   Quidditch:
-    entry: "Lumos & Flipendo & Rictusempra"
+    entry: "Lumos & Flipendo & Rictusempra & 'Quidditch Key'"
     notes: "Quidditch training opens after Rictusempra challenge. Bean bonus room en route — no checks there. Fred/George vendor (Nimbus 2001, Quidditch armour) and Quidditch matches 1-6 are v2 Tier-3 expansion candidates."
 
   SkurgeChallenge:
-    entry: "Lumos & Flipendo & Rictusempra & Skurge"
+    entry: "Lumos & Flipendo & Rictusempra & Skurge & 'Skurge Challenge Key'"
     notes: "Auto-teleport from Flitwick's classroom after the Skurge bookcase clears (bookcase TODO). Alohomora not at region entry because Skurge Challenge - Card Gregory doesn't need it; per-location for the other 5."
 
   BicornLevel:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & 'Bicorn Level Key'"
     notes: "Bicorn horn collection level. Reached after Skurge challenge completion. v1: Bicorn itself is vanilla-only, not an AP item. All 6 cards inside require Alohomora. Dueling unlocks on completion (v2 Tier-3 candidate)."
 
   DuelingClub:
-    entry: "Lumos & Flipendo & Rictusempra & Skurge"
+    entry: "Lumos & Flipendo & Rictusempra & Skurge & 'Duelling Key'"
     notes: "Dueling Club opens post-Bicorn (vanilla iGameState >= 80). 10 ranked duels (Rank 1-10) each fire an AP check on win. Region entry mirrors BicornLevel minus Alohomora (no locks to pick in the dueling room). v2 Tier-3 expansion, opt-in via enable_duelling (default off). Intra-rank ordering not encoded in logic per the 'spell/item requires only' rule — vanilla gameplay enforces sequential rank progression on its own."
 
   DiffindoChallenge:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Diffindo Challenge Key'"
     notes: "Auto-teleport from Sprout's classroom after the Diffindo bookcase clears (bookcase TODO). All 8 cards inside require Alohomora."
 
   BoomslangLevel:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Boomslang Level Key'"
     notes: "Boomslang skin collection level. Reached after Diffindo challenge. v1: Boomslang itself is vanilla-only, not an AP item. Both cards require Alohomora."
 
   DumbledoreStudy:
@@ -85,28 +85,28 @@ regions:
     notes: "Visited between Boomslang skin level and Goyle level. Story gate, not spell gate. Both cards require Alohomora."
 
   GoyleLevel:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Goyle Level Key'"
     notes: "Reached after Dumbledore's study. v1: BitOGoyle fragment at end is vanilla-only, not an AP check. All 6 cards require Alohomora."
 
   SlytherinCommon:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Slytherin Common Room Key'"
     notes: "Reached via Moaning Myrtle bathroom + Polyjuice transformation. v1: Polyjuice ingredients (Boomslang/Bicorn/BitOGoyle) are vanilla-only — story progression guarantees the player has them by the time they enter SlytherinCommon. All 5 cards require Alohomora."
 
   SpongifyChallenge:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Spongify Challenge Key'"
     notes: "Auto-teleport from Lockhart's classroom (DADA). No bookcase on the room because Rictusempra also lives here — Stefan's note: 'i cant place a bookcase there to block it yet'. All 8 cards require Alohomora."
 
   ForbiddenForest:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Forbidden Forest Key'"
     notes: "All 6 cards require Alohomora."
 
   ChamberOfSecrets:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Chamber of Secrets Key'"
     notes: "Final goal region. All 4 non-starter spells required for traversal and Basilisk; Alohomora at region entry too. Hosts Chamber of Secrets - Card Elphick only — the 11 Gold cards moved to GoldCardRoom 2026-05-13 (correct vanilla home is Ch6WizardCard, not the Chamber level)."
 
   GoldCardRoom:
-    entry: "Lumos & Flipendo"
-    notes: "Ch6WizardCard.unr — the gold card vault, reached via a door in the Grand Staircase (Hogwarts sub-area), so the region entry mirrors Hogwarts (Lumos & Flipendo only) rather than the full-spell endgame gate. The vanilla 40-silver-card door (=4 Gold keys at 10 silvers each) is modelled in HP2World.set_rules as a Python-side add_rule that ANDs `state.has(every silver, player)` onto each gold-card location; the rule grammar itself can't express group counts. Per-card spell requirements inside the room are TBD pending a full playthrough — most gold cards may need additional spells to physically reach within the room."
+    entry: "true"
+    notes: "Ch6WizardCard.unr — the gold card vault, reached via a door in the Grand Staircase (Hogwarts sub-area). Sphere-0 like Hogwarts; the real gate is the 40-silver-card door modelled in HP2World.set_rules as a Python-side add_rule that ANDs `state.has(every silver, player)` onto each gold-card location (the rule grammar itself can't express group counts). Per-card spell requirements inside the room are TBD pending a full playthrough — most gold cards may need additional spells to physically reach within the room."
 
 # Per-location rules. KEY = location.name from locations.yaml.
 # A location's effective rule is: region.entry AND location.requires.
@@ -257,5 +257,5 @@ locations:
 # Goal definition.
 goal:
   basilisk:
-    requires: "Flipendo & Lumos & Alohomora & Diffindo & Rictusempra & Skurge & Spongify"
+    requires: "Flipendo & Lumos & Alohomora & Diffindo & Rictusempra & Skurge & Spongify & 'Chamber of Secrets Key'"
     notes: "Generation logic for reaching Basilisk/credits. Runtime completion still comes from GOAL_COMPLETE."
