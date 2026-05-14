@@ -110,6 +110,7 @@ event InitGame(string Options, out string Error)
     BlockSkurgeClassroomIfMissing();
     BlockDiffindoClassroomIfMissing();
     BlockSpongifyClassroomIfMissing();
+    SpawnAllBingoBlockers();
 }
 
 // Bingo-distribution .unr maps ship with bSkipAllowed=False on intro
@@ -174,6 +175,15 @@ function BlockRictaClassroomIfMissing()
     local Vector spawnLoc;
     local Rotator spawnRot;
     local bool found;
+
+    // Bingo mode supersedes this helper with BlockBingoRictusempraEntryIfMissing
+    // (level-transition bookcase in Entryhall_hub, gated on the Rictusempra
+    // Classroom Key item rather than on the spell). Skip the cutscene-anchored
+    // blocker so we don't double up in Entryhall_hub.
+    if (class'APCardWatcher'.default.bBingoMode == 1)
+    {
+        return;
+    }
 
     if (class'APCardWatcher'.default.APGrantedSpell[4] == 1)
     {
@@ -309,6 +319,12 @@ function BlockSkurgeClassroomIfMissing()
     local Rotator spawnRot;
     local string fn;
     local int nameLen;
+
+    // Bingo mode: superseded by BlockBingoSkurgeEntryIfMissing.
+    if (class'APCardWatcher'.default.bBingoMode == 1)
+    {
+        return;
+    }
 
     if (class'APCardWatcher'.default.APGrantedSpell[5] == 1)
     {
@@ -453,6 +469,12 @@ function BlockDiffindoClassroomIfMissing()
     local Rotator spawnRot;
     local int i, spawned;
 
+    // Bingo mode: superseded by BlockBingoDiffindoEntryIfMissing.
+    if (class'APCardWatcher'.default.bBingoMode == 1)
+    {
+        return;
+    }
+
     if (class'APCardWatcher'.default.APGrantedSpell[1] == 1)
     {
         Log("[Archipelago] BlockDiffindo: player has Diffindo (APGrantedSpell[1]=1) - no blocker needed");
@@ -592,6 +614,12 @@ function BlockSpongifyClassroomIfMissing()
     local Rotator spawnRot;
     local harry h;
 
+    // Bingo mode: superseded by BlockBingoSpongifyEntryIfMissing.
+    if (class'APCardWatcher'.default.bBingoMode == 1)
+    {
+        return;
+    }
+
     if (class'APCardWatcher'.default.APGrantedSpell[6] == 1)
     {
         Log("[Archipelago] BlockSpongify: player has Spongify (APGrantedSpell[6]=1) - no blocker needed");
@@ -708,6 +736,302 @@ function RemoveSpongifyBlocker()
     {
         Log("[Archipelago] RemoveSpongifyBlocker: tag-scan in " $ string(scanActor.Level) $ " found 0 blockers (player likely not in Grandstaircase_hub)");
     }
+}
+
+//=============================================================================
+// Bingo-mode level-entry bookcases.
+//
+// 13 keys, 17 bookcases. Each helper is level-scoped (early-returns when
+// Level.Outer.Name doesn't match) so InitGame can call all 13 unconditionally
+// and let each one decide. APGrantedBingoKey[i] on APCardWatcher tracks which
+// keys the player has received this session — Block helpers early-return on
+// granted, Remove helpers tag-scan + Destroy. Idempotent on re-entry via the
+// tag check.
+//
+// Shared utilities below dedupe the per-helper boilerplate. The actual
+// Location/Rotation literals were captured via the dev console PlaceBookcase
+// exec (APConsole.uc) in the bingo install and transcribed here.
+//=============================================================================
+
+function bool BingoLevelIs(string CapsName)
+{
+    return Caps(string(Level.Outer.Name)) == CapsName;
+}
+
+function bool BingoLevelIsAnyOf(string CapsA, string CapsB)
+{
+    local string lvl;
+    lvl = Caps(string(Level.Outer.Name));
+    return lvl == CapsA || lvl == CapsB;
+}
+
+// Returns True if a bookcase with this tag should be spawned in the current
+// level: key not yet granted AND no existing tagged actor blocking idempotency.
+function bool ShouldSpawnBingoBlocker(name Tag, int KeyIdx)
+{
+    local Actor existing;
+
+    if (class'APCardWatcher'.default.APGrantedBingoKey[KeyIdx] == 1)
+    {
+        return False;
+    }
+    foreach AllActors(class'Actor', existing)
+    {
+        if (existing.Tag == Tag && !existing.bDeleteMe)
+        {
+            return False;
+        }
+    }
+    return True;
+}
+
+function Actor SpawnBingoBookcase(name Tag, Vector Loc, Rotator Rot)
+{
+    local Actor blocker;
+    blocker = Spawn(class'BookcaseGlassDoors', None, Tag, Loc, Rot);
+    if (blocker != None)
+    {
+        Log("[Archipelago] " $ string(Tag) $ ": spawned at " $ string(Loc) $ " Rotation=" $ string(Rot));
+    }
+    else
+    {
+        Log("[Archipelago] " $ string(Tag) $ ": Spawn returned None at " $ string(Loc) $ " (encroachment? coords may need tweak)");
+    }
+    return blocker;
+}
+
+function DestroyTaggedBingoBlockers(name Tag)
+{
+    local Actor a, scanActor;
+    local APCardWatcher w;
+    local int n;
+
+    // Mirror RemoveRictaBlocker's pattern: scan from the watcher's harry if
+    // available, so we hit the gameplay UWorld actors (Entry's harry has
+    // Player=None and is in a different UWorld).
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w != None && w.HarryRef != None && !w.HarryRef.bDeleteMe)
+    {
+        scanActor = w.HarryRef;
+    }
+    else
+    {
+        scanActor = self;
+    }
+    foreach scanActor.AllActors(class'Actor', a)
+    {
+        if (a.Tag == Tag && !a.bDeleteMe)
+        {
+            a.Destroy();
+            n++;
+        }
+    }
+    if (n > 0)
+    {
+        Log("[Archipelago] Remove " $ string(Tag) $ ": destroyed " $ n $ " blocker(s)");
+    }
+}
+
+// ----- 1. Chamber of Secrets (Grandstaircase_hub) -----
+function BlockBingoChamberEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("GRANDSTAIRCASE_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoChamberBlocker', 0)) return;
+    loc.X = 1598.02;  loc.Y = -7624.80; loc.Z = 1196.50;
+    rot.Yaw = 93;
+    SpawnBingoBookcase('APBingoChamberBlocker', loc, rot);
+}
+function RemoveBingoChamberBlocker()       { DestroyTaggedBingoBlockers('APBingoChamberBlocker'); }
+
+// ----- 2. Spongify classroom entry (Entryhall_hub) -----
+function BlockBingoSpongifyEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoSpongifyBlocker', 1)) return;
+    loc.X = -1985.10; loc.Y = -2817.36; loc.Z = 108.50;
+    rot.Yaw = 49144;  rot.Roll = 65532;
+    SpawnBingoBookcase('APBingoSpongifyBlocker', loc, rot);
+}
+function RemoveBingoSpongifyBlocker()      { DestroyTaggedBingoBlockers('APBingoSpongifyBlocker'); }
+
+// ----- 3. Skurge classroom entry (Entryhall_hub) -----
+function BlockBingoSkurgeEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoSkurgeBlocker', 2)) return;
+    loc.X = 575.69;   loc.Y = -2818.14; loc.Z = 108.50;
+    rot.Yaw = 16384;
+    SpawnBingoBookcase('APBingoSkurgeBlocker', loc, rot);
+}
+function RemoveBingoSkurgeBlocker()        { DestroyTaggedBingoBlockers('APBingoSkurgeBlocker'); }
+
+// ----- 4. Rictusempra classroom entry (Entryhall_hub) -----
+function BlockBingoRictusempraEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoRictusempraBlocker', 3)) return;
+    loc.X = 255.65;   loc.Y = -1407.09; loc.Z = -19.50;
+    rot.Yaw = 16468;  rot.Roll = 65535;
+    SpawnBingoBookcase('APBingoRictusempraBlocker', loc, rot);
+}
+function RemoveBingoRictusempraBlocker()   { DestroyTaggedBingoBlockers('APBingoRictusempraBlocker'); }
+
+// ----- 5. Diffindo classroom entry (Grounds_hub + Grounds_Night) -----
+function BlockBingoDiffindoEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoDiffindoBlocker', 4)) return;
+    loc.X = -1335.32; loc.Y = -771.42;  loc.Z = -211.50;
+    rot.Yaw = 41494;
+    SpawnBingoBookcase('APBingoDiffindoBlocker', loc, rot);
+}
+function RemoveBingoDiffindoBlocker()      { DestroyTaggedBingoBlockers('APBingoDiffindoBlocker'); }
+
+// ----- 6. Boomslang level entry (Grounds_hub + Grounds_Night) -----
+function BlockBingoBoomslangEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoBoomslangBlocker', 5)) return;
+    loc.X = -4421.24; loc.Y = 1100.93;  loc.Z = 44.50;
+    rot.Yaw = 49153;
+    SpawnBingoBookcase('APBingoBoomslangBlocker', loc, rot);
+}
+function RemoveBingoBoomslangBlocker()     { DestroyTaggedBingoBlockers('APBingoBoomslangBlocker'); }
+
+// ----- 7. Whomping Willow entry (Grounds_hub + Grounds_Night) -----
+function BlockBingoWillowEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoWillowBlocker', 6)) return;
+    loc.X = -0.42;    loc.Y = 1579.53;  loc.Z = 300.50;
+    rot.Yaw = 32687;
+    SpawnBingoBookcase('APBingoWillowBlocker', loc, rot);
+}
+function RemoveBingoWillowBlocker()        { DestroyTaggedBingoBlockers('APBingoWillowBlocker'); }
+
+// ----- 8. Forbidden Forest entry (Grounds_hub + Grounds_Night). 2 stacked bookcases. -----
+function BlockBingoForbiddenForestEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoForbiddenForestBlocker', 7)) return;
+    // FF1 at ground level.
+    loc.X = 3928.45;  loc.Y = 3438.30;  loc.Z = -211.31;
+    rot.Yaw = 17288;  rot.Roll = 65532;
+    SpawnBingoBookcase('APBingoForbiddenForestBlocker', loc, rot);
+    loc.Z = -35.31;
+    SpawnBingoBookcase('APBingoForbiddenForestBlocker', loc, rot);
+}
+function RemoveBingoForbiddenForestBlocker() { DestroyTaggedBingoBlockers('APBingoForbiddenForestBlocker'); }
+
+// ----- 9. Slytherin Common Room entry (Entryhall_hub) -----
+function BlockBingoSlytherinEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoSlytherinBlocker', 8)) return;
+    loc.X = -2526.16; loc.Y = -3019.69; loc.Z = -595.50;
+    rot.Yaw = 65333;  rot.Roll = 65535;
+    SpawnBingoBookcase('APBingoSlytherinBlocker', loc, rot);
+}
+function RemoveBingoSlytherinBlocker()     { DestroyTaggedBingoBlockers('APBingoSlytherinBlocker'); }
+
+// ----- 10. Goyle level entry (Entryhall_hub) -----
+function BlockBingoGoyleEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoGoyleBlocker', 9)) return;
+    loc.X = -5192.51; loc.Y = -2368.72; loc.Z = -227.50;
+    rot.Yaw = 49578;
+    SpawnBingoBookcase('APBingoGoyleBlocker', loc, rot);
+}
+function RemoveBingoGoyleBlocker()         { DestroyTaggedBingoBlockers('APBingoGoyleBlocker'); }
+
+// ----- 11. Bicorn level entry (Entryhall_hub) -----
+function BlockBingoBicornEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoBicornBlocker', 10)) return;
+    loc.X = -5194.33; loc.Y = -958.79;  loc.Z = -467.50;
+    rot.Yaw = 48862;
+    SpawnBingoBookcase('APBingoBicornBlocker', loc, rot);
+}
+function RemoveBingoBicornBlocker()        { DestroyTaggedBingoBlockers('APBingoBicornBlocker'); }
+
+// ----- 12. Duelling Club entry (Entryhall_hub). 2 bookcases side by side. -----
+function BlockBingoDuellingEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoDuellingBlocker', 11)) return;
+    rot.Yaw = 138;
+    loc.X = 486.01;   loc.Y = -1345.50; loc.Z = -371.50;
+    SpawnBingoBookcase('APBingoDuellingBlocker', loc, rot);
+    loc.X = 665.40;
+    SpawnBingoBookcase('APBingoDuellingBlocker', loc, rot);
+}
+function RemoveBingoDuellingBlocker()      { DestroyTaggedBingoBlockers('APBingoDuellingBlocker'); }
+
+// ----- 13. Quidditch Pitch entry (Grounds_hub + Grounds_Night). 2 bookcases. -----
+function BlockBingoQuidditchEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoQuidditchBlocker', 12)) return;
+    loc.X = 1506.36;  loc.Y = 165.71;   loc.Z = 44.50;
+    rot.Yaw = 33272;  rot.Roll = 0;
+    SpawnBingoBookcase('APBingoQuidditchBlocker', loc, rot);
+    loc.X = 1382.72;  loc.Y = 234.64;
+    rot.Yaw = 16564;  rot.Roll = 65535;
+    SpawnBingoBookcase('APBingoQuidditchBlocker', loc, rot);
+}
+function RemoveBingoQuidditchBlocker()     { DestroyTaggedBingoBlockers('APBingoQuidditchBlocker'); }
+
+// Convenience aggregator called from InitGame and from
+// APCardWatcher.TrySpawnClassroomBlockers (post-save-load path that bypasses
+// InitGame). Each individual helper is level-scoped so unconditional iteration
+// is safe — a Grounds bookcase in Entryhall_hub just early-returns.
+function SpawnAllBingoBlockers()
+{
+    if (class'APCardWatcher'.default.bBingoMode == 0)
+    {
+        return;
+    }
+    BlockBingoChamberEntryIfMissing();
+    BlockBingoSpongifyEntryIfMissing();
+    BlockBingoSkurgeEntryIfMissing();
+    BlockBingoRictusempraEntryIfMissing();
+    BlockBingoDiffindoEntryIfMissing();
+    BlockBingoBoomslangEntryIfMissing();
+    BlockBingoWillowEntryIfMissing();
+    BlockBingoForbiddenForestEntryIfMissing();
+    BlockBingoSlytherinEntryIfMissing();
+    BlockBingoGoyleEntryIfMissing();
+    BlockBingoBicornEntryIfMissing();
+    BlockBingoDuellingEntryIfMissing();
+    BlockBingoQuidditchEntryIfMissing();
 }
 
 // Replace every card-class reference in chests/cauldrons (and every loose
@@ -1181,6 +1505,41 @@ function bool TryApplyKeyItem(string Name, harry h)
     return False;
 }
 
+// Bingo-only level-entry key. Stamps the class-default APGrantedBingoKey flag
+// (so future BlockBingo<X>EntryIfMissing helpers early-return for this key) and
+// dispatches to the matching RemoveBingo<X>Blocker to destroy any bookcase
+// already in the level. Returns True if the item name matched a known bingo
+// key, regardless of whether a blocker was actually present.
+function bool TryApplyBingoKey(string Name)
+{
+    local int idx;
+
+    idx = class'APCardWatcher'.static.BingoKeyIndexFromName(Name);
+    if (idx < 0)
+    {
+        return False;
+    }
+
+    class'APCardWatcher'.static.MarkBingoKeyAsAPGrantedDefault(Name);
+
+    if (idx == 0)       RemoveBingoChamberBlocker();
+    else if (idx == 1)  RemoveBingoSpongifyBlocker();
+    else if (idx == 2)  RemoveBingoSkurgeBlocker();
+    else if (idx == 3)  RemoveBingoRictusempraBlocker();
+    else if (idx == 4)  RemoveBingoDiffindoBlocker();
+    else if (idx == 5)  RemoveBingoBoomslangBlocker();
+    else if (idx == 6)  RemoveBingoWillowBlocker();
+    else if (idx == 7)  RemoveBingoForbiddenForestBlocker();
+    else if (idx == 8)  RemoveBingoSlytherinBlocker();
+    else if (idx == 9)  RemoveBingoGoyleBlocker();
+    else if (idx == 10) RemoveBingoBicornBlocker();
+    else if (idx == 11) RemoveBingoDuellingBlocker();
+    else if (idx == 12) RemoveBingoQuidditchBlocker();
+
+    Log("[Archipelago] ApplyGrant: granted bingo key " $ Name $ " (idx=" $ idx $ ")");
+    return True;
+}
+
 static function harry FindActiveHarry(Actor caller)
 {
     local APCardWatcher watcher;
@@ -1521,6 +1880,11 @@ function ApplyGrant(string Body)
     }
 
     if (TryApplyKeyItem(ItemName, h))
+    {
+        return;
+    }
+
+    if (TryApplyBingoKey(ItemName))
     {
         return;
     }

@@ -340,7 +340,7 @@ def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
 
 def collect_known_items(items: dict) -> set[str]:
     names: set[str] = set()
-    for category in ("spells", "key_items", "cards_bronze", "cards_silver", "cards_gold", "filler"):
+    for category in ("spells", "key_items", "bingo_keys", "cards_bronze", "cards_silver", "cards_gold", "filler"):
         for entry in items.get(category, []):
             names.add(entry["name"])
     return names
@@ -414,7 +414,7 @@ def validate(items: dict, locations: dict) -> None:
     item_ids: set[int] = set()
     item_names: set[str] = set()
     item_base = items["base_id"]
-    for category in ("spells", "key_items", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"):
+    for category in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"):
         for entry in items.get(category, []):
             iid = item_base + entry["id_offset"]
             if iid in item_ids:
@@ -475,6 +475,7 @@ def emit_items(items: dict) -> str:
     rows: list[tuple[str, int, str, str]] = []
     spells_names: list[str] = []
     keys_names: list[str] = []
+    bingo_keys_names: list[str] = []
     equipment_names: list[str] = []
     bronze_names: list[str] = []
     silver_names: list[str] = []
@@ -495,6 +496,8 @@ def emit_items(items: dict) -> str:
         add(entry, None, spells_names)
     for entry in items.get("key_items", []):
         add(entry, None, keys_names)
+    for entry in items.get("bingo_keys", []):
+        add(entry, None, bingo_keys_names)
     for entry in items.get("equipment", []):
         # Fred/George vendor items. Paired with `enable_quidditch_upgrades`:
         # gen_apworld emits them into ITEM_NAME_TO_ID unconditionally (stable
@@ -539,6 +542,7 @@ def emit_items(items: dict) -> str:
     lines.append("ITEM_GROUPS: dict[str, list[str]] = {")
     lines.append(f"    'Spells': {spells_names!r},")
     lines.append(f"    'Key Items': {keys_names!r},")
+    lines.append(f"    'Bingo Keys': {bingo_keys_names!r},")
     lines.append(f"    'Equipment': {equipment_names!r},")
     lines.append(f"    'Cards (Bronze)': {bronze_names!r},")
     lines.append(f"    'Cards (Silver)': {silver_names!r},")
@@ -903,7 +907,7 @@ def main() -> int:
     n_markers = emit_card_markers(items)
     n_registry = emit_location_registry(locations, locations["base_id"])
 
-    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"))
+    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
     n_regions = len(all_regions)
     n_loc_rules = sum(1 for m in (logic.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))

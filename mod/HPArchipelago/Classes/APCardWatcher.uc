@@ -3,6 +3,7 @@ class APCardWatcher extends Actor;
 const MAX_CARD_ID = 101;
 const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
+const NUM_BINGO_KEYS = 13;
 
 // AP location base id (locations.yaml `base_id`). Used to index
 // NonCardLocationChecked[] by `apId - LOC_BASE` for secrets/stars/etc.
@@ -42,6 +43,19 @@ var StatusItem KeyItemStatus[3];
 var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
 var byte APGrantedKeyItem[3];
+
+// Bingo-only level-entry keys. 13 new progression items the apworld puts in
+// the pool when game_mode==bingo, each gating one or more bookcases spawned
+// in the hub levels (Entryhall_hub / Grandstaircase_hub / Grounds_hub +
+// Grounds_Night). APGrantedBingoKey[i]==1 means the matching key has been
+// delivered by AP this session — the BlockBingo<X>EntryIfMissing helpers
+// early-return when their flag is set, and RemoveBingo<X>Blocker tag-scans
+// the level to destroy any still-present bookcase. Class-default writes via
+// MarkBingoKeyAsGrantedDefault keep the flag sticky across save/load and
+// across the per-level watcher instance lifecycle. Index → name mapping in
+// BingoKeyNames[] below; new entries here must mirror items.yaml bingo_keys.
+var string BingoKeyNames[13];
+var byte APGrantedBingoKey[13];
 
 // M7 goal detection: tracks whether we've already fired GOAL_COMPLETE this
 // session. Class-default so it survives level transitions (the credits flow
@@ -237,6 +251,23 @@ event PreBeginPlay()
     KeyItemNames[1] = "Bicorn";
     KeyItemNames[2] = "BitOGoyle";
 
+    // Bingo-only level-entry keys. Order matters — APGrantedBingoKey[] is
+    // indexed by this. Keep in sync with items.yaml bingo_keys section and
+    // with TryApplyBingoKey / RemoveBingo<X>Blocker dispatch in APGameInfo.
+    BingoKeyNames[0]  = "Chamber of Secrets Key";
+    BingoKeyNames[1]  = "Spongify Classroom Key";
+    BingoKeyNames[2]  = "Skurge Classroom Key";
+    BingoKeyNames[3]  = "Rictusempra Classroom Key";
+    BingoKeyNames[4]  = "Diffindo Classroom Key";
+    BingoKeyNames[5]  = "Boomslang Level Key";
+    BingoKeyNames[6]  = "Whomping Willow Key";
+    BingoKeyNames[7]  = "Forbidden Forest Key";
+    BingoKeyNames[8]  = "Slytherin Common Room Key";
+    BingoKeyNames[9]  = "Goyle Level Key";
+    BingoKeyNames[10] = "Bicorn Level Key";
+    BingoKeyNames[11] = "Duelling Club Key";
+    BingoKeyNames[12] = "Quidditch Pitch Key";
+
     // Inherit cross-session AP-grant flags from class default so a freshly
     // spawned watcher (e.g. after a save-load while AP grants arrived
     // mid-flight) doesn't think these are vanilla pickups and revert them.
@@ -254,6 +285,13 @@ event PreBeginPlay()
         {
             APGrantedKeyItem[i] = 1;
             WasKeyItemOwned[i] = 1;
+        }
+    }
+    for (i = 0; i < NUM_BINGO_KEYS; i++)
+    {
+        if (default.APGrantedBingoKey[i] == 1)
+        {
+            APGrantedBingoKey[i] = 1;
         }
     }
 }
@@ -282,6 +320,40 @@ static function MarkKeyItemAsAPGrantedDefault(string KeyItemName)
     else if (KeyItemName == "BitOGoyle") default.APGrantedKeyItem[2] = 1;
     else return;
     Log("[Archipelago] APCardWatcher.MarkKeyItemAsAPGrantedDefault: " $ KeyItemName $ " (class default set)");
+}
+
+// Bingo key dispatch. Returns the BingoKeyNames[] index, or -1 if the string
+// doesn't match a known bingo key. APGameInfo.TryApplyBingoKey uses this both
+// to stamp the class-default flag and to dispatch to the right
+// RemoveBingo<X>Blocker helper.
+static function int BingoKeyIndexFromName(string KeyName)
+{
+    if (KeyName == "Chamber of Secrets Key")    return 0;
+    if (KeyName == "Spongify Classroom Key")    return 1;
+    if (KeyName == "Skurge Classroom Key")      return 2;
+    if (KeyName == "Rictusempra Classroom Key") return 3;
+    if (KeyName == "Diffindo Classroom Key")    return 4;
+    if (KeyName == "Boomslang Level Key")       return 5;
+    if (KeyName == "Whomping Willow Key")       return 6;
+    if (KeyName == "Forbidden Forest Key")      return 7;
+    if (KeyName == "Slytherin Common Room Key") return 8;
+    if (KeyName == "Goyle Level Key")           return 9;
+    if (KeyName == "Bicorn Level Key")          return 10;
+    if (KeyName == "Duelling Club Key")         return 11;
+    if (KeyName == "Quidditch Pitch Key")       return 12;
+    return -1;
+}
+
+static function MarkBingoKeyAsAPGrantedDefault(string KeyName)
+{
+    local int idx;
+    idx = BingoKeyIndexFromName(KeyName);
+    if (idx < 0)
+    {
+        return;
+    }
+    default.APGrantedBingoKey[idx] = 1;
+    Log("[Archipelago] APCardWatcher.MarkBingoKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
 }
 
 event Timer()
@@ -788,6 +860,7 @@ function TrySpawnClassroomBlockers()
     gi.BlockSkurgeClassroomIfMissing();
     gi.BlockDiffindoClassroomIfMissing();
     gi.BlockSpongifyClassroomIfMissing();
+    gi.SpawnAllBingoBlockers();
 }
 
 function EnsureLatestRegistration()

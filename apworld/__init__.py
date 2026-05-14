@@ -38,6 +38,13 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 
 DEFAULT_GOAL = "basilisk"
 STARTER_ITEM_NAMES: set[str] = {"Lumos", "Flipendo", "Alohomora"}
+# Bingo-only level-entry keys. In vanilla mode all 13 are precollected
+# (invisible — the bookcases they unlock never spawn) so logic.yaml can
+# reference them unconditionally without breaking vanilla generation. In
+# bingo mode they leave the precollection set and enter the AP pool; the
+# mod-side BlockBingo<X>EntryIfMissing helpers gate each level transition
+# until the matching key arrives via ApplyGrant.
+BINGO_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Bingo Keys", []))
 
 
 def launch_client(*args: str) -> None:
@@ -252,13 +259,16 @@ class HP2World(World):
             r.locations.append(HP2Location(self.player, loc_name, loc_id, r))
 
     def _starter_names(self) -> set[str]:
-        # Bingo maps have base cutscenes (incl. the Privet Drive / intro grants
-        # of Lumos / Flipendo / Alohomora) removed, so no spell is owned at
-        # spawn — every spell must come from AP. In vanilla, the 3 cutscene
-        # starters stay precollected so AP logic treats Harry as owning them.
+        # Vanilla: precollect the 3 cutscene starter spells (Lumos / Flipendo /
+        # Alohomora) so AP logic treats Harry as owning them; precollect the 13
+        # bingo keys too so any logic.yaml requirement that references them
+        # auto-passes without polluting the vanilla pool.
+        # Bingo: precollect nothing. All 7 spells AND all 13 bingo keys enter
+        # the pool; the mod-side bookcases gate each level transition until the
+        # matching key arrives via the AP grant flow.
         if self.options.game_mode.current_key == "bingo":
             return set()
-        return STARTER_ITEM_NAMES
+        return STARTER_ITEM_NAMES | BINGO_KEY_NAMES
 
     def create_items(self) -> None:
         starters = self._starter_names()
