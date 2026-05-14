@@ -316,7 +316,11 @@ def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
     unknown: list[str] = []
 
     def replace_ident(m: re.Match) -> str:
-        ident = m.group(0)
+        text = m.group(0)
+        if text.startswith("'"):
+            ident = text[1:-1]  # strip surrounding single quotes
+        else:
+            ident = text
         if ident in ("true", "True"):
             return "True"
         if ident in ("false", "False"):
@@ -327,7 +331,10 @@ def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
             unknown.append(ident)
         return f"state.has({ident!r}, player)"
 
-    body = re.sub(r"[A-Za-z_][A-Za-z0-9_]*", replace_ident, s)
+    # Grammar accepts either a bare single-token identifier OR a single-quoted
+    # multi-word identifier, e.g. `'Forbidden Forest Key'`. The quoted form
+    # comes first in the alternation so it wins on multi-word matches.
+    body = re.sub(r"'[^']+'|[A-Za-z_][A-Za-z0-9_]*", replace_ident, s)
     body = body.replace("&", " and ").replace("|", " or ")
 
     if unknown:
