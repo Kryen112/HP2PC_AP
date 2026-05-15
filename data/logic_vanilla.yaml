@@ -253,6 +253,162 @@ locations:
   # Castle Exterior - Card Sweeting (CastleExterior), Hogwarts - Card Toothill/Hogwarts - Card Oldridge (Hogwarts) are
   # the no-Alohomora-required outliers.
 
+
+  # ── Secrets & Challenge Stars ──────────────────────────────────────────────
+  # Vanilla schema hoists the level's spells into the region `entry`, so each
+  # per-location requires lists only the EXTRA items needed past region entry.
+  # Identity (id/level/marker/missable) lives in locations.yaml.
+  "Bicorn Level - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Bicorn Level - Secret 1": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Bicorn Level - Secret 6": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Bicorn Level - Secret 3": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Bicorn Level - Secret 4": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Bicorn Level - Secret 5": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Bicorn Level - Secret 7": { requires: "Rictusempra & Skurge" }
+  "Boomslang Level - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Boomslang Level - Secret 2": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Boomslang Level - Secret 1": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Castle Exterior - Secret 1": { requires: "Alohomora & Diffindo" }
+  "Castle Exterior - Secret 2": { requires: "Alohomora" }
+  "Castle Exterior - Secret 3": { requires: "Alohomora & Diffindo" }
+  "Castle Exterior - Secret 4": { requires: "Alohomora & Diffindo & Spongify" }
+  "Castle Exterior - Secret 5": { requires: "Spongify" }
+  "Castle Exterior - Secret 6": { requires: "Alohomora & Skurge & Rictusempra" }
+  "Castle Exterior - Secret 7": { requires: "Alohomora & Skurge & Rictusempra & Diffindo" }
+  "Castle Exterior - Secret 8": { requires: "Alohomora" }
+  "Chamber of Secrets - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Chamber of Secrets - Secret 2": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Chamber of Secrets - Secret 1": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Chamber of Secrets - Secret 5": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Chamber of Secrets - Secret 4": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Chamber of Secrets - Secret 6": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Dumbledore's Study - Secret": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 1": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 2": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 5": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 6": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 4": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 7": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 8": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 9": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 10": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 11": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Forbidden Forest - Secret 4": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Forbidden Forest - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Forbidden Forest - Secret 2": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Forbidden Forest - Secret 1": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Goyle Level - Secret 5": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Goyle Level - Secret 6": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Goyle Level - Secret 8": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Goyle Level - Secret 7": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Goyle Level - Secret 1": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Goyle Level - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Goyle Level - Secret 4": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Goyle Level - Secret 2": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Hogwarts - Secret 1": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Hogwarts - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Hogwarts - Secret 3": { requires: "Rictusempra & Skurge & Diffindo" }
+  "Hogwarts - Secret 4": { requires: "Rictusempra & Alohomora" }
+  "Hogwarts - Secret 5": { requires: "Alohomora" }
+  "Hogwarts - Secret 6": { requires: "Alohomora" }
+  "Hogwarts - Secret 7": { requires: "Alohomora" }
+  "Hogwarts - Secret 8": { requires: "Diffindo" }
+  "Hogwarts - Secret 9": { requires: "Diffindo" }
+  "Hogwarts - Secret 11": { requires: "Alohomora" }
+  "Hogwarts - Secret 12": { requires: "Spongify" }
+  "Hogwarts - Secret 13": { requires: "Alohomora" }
+  "Hogwarts - Secret 14": { requires: "Alohomora" }
+  "Hogwarts - Secret 15": { requires: "Alohomora" }
+  "Hogwarts - Secret 17": { requires: "Spongify" }
+  "Hogwarts - Secret 18": { requires: "Alohomora & Skurge & Diffindo & Spongify" }
+  "Hogwarts - Secret 20": { requires: "Alohomora" }
+  "Hogwarts - Secret 21": { requires: "Alohomora" }
+  "Rictusempra Challenge - Secret 1": { requires: "Rictusempra & Alohomora" }
+  "Rictusempra Challenge - Secret 3": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Secret 5": { requires: "Rictusempra & Alohomora" }
+  "Rictusempra Challenge - Secret 4": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Secret 6": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Secret 7": { requires: "Rictusempra & Alohomora" }
+  "Rictusempra Challenge - Secret 2": { requires: "Rictusempra & Alohomora" }
+  "Skurge Challenge - Secret 1": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Skurge Challenge - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Skurge Challenge - Secret 3": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Secret 4": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Secret 5": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Skurge Challenge - Secret 6": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Secret 7": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Slytherin Common Room - Secret 7": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Slytherin Common Room - Secret 6": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Slytherin Common Room - Secret 5": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Slytherin Common Room - Secret 8": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Slytherin Common Room - Secret 4": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Slytherin Common Room - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Slytherin Common Room - Secret 2": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Slytherin Common Room - Secret 1": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Spongify Challenge - Secret 1": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 2": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 4": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 5": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 6": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 7": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 8": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 9": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 10": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 11": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 12": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 13": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 14": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 15": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Secret 16": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Whomping Willow - Secret 1": { requires: "Alohomora" }
+  "Whomping Willow - Secret 2": { requires: "Alohomora" }
+  "Rictusempra Challenge - Challenge Star 3": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Challenge Star 10": { requires: "Rictusempra & Alohomora" }
+  "Rictusempra Challenge - Challenge Star 2": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Challenge Star 6": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Challenge Star 1": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Challenge Star 4": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Challenge Star 8": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Challenge Star 5": { requires: "Rictusempra & Alohomora" }
+  "Rictusempra Challenge - Challenge Star 7": { requires: "Rictusempra" }
+  "Rictusempra Challenge - Challenge Star 9": { requires: "Rictusempra" }
+  "Skurge Challenge - Challenge Star 1": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Challenge Star 2": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Challenge Star 3": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Skurge Challenge - Challenge Star 4": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Challenge Star 5": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Challenge Star 6": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Skurge Challenge - Challenge Star 7": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Challenge Star 10": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Skurge Challenge - Challenge Star 9": { requires: "Rictusempra & Skurge" }
+  "Skurge Challenge - Challenge Star 8": { requires: "Rictusempra & Skurge" }
+  "Diffindo Challenge - Challenge Star 8": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 14": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 9": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 12": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 2": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 4": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 5": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 6": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 11": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 10": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 3": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 7": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 13": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Challenge Star 1": { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Spongify Challenge - Challenge Star 1": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 3": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 2": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 4": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 5": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 6": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 7": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 8": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 9": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+  "Spongify Challenge - Challenge Star 10": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+
 # Goal definition.
 goal:
   basilisk:

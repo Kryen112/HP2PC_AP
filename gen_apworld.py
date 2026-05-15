@@ -33,31 +33,6 @@ LOCATION_CATEGORIES = (
 )
 
 
-# Secret catalogue section key → AP region name (must match logic.yaml regions).
-SECRET_SECTION_TO_REGION: dict[str, str] = {
-    "bicorn_level":          "BicornLevel",
-    "boomslang_level":       "BoomslangLevel",
-    "castle_exterior":       "CastleExterior",
-    "chamber_of_secrets":    "ChamberOfSecrets",
-    "diffindo_challenge":    "DiffindoChallenge",
-    "dumbledore_study":      "DumbledoreStudy",
-    "forbidden_forest":      "ForbiddenForest",
-    "goyle_level":           "GoyleLevel",
-    "hogwarts":              "Hogwarts",
-    "rictusempra_challenge": "RictusempraChallenge",
-    "skurge_challenge":      "SkurgeChallenge",
-    "slytherin_common":      "SlytherinCommon",
-    "spongify_challenge":    "SpongifyChallenge",
-    "whomping_willow":       "WhompingWillow",
-}
-
-# Star catalogue section key → AP region name. All four challenge regions.
-STAR_SECTION_TO_REGION: dict[str, str] = {
-    "rictusempra_challenge": "RictusempraChallenge",
-    "skurge_challenge":      "SkurgeChallenge",
-    "diffindo_challenge":    "DiffindoChallenge",
-    "spongify_challenge":    "SpongifyChallenge",
-}
 
 
 # UScript card Id (set on each WC*.uc class default) → UScript class name.
@@ -229,73 +204,6 @@ def load_data() -> tuple[dict, dict, dict, dict]:
     logic_vanilla = yaml.safe_load((DATA_DIR / "logic_vanilla.yaml").read_text(encoding="utf-8"))
     logic_bingo = yaml.safe_load((DATA_DIR / "logic_bingo.yaml").read_text(encoding="utf-8"))
     return items, locations, logic_vanilla, logic_bingo
-
-
-# Loads secrets_catalogue.yaml / challenge_stars_catalogue.yaml and projects every
-# row into `locations[<category>]` so the existing emit pipeline picks them up
-# (same shape as classrooms/cards rows). Also projects per-row `requires` into
-# `logic['locations']` so the existing rule emitter handles them. Mutates both
-# dicts in place. The catalogue's `level` field is preserved on the row so the
-# UScript registry emitter can read it without re-loading the file.
-#
-# Region resolution: catalogue section key → AP region via the section maps.
-# Requires translation: null/empty → "true" (region access only); list of item
-# names → "&"-joined string (matches the existing rule grammar). String values
-# pass through unchanged for forward-compat in case Stefan writes raw
-# expressions during the playthrough.
-def merge_catalogues(locations: dict, logic: dict) -> tuple[int, int]:
-    secrets_rows: list[dict] = []
-    stars_rows: list[dict] = []
-    logic_locations = logic.setdefault("locations", {}) or {}
-    logic["locations"] = logic_locations
-
-    def project(section_to_region: dict[str, str], catalogue_path: Path, kind: str) -> list[dict]:
-        out: list[dict] = []
-        catalogue = yaml.safe_load(catalogue_path.read_text(encoding="utf-8")) or {}
-        for section_key, entries in catalogue.items():
-            if not isinstance(entries, list):
-                continue
-            region = section_to_region.get(section_key)
-            if region is None:
-                raise ValueError(
-                    f"{catalogue_path.name}: section {section_key!r} has no entry in the "
-                    f"{kind} region map. Add it to SECRET_SECTION_TO_REGION / "
-                    f"STAR_SECTION_TO_REGION in gen_apworld.py."
-                )
-            for entry in entries:
-                requires_raw = entry.get("requires")
-                if requires_raw is None or (isinstance(requires_raw, list) and not requires_raw):
-                    requires_str = "true"
-                elif isinstance(requires_raw, list):
-                    requires_str = " & ".join(requires_raw)
-                elif isinstance(requires_raw, str):
-                    requires_str = requires_raw
-                else:
-                    raise ValueError(
-                        f"{catalogue_path.name}: {entry['name']!r} has unsupported "
-                        f"requires type {type(requires_raw).__name__}"
-                    )
-                row = {
-                    "id_offset": entry["id_offset"],
-                    "name":      entry["name"],
-                    "region":    region,
-                    "group":     "Secrets" if kind == "secret" else "ChallengeStars",
-                    "level":     entry["level"],
-                    "marker":    entry["marker"],
-                    # Only secrets carry `missable` (un-replayable-level flag).
-                    # Stars live in replayable challenge rooms — never missable.
-                    "missable":  bool(entry.get("missable", False)) if kind == "secret" else False,
-                }
-                out.append(row)
-                if requires_str != "true":
-                    logic_locations[entry["name"]] = {"requires": requires_str}
-        return out
-
-    secrets_rows = project(SECRET_SECTION_TO_REGION, DATA_DIR / "secrets_catalogue.yaml", "secret")
-    stars_rows = project(STAR_SECTION_TO_REGION, DATA_DIR / "challenge_stars_catalogue.yaml", "star")
-    locations["secrets"] = secrets_rows
-    locations["challenge_stars"] = stars_rows
-    return len(secrets_rows), len(stars_rows)
 
 
 def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
@@ -866,7 +774,7 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
     out_path = MOD_CLASSES_DIR / "APLocationRegistry.uc"
     lines = [
         "// Auto-generated. Do not edit by hand; regenerate from",
-        "// data/secrets_catalogue.yaml + data/challenge_stars_catalogue.yaml.",
+        "// data/locations.yaml (secrets + challenge_stars sections).",
         "class APLocationRegistry extends Object;",
         "",
     ]
@@ -954,10 +862,8 @@ def emit_card_markers(items: dict) -> int:
 
 def main() -> int:
     items, locations, logic_vanilla, logic_bingo = load_data()
-    # Catalogue merges (secrets + stars) project per-location `requires` into
-    # logic.locations; same set applies to both modes.
-    n_secrets, n_stars = merge_catalogues(locations, logic_vanilla)
-    merge_catalogues(locations, logic_bingo)
+    n_secrets = len(locations.get("secrets", []))
+    n_stars = len(locations.get("challenge_stars", []))
     known_items = collect_known_items(items)
     try:
         validate(items, locations)
@@ -1030,7 +936,7 @@ def main() -> int:
     n_loc_rules_v = sum(1 for m in (logic_vanilla.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     n_loc_rules_b = sum(1 for m in (logic_bingo.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")
-    print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars merged from catalogues)")
+    print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars)")
     print(f"Wrote {regions_py} ({n_regions} regions, start={start_region!r})")
     print(f"Wrote {rules_py} (vanilla: {n_loc_rules_v} per-loc rules, {len(logic_vanilla.get('goal') or {})} goal(s); bingo: {n_loc_rules_b}, {len(logic_bingo.get('goal') or {})})")
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")

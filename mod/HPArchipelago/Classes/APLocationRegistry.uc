@@ -1,5 +1,5 @@
 // Auto-generated. Do not edit by hand; regenerate from
-// data/secrets_catalogue.yaml + data/challenge_stars_catalogue.yaml.
+// data/locations.yaml (secrets + challenge_stars sections).
 class APLocationRegistry extends Object;
 
 static function int GetSecretLocationId(string LevelName, string MarkerName)
