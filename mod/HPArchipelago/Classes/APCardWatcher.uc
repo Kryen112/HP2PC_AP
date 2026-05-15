@@ -208,6 +208,40 @@ function SweepVendorAssignments()
     }
 }
 
+// Bingo only: every wizard card is an AP location reachable by replaying its
+// (infinitely repeatable) level, so no card should ever sit in vendor stock.
+// Vanilla `AssignVendorCards` / `AssignAllSilverToVendors` still stamp
+// CardOwner_Vendor on level transition / iGameState >= 180; undo it for every
+// id. CardOwner_None is what `GetFirstVendorCardId` skips, so the vendor has
+// nothing to offer.
+function ClearAllVendorOwnership()
+{
+    local int id, cleared;
+    cleared = 0;
+    for (id = 1; id <= MAX_CARD_ID; id++)
+    {
+        if (siBronze != None && siBronze.GetCardOwner(id) == siBronze.ECardOwner.CardOwner_Vendor)
+        {
+            siBronze.SetCardOwner(id, siBronze.ECardOwner.CardOwner_None);
+            cleared++;
+        }
+        if (siSilver != None && siSilver.GetCardOwner(id) == siSilver.ECardOwner.CardOwner_Vendor)
+        {
+            siSilver.SetCardOwner(id, siSilver.ECardOwner.CardOwner_None);
+            cleared++;
+        }
+        if (siGold != None && siGold.GetCardOwner(id) == siGold.ECardOwner.CardOwner_Vendor)
+        {
+            siGold.SetCardOwner(id, siGold.ECardOwner.CardOwner_None);
+            cleared++;
+        }
+    }
+    if (cleared > 0)
+    {
+        Log("[Archipelago] APCardWatcher.ClearAllVendorOwnership: cleared " $ cleared $ " card(s) from vendor stock (bingo: every card is a replayable AP location)");
+    }
+}
+
 function RevertVanillaPickup(int id)
 {
     if (siBronze != None && siBronze.IsOwnedByHarry(id))
@@ -593,6 +627,17 @@ function AssignMarkersToVendors()
     local APCardMarker marker;
     local int i;
     local int assigned;
+
+    // Phase C is vanilla-only missed-card recovery. In bingo every level is
+    // infinitely replayable, so a card left behind is never lost — assigning
+    // it to a vendor instead lets the player buy cards for levels they have
+    // not even reached. Flip the pass into a cleanup so vendors never stock
+    // cards in bingo. Covers every caller (iGameState transition + snapshot).
+    if (default.bBingoMode == 1)
+    {
+        ClearAllVendorOwnership();
+        return;
+    }
 
     assigned = 0;
 
