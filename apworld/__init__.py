@@ -370,7 +370,7 @@ class HP2World(World):
                 self.multiworld.itempool.append(self.create_item(name))
 
     def set_rules(self) -> None:
-        from worlds.generic.Rules import add_item_rule, set_rule
+        from worlds.generic.Rules import add_item_rule, add_rule, set_rule
 
         self._apply_missable_exclusions()
 
@@ -415,6 +415,25 @@ class HP2World(World):
             # 40-silver gate — lives in the GoldCardRoom region `entry` of both
             # logic_vanilla.yaml and logic_bingo.yaml as a single-quoted
             # 'Silver Card - X' AND chain.
+
+        # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a
+        # lot of beans the player can't have collected early; gate them behind
+        # owning at least 3 spells AND at least 3 bingo keys (any of them — a
+        # count threshold the logic grammar can't express). ANDs onto the
+        # existing rule. Only the QuidditchPurchases locations that exist this
+        # seed are touched, so this is a no-op when the vendors are disabled.
+        spell_names = ITEM_GROUPS.get("Spells", [])
+        key_names = ITEM_GROUPS.get("Bingo Keys", [])
+        for loc_name, group in LOCATION_GROUPS.items():
+            if group != "QuidditchPurchases":
+                continue
+            try:
+                loc = self.multiworld.get_location(loc_name, self.player)
+            except KeyError:
+                continue
+            add_rule(loc, lambda state, sp=spell_names, kp=key_names, player=self.player:
+                sum(state.has(s, player) for s in sp) >= 3
+                and sum(state.has(k, player) for k in kp) >= 3)
 
         goal_locations = self._goal_location_requirements().get(DEFAULT_GOAL, [])
         goal_rule = self._goal_rules().get(DEFAULT_GOAL)
