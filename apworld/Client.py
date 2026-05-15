@@ -126,6 +126,13 @@ class HP2Context(CommonContext):
         # first HELLO of a new seed would replay every item on top of the
         # initial ReceivedItems delivery (3 starter spells × 2 = 6 toasts).
         self.delivered_to_game: set[str] = set()
+        # Last seed_name observed via RoomInfo. On change, wipe seed-specific
+        # state in _handle_seed_change so a long-running client targeting the
+        # same host:port across seeds doesn't replay seed A's items to seed B.
+        # CommonContext.reset_server_state is NOT the right hook — it runs on
+        # every disconnect, including transient AP blips, and the whole point
+        # of durable_grants is to survive those.
+        self._last_seed_name: Optional[str] = None
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -134,7 +141,13 @@ class HP2Context(CommonContext):
         await self.send_connect()
 
     def on_package(self, cmd: str, args: dict) -> None:
-        if cmd == "Connected":
+        if cmd == "RoomInfo":
+            new_seed = args.get("seed_name")
+            if self._last_seed_name and new_seed and new_seed != self._last_seed_name:
+                self._handle_seed_change(self._last_seed_name, new_seed)
+            if new_seed:
+                self._last_seed_name = new_seed
+        elif cmd == "Connected":
             logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
             if self.pending_ap_outbound:
                 asyncio.create_task(self._flush_pending_ap_outbound())
@@ -408,6 +421,22 @@ class HP2Context(CommonContext):
             logger.info(f"Game HELLO received; resyncing {len(to_send)} durable grant(s)")
         for payload in to_send:
             self._send_to_game(f"GRANT {payload}")
+
+    def _handle_seed_change(self, old_seed: str, new_seed: str) -> None:
+        logger.info(
+            f"Seed changed ({old_seed!r} → {new_seed!r}); clearing prior-seed state "
+            f"({len(self.durable_grants)} durable grant(s), "
+            f"{len(self.pending_grants)} pending grant(s), "
+            f"{len(self.pending_ap_outbound)} pending AP msg(s), "
+            f"{len(self.checked_locations_seen)} checked location(s), "
+            f"goal_sent={self.goal_sent})"
+        )
+        self.durable_grants = []
+        self.pending_grants = []
+        self.pending_ap_outbound = []
+        self.checked_locations_seen = set()
+        self.goal_sent = False
+        self.delivered_to_game = set()
 
     def _remember_durable_grant(self, payload: str, index: object) -> None:
         if isinstance(index, int) and index >= 0:
