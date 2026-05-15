@@ -398,6 +398,9 @@ event Timer()
     // every game→client CHECK after a save-load.
     ipc = class'APIPCActor'.static.GetInstance();
 
+    // Cheap once-per-process patch (no-op after the first successful inject).
+    EnsureHomeMenuInjected();
+
     for (id = 1; id <= MAX_CARD_ID; id++)
     {
         if (WasOwnedByHarry[id] == 0 && IsHarryOwned(id))
@@ -1349,6 +1352,49 @@ function ReplaceChallengeStars()
         Log("[Archipelago] APCardWatcher.ReplaceChallengeStars: replaced " $ replaced
             $ " vanilla star(s) with AP markers in " $ levelName);
     }
+}
+
+// One-shot menu patch: replace menuBook.InGamePage with an APFEInGamePage
+// instance so the pause menu gets the Return-to-Hub button. Self-healing -
+// detects the stock subclass via class-cast, so if a fresh menuBook ever
+// appears in this process we re-inject. The previous (stock) InGamePage is
+// left as a hidden orphan child of menuBook; this is a one-instance leak per
+// inject, acceptable because the inject runs at most a handful of times per
+// process lifetime (usually exactly once).
+function EnsureHomeMenuInjected()
+{
+    local HPConsole console;
+    local FEBook book;
+    local APFEInGamePage newPage;
+
+    if (HarryRef == None || HarryRef.Player == None)
+    {
+        return;
+    }
+    console = HPConsole(HarryRef.Player.Console);
+    if (console == None || console.menuBook == None)
+    {
+        return;
+    }
+    book = console.menuBook;
+    if (book.InGamePage == None)
+    {
+        return;
+    }
+    if (APFEInGamePage(book.InGamePage) != None)
+    {
+        return;
+    }
+    newPage = APFEInGamePage(book.CreateWindow(Class'APFEInGamePage', 0.0, 0.0, book.WinWidth, book.WinHeight));
+    if (newPage == None)
+    {
+        Log("[Archipelago] APCardWatcher.EnsureHomeMenuInjected: CreateWindow returned None; aborting");
+        return;
+    }
+    newPage.book = book;
+    newPage.HideWindow();
+    book.InGamePage = newPage;
+    Log("[Archipelago] APCardWatcher.EnsureHomeMenuInjected: replaced menuBook.InGamePage with APFEInGamePage");
 }
 
 event Destroyed()
