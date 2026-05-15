@@ -45,16 +45,19 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 DEFAULT_GOAL = "basilisk"
 SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
 # Level-entry keys. In bingo, all 13 are AP items gating every level
-# transition. In vanilla, the 7 in VANILLA_BLOCKED_KEY_NAMES are also AP
-# items (the mod spawns a bookcase blocking each region until the key
-# arrives); the remaining 6 are precollected so the logic.yaml terms that
-# reference them are satisfied trivially without entering the vanilla pool.
+# transition. In vanilla with vanilla_gate_levels on, the 7 in
+# VANILLA_BLOCKED_KEY_NAMES are also AP items (the mod spawns a bookcase
+# blocking each region until the key arrives) and the other 6 are
+# precollected so their logic.yaml terms pass trivially without entering the
+# pool. With vanilla_gate_levels off, all 13 are precollected and no bookcase
+# spawns.
 BINGO_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Bingo Keys", []))
-# Keys that gate a region behind a bookcase in vanilla too (linear story
-# order). Bicorn/Boomslang/Goyle/Slytherin/Forbidden Forest are a cumulative
-# chain (a region needs its own key plus every earlier level key); Duelling
-# and Quidditch are standalone (own key only, gating just their duels /
-# matches). The other 6 keys stay vanilla-precollected.
+# Keys that gate a region behind a bookcase in vanilla when
+# vanilla_gate_levels is on (linear story order).
+# Bicorn/Boomslang/Goyle/Slytherin/Forbidden Forest are a cumulative chain (a
+# region needs its own key plus every earlier level key); Duelling and
+# Quidditch are standalone (own key only, gating just their duels / matches).
+# The other 6 keys are always vanilla-precollected.
 VANILLA_BLOCKED_KEY_NAMES: set[str] = {
     "Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
     "Slytherin Common Room Key", "Forbidden Forest Key",
@@ -96,19 +99,36 @@ class GameMode(Choice):
     """Which install layout this seed targets.
 
     `vanilla` (default): retail HP2 + M212 patch — the normal story flow.
-    All 13 bingo level-entry keys are precollected (their bookcases never
-    spawn).
+    Whether the 7 region keys gate their regions behind bookcases or are
+    precollected is governed by `vanilla_gate_levels`; the other 6 keys are
+    always precollected here.
 
     `bingo`: the bingo-distribution maps (open castle, every door unlocked).
     The 13 bingo keys are AP items gating each level transition.
 
-    Which spells Harry starts with is governed by `starting_spells`, not by
-    this option.
+    Which spells Harry starts with is governed by `starting_spells`;
+    `vanilla_gate_levels` governs the 7 region keys. Neither is set by this
+    option.
     """
     display_name = "Game Mode"
     option_vanilla = 0
     option_bingo = 1
     default = 0
+
+
+class VanillaGateLevels(DefaultOnToggle):
+    """Vanilla only. If true, the 7 region keys (Bicorn, Boomslang, Goyle,
+    Slytherin Common Room, Forbidden Forest, Duelling, Quidditch) are AP items:
+    the mod spawns a bookcase blocking each region until its key arrives, and
+    the 5 level regions form a cumulative chain (each needs its own key plus
+    every earlier level key, matching vanilla's linear story order).
+
+    If false, those 7 keys are precollected instead, so the regions open
+    immediately and no bookcases spawn — the classic precollect-everything
+    vanilla flow. Has no effect in bingo mode (all 13 keys are always AP items
+    there).
+    """
+    display_name = "Vanilla gate levels"
 
 
 class StartingSpells(OptionSet):
@@ -187,6 +207,7 @@ class HP2Options(PerGameCommonOptions):
     # playtest YAMLs; v1's three starter spells are precollected by the world.
     start_inventory_from_pool: StartInventoryPool
     game_mode: GameMode
+    vanilla_gate_levels: VanillaGateLevels
     starting_spells: StartingSpells
     # Per-category check toggles. Each gates both the matching locations and
     # any paired items (currently: wizard cards, vendor equipment) — generator
@@ -323,9 +344,16 @@ class HP2World(World):
             # so force them precollected — a vanilla seed is always playable
             # regardless of what (if anything) starting_spells lists.
             spells |= {"Lumos", "Flipendo"}
-        # Bingo: no keys precollected (all 13 are AP items). Vanilla: precollect
-        # every key except the 7 that gate a region behind a vanilla bookcase.
-        keys = set() if self._is_bingo() else (BINGO_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES)
+        # Bingo: no keys precollected (all 13 are AP items). Vanilla with
+        # vanilla_gate_levels on: precollect every key except the 7 that gate a
+        # region behind a bookcase. Vanilla with it off: precollect all 13 so
+        # every region opens immediately and no bookcase spawns.
+        if self._is_bingo():
+            keys: set[str] = set()
+        elif self.options.vanilla_gate_levels:
+            keys = BINGO_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES
+        else:
+            keys = set(BINGO_KEY_NAMES)
         return spells | keys
 
     def _apply_missable_exclusions(self) -> None:
