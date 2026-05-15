@@ -1044,6 +1044,8 @@ function Snapshot()
         // 3.0s mirrors APIPCActor.POST_SNAPSHOT_WARMUP_SECS.
         class'APIPCActor'.static.GetInstance().PushDrainStability(3.0);
     }
+
+    RecoverStuckCutsceneState();
 }
 
 function bool IsHarryOwned(int id)
@@ -1395,6 +1397,86 @@ function EnsureHomeMenuInjected()
     newPage.HideWindow();
     book.InGamePage = newPage;
     Log("[Archipelago] APCardWatcher.EnsureHomeMenuInjected: replaced menuBook.InGamePage with APFEInGamePage");
+}
+
+// Post-snapshot recovery for two related save/delta-cache corruptions diagnosed
+// from InputStateSampler dumps after FF'd boss-victory cutscene returns:
+//
+// 1) CutScene actor stuck in (bPlaying=False, bFastForwarding=True). This pair
+//    is unreachable via the normal CutScene state machine (FastForwarding
+//    always sets bFastForwarding=False before transitioning to Finished, which
+//    then sets bPlaying=False). It happens when a `ChangeLevel` command fires
+//    from inside the cutscene's own FF-tick, the engine saves mid-state, and
+//    the FastForwarding→Finished latent transition doesn't survive the save
+//    round-trip. The corruption is in the .usa save file itself - reloads keep
+//    re-seeing it. Force bFastForwarding=False on detection; no other state on
+//    the actor matters once it's not "in flight".
+//
+// 2) CutSceneManager.bPopupBorderActive (or bBothBordersActive) stuck True
+//    with no CutScene actively bPlaying. The manager flag is set by SlideIn's
+//    BeginState (CutSceneManager.uc:177-188) on every StartCutScene call;
+//    it's cleared only when SlideOut completes inside RenderHudItemManager
+//    (line 213-216), which requires an EndCutScene to trigger SlideOut. If
+//    the player exits the level mid-Hold (level-entry cutscene running, no
+//    text-clear or EnablePlayerInput fired yet), the delta-cache write saves
+//    Hold-state. On re-entry the manager resumes Hold but no fresh cutscene
+//    calls EndCutScene to slide it out - the player sees stuck black border
+//    bars + hidden HUD ("softlock"). Detection: borders active + zero CutScene
+//    instances with bPlaying=True is by definition invalid. Force EndCutScene
+//    via HPHud.EndCutScene to trigger the natural SlideOut path.
+function RecoverStuckCutsceneState()
+{
+    local CutScene cs;
+    local int playingCount, ffCorruptCount;
+    local HPHud hud;
+
+    if (HarryRef == None)
+    {
+        return;
+    }
+
+    foreach HarryRef.AllActors(class'CutScene', cs)
+    {
+        if (cs.bPlaying)
+        {
+            playingCount++;
+            continue;
+        }
+        if (cs.bFastForwarding)
+        {
+            Log("[Archipelago] RecoverStuckCutsceneState: clearing invalid bFastForwarding=True on "
+                $ string(cs.Name) $ " (FN='" $ cs.FileName $ "', bPlaying=False)");
+            cs.bFastForwarding = False;
+            ffCorruptCount++;
+        }
+    }
+
+    if (playingCount > 0)
+    {
+        if (ffCorruptCount > 0)
+        {
+            Log("[Archipelago] RecoverStuckCutsceneState: cleared " $ ffCorruptCount
+                $ " stale FF flag(s); active CutScene(s) present (count=" $ playingCount
+                $ "), leaving CutSceneManager alone");
+        }
+        return;
+    }
+
+    hud = HPHud(HarryRef.myHUD);
+    if (hud == None || hud.managerCutScene == None)
+    {
+        return;
+    }
+    if (!hud.managerCutScene.bPopupBorderActive && !hud.managerCutScene.bBothBordersActive)
+    {
+        return;
+    }
+
+    Log("[Archipelago] RecoverStuckCutsceneState: no CutScene bPlaying but manager has borders up"
+        $ " (bPopupBorderActive=" $ hud.managerCutScene.bPopupBorderActive
+        $ " bBothBordersActive=" $ hud.managerCutScene.bBothBordersActive
+        $ ") - forcing HPHud.EndCutScene to slide out");
+    hud.EndCutScene();
 }
 
 event Destroyed()
