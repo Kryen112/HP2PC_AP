@@ -77,7 +77,7 @@ regions:
     notes: "Auto-teleport from Sprout's classroom after the Diffindo bookcase clears (bookcase TODO). All 8 cards inside require Alohomora."
 
   BoomslangLevel:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Boomslang Level Key'"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key'"
     notes: "Boomslang skin collection level. Reached after Diffindo challenge. v1: Boomslang itself is vanilla-only, not an AP item. Both cards require Alohomora."
 
   DumbledoreStudy:
@@ -85,11 +85,11 @@ regions:
     notes: "Visited between Boomslang skin level and Goyle level. Story gate, not spell gate. Both cards require Alohomora."
 
   GoyleLevel:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Goyle Level Key'"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key'"
     notes: "Reached after Dumbledore's study. v1: BitOGoyle fragment at end is vanilla-only, not an AP check. All 6 cards require Alohomora."
 
   SlytherinCommon:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Slytherin Common Room Key'"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'"
     notes: "Reached via Moaning Myrtle bathroom + Polyjuice transformation. v1: Polyjuice ingredients (Boomslang/Bicorn/BitOGoyle) are vanilla-only — story progression guarantees the player has them by the time they enter SlytherinCommon. All 5 cards require Alohomora."
 
   SpongifyChallenge:
@@ -97,7 +97,7 @@ regions:
     notes: "Auto-teleport from Lockhart's classroom (DADA). No bookcase on the room because Rictusempra also lives here — Stefan's note: 'i cant place a bookcase there to block it yet'. All 8 cards require Alohomora."
 
   ForbiddenForest:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Forbidden Forest Key'"
+    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key' & 'Forbidden Forest Key'"
     notes: "All 6 cards require Alohomora."
 
   ChamberOfSecrets:

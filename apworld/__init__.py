@@ -44,13 +44,22 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 
 DEFAULT_GOAL = "basilisk"
 SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
-# Bingo-only level-entry keys. In vanilla mode all 13 are precollected
-# (invisible — the bookcases they unlock never spawn) so logic.yaml can
-# reference them unconditionally without breaking vanilla generation. In
-# bingo mode they leave the precollection set and enter the AP pool; the
-# mod-side BlockBingo<X>EntryIfMissing helpers gate each level transition
-# until the matching key arrives via ApplyGrant.
+# Level-entry keys. In bingo, all 13 are AP items gating every level
+# transition. In vanilla, the 7 in VANILLA_BLOCKED_KEY_NAMES are also AP
+# items (the mod spawns a bookcase blocking each region until the key
+# arrives); the remaining 6 are precollected so the logic.yaml terms that
+# reference them are satisfied trivially without entering the vanilla pool.
 BINGO_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Bingo Keys", []))
+# Keys that gate a region behind a bookcase in vanilla too (linear story
+# order). Bicorn/Boomslang/Goyle/Slytherin/Forbidden Forest are a cumulative
+# chain (a region needs its own key plus every earlier level key); Duelling
+# and Quidditch are standalone (own key only, gating just their duels /
+# matches). The other 6 keys stay vanilla-precollected.
+VANILLA_BLOCKED_KEY_NAMES: set[str] = {
+    "Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
+    "Slytherin Common Room Key", "Forbidden Forest Key",
+    "Duelling Key", "Quidditch Key",
+}
 
 
 def launch_client(*args: str) -> None:
@@ -314,7 +323,9 @@ class HP2World(World):
             # so force them precollected — a vanilla seed is always playable
             # regardless of what (if anything) starting_spells lists.
             spells |= {"Lumos", "Flipendo"}
-        keys = set() if self._is_bingo() else set(BINGO_KEY_NAMES)
+        # Bingo: no keys precollected (all 13 are AP items). Vanilla: precollect
+        # every key except the 7 that gate a region behind a vanilla bookcase.
+        keys = set() if self._is_bingo() else (BINGO_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES)
         return spells | keys
 
     def _apply_missable_exclusions(self) -> None:
