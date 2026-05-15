@@ -846,16 +846,47 @@ function bool BingoLevelIsAnyOf(string CapsA, string CapsB)
     return lvl == CapsA || lvl == CapsB;
 }
 
+function bool BingoKeyGranted(int idx)
+{
+    return class'APCardWatcher'.default.APGrantedBingoKey[idx] == 1;
+}
+
+// Vanilla gates 7 regions behind a bookcase (same actor + coords + level as
+// bingo, since the levels are identical between distributions). The 5 level
+// regions form a cumulative chain in linear story order — a region's bookcase
+// clears only once its own key AND every earlier level key are granted;
+// Duelling and Quidditch are standalone (own key only). Returns True while the
+// bookcase for OwnKeyIdx must still block; False for any key not in the 7
+// (those regions have no vanilla bookcase — spells/story/precollection gate
+// them). Chain order: Bicorn(10) -> Boomslang(5) -> Goyle(9) ->
+// Slytherin(8) -> ForbiddenForest(7).
+function bool VanillaBlockerShouldBlock(int OwnKeyIdx)
+{
+    if (OwnKeyIdx == 10)        // Bicorn
+        return !BingoKeyGranted(10);
+    if (OwnKeyIdx == 5)         // Boomslang
+        return !(BingoKeyGranted(10) && BingoKeyGranted(5));
+    if (OwnKeyIdx == 9)         // Goyle
+        return !(BingoKeyGranted(10) && BingoKeyGranted(5) && BingoKeyGranted(9));
+    if (OwnKeyIdx == 8)         // Slytherin Common Room
+        return !(BingoKeyGranted(10) && BingoKeyGranted(5) && BingoKeyGranted(9) && BingoKeyGranted(8));
+    if (OwnKeyIdx == 7)         // Forbidden Forest
+        return !(BingoKeyGranted(10) && BingoKeyGranted(5) && BingoKeyGranted(9) && BingoKeyGranted(8) && BingoKeyGranted(7));
+    if (OwnKeyIdx == 11)        // Duelling (standalone)
+        return !BingoKeyGranted(11);
+    if (OwnKeyIdx == 12)        // Quidditch (standalone)
+        return !BingoKeyGranted(12);
+    return false;               // not a vanilla-blocked region
+}
+
 // Returns True if a bookcase with this tag should be spawned in the current
-// level: key not yet granted AND no existing tagged actor blocking idempotency.
+// level. Idempotent (skips if a tagged actor already exists). Bingo: spawn
+// while the single key is ungranted. Vanilla: spawn while the cumulative key
+// requirement for this region is unmet (and only for the 7 vanilla regions).
 function bool ShouldSpawnBingoBlocker(name Tag, int KeyIdx)
 {
     local Actor existing;
 
-    if (class'APCardWatcher'.default.APGrantedBingoKey[KeyIdx] == 1)
-    {
-        return False;
-    }
     foreach AllActors(class'Actor', existing)
     {
         if (existing.Tag == Tag && !existing.bDeleteMe)
@@ -863,7 +894,11 @@ function bool ShouldSpawnBingoBlocker(name Tag, int KeyIdx)
             return False;
         }
     }
-    return True;
+    if (class'APCardWatcher'.default.bBingoMode == 1)
+    {
+        return !BingoKeyGranted(KeyIdx);
+    }
+    return VanillaBlockerShouldBlock(KeyIdx);
 }
 
 function Actor SpawnBingoBookcase(name Tag, Vector Loc, Rotator Rot)
@@ -1092,14 +1127,13 @@ function RemoveBingoQuidditchBlocker()     { DestroyTaggedBingoBlockers('APBingo
 
 // Convenience aggregator called from InitGame and from
 // APCardWatcher.TrySpawnClassroomBlockers (post-save-load path that bypasses
-// InitGame). Each individual helper is level-scoped so unconditional iteration
-// is safe — a Grounds bookcase in Entryhall_hub just early-returns.
+// InitGame). Each helper is level-scoped and key-gated, so unconditional
+// iteration is safe in both modes — a Grounds bookcase in Entryhall_hub just
+// early-returns, and the per-region gate decides spawn/skip per mode. Bingo
+// may spawn all 13 (each behind its own key); vanilla spawns only the 7
+// chain/standalone level regions (the other 6 are gated by spells/story).
 function SpawnAllBingoBlockers()
 {
-    if (class'APCardWatcher'.default.bBingoMode == 0)
-    {
-        return;
-    }
     BlockBingoChamberEntryIfMissing();
     BlockBingoSpongifyEntryIfMissing();
     BlockBingoSkurgeEntryIfMissing();
@@ -1603,22 +1637,46 @@ function bool TryApplyBingoKey(string Name)
 
     class'APCardWatcher'.static.MarkBingoKeyAsAPGrantedDefault(Name);
 
-    if (idx == 0)       RemoveBingoChamberBlocker();
-    else if (idx == 1)  RemoveBingoSpongifyBlocker();
-    else if (idx == 2)  RemoveBingoSkurgeBlocker();
-    else if (idx == 3)  RemoveBingoRictusempraBlocker();
-    else if (idx == 4)  RemoveBingoDiffindoBlocker();
-    else if (idx == 5)  RemoveBingoBoomslangBlocker();
-    else if (idx == 6)  RemoveBingoWillowBlocker();
-    else if (idx == 7)  RemoveBingoForbiddenForestBlocker();
-    else if (idx == 8)  RemoveBingoSlytherinBlocker();
-    else if (idx == 9)  RemoveBingoGoyleBlocker();
-    else if (idx == 10) RemoveBingoBicornBlocker();
-    else if (idx == 11) RemoveBingoDuellingBlocker();
-    else if (idx == 12) RemoveBingoQuidditchBlocker();
+    if (class'APCardWatcher'.default.bBingoMode == 1)
+    {
+        if (idx == 0)       RemoveBingoChamberBlocker();
+        else if (idx == 1)  RemoveBingoSpongifyBlocker();
+        else if (idx == 2)  RemoveBingoSkurgeBlocker();
+        else if (idx == 3)  RemoveBingoRictusempraBlocker();
+        else if (idx == 4)  RemoveBingoDiffindoBlocker();
+        else if (idx == 5)  RemoveBingoBoomslangBlocker();
+        else if (idx == 6)  RemoveBingoWillowBlocker();
+        else if (idx == 7)  RemoveBingoForbiddenForestBlocker();
+        else if (idx == 8)  RemoveBingoSlytherinBlocker();
+        else if (idx == 9)  RemoveBingoGoyleBlocker();
+        else if (idx == 10) RemoveBingoBicornBlocker();
+        else if (idx == 11) RemoveBingoDuellingBlocker();
+        else if (idx == 12) RemoveBingoQuidditchBlocker();
+    }
+    else
+    {
+        RefreshVanillaBlockers();
+    }
 
     Log("[Archipelago] ApplyGrant: granted bingo key " $ Name $ " (idx=" $ idx $ ")");
     return True;
+}
+
+// Vanilla: one granted key can satisfy several cumulative chain regions at
+// once (e.g. the final missing earlier key clears its region and every later
+// region whose other keys are already in hand). Re-evaluate all 7 and drop
+// each bookcase whose full cumulative requirement is now met. DestroyTagged is
+// a no-op when the bookcase is absent or in another level, so this is safe to
+// call from any level on every grant.
+function RefreshVanillaBlockers()
+{
+    if (!VanillaBlockerShouldBlock(10)) RemoveBingoBicornBlocker();
+    if (!VanillaBlockerShouldBlock(5))  RemoveBingoBoomslangBlocker();
+    if (!VanillaBlockerShouldBlock(9))  RemoveBingoGoyleBlocker();
+    if (!VanillaBlockerShouldBlock(8))  RemoveBingoSlytherinBlocker();
+    if (!VanillaBlockerShouldBlock(7))  RemoveBingoForbiddenForestBlocker();
+    if (!VanillaBlockerShouldBlock(11)) RemoveBingoDuellingBlocker();
+    if (!VanillaBlockerShouldBlock(12)) RemoveBingoQuidditchBlocker();
 }
 
 static function harry FindActiveHarry(Actor caller)
