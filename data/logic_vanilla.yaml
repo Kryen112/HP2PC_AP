@@ -105,8 +105,8 @@ regions:
     notes: "Final goal region. All 4 non-starter spells required for traversal and Basilisk; Alohomora at region entry too. Hosts Chamber of Secrets - Card Elphick only — the 11 Gold cards moved to GoldCardRoom 2026-05-13 (correct vanilla home is Ch6WizardCard, not the Chamber level)."
 
   GoldCardRoom:
-    entry: "true"
-    notes: "Ch6WizardCard.unr — the gold card vault, reached via a door in the Grand Staircase (Hogwarts sub-area). Sphere-0 like Hogwarts; the real gate is the 40-silver-card door modelled in HP2World.set_rules as a Python-side add_rule that ANDs `state.has(every silver, player)` onto each gold-card location (the rule grammar itself can't express group counts). Per-card spell requirements inside the room are TBD pending a full playthrough — most gold cards may need additional spells to physically reach within the room."
+    entry: "'Silver Card - Andros' & 'Silver Card - Beamish' & 'Silver Card - Chittock' & 'Silver Card - Circe' & 'Silver Card - Clagg' & 'Silver Card - Cliodne' & 'Silver Card - Cronk' & 'Silver Card - Crumb' & 'Silver Card - Dodderidge' & 'Silver Card - Duke' & 'Silver Card - Fay' & 'Silver Card - Fulbert' & 'Silver Card - Furmage' & 'Silver Card - Gregory' & 'Silver Card - Grunnion' & 'Silver Card - Jones' & 'Silver Card - Lufkin' & 'Silver Card - Maeve' & 'Silver Card - Montmorency' & 'Silver Card - Mopsus' & 'Silver Card - Nutcombe' & 'Silver Card - Oglethorpe' & 'Silver Card - Oldridge' & 'Silver Card - Oliphant' & 'Silver Card - Plunkett' & 'Silver Card - Rastrick' & 'Silver Card - Shimpling' & 'Silver Card - Shingleton' & 'Silver Card - Smethwyck' & 'Silver Card - Stalk' & 'Silver Card - Summerbee' & 'Silver Card - Thurkell' & 'Silver Card - Toothill' & 'Silver Card - Tremlett' & 'Silver Card - Tugwood' & 'Silver Card - Wadcock' & 'Silver Card - Wendelin' & 'Silver Card - Wildsmith' & 'Silver Card - Wright' & 'Silver Card - Youdle'"
+    notes: "Ch6WizardCard.unr — the gold card vault, reached via a door in the Grand Staircase (Hogwarts sub-area). The room opens after collecting 40 silvers (= 4 gold keys); that gate is the inline `entry` AND-chain above. HP2World.set_rules adds a separate fill-time placement constraint (no silver item may be PLACED in a gold-card location) that the rule grammar can't express."
 
 # Per-location rules. KEY = location.name from locations.yaml.
 # A location's effective rule is: region.entry AND location.requires.
@@ -226,14 +226,13 @@ locations:
   "Quidditch - Match 5 (Ravenclaw)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
   "Quidditch - Match 6 (Slytherin)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
 
-  # ── Gold Card Room cards (region entry: Lumos & Flipendo via Grand Staircase) ─
-  # The Python-side add_rule silver-gate (all 40 silvers required) ANDs onto
-  # each of these in HP2World.set_rules, so the effective rule per card is
-  # region entry AND (per-location requires below) AND (all 40 silvers).
-  # Level is replayable infinitely once the silver gate is met — picking up
-  # already-AP-checked gold cards on replay fires no-op CHECKs (deduped).
-  # `(Rictusempra | Spongify)` captures the two alternate routes through the
-  # vault (Rictusempra-strike or Spongify-bounce) the player can use.
+  # ── Gold Card Room cards ───────────────────────────────────────────────────
+  # The GoldCardRoom region `entry` gates all 40 silvers, so the effective rule
+  # per card is (all 40 silvers) AND (per-location requires below). The level
+  # is replayable infinitely once the silver gate is met — already-AP-checked
+  # gold cards on replay fire no-op CHECKs (deduped). `(Rictusempra | Spongify)`
+  # captures the two alternate routes through the vault (Rictusempra-strike or
+  # Spongify-bounce) the player can use.
   "Gold Card Room - Card Bott":       { requires: "Rictusempra | Spongify" }
   "Gold Card Room - Card Dumbledore": { requires: "Alohomora & (Rictusempra | Spongify)" }
   "Gold Card Room - Card Gryffindor": { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }

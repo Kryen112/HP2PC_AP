@@ -3,18 +3,17 @@
 //
 // Recovers from one-way softlocks where Harry has the AP key for a challenge
 // (e.g. Spongify), partially clears it, then can't progress AND the doors
-// behind him have already trigger-locked - so there's no way out without
-// abandoning save progress. The new button teleports to Entryhall_Hub via the
-// same code path harry.uc uses for normal level transitions, preserving
-// inventory + quest state via Travel's bItems flag.
+// behind him have trigger-locked - so there's no way out without abandoning
+// save progress. The button teleports to Entryhall_Hub via the same code path
+// harry.uc uses for normal level transitions, preserving inventory + quest
+// state via Travel's bItems flag.
 //
 // Injection: APCardWatcher.Timer swaps menuBook.InGamePage for an instance of
 // this subclass once on first observation. The stock InGamePage is left as a
 // hidden orphan window - one-time leak of ~one UWindow node, harmless.
 //
 // Visuals: re-uses HP2_Menu.Icons.HP2MenuBackToGame so the button shape
-// matches the existing "Resume Game" (BackPageButton) aesthetic. A unique
-// icon can swap in later if Stefan wants the buttons visually distinct.
+// matches the "Resume Game" (BackPageButton) aesthetic.
 //=============================================================================
 
 class APFEInGamePage extends FEInGamePage;

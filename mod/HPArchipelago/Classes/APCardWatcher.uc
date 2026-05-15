@@ -1399,8 +1399,9 @@ function EnsureHomeMenuInjected()
     Log("[Archipelago] APCardWatcher.EnsureHomeMenuInjected: replaced menuBook.InGamePage with APFEInGamePage");
 }
 
-// Post-snapshot recovery for two related save/delta-cache corruptions diagnosed
-// from InputStateSampler dumps after FF'd boss-victory cutscene returns:
+// Post-snapshot recovery for two related save/delta-cache corruptions that
+// leave the player visually softlocked (black border bars + hidden HUD) on a
+// level the engine restores from a persistent cache:
 //
 // 1) CutScene actor stuck in (bPlaying=False, bFastForwarding=True). This pair
 //    is unreachable via the normal CutScene state machine (FastForwarding
