@@ -9,11 +9,13 @@ const NUM_BINGO_KEYS = 13;
 // NonCardLocationChecked[] by `apId - LOC_BASE` for secrets/stars/etc.
 // Mirrors `BASE_ID` in apworld/locations.py.
 const LOC_BASE = 5760000;
-// Class-default dedup for non-card AP locations (secrets, stars, vendors, duels,
-// matches). Indexed by `apId - LOC_BASE`. Sized to fit the current id-space
-// upper bound (~625 for Quidditch match 6) with headroom. Class-default so it
-// persists across level transitions in a session, like LocationChecked[].
-var byte NonCardLocationChecked[700];
+// Class-default dedup for non-card AP locations (secrets, stars, vendors,
+// duels, matches, level completions). Indexed by `apId - LOC_BASE`. Sized to
+// fit the current id-space upper bound (level completions reach slot 710 =
+// 5760710-LOC_BASE) with headroom. Class-default so it persists across level
+// transitions in a session, like LocationChecked[]. Keep the `>= 768` bound
+// checks below in sync if this size changes.
+var byte NonCardLocationChecked[768];
 
 var harry HarryRef;
 var StatusItemWizardCards siBronze;
@@ -89,6 +91,39 @@ var byte WCnFiredThisSession[12];
 // unchanged: cutscene starters get baselined and survive.
 var byte bBingoMode;
 
+// Bingo Great Hall key config. Delivered once per process by the client as
+// "GOALCFG c,s,l,d,q,mask" (from apworld slot_data) → SetGoalConfigCSV writes
+// these class-defaults; sticky across level transitions / save-load like
+// bBingoMode and APGrantedBingoKey. GoalSatisfied() (Phase 2) reads them; the
+// Great Hall bookcase (Phase 3) clears when every enabled clause passes. A
+// clause of 0 / off drops out of the AND (apworld already applied the
+// all-off → all-spells fallback, so this is never a no-gate config in bingo).
+var byte bGoalConfigured;
+var int  GoalCards;
+var int  GoalSpells;
+var int  GoalLevels;
+// Int (not byte) so the int return of NextCsvInt assigns without a coercion
+// question; only ever 0/1.
+var int  GoalDuels;
+var int  GoalQuidditch;
+var int  GoalLevelMask;
+// Clause-3 objective bitset (goal_plan.md §6.4: 11 objectives), set by the
+// Phase-4 detectors. Class-default sticky.
+var byte GoalLevelDone[16];
+// One-shot: set when the clauses are first all satisfied. Gates the Great
+// Hall bookcase removal AND the bInEndGame GOAL_COMPLETE fire in bingo.
+var byte WasGoalUnlocked;
+// Caps'd name of the adventure level abandoned via the Return-to-Hub menu
+// (stamped by APFEInGamePage.TeleportToHub). CheckExitedLevelObjective uses
+// it to tell a menu-bail apart from a real Mechanism-C completion; cleared on
+// any bind back inside a Mechanism-C level (a fresh attempt supersedes a bail).
+var string MenuReturnFromLevelCaps;
+// Caps'd name of the level the watcher was last bound in. Mechanism-C credits
+// off OUR own per-level bind history, NOT harry.PreviousLevelName: the return
+// SmartStart auto-saves, and harry.PreSaveGame wipes PreviousLevelName before
+// Snapshot ever runs (goal_plan.md §12 #15). Class-default sticky.
+var string LastBoundLevelCaps;
+
 // Per-spell flag for the in-progress-lesson detection. Set to 1 each tick the
 // watcher sees `HarryRef.CurrSpellLesson` resolve to a known lesson shape; on
 // the next tick where `CurrSpellLesson` is None, the flag's spell index fires
@@ -151,6 +186,18 @@ function MarkKeyItemAsGranted(string KeyItemName)
             return;
         }
     }
+}
+
+// True if Harry's ingredient-i StatusItem nCount is >0. Only reliable for
+// Boomslang(0) (a working PotionIngredients pickup); it gives an early
+// in-level fire there. Bicorn(1) and BitOGoyle(2) never raise nCount in this
+// build (broken Adv3DungeonQuest Bicorn prop / orphaned StatusItemBitOGoyle,
+// §12 #16/#17) - they are credited by leaving their terminal level instead
+// (CheckExitedLevelObjective). Kept as a fast-path; the exit detector is the
+// robust source of truth for all three.
+function bool HasKeyItem(int i)
+{
+    return KeyItemStatus[i] != None && KeyItemStatus[i].nCount > 0;
 }
 
 // Phase A of vendor support: clear vendor ownership of an AP-checked card
@@ -390,6 +437,154 @@ static function MarkBingoKeyAsAPGrantedDefault(string KeyName)
     Log("[Archipelago] APCardWatcher.MarkBingoKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
 }
 
+// Pop the leading comma-delimited integer off `rest` (consumes it, including
+// the comma). Last field has no trailing comma — take the whole remainder.
+// UE1 UScript has no string split and forbids fixed-size locals, so this is
+// the per-field primitive SetGoalConfigCSV iterates.
+static function int NextCsvInt(out string rest)
+{
+    local int comma, val;
+    comma = InStr(rest, ",");
+    if (comma >= 0)
+    {
+        val = int(Left(rest, comma));
+        rest = Mid(rest, comma + 1);
+    }
+    else
+    {
+        val = int(rest);
+        rest = "";
+    }
+    return val;
+}
+
+// Ingest "cards,spells,levels,duels,quidditch,mask" from the client (apworld
+// slot_data, sent every HELLO). Class-default + sticky like bBingoMode /
+// APGrantedBingoKey; idempotent (re-parsing the same csv re-asserts the same
+// values). The apworld already applied the all-off → all-spells fallback, so
+// a bingo seed never delivers an all-zero (no-gate) config.
+static function SetGoalConfigCSV(string csv)
+{
+    local string rest;
+
+    rest = csv;
+    default.GoalCards     = NextCsvInt(rest);
+    default.GoalSpells    = NextCsvInt(rest);
+    default.GoalLevels    = NextCsvInt(rest);
+    default.GoalDuels     = NextCsvInt(rest);
+    default.GoalQuidditch = NextCsvInt(rest);
+    default.GoalLevelMask = NextCsvInt(rest);
+    default.bGoalConfigured = 1;
+
+    Log("[Archipelago] APCardWatcher.SetGoalConfigCSV: cards=" $ default.GoalCards
+        $ " spells=" $ default.GoalSpells $ " levels=" $ default.GoalLevels
+        $ " duels=" $ default.GoalDuels $ " quidditch=" $ default.GoalQuidditch
+        $ " mask=" $ default.GoalLevelMask);
+}
+
+// Clause-3 objective index for a Caps'd map name (goal_plan.md §6.4). The 3
+// key-item ingredient levels (idx 0-2) are listed too: their StatusItem nCount
+// path is unreliable in this build (orphaned StatusItemBitOGoyle; the
+// Adv3DungeonQuest Bicorn prop has null class refs so PickupItem early-returns
+// - §12 #16/#17), so they are credited the robust Willow/Slytherin way: by
+// leaving the (terminal, single-objective) level. -1 = not a clause-3 level.
+static function int LevelObjectiveIndexFor(string CapsLevelName)
+{
+    if (CapsLevelName == "ADV4GREENHOUSE")   return 0;  // Boomslang Skin
+    if (CapsLevelName == "ADV3DUNGEONQUEST") return 1;  // Bicorn Horn
+    if (CapsLevelName == "ADV6GOYLE")        return 2;  // Bit O' Goyle
+    if (CapsLevelName == "ADV9ARAGOG")       return 3;  // Forbidden Forest (Aragog)
+    if (CapsLevelName == "ADV12CHAMBER")     return 4;  // Chamber (Basilisk)
+    if (CapsLevelName == "ADV1WILLOW")       return 5;  // Whomping Willow
+    if (CapsLevelName == "ADV7SLYTHCOMROOM") return 6;  // Slytherin Common Room
+    if (CapsLevelName == "CH1RICTUSEMPRA")   return 7;
+    if (CapsLevelName == "CH2SKURGE")        return 8;
+    if (CapsLevelName == "CH3DIFFINDO")      return 9;
+    if (CapsLevelName == "CH4SPONGIFY")      return 10;
+    return -1;
+}
+
+// Mark a clause-3 level objective complete. Dedupe is now UNIFORM with
+// stars/duels/quidditch via NonCardLocationChecked[apId-LOC_BASE] (the array
+// was enlarged to [768] so slot 700+idx fits) AND we still set the sticky
+// GoalLevelDone[idx] bit, which is the clause-3 gate state GoalSatisfied()
+// reads. Fires the Heretic-style "X Level Complete" CHECK_LOCID 5760700+idx.
+// Shared by Mechanisms A (key-item), B (boss), C (exit probe), D (end star).
+static function NotifyLevelObjective(int idx)
+{
+    local APIPCActor ipc;
+    local int locId, slot;
+
+    if (idx < 0 || idx >= 16) return;
+    locId = 5760700 + idx;
+    slot = locId - LOC_BASE;
+    if (slot < 0 || slot >= 768) return;
+    if (default.NonCardLocationChecked[slot] == 1) return;
+    default.NonCardLocationChecked[slot] = 1;
+    default.GoalLevelDone[idx] = 1;
+    Log("[Archipelago] APCardWatcher.NotifyLevelObjective: clause-3 objective idx="
+        $ idx $ " complete - firing CHECK_LOCID " $ locId);
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc != None) ipc.SendCheckLocationId(locId);
+}
+
+// True when every ENABLED bingo Great Hall key clause passes. A clause with a
+// 0 / off threshold drops out of the AND. Reads class-default thresholds vs
+// live state. Clause 3 (GoalLevelDone[]) is populated by the Phase-4
+// detectors; until those land a non-zero GoalLevels simply keeps the gate
+// shut, which is the safe direction.
+function bool GoalSatisfied()
+{
+    local int i, n;
+
+    if (default.bGoalConfigured == 0) return False;  // never unlock un-configured
+
+    // Clause 1 — wizard cards Harry owns.
+    if (default.GoalCards > 0)
+    {
+        if (siBronze == None || siSilver == None || siGold == None) return False;
+        if (siBronze.nCount + siSilver.nCount + siGold.nCount < default.GoalCards)
+            return False;
+    }
+
+    // Clause 2 — spells received (APGrantedSpell is the sticky class-default
+    // stamped on every AP spell grant; 0..NUM_SPELLS-1).
+    if (default.GoalSpells > 0)
+    {
+        n = 0;
+        for (i = 0; i < NUM_SPELLS; i++)
+            if (default.APGrantedSpell[i] == 1) n++;
+        if (n < default.GoalSpells) return False;
+    }
+
+    // Clause 3 — level objectives (Phase-4 detectors set GoalLevelDone[];
+    // GoalLevelMask selects which indices count).
+    if (default.GoalLevels > 0)
+    {
+        n = 0;
+        for (i = 0; i < 16; i++)
+            if (((default.GoalLevelMask >> i) & 1) == 1 && default.GoalLevelDone[i] == 1)
+                n++;
+        if (n < default.GoalLevels) return False;
+    }
+
+    // Clause 4 — all 10 duels (ScanDuelWins: ranks 1..DuelRankHarry-1 are won).
+    if (default.GoalDuels == 1)
+    {
+        if (HarryRef == None || HarryRef.DuelRankHarry < 11) return False;
+    }
+
+    // Clause 5 — all 6 Quidditch matches.
+    if (default.GoalQuidditch == 1)
+    {
+        if (HarryRef == None) return False;
+        for (i = 0; i < 6; i++)
+            if (!HarryRef.quidGameResults[i].bWon) return False;
+    }
+
+    return True;
+}
+
 event Timer()
 {
     local int id, i;
@@ -397,6 +592,7 @@ event Timer()
     local HPConsole console;
     local FEBook book;
     local harry viewportHarry;
+    local APGameInfo gi;
 
     EnsureLatestRegistration();
     if (default.LatestInstance != self)
@@ -459,6 +655,7 @@ event Timer()
     ScanSecretMarkers(ipc);
     ScanDuelWins(ipc);
     ScanMatchWins(ipc);
+    ScanBossKills(ipc);
 
     // Lesson-end hook for the four spell-tutorial location checks.
     // Fires CHECK_SPELL the tick after harry.CurrSpellLesson transitions from
@@ -534,7 +731,7 @@ event Timer()
 
     for (i = 0; i < NUM_KEY_ITEMS; i++)
     {
-        if (KeyItemStatus[i] != None && WasKeyItemOwned[i] == 0 && KeyItemStatus[i].nCount > 0)
+        if (WasKeyItemOwned[i] == 0 && HasKeyItem(i))
         {
             WasKeyItemOwned[i] = 1;
             Log("[Archipelago] APCardWatcher: new key item: " $ KeyItemNames[i]);
@@ -545,14 +742,43 @@ event Timer()
         }
     }
 
+    // Clause-3 Mechanism A: getting the Boomslang / Bicorn / BitOGoyle key
+    // item IS finishing that level (KeyItemStatus index i == objective idx
+    // i: 0 Boomslang, 1 Bicorn, 2 Goyle). Outside the WasKeyItemOwned
+    // transition guard above so it also catches the already-owned-at-snapshot
+    // case; NotifyLevelObjective dedupes on the sticky GoalLevelDone bit.
+    for (i = 0; i < NUM_KEY_ITEMS; i++)
+    {
+        if (HasKeyItem(i))
+        {
+            class'APCardWatcher'.static.NotifyLevelObjective(i);
+        }
+    }
+
+    // Bingo Great Hall key: the first tick every enabled clause passes, open
+    // the bookcase and arm the goal. WasGoalUnlocked is sticky class-default
+    // so it survives level transitions / save-load and never re-locks; the
+    // spawn helper early-returns on it so the bookcase never respawns.
+    if (default.bBingoMode == 1 && default.bGoalConfigured == 1
+        && default.WasGoalUnlocked == 0 && GoalSatisfied())
+    {
+        default.WasGoalUnlocked = 1;
+        Log("[Archipelago] APCardWatcher: bingo goal clauses satisfied - opening Great Hall");
+        gi = APGameInfo(Level.Game);
+        if (gi != None) gi.RemoveBingoGreatHallBlocker();
+    }
+
     // M7 goal detection: poll FEBook.bInEndGame, set True by ShowCredits()
     // (FEBook.uc:1392) when the post-Basilisk credits cutscene runs. Access
     // pattern mirrors harry.uc:5582 / harry.uc:339 — go through the live
     // gameplay UWorld's HPConsole to reach the active menuBook (HarryRef's
     // own .menuBook field can be stale; the explicit lookup is known-good).
     // One-shot: WasInEndGame guards re-fire. Null-check Player/Console/menuBook
-    // because they can briefly be None during level loads.
-    if (WasInEndGame == 0 && HarryRef.Player != None)
+    // because they can briefly be None during level loads. In bingo the fire
+    // is gated on WasGoalUnlocked so the open-castle Great Hall can't complete
+    // the seed before the 5-clause goal is met (vanilla: unchanged).
+    if (WasInEndGame == 0 && HarryRef.Player != None
+        && (default.bBingoMode == 0 || default.WasGoalUnlocked == 1))
     {
         console = HPConsole(HarryRef.Player.Console);
         if (console != None)
@@ -1046,7 +1272,7 @@ function Snapshot()
 
     for (i = 0; i < NUM_KEY_ITEMS; i++)
     {
-        if (KeyItemStatus[i] != None && KeyItemStatus[i].nCount > 0)
+        if (HasKeyItem(i))
         {
             WasKeyItemOwned[i] = 1;
         }
@@ -1070,6 +1296,14 @@ function Snapshot()
     // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla
     // score. Already-checked stars stay vanilla, so replay still scores.
     ReplaceChallengeStars();
+    // Clause-3: credit terminal objective levels (ingredient levels 0-2,
+    // Willow 5, Slytherin 6, and the 4 challenges 7-10) from the watcher's
+    // own per-level bind history when we leave them. The challenge FinalStar
+    // is NOT subclass-replaced: destroy+respawn dropped its Event/CutName so
+    // the vanilla win cutscene/travel never fired (level stuck, §12 #18) -
+    // a failed challenge restarts in place, so only true completion travels
+    // out, exactly like the other terminal levels.
+    CheckExitedLevelObjective();
     // Drop the per-card curtain in Ch6WizardCard for every gold card Harry
     // currently owns. Vanilla's RemoveHarryOwnedCardsFromLevel destroys
     // owned wci silently with no TriggerEvent, so the per-card curtain
@@ -1199,7 +1433,7 @@ function ScanSecretMarkers(APIPCActor ipc)
         locId = class'APLocationRegistry'.static.GetSecretLocationId(levelName, string(marker.Name));
         if (locId == 0) continue;
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 700) continue;
+        if (slot < 0 || slot >= 768) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
         default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APCardWatcher: secret bFound in " $ levelName
@@ -1225,7 +1459,7 @@ function ScanDuelWins(APIPCActor ipc)
     {
         locId = 5760600 + (rank - 1);
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 700) continue;
+        if (slot < 0 || slot >= 768) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
         default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APCardWatcher: duel rank " $ rank
@@ -1251,13 +1485,56 @@ function ScanMatchWins(APIPCActor ipc)
         if (!HarryRef.quidGameResults[i].bWon) continue;
         locId = 5760620 + i;
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 700) continue;
+        if (slot < 0 || slot >= 768) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
         default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APCardWatcher: quidditch match " $ (i + 1)
             $ " won (vs " $ HarryRef.quidGameResults[i].Opponent
             $ ") - firing CHECK_LOCID " $ locId);
         if (ipc != None) ipc.SendCheckLocationId(locId);
+    }
+}
+
+// Clause-3 Mechanism B (goal_plan.md §6.2): poll the boss in its level.
+// Aragog: Health<=0 routes to GotoState('stateBeatAragog') (Aragog.uc:176-181),
+// the unambiguous "defeated" state (the level has 2 Aragog actors; only the
+// beaten boss enters it). Basilisk has TWO phases: BeatBoss() runs at BOTH the
+// phase-1 (Tom-revealed, 17170VoldRevealedV2) and final kill, so Health<=0 is
+// NOT a final-defeat signal (it fired idx=4 on phase 1 in Stefan's 2026-05-15
+// run). Use bBasilFinishedForGood — set True only in BeatBoss()'s
+// bDidFirstBattle branch that also destroys the collision + goes stateInactive
+// (Basilisk.uc:2215-2220). Level-gated so it never scans unrelated maps or
+// matches a stray actor. Idempotent via NotifyLevelObjective's dedupe.
+function ScanBossKills(APIPCActor ipc)
+{
+    local string lvl;
+    local Aragog ag;
+    local Basilisk bs;
+
+    if (HarryRef == None) return;
+    lvl = Caps(string(Level.Outer.Name));
+
+    if (lvl == "ADV9ARAGOG")
+    {
+        foreach AllActors(class'Aragog', ag)
+        {
+            if (ag.IsInState('stateBeatAragog'))
+            {
+                class'APCardWatcher'.static.NotifyLevelObjective(3);
+                break;
+            }
+        }
+    }
+    else if (lvl == "ADV12CHAMBER")
+    {
+        foreach AllActors(class'Basilisk', bs)
+        {
+            if (bs.bBasilFinishedForGood)
+            {
+                class'APCardWatcher'.static.NotifyLevelObjective(4);
+                break;
+            }
+        }
     }
 }
 
@@ -1359,7 +1636,7 @@ function ReplaceChallengeStars()
         locId = class'APLocationRegistry'.static.GetStarLocationId(levelName, markerName);
         if (locId == 0) continue;
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 700) continue;
+        if (slot < 0 || slot >= 768) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
 
         // Capture mover-attachment state before destroying the vanilla star.
@@ -1399,6 +1676,89 @@ function ReplaceChallengeStars()
         Log("[Archipelago] APCardWatcher.ReplaceChallengeStars: replaced " $ replaced
             $ " vanilla star(s) with AP markers in " $ levelName);
     }
+}
+
+// Clause-3 Mechanism D (challenges 7-10) is NOT a FinalStar subclass-replace.
+// Vanilla FinalStar.PickupProp.EndState does PickedUpFinalStar() (EndChallenge)
+// AND TriggerEvent(Event,None,None) - that Event (plus the win cutscene's
+// FlyTo-by-CutName) is what tallies the challenge and travels back to the hub.
+// A destroy+respawn drops Event and CutName, so the level never ends (stuck,
+// §12 #18). Challenges are terminal like the other objective levels: a failed
+// run restarts in place (EventTimeUpRestart, ChallengeScoreManager.uc), so the
+// only way a challenge level travels out is true completion. Credited by
+// CheckExitedLevelObjective on exit, same as 0-2/5/6.
+
+// Clause-3 exit-credit for the levels whose ONLY forward progress is
+// completing their single objective: 0 Boomslang (Adv4Greenhouse), 1 Bicorn
+// (Adv3DungeonQuest), 2 BitOGoyle (Adv6Goyle), 5 Whomping Willow, 6 Slytherin
+// Common Room, and 7-10 the four challenges (Ch1Rictusempra/Ch2Skurge/
+// Ch3Diffindo/Ch4Spongify). "We left that level" == "we completed it": each is
+// terminal and a failed/abandoned attempt restarts in place rather than
+// travelling out (challenges: EventTimeUpRestart). We do NOT poll per-item
+// state: the ingredient StatusItem path is broken in this build (orphaned
+// StatusItemBitOGoyle; the Bicorn prop has null class refs so
+// StatusManager.PickupItem early-returns and nCount never rises - §12 #16/#17),
+// the FinalStar can't be subclass-replaced without losing its Event/CutName
+// and breaking the win cutscene (§12 #18), and harry.PreviousLevelName is
+// blanked by the return auto-save before Snapshot runs (§12 #15). Instead we
+// track OUR own per-level bind history: the watcher Snapshots in every level,
+// so when this bind's level differs from the last bind's and the last one was
+// an exit-credited level, it is complete. Catches scripted-cutscene exits a
+// Touch probe never saw. Boss levels (3/4) keep their own poll detector and
+// are NOT exit-credited (they can be traversed/left without the kill). The
+// mod's Return-to-Hub menu also leaves without completing; APFEInGamePage
+// stamps MenuReturnFromLevelCaps so that bail is not miscredited. For 0-2,
+// leaving the level also means the polyjuice ingredient was obtained, so its
+// key-item AP location is checked too. NotifyLevelObjective dedupes via the
+// sticky GoalLevelDone bit.
+function CheckExitedLevelObjective()
+{
+    local string curCaps, prevCaps;
+    local int idx;
+    local APIPCActor ipc;
+
+    curCaps = Caps(string(Level.Outer.Name));
+    // Physically back inside an exit-credited level => a fresh attempt; any
+    // earlier menu-bail record is moot and must not suppress this run's exit.
+    if (curCaps == "ADV1WILLOW" || curCaps == "ADV7SLYTHCOMROOM"
+        || curCaps == "ADV4GREENHOUSE" || curCaps == "ADV3DUNGEONQUEST"
+        || curCaps == "ADV6GOYLE" || curCaps == "CH1RICTUSEMPRA"
+        || curCaps == "CH2SKURGE" || curCaps == "CH3DIFFINDO"
+        || curCaps == "CH4SPONGIFY")
+        default.MenuReturnFromLevelCaps = "";
+
+    prevCaps = default.LastBoundLevelCaps;
+    // Record this bind's level for the NEXT bind's comparison before any
+    // early-out, so a single Snapshot per level keeps the history exact and
+    // repeated binds in one level are a no-op (prevCaps == curCaps).
+    default.LastBoundLevelCaps = curCaps;
+
+    if (prevCaps == "" || prevCaps == curCaps) return;
+    idx = class'APCardWatcher'.static.LevelObjectiveIndexFor(prevCaps);
+    // 0-2 ingredient levels, 5 Willow, 6 Slytherin, 7-10 challenges. NOT 3/4
+    // (boss levels keep their poll detector - leavable without the kill).
+    if (idx < 0 || idx == 3 || idx == 4)
+        return;                                  // only the exit-driven levels
+    if (default.GoalLevelDone[idx] == 1) return; // already credited
+
+    if (prevCaps == default.MenuReturnFromLevelCaps)
+    {
+        Log("[Archipelago] APCardWatcher.CheckExitedLevelObjective: idx=" $ idx
+            $ " skipped - left " $ prevCaps $ " via Return-to-Hub menu");
+        return;
+    }
+    // idx 0-2: leaving the terminal ingredient level == obtained the
+    // ingredient, so the polyjuice key-item AP location is checked too (its
+    // StatusItem nCount path is unrecoverable in this build, §12 #16/#17).
+    if (idx <= 2)
+    {
+        WasKeyItemOwned[idx] = 1;
+        ipc = class'APIPCActor'.static.GetInstance();
+        if (ipc != None) ipc.SendCheckKeyItem(KeyItemNames[idx]);
+    }
+    Log("[Archipelago] APCardWatcher.CheckExitedLevelObjective: exited "
+        $ prevCaps $ " (idx=" $ idx $ ") - crediting objective");
+    class'APCardWatcher'.static.NotifyLevelObjective(idx);
 }
 
 // One-shot menu patch: replace menuBook.InGamePage with an APFEInGamePage

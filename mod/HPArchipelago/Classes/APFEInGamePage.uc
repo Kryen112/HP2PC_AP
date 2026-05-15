@@ -88,6 +88,13 @@ function TeleportToHub()
     // as the level tears down, but closing it explicitly first avoids the
     // pause overlay flickering during the travel transition.
     FEBook(book).CloseBook();
+    // Tell APCardWatcher.CheckExitedLevelObjective this exit is a menu-bail,
+    // not a Mechanism-C completion, so leaving Willow/Slytherin this way does
+    // not falsely credit the clause-3 objective. Keyed to the level being left
+    // so a later genuine completion of the same level still counts.
+    if (console.Viewport != None && console.Viewport.Actor != None)
+        class'APCardWatcher'.default.MenuReturnFromLevelCaps =
+            Caps(string(console.Viewport.Actor.Level.Outer.Name));
     Log("[Archipelago] APFEInGamePage.TeleportToHub: ChangeLevel('Entryhall_Hub', True)");
     console.ChangeLevel("Entryhall_Hub", True);
 }

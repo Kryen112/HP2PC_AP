@@ -5,12 +5,20 @@
 //   [Engine.Engine]
 //   Console=HPArchipelago.APConsole   ; (was HGame.HPConsole)
 //
-// Adds three exec commands callable from the in-game console (~ key):
+// Adds exec commands callable from the in-game console (~ key):
 //
 //   LogPos          — one-shot log of harry's Location + Rotation to Game.log.
 //                     Complements stock HP2's ShowPos (which only shows X/Y/Z
 //                     on the HUD); LogPos captures Rotation too, in the same
 //                     pretty-printed form a Block<X>IfMissing helper expects.
+//
+//   Note            — free-form label line in Game.log next to nearby LogPos /
+//                     PlaceBookcase output, so one grep recovers a spot's name.
+//
+//   DumpActors      — log every actor (optionally class-name-substring-filtered)
+//                     with class/name/tag/location. Used to identify the boss
+//                     and level-exit-trigger classes the §6 goal detector keys
+//                     off.
 //
 //   PlaceBookcase   — spawns a BookcaseGlassDoors at harry's current Location,
 //                     facing the same direction harry is looking. Stand at the
@@ -60,6 +68,45 @@ exec function LogPos()
         return;
     }
     DevPrint("LogPos: Location=" $ string(Viewport.Actor.Location) $ " Rotation=" $ string(Viewport.Actor.Rotation));
+}
+
+// Actor identification for goal_plan.md §6 (Phase 4 auto-detection): find the
+// per-level actors the detector keys off — boss classes for Forbidden Forest /
+// Chamber, and the level-exit / level-change trigger for the challenges +
+// Whomping Willow + Slytherin Common Room. Stand in the level and fire:
+//   DumpActors            — every actor (verbose; large in hub levels)
+//   DumpActors TRIGGER    — only classes whose name contains "TRIGGER"
+//   DumpActors BASILISK   — substring match on the class name
+// Per-actor lines go to Game.log only (could be hundreds); the header/footer
+// echo to the chat overlay so the player sees it ran. Level name is the Caps'd
+// map name BingoLevelIs() compares against.
+exec function DumpActors(optional string Filter)
+{
+    local Actor a;
+    local string cf;
+    local int n;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        Log("[Archipelago] APConsole.DumpActors: no Viewport.Actor");
+        return;
+    }
+    cf = Caps(Filter);
+    DevPrint("DumpActors Level=" $ Caps(string(Viewport.Actor.Level.Outer.Name))
+        $ " Filter='" $ Filter $ "' - see Game.log");
+    foreach Viewport.Actor.AllActors(class'Actor', a)
+    {
+        if (cf != "" && InStr(Caps(string(a.Class.Name)), cf) < 0)
+        {
+            continue;
+        }
+        Log("[Archipelago]   actor class=" $ string(a.Class.Name)
+            $ " name=" $ string(a.Name)
+            $ " tag=" $ string(a.Tag)
+            $ " loc=" $ string(a.Location));
+        n++;
+    }
+    DevPrint("DumpActors: " $ n $ " actor(s) logged");
 }
 
 exec function PlaceBookcase(optional float Forward)

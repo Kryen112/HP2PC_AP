@@ -1125,6 +1125,33 @@ function BlockBingoQuidditchEntryIfMissing()
 }
 function RemoveBingoQuidditchBlocker()     { DestroyTaggedBingoBlockers('APBingoQuidditchBlocker'); }
 
+// ----- Great Hall goal gate (EntryHall_Hub; 1 bookcase — goal_plan.md §3) -----
+// NOT keyed by an APGrantedBingoKey: this one is gated by the 5-clause goal
+// evaluator, so it does not use ShouldSpawnBingoBlocker (which checks
+// BingoKeyGranted). Spawn while the goal is unmet; APCardWatcher.Timer calls
+// RemoveBingoGreatHallBlocker the tick GoalSatisfied() first passes and sets
+// the sticky WasGoalUnlocked, after which this early-returns so it never
+// respawns. There is exactly one concrete way into the Great Hall, so this
+// single bookcase is the sole route to the bInEndGame credits cutscene.
+function BlockBingoGreatHallEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    local Actor existing;
+
+    if (class'APCardWatcher'.default.bBingoMode == 0) return;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (class'APCardWatcher'.default.WasGoalUnlocked == 1) return;  // already opened
+    foreach AllActors(class'Actor', existing)
+        if (existing.Tag == 'APBingoGreatHallBlocker' && !existing.bDeleteMe) return;
+
+    // §3 Phase-0 capture (verbatim from PlaceBookcase log, GreatHall).
+    loc.X = 1061.760376; loc.Y = -831.163818; loc.Z = -275.498291;
+    rot.Yaw = 16321;  rot.Roll = 0;
+    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+}
+function RemoveBingoGreatHallBlocker()     { DestroyTaggedBingoBlockers('APBingoGreatHallBlocker'); }
+
 // Convenience aggregator called from InitGame and from
 // APCardWatcher.TrySpawnClassroomBlockers (post-save-load path that bypasses
 // InitGame). Each helper is level-scoped and key-gated, so unconditional
@@ -1147,6 +1174,7 @@ function SpawnAllBingoBlockers()
     BlockBingoBicornEntryIfMissing();
     BlockBingoDuellingEntryIfMissing();
     BlockBingoQuidditchEntryIfMissing();
+    BlockBingoGreatHallEntryIfMissing();
 }
 
 // Replace every card-class reference in chests/cauldrons (and every loose

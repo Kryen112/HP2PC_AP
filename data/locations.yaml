@@ -424,3 +424,32 @@ challenge_stars:
   - { id_offset: 541, name: "Spongify Challenge - Challenge Star 8", level: Ch4Spongify, marker: ChallengeStar7, tag: ChallengeStar, loc: "(576.51, -576.06, 820.32)", missable: false, region: SpongifyChallenge, group: ChallengeStars }
   - { id_offset: 542, name: "Spongify Challenge - Challenge Star 9", level: Ch4Spongify, marker: ChallengeStar8, tag: ChallengeStar, loc: "(-63.28, -1792.09, 821.71)", missable: false, region: SpongifyChallenge, group: ChallengeStars }
   - { id_offset: 543, name: "Spongify Challenge - Challenge Star 10", level: Ch4Spongify, marker: ChallengeStar9, tag: ChallengeStar, loc: "(-1791.79, -1471.35, 1071.05)", missable: false, region: SpongifyChallenge, group: ChallengeStars }
+
+# 11 "X Level Complete" locations (Heretic-AP model). One per level / challenge
+# / boss; reaching the end IS the check. AP id = base 5760000 + id_offset, so
+# id_offset = 700 + idx where idx is the clause-3 objective index the mod's
+# APCardWatcher.NotifyLevelObjective fires CHECK_LOCID (5760700+idx) for.
+# Detection (goal_plan.md §6.7, mod-side, no per-row data needed here):
+#   idx 0-2  Mechanism A  left the terminal ingredient level (CheckExitedLevelObjective); Boomslang also early via nCount
+#   idx 3    Mechanism B  ADV9ARAGOG  Aragog.IsInState('stateBeatAragog')
+#   idx 4    Mechanism B  ADV12CHAMBER Basilisk.bBasilFinishedForGood
+#   idx 5-6  Mechanism C  left the level (watcher per-level bind history)
+#   idx 7-10 Mechanism D  left the terminal challenge level (CheckExitedLevelObjective); FinalStar NOT replaced (§12 #18)
+# `level`/`idx` are documentation only — the generator uses name/id_offset/
+# region/group (emit_locations generic loop). Region = the level's existing
+# logic region (must exist in BOTH logic_vanilla.yaml and logic_bingo.yaml).
+# Gated by the `enable_level_completions` YAML option (group LevelCompletions).
+# These are NOT bingo-only: in vanilla they are ordinary progress checks; the
+# Great Hall clause-3 gate uses the same detector but only in bingo mode.
+level_completions:
+  - { id_offset: 700, idx: 0,  level: BoomslangLevel,  name: "Boomslang Level - Complete",        region: BoomslangLevel,    group: LevelCompletions }
+  - { id_offset: 701, idx: 1,  level: BicornLevel,     name: "Bicorn Level - Complete",           region: BicornLevel,       group: LevelCompletions }
+  - { id_offset: 702, idx: 2,  level: GoyleLevel,      name: "Goyle Level - Complete",            region: GoyleLevel,        group: LevelCompletions }
+  - { id_offset: 703, idx: 3,  level: Adv9Aragog,      name: "Forbidden Forest - Complete",       region: ForbiddenForest,   group: LevelCompletions, notes: "Aragog defeated." }
+  - { id_offset: 704, idx: 4,  level: Adv12Chamber,    name: "Chamber of Secrets - Complete",     region: ChamberOfSecrets,  group: LevelCompletions, notes: "Basilisk defeated." }
+  - { id_offset: 705, idx: 5,  level: Adv1Willow,      name: "Whomping Willow - Complete",        region: WhompingWillow,    group: LevelCompletions }
+  - { id_offset: 706, idx: 6,  level: Adv7SlythComRoom, name: "Slytherin Common Room - Complete", region: SlytherinCommon,   group: LevelCompletions }
+  - { id_offset: 707, idx: 7,  level: Ch1Rictusempra,  name: "Rictusempra Challenge - Complete",  region: RictusempraChallenge, group: LevelCompletions }
+  - { id_offset: 708, idx: 8,  level: Ch2Skurge,       name: "Skurge Challenge - Complete",       region: SkurgeChallenge,   group: LevelCompletions }
+  - { id_offset: 709, idx: 9,  level: Ch3Diffindo,     name: "Diffindo Challenge - Complete",     region: DiffindoChallenge, group: LevelCompletions }
+  - { id_offset: 710, idx: 10, level: Ch4Spongify,     name: "Spongify Challenge - Complete",     region: SpongifyChallenge, group: LevelCompletions }

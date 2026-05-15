@@ -172,6 +172,14 @@ function HandleLine(string line)
         // toast is purely cosmetic, drop on the floor if no toast actor.
         HandleSent(Mid(line, 5));
     }
+    else if (Left(line, 8) == "GOALCFG ")
+    {
+        // Bingo Great Hall key thresholds from the apworld slot_data, as
+        // "cards,spells,levels,duels,quidditch,mask". Sticky class-default on
+        // the watcher (mirrors bBingoMode); resent every HELLO so a fresh
+        // launch / reconnect re-arms it. Idempotent.
+        class'APCardWatcher'.static.SetGoalConfigCSV(Mid(line, 8));
+    }
 }
 
 // Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the

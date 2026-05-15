@@ -93,7 +93,7 @@ class HP2Context(CommonContext):
     game = GAME_NAME
     command_processor = HP2CommandProcessor
     items_handling = 0b111  # receive starting inventory + own items + remote items
-    want_slot_data = False
+    want_slot_data = True  # bingo Great Hall key thresholds ride slot_data
 
     def __init__(self, server_address: Optional[str], password: Optional[str]):
         super().__init__(server_address, password)
@@ -133,6 +133,11 @@ class HP2Context(CommonContext):
         # every disconnect, including transient AP blips, and the whole point
         # of durable_grants is to survive those.
         self._last_seed_name: Optional[str] = None
+        # Bingo Great Hall key config as the "GOALCFG c,s,l,d,q,mask" payload,
+        # or None for vanilla / not-yet-received. Parsed from slot_data on
+        # Connected; pushed to the mod on every game HELLO (sticky + idempotent
+        # mod-side, so a fresh game launch / reconnect re-arms it).
+        self.bingo_goalcfg: Optional[str] = None
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -151,6 +156,23 @@ class HP2Context(CommonContext):
             logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
             if self.pending_ap_outbound:
                 asyncio.create_task(self._flush_pending_ap_outbound())
+            sd = args.get("slot_data") or {}
+            if sd.get("game_mode") == "bingo":
+                self.bingo_goalcfg = "{},{},{},{},{},{}".format(
+                    sd.get("bingo_goal_cards", 0),
+                    sd.get("bingo_goal_spells", 0),
+                    sd.get("bingo_goal_levels", 0),
+                    sd.get("bingo_goal_duels", 0),
+                    sd.get("bingo_goal_quidditch", 0),
+                    sd.get("bingo_level_mask", 0),
+                )
+                logger.info(f"Bingo goal config from slot_data: {self.bingo_goalcfg}")
+                # If the game is already connected, push now; otherwise it goes
+                # out on the next game HELLO.
+                if self.game_writer is not None:
+                    self._send_to_game("GOALCFG " + self.bingo_goalcfg)
+            else:
+                self.bingo_goalcfg = None
         elif cmd == "ReceivedItems":
             package_index = args.get("index")
             for item in args.get("items", []):
@@ -286,6 +308,11 @@ class HP2Context(CommonContext):
     async def _handle_game_line(self, line: str) -> None:
         if line == "HELLO":
             self._resync_durable_grants()
+            # Re-arm the bingo Great Hall key thresholds. Sticky + idempotent
+            # mod-side, so resending every HELLO covers fresh game launches and
+            # reconnects without harm. No-op for vanilla / pre-Connected.
+            if self.bingo_goalcfg:
+                self._send_to_game("GOALCFG " + self.bingo_goalcfg)
             return
         if line == "GOAL_COMPLETE":
             if self.goal_sent:

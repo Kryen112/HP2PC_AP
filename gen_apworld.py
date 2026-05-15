@@ -30,6 +30,7 @@ LOCATION_CATEGORIES = (
     "quidditch_matches",
     "secrets",
     "challenge_stars",
+    "level_completions",
 )
 
 

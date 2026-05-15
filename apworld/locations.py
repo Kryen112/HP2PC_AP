@@ -279,6 +279,17 @@ LOCATION_NAME_TO_ID: dict[str, int] = {
     'Spongify Challenge - Challenge Star 8': 5760541,
     'Spongify Challenge - Challenge Star 9': 5760542,
     'Spongify Challenge - Challenge Star 10': 5760543,
+    'Boomslang Level - Complete': 5760700,
+    'Bicorn Level - Complete': 5760701,
+    'Goyle Level - Complete': 5760702,
+    'Forbidden Forest - Complete': 5760703,
+    'Chamber of Secrets - Complete': 5760704,
+    'Whomping Willow - Complete': 5760705,
+    'Slytherin Common Room - Complete': 5760706,
+    'Rictusempra Challenge - Complete': 5760707,
+    'Skurge Challenge - Complete': 5760708,
+    'Diffindo Challenge - Complete': 5760709,
+    'Spongify Challenge - Complete': 5760710,
 }
 
 LOCATION_REGIONS: dict[str, str] = {
@@ -558,6 +569,17 @@ LOCATION_REGIONS: dict[str, str] = {
     'Spongify Challenge - Challenge Star 8': 'SpongifyChallenge',
     'Spongify Challenge - Challenge Star 9': 'SpongifyChallenge',
     'Spongify Challenge - Challenge Star 10': 'SpongifyChallenge',
+    'Boomslang Level - Complete': 'BoomslangLevel',
+    'Bicorn Level - Complete': 'BicornLevel',
+    'Goyle Level - Complete': 'GoyleLevel',
+    'Forbidden Forest - Complete': 'ForbiddenForest',
+    'Chamber of Secrets - Complete': 'ChamberOfSecrets',
+    'Whomping Willow - Complete': 'WhompingWillow',
+    'Slytherin Common Room - Complete': 'SlytherinCommon',
+    'Rictusempra Challenge - Complete': 'RictusempraChallenge',
+    'Skurge Challenge - Complete': 'SkurgeChallenge',
+    'Diffindo Challenge - Complete': 'DiffindoChallenge',
+    'Spongify Challenge - Complete': 'SpongifyChallenge',
 }
 
 LOCATION_GROUPS: dict[str, str] = {
@@ -837,6 +859,17 @@ LOCATION_GROUPS: dict[str, str] = {
     'Spongify Challenge - Challenge Star 8': 'ChallengeStars',
     'Spongify Challenge - Challenge Star 9': 'ChallengeStars',
     'Spongify Challenge - Challenge Star 10': 'ChallengeStars',
+    'Boomslang Level - Complete': 'LevelCompletions',
+    'Bicorn Level - Complete': 'LevelCompletions',
+    'Goyle Level - Complete': 'LevelCompletions',
+    'Forbidden Forest - Complete': 'LevelCompletions',
+    'Chamber of Secrets - Complete': 'LevelCompletions',
+    'Whomping Willow - Complete': 'LevelCompletions',
+    'Slytherin Common Room - Complete': 'LevelCompletions',
+    'Rictusempra Challenge - Complete': 'LevelCompletions',
+    'Skurge Challenge - Complete': 'LevelCompletions',
+    'Diffindo Challenge - Complete': 'LevelCompletions',
+    'Spongify Challenge - Complete': 'LevelCompletions',
 }
 
 # Map UScript card class name → AP location name. Used by the client to

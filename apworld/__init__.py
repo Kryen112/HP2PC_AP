@@ -16,8 +16,9 @@ from typing import Any
 
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          LocationProgressType, Region)
-from Options import (Choice, DefaultOnToggle, OptionGroup, OptionSet,
-                     PerGameCommonOptions, StartInventoryPool, Toggle)
+from Options import (Choice, DefaultOnToggle, NamedRange, OptionError,
+                     OptionGroup, OptionSet, PerGameCommonOptions,
+                     StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
@@ -44,6 +45,15 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 
 DEFAULT_GOAL = "basilisk"
 SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
+# All 101 wizard-card item names. In bingo these are upgraded to
+# progression_skip_balancing at create_item time so AP guarantees them
+# reachable (a card-count Great Hall goal needs that); vanilla keeps the
+# generated classification (mostly `useful`) so vanilla seeds are unchanged.
+CARD_ITEM_NAMES: frozenset[str] = frozenset(
+    ITEM_GROUPS.get("Cards (Bronze)", [])
+    + ITEM_GROUPS.get("Cards (Silver)", [])
+    + ITEM_GROUPS.get("Cards (Gold)", [])
+)
 # Level-entry keys. In bingo, all 13 are AP items gating every level
 # transition. In vanilla with vanilla_gate_levels on, the 7 in
 # VANILLA_BLOCKED_KEY_NAMES are also AP items (the mod spawns a bookcase
@@ -127,14 +137,6 @@ class VanillaGateLevels(DefaultOnToggle):
     display_name = "Vanilla gate levels"
 
 
-class BingoSectionPlaceholder(Toggle):
-    """(No bingo-only options yet — bingo uses the shared options above. This
-    placeholder has no effect; it exists only so the BINGO section header
-    renders, and is removed once a real bingo-only option is added.)
-    """
-    display_name = "Bingo section placeholder"
-
-
 class StartingSpells(OptionSet):
     """Spells Harry starts with. Any spell not listed is an AP item instead.
 
@@ -204,6 +206,65 @@ class EnableQuidditchUpgrades(Toggle):
     display_name = "Enable Quidditch upgrades"
 
 
+class EnableLevelCompletions(DefaultOnToggle):
+    """If true, the 11 "X Level Complete" checks (3 key-item levels + 2 bosses
+    + Whomping Willow + Slytherin Common Room + the 4 spell challenges) become
+    AP locations. Independent of game_mode and of the bingo Great Hall key:
+    even when this is off the mod still tracks completion internally for the
+    bingo clause-3 gate; this flag only controls whether the spots are AP
+    locations this seed.
+    """
+    display_name = "Enable Level Completions"
+
+
+# --- BINGO section: the Great Hall key. The 5 clauses below are AND'd; a
+# clause set to 0 / off drops out. Bingo only (ignored in vanilla). If a yaml
+# resolves all five to 0/off, _bingo_goal_config falls back to "all 7 spells"
+# so there is always a gate. NamedRange gives named anchors plus a free
+# integer, and supports yaml `random` / `random-low` / `random-high`.
+class BingoGoalCards(NamedRange):
+    """Bingo only. Wizard cards needed to open the Great Hall. 0 disables this
+    clause. Counts cards Harry actually owns (incl. AP-granted)."""
+    display_name = "Bingo goal: cards"
+    range_start = 0
+    range_end = 101
+    default = 50
+    special_range_names = {"none": 0, "few": 25, "half": 50, "most": 80, "all": 101}
+
+
+class BingoGoalSpells(NamedRange):
+    """Bingo only. Spells needed to open the Great Hall. 0 disables this
+    clause. (If every bingo goal clause is 0/off, this is forced to 7.)"""
+    display_name = "Bingo goal: spells"
+    range_start = 0
+    range_end = 7
+    default = 7
+    special_range_names = {"none": 0, "half": 4, "all": 7}
+
+
+class BingoGoalLevels(NamedRange):
+    """Bingo only. Level objectives finished to open the Great Hall. 0
+    disables. 11 objectives, fixed: 3 key-item levels + 2 bosses + 2 story
+    levels + 4 challenges."""
+    display_name = "Bingo goal: level objectives"
+    range_start = 0
+    range_end = 11
+    default = 11
+    special_range_names = {"none": 0, "challenges": 4, "all": 11}
+
+
+class BingoGoalDuels(Toggle):
+    """Bingo only. If true, all 10 Dueling Club duels must be won to open the
+    Great Hall."""
+    display_name = "Bingo goal: all duels"
+
+
+class BingoGoalQuidditch(Toggle):
+    """Bingo only. If true, all 6 Quidditch matches must be won to open the
+    Great Hall."""
+    display_name = "Bingo goal: all Quidditch matches"
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -226,13 +287,16 @@ class HP2Options(PerGameCommonOptions):
     enable_quidditch_upgrades: EnableQuidditchUpgrades
     enable_duelling: EnableDuelling
     enable_quidditch_matches: EnableQuidditchMatches
+    enable_level_completions: EnableLevelCompletions
     # Pulled out of the shared "Game Options" block into their own
     # OptionGroup-rendered headers (see HP2WebWorld.option_groups), so the
-    # dataclass position here does not affect template ordering. bingo_section
-    # is an inert placeholder that only keeps the BINGO header non-empty until
-    # a real bingo-only option exists.
+    # dataclass position here does not affect template ordering.
     vanilla_gate_levels: VanillaGateLevels
-    bingo_section: BingoSectionPlaceholder
+    bingo_goal_cards: BingoGoalCards
+    bingo_goal_spells: BingoGoalSpells
+    bingo_goal_levels: BingoGoalLevels
+    bingo_goal_duels: BingoGoalDuels
+    bingo_goal_quidditch: BingoGoalQuidditch
 
 
 class HP2WebWorld(WebWorld):
@@ -244,7 +308,10 @@ class HP2WebWorld(WebWorld):
     """
     option_groups = [
         OptionGroup("           VANILLA           ", [VanillaGateLevels]),
-        OptionGroup("            BINGO            ", [BingoSectionPlaceholder]),
+        OptionGroup("            BINGO            ", [
+            BingoGoalCards, BingoGoalSpells, BingoGoalLevels,
+            BingoGoalDuels, BingoGoalQuidditch,
+        ]),
     ]
 
 
@@ -259,8 +326,30 @@ class HP2World(World):
     location_name_to_id = LOCATION_NAME_TO_ID
     item_name_groups = ITEM_GROUPS
 
+    def generate_early(self) -> None:
+        # Reject contradictory bingo yaml combos before fill, with a message
+        # that names the fix (rather than silently degrading the goal). Bingo
+        # only — vanilla ignores the bingo_goal_* options entirely.
+        if not self._is_bingo():
+            return
+        if int(self.options.bingo_goal_cards.value) > 0 and not self.options.enable_wizard_cards:
+            raise OptionError(
+                "Harry Potter 2 PC: bingo_goal_cards > 0 requires "
+                "enable_wizard_cards: true (the Great Hall cards clause would "
+                "gate on cards the seed never places). Set bingo_goal_cards: 0 "
+                "or enable_wizard_cards: true."
+            )
+
     def create_item(self, name: str) -> HP2Item:
-        return HP2Item(name, ITEM_CLASSIFICATIONS[name], self.item_name_to_id[name], self.player)
+        classification = ITEM_CLASSIFICATIONS[name]
+        # Bingo's configurable Great Hall key can require a card count, so AP
+        # must guarantee cards reachable — promote every card to
+        # progression_skip_balancing (reachable-guaranteed, but excluded from
+        # the heavy progression-balancing pass, like the silvers already are).
+        # Bingo only: vanilla keeps the generated classification untouched.
+        if name in CARD_ITEM_NAMES and self._is_bingo():
+            classification = ItemClassification.progression_skip_balancing
+        return HP2Item(name, classification, self.item_name_to_id[name], self.player)
 
     def get_filler_item_name(self) -> str:
         # AP calls this when extra items are needed (e.g. start_inventory_from_pool
@@ -281,6 +370,7 @@ class HP2World(World):
         "QuidditchPurchases": "enable_quidditch_upgrades",
         "Duels":              "enable_duelling",
         "QuidditchMatches":   "enable_quidditch_matches",
+        "LevelCompletions":   "enable_level_completions",
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
     # Spells / Key Items / Filler aren't listed — always in the pool.
@@ -497,6 +587,58 @@ class HP2World(World):
                 sum(state.has(s, player) for s in sp) >= 3
                 and sum(state.has(k, player) for k in kp) >= 3)
 
+        # Bingo: AP's completion_condition mirrors the mod's GoalSatisfied()
+        # 1:1 (Stefan, §12 review — full 1:1 committed). cards/spells as
+        # has-counts (the same items the mod counts; cards are promoted to
+        # progression_skip_balancing in create_item for bingo so AP guarantees
+        # them reachable), levels/duels/quidditch as the bingo keys that open
+        # those bookcases. Same _bingo_goal_config the mod gets via
+        # fill_slot_data. The GoldCardRoom key/spell exclusion below breaks the
+        # §12 #11 cycle (AP shoving a goal-required key behind the 40-silver
+        # wall).
+        if self._is_bingo():
+            keys_and_spells = frozenset(
+                ITEM_GROUPS.get("Bingo Keys", []) + ITEM_GROUPS.get("Spells", []))
+            for loc_name, region in LOCATION_REGIONS.items():
+                if region != "GoldCardRoom":
+                    continue
+                try:
+                    loc = self.multiworld.get_location(loc_name, self.player)
+                except KeyError:
+                    continue
+                add_item_rule(loc, lambda item, bad=keys_and_spells: item.name not in bad)
+
+            cfg = self._bingo_goal_config()
+            need_cards = cfg["bingo_goal_cards"]
+            need_spells = cfg["bingo_goal_spells"]
+            need_levels = cfg["bingo_goal_levels"]
+            need_duels = cfg["bingo_goal_duels"]
+            need_quidditch = cfg["bingo_goal_quidditch"]
+            card_items = sorted(CARD_ITEM_NAMES)
+            spell_items = ITEM_GROUPS.get("Spells", [])
+            duel_key = "Duelling Key"
+            quidditch_key = "Quidditch Key"
+            level_keys = [k for k in ITEM_GROUPS.get("Bingo Keys", [])
+                          if k not in (duel_key, quidditch_key)]
+
+            def _bingo_complete(state, p=self.player):
+                if need_cards and sum(state.has(c, p) for c in card_items) < need_cards:
+                    return False
+                if need_spells and sum(state.has(s, p) for s in spell_items) < need_spells:
+                    return False
+                if need_levels and sum(state.has(k, p) for k in level_keys) < need_levels:
+                    return False
+                if need_duels and not state.has(duel_key, p):
+                    return False
+                if need_quidditch and not state.has(quidditch_key, p):
+                    return False
+                return True
+
+            self.multiworld.completion_condition[self.player] = (
+                lambda state, fn=_bingo_complete: fn(state)
+            )
+            return
+
         goal_locations = self._goal_location_requirements().get(DEFAULT_GOAL, [])
         goal_rule = self._goal_rules().get(DEFAULT_GOAL)
         if not goal_locations and goal_rule is None:
@@ -513,3 +655,40 @@ class HP2World(World):
                 (fn(state, player) if fn is not None else True)
                 and all(state.can_reach_location(loc, player) for loc in locs)
         )
+
+    def _bingo_goal_config(self) -> dict:
+        # Single source of truth for the resolved bingo Great Hall key config.
+        # fill_slot_data (the game's gate) and the set_rules bingo gate both
+        # call this, so AP's solvability model and the game agree exactly.
+        # Applies the never-zero-gate fallback: if a yaml resolves every clause
+        # to 0/off there would be no gate at all, so fall back to "all spells".
+        o = self.options
+        cards     = int(o.bingo_goal_cards.value)
+        spells    = int(o.bingo_goal_spells.value)
+        levels    = int(o.bingo_goal_levels.value)
+        duels     = int(bool(o.bingo_goal_duels.value))
+        quidditch = int(bool(o.bingo_goal_quidditch.value))
+        # The contradictory combo (bingo_goal_cards>0 while enable_wizard_cards
+        # is off) is rejected up front in generate_early with a clear message,
+        # so it can't reach here — no silent zeroing needed.
+        if not (cards or spells or levels or duels or quidditch):
+            # SPELL_ITEM_NAMES is the 7 spells (defined at module top).
+            spells = len(SPELL_ITEM_NAMES)
+        return {
+            "bingo_goal_cards": cards,
+            "bingo_goal_spells": spells,
+            "bingo_goal_levels": levels,
+            "bingo_goal_duels": duels,
+            "bingo_goal_quidditch": quidditch,
+            # Bit i set => level objective i (goal_plan.md §6.4) counts toward
+            # bingo_goal_levels. v1: all 11 in scope. Field exists so a future
+            # "which objectives" option needs no slot_data schema bump.
+            "bingo_level_mask": (1 << 11) - 1,
+        }
+
+    def fill_slot_data(self) -> dict:
+        if not self._is_bingo():
+            return {"game_mode": "vanilla"}
+        sd = {"game_mode": "bingo"}
+        sd.update(self._bingo_goal_config())
+        return sd
