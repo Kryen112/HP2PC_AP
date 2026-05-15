@@ -282,6 +282,9 @@ def merge_catalogues(locations: dict, logic: dict) -> tuple[int, int]:
                     "group":     "Secrets" if kind == "secret" else "ChallengeStars",
                     "level":     entry["level"],
                     "marker":    entry["marker"],
+                    # Only secrets carry `missable` (un-replayable-level flag).
+                    # Stars live in replayable challenge rooms — never missable.
+                    "missable":  bool(entry.get("missable", False)) if kind == "secret" else False,
                 }
                 out.append(row)
                 if requires_str != "true":
@@ -344,6 +347,26 @@ def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
             f"Items must match data/items.yaml `name:` fields."
         )
     return body
+
+
+_RULE_TOKEN_RE = re.compile(r"'[^']+'|[A-Za-z_][A-Za-z0-9_]*")
+
+
+def rule_idents(rule_str: str) -> set[str]:
+    """Item names a rule expression references (true/false/TBD excluded).
+
+    Same tokenisation as parse_rule: single-quoted multi-word identifier or
+    bare single-token. Used to decide whether a missable secret's full
+    requirement is satisfiable from the precollected starting inventory.
+    """
+    out: set[str] = set()
+    for m in _RULE_TOKEN_RE.finditer(rule_str or ""):
+        tok = m.group(0)
+        ident = tok[1:-1] if tok.startswith("'") else tok
+        if ident in ("true", "True", "false", "False", "TBD"):
+            continue
+        out.add(ident)
+    return out
 
 
 def collect_known_items(items: dict) -> set[str]:
@@ -630,6 +653,29 @@ def emit_locations(locations: dict) -> str:
     lines.append("CARD_GAME_ID_TO_LOCATION_NAME: dict[int, str] = {")
     for game_id, loc_name in sorted(card_game_id_to_loc_name):
         lines.append(f"    {game_id}: {loc_name!r},")
+    lines.append("}")
+    lines.append("")
+    lines.append("# Secrets in one-way (un-replayable) levels: permanently lost once")
+    lines.append("# the level is left behind. HP2World keeps these filler-only unless")
+    lines.append("# allow_secrets_progression is set AND every item they depend on is")
+    lines.append("# precollected (so the player is guaranteed to hold it while passing")
+    lines.append("# through the level the one time it is reachable).")
+    lines.append("MISSABLE_SECRETS: frozenset = frozenset({")
+    for n in locations.get("missable_secrets", []):
+        lines.append(f"    {n!r},")
+    lines.append("})")
+    lines.append("")
+    lines.append("# Item names appearing in (region entry AND location requires) for")
+    lines.append("# each missable secret, per mode. A subset of the precollected")
+    lines.append("# starting inventory means the secret is reachable from the start.")
+    lines.append("MISSABLE_SECRET_DEPS_VANILLA: dict[str, list[str]] = {")
+    for n, deps in locations.get("missable_secret_deps_vanilla", {}).items():
+        lines.append(f"    {n!r}: {deps!r},")
+    lines.append("}")
+    lines.append("")
+    lines.append("MISSABLE_SECRET_DEPS_BINGO: dict[str, list[str]] = {")
+    for n, deps in locations.get("missable_secret_deps_bingo", {}).items():
+        lines.append(f"    {n!r}: {deps!r},")
     lines.append("}")
     lines.append("")
     return "\n".join(lines)
@@ -931,6 +977,32 @@ def main() -> int:
         )
         return 1
     start_region, all_regions = start_v, all_v
+
+    # Missable-secret dependency projection. A missable secret is reachable
+    # from the starting inventory iff every item in (region entry AND its own
+    # requires) is precollected. Compute that item set per mode so HP2World
+    # can keep un-satisfiable missable secrets filler-only and never gate a
+    # seed on a location the one-way level makes permanently unreachable.
+    secrets_rows = locations.get("secrets", [])
+
+    def _missable_deps(logic: dict) -> dict[str, list[str]]:
+        rgns = logic.get("regions") or {}
+        locs = logic.get("locations") or {}
+        result: dict[str, list[str]] = {}
+        for r in secrets_rows:
+            if not r.get("missable"):
+                continue
+            name = r["name"]
+            entry = (rgns.get(r.get("region", "TBD")) or {}).get("entry", "true")
+            req = (locs.get(name) or {}).get("requires", "true")
+            result[name] = sorted(rule_idents(entry) | rule_idents(req))
+        return result
+
+    locations["missable_secrets"] = sorted(
+        r["name"] for r in secrets_rows if r.get("missable")
+    )
+    locations["missable_secret_deps_vanilla"] = _missable_deps(logic_vanilla)
+    locations["missable_secret_deps_bingo"] = _missable_deps(logic_bingo)
 
     items_py = APWORLD_DIR / "items.py"
     locations_py = APWORLD_DIR / "locations.py"

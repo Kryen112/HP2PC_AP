@@ -15,8 +15,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
-                         Region)
-from Options import (Choice, DefaultOnToggle, PerGameCommonOptions,
+                         LocationProgressType, Region)
+from Options import (Choice, DefaultOnToggle, OptionSet, PerGameCommonOptions,
                      StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
@@ -27,8 +27,10 @@ from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES,
                     ITEM_CLASSIFICATIONS, ITEM_GROUPS, ITEM_NAME_TO_ID)
 from .locations import BASE_ID as LOCATION_BASE_ID
 from .locations import (CARD_CLASS_TO_LOCATION_NAME,
-                        CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
-                        LOCATION_NAME_TO_ID, LOCATION_REGIONS)
+                        CARD_GAME_ID_TO_LOCATION_NAME,
+                        MISSABLE_SECRET_DEPS_BINGO,
+                        MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS,
+                        LOCATION_GROUPS, LOCATION_NAME_TO_ID, LOCATION_REGIONS)
 from .regions import (REGION_ENTRY_RULES_BINGO, REGION_ENTRY_RULES_VANILLA,
                       REGION_NAMES, START_REGION)
 from .rules import (GOAL_LOCATION_REQUIREMENTS_BINGO,
@@ -41,7 +43,7 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 ]
 
 DEFAULT_GOAL = "basilisk"
-STARTER_ITEM_NAMES: set[str] = {"Lumos", "Flipendo", "Alohomora"}
+SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
 # Bingo-only level-entry keys. In vanilla mode all 13 are precollected
 # (invisible — the bookcases they unlock never spawn) so logic.yaml can
 # reference them unconditionally without breaking vanilla generation. In
@@ -84,16 +86,34 @@ class HP2WebWorld(WebWorld):
 class GameMode(Choice):
     """Which install layout this seed targets.
 
-    `vanilla` (default): retail HP2 + M212 patch. Lumos / Flipendo / Alohomora
-    are precollected starters; the other 4 spells are in the AP pool.
+    `vanilla` (default): retail HP2 + M212 patch — the normal story flow.
+    All 13 bingo level-entry keys are precollected (their bookcases never
+    spawn).
 
     `bingo`: the bingo-distribution maps (open castle, every door unlocked).
-    NO spells are precollected, all 7 land as AP items.
+    The 13 bingo keys are AP items gating each level transition.
+
+    Which spells Harry starts with is governed by `starting_spells`, not by
+    this option.
     """
     display_name = "Game Mode"
     option_vanilla = 0
     option_bingo = 1
     default = 0
+
+
+class StartingSpells(OptionSet):
+    """Spells Harry starts with. Any spell not listed is an AP item instead.
+
+    `vanilla` game_mode physically requires Lumos and Flipendo to finish the
+    Whomping Willow level. If left blank for `vanilla`, Lumos and Flipendo are
+    granted anyways.
+
+    Valid spells: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo & Spongify.
+    """
+    display_name = "Starting Spells"
+    valid_keys = frozenset(SPELL_ITEM_NAMES)
+    default = frozenset({"Flipendo", "Lumos", "Alohomora"})
 
 
 class EnableWizardCards(DefaultOnToggle):
@@ -158,6 +178,7 @@ class HP2Options(PerGameCommonOptions):
     # playtest YAMLs; v1's three starter spells are precollected by the world.
     start_inventory_from_pool: StartInventoryPool
     game_mode: GameMode
+    starting_spells: StartingSpells
     # Per-category check toggles. Each gates both the matching locations and
     # any paired items (currently: wizard cards, vendor equipment) — generator
     # emits both sides into the stable id space, HP2World filters at build
@@ -282,16 +303,43 @@ class HP2World(World):
             r.locations.append(HP2Location(self.player, loc_name, loc_id, r))
 
     def _starter_names(self) -> set[str]:
-        # Vanilla: precollect the 3 cutscene starter spells (Lumos / Flipendo /
-        # Alohomora) so AP logic treats Harry as owning them; precollect the 13
-        # bingo keys too so any logic.yaml requirement that references them
-        # auto-passes without polluting the vanilla pool.
-        # Bingo: precollect nothing. All 7 spells AND all 13 bingo keys enter
-        # the pool; the mod-side bookcases gate each level transition until the
-        # matching key arrives via the AP grant flow.
-        if self._is_bingo():
-            return set()
-        return STARTER_ITEM_NAMES | BINGO_KEY_NAMES
+        # Precollected = the spells the player chose via `starting_spells`,
+        # plus (vanilla only) all 13 bingo level-entry keys so logic.yaml
+        # references to them auto-pass without entering the vanilla pool.
+        # Bingo keeps the keys in the pool — the mod-side bookcases gate each
+        # level transition until the matching key arrives via the AP grant.
+        spells = set(self.options.starting_spells.value) & set(ITEM_GROUPS.get("Spells", []))
+        if not self._is_bingo():
+            # Vanilla physically needs Lumos+Flipendo to clear Whomping Willow,
+            # so force them precollected — a vanilla seed is always playable
+            # regardless of what (if anything) starting_spells lists.
+            spells |= {"Lumos", "Flipendo"}
+        keys = set() if self._is_bingo() else set(BINGO_KEY_NAMES)
+        return spells | keys
+
+    def _apply_missable_exclusions(self) -> None:
+        # A missable secret lives in a one-way level: reachable only while the
+        # player is passing through that level the single time. It is safe to
+        # hold progression only if it is guaranteed reachable then — i.e.
+        # allow_secrets_progression is on AND every item it depends on (region
+        # entry AND its own requires) is precollected. Otherwise force it
+        # filler-only so AP fill never gates the seed on a location the level
+        # makes permanently unreachable.
+        precollected = self._starter_names()
+        deps_map = MISSABLE_SECRET_DEPS_BINGO if self._is_bingo() else MISSABLE_SECRET_DEPS_VANILLA
+        allow_prog = bool(self.options.allow_secrets_progression)
+        for name in MISSABLE_SECRETS:
+            if not self._location_enabled(name):
+                continue
+            deps = set(deps_map.get(name, []))
+            eligible = allow_prog and deps.issubset(precollected)
+            if eligible:
+                continue
+            try:
+                loc = self.multiworld.get_location(name, self.player)
+            except KeyError:
+                continue
+            loc.progress_type = LocationProgressType.EXCLUDED
 
     def create_items(self) -> None:
         starters = self._starter_names()
@@ -323,6 +371,8 @@ class HP2World(World):
 
     def set_rules(self) -> None:
         from worlds.generic.Rules import add_item_rule, set_rule
+
+        self._apply_missable_exclusions()
 
         for loc_name, rule_fn in self._location_rules().items():
             try:
