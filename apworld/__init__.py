@@ -16,8 +16,8 @@ from typing import Any
 
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          LocationProgressType, Region)
-from Options import (Choice, DefaultOnToggle, OptionSet, PerGameCommonOptions,
-                     StartInventoryPool, Toggle)
+from Options import (Choice, DefaultOnToggle, OptionGroup, OptionSet,
+                     PerGameCommonOptions, StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
@@ -91,10 +91,6 @@ class HP2Location(Location):
     game = "Harry Potter 2 PC"
 
 
-class HP2WebWorld(WebWorld):
-    """Web frontend metadata for archipelago.gg."""
-
-
 class GameMode(Choice):
     """Which install layout this seed targets.
 
@@ -129,6 +125,14 @@ class VanillaGateLevels(DefaultOnToggle):
     there).
     """
     display_name = "Vanilla gate levels"
+
+
+class BingoSectionPlaceholder(Toggle):
+    """(No bingo-only options yet — bingo uses the shared options above. This
+    placeholder has no effect; it exists only so the BINGO section header
+    renders, and is removed once a real bingo-only option is added.)
+    """
+    display_name = "Bingo section placeholder"
 
 
 class StartingSpells(OptionSet):
@@ -207,7 +211,6 @@ class HP2Options(PerGameCommonOptions):
     # playtest YAMLs; v1's three starter spells are precollected by the world.
     start_inventory_from_pool: StartInventoryPool
     game_mode: GameMode
-    vanilla_gate_levels: VanillaGateLevels
     starting_spells: StartingSpells
     # Per-category check toggles. Each gates both the matching locations and
     # any paired items (currently: wizard cards, vendor equipment) — generator
@@ -223,6 +226,26 @@ class HP2Options(PerGameCommonOptions):
     enable_quidditch_upgrades: EnableQuidditchUpgrades
     enable_duelling: EnableDuelling
     enable_quidditch_matches: EnableQuidditchMatches
+    # Pulled out of the shared "Game Options" block into their own
+    # OptionGroup-rendered headers (see HP2WebWorld.option_groups), so the
+    # dataclass position here does not affect template ordering. bingo_section
+    # is an inert placeholder that only keeps the BINGO header non-empty until
+    # a real bingo-only option exists.
+    vanilla_gate_levels: VanillaGateLevels
+    bingo_section: BingoSectionPlaceholder
+
+
+class HP2WebWorld(WebWorld):
+    """Web frontend metadata for archipelago.gg.
+
+    The VANILLA / BINGO option groups split the template: shared options stay
+    in the auto "Game Options" block above; mode-specific options sit under
+    their own banner. Padded names render as a wide ``#`` box header.
+    """
+    option_groups = [
+        OptionGroup("           VANILLA           ", [VanillaGateLevels]),
+        OptionGroup("            BINGO            ", [BingoSectionPlaceholder]),
+    ]
 
 
 class HP2World(World):
