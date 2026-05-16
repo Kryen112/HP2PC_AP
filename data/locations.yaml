@@ -438,7 +438,9 @@ challenge_stars:
 # `level`/`idx` are documentation only — the generator uses name/id_offset/
 # region/group (emit_locations generic loop). Region = the level's existing
 # logic region (must exist in BOTH logic_vanilla.yaml and logic_bingo.yaml).
-# Gated by the `enable_level_completions` YAML option (group LevelCompletions).
+# Always real AP checks (no enable toggle): the bingo Great Hall levels
+# clause gates on the reachability of these locations, so they must always
+# exist. bingo_goal_levels (0..11) is the only knob over how many count.
 # These are NOT bingo-only: in vanilla they are ordinary progress checks; the
 # Great Hall clause-3 gate uses the same detector but only in bingo mode.
 level_completions:

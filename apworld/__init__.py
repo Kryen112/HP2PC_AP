@@ -24,18 +24,16 @@ from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
 
 from .items import BASE_ID as ITEM_BASE_ID
-from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES,
-                    ITEM_CLASSIFICATIONS, ITEM_GROUPS, ITEM_NAME_TO_ID)
+from .items import (FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
+                    ITEM_NAME_TO_ID)
 from .locations import BASE_ID as LOCATION_BASE_ID
-from .locations import (CARD_CLASS_TO_LOCATION_NAME,
-                        CARD_GAME_ID_TO_LOCATION_NAME,
-                        MISSABLE_SECRET_DEPS_BINGO,
+from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
+                        GOLD_CARD_ROOM_LOCATIONS,
                         MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS,
                         LOCATION_GROUPS, LOCATION_NAME_TO_ID, LOCATION_REGIONS)
 from .regions import (REGION_ENTRY_RULES_BINGO, REGION_ENTRY_RULES_VANILLA,
                       REGION_NAMES, START_REGION)
-from .rules import (GOAL_LOCATION_REQUIREMENTS_BINGO,
-                    GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_BINGO,
+from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA,
                     GOAL_RULES_VANILLA, LOCATION_RULES_BINGO,
                     LOCATION_RULES_VANILLA)
 
@@ -158,24 +156,29 @@ class EnableWizardCards(DefaultOnToggle):
 
 
 class EnableSecrets(DefaultOnToggle):
-    """If true, the 109 Secrets become AP locations.
+    """If true, the 109 Secrets become AP locations (both game modes).
 
-    Pair with `allow_secrets_progression`for the missable-vs-replayable
-    progression eligibility split.
+    The `allow_secrets_progression` missable-vs-replayable split is
+    vanilla-only; in bingo every level is infinitely replayable, so all
+    enabled secrets follow normal region-entry logic.
     """
     display_name = "Enable Secrets"
 
 
 class AllowSecretsProgression(Toggle):
-    """If true (and `enable_secrets` is true), missable secrets in
-    un-replayable levels (Willow, Bicorn, Boomslang, Goyle, Slytherin Common,
-    Forest, Chamber) are allowed to hold progression items.
+    """Vanilla-only (ignored in bingo). If true (and `enable_secrets` is
+    true), missable secrets in un-replayable vanilla levels (Willow, Bicorn,
+    Boomslang, Goyle, Slytherin Common, Forest, Chamber) are allowed to hold
+    progression items.
 
     If false, missable secrets are filler-only, which is safer because the
     player can't soft-lock by missing a story-replay secret. Replayable
     secrets (Hogwarts, Castle Exterior, the 4 spell challenges) always allow
     progression regardless of this setting; this flag only gates the
     un-replayable subset.
+
+    Bingo's open castle makes every level infinitely replayable, so nothing
+    is missable there and this option has no effect.
     """
     display_name = "Allow Secrets progression"
 
@@ -204,17 +207,6 @@ class EnableQuidditchUpgrades(Toggle):
     become locations.
     """
     display_name = "Enable Quidditch upgrades"
-
-
-class EnableLevelCompletions(DefaultOnToggle):
-    """If true, the 11 "X Level Complete" checks (3 key-item levels + 2 bosses
-    + Whomping Willow + Slytherin Common Room + the 4 spell challenges) become
-    AP locations. Independent of game_mode and of the bingo Great Hall key:
-    even when this is off the mod still tracks completion internally for the
-    bingo clause-3 gate; this flag only controls whether the spots are AP
-    locations this seed.
-    """
-    display_name = "Enable Level Completions"
 
 
 # --- BINGO section: the Great Hall key. The 5 clauses below are AND'd; a
@@ -287,7 +279,6 @@ class HP2Options(PerGameCommonOptions):
     enable_quidditch_upgrades: EnableQuidditchUpgrades
     enable_duelling: EnableDuelling
     enable_quidditch_matches: EnableQuidditchMatches
-    enable_level_completions: EnableLevelCompletions
     # Pulled out of the shared "Game Options" block into their own
     # OptionGroup-rendered headers (see HP2WebWorld.option_groups), so the
     # dataclass position here does not affect template ordering.
@@ -370,7 +361,10 @@ class HP2World(World):
         "QuidditchPurchases": "enable_quidditch_upgrades",
         "Duels":              "enable_duelling",
         "QuidditchMatches":   "enable_quidditch_matches",
-        "LevelCompletions":   "enable_level_completions",
+        # LevelCompletions has no opt: the 11 "X Level - Complete" spots are
+        # always real checks. The bingo levels clause gates on their
+        # reachability, so they must always exist; bingo_goal_levels (0..11)
+        # is the only knob over how many count toward the Great Hall.
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
     # Spells / Key Items / Filler aren't listed — always in the pool.
@@ -391,10 +385,16 @@ class HP2World(World):
         return LOCATION_RULES_BINGO if self._is_bingo() else LOCATION_RULES_VANILLA
 
     def _goal_rules(self) -> dict:
-        return GOAL_RULES_BINGO if self._is_bingo() else GOAL_RULES_VANILLA
+        # Vanilla-only: the bingo path sets completion_condition from
+        # _bingo_complete and returns before this is consulted, so there is
+        # no bingo goal-rule table.
+        return GOAL_RULES_VANILLA
 
     def _goal_location_requirements(self) -> dict:
-        return GOAL_LOCATION_REQUIREMENTS_BINGO if self._is_bingo() else GOAL_LOCATION_REQUIREMENTS_VANILLA
+        # Vanilla-only: the bingo path sets completion_condition from
+        # _bingo_complete and returns before this is consulted, so there is
+        # no bingo goal-location table.
+        return GOAL_LOCATION_REQUIREMENTS_VANILLA
 
     def _location_enabled(self, loc_name: str) -> bool:
         group = LOCATION_GROUPS.get(loc_name)
@@ -470,15 +470,22 @@ class HP2World(World):
         return spells | keys
 
     def _apply_missable_exclusions(self) -> None:
-        # A missable secret lives in a one-way level: reachable only while the
-        # player is passing through that level the single time. It is safe to
-        # hold progression only if it is guaranteed reachable then — i.e.
-        # allow_secrets_progression is on AND every item it depends on (region
-        # entry AND its own requires) is precollected. Otherwise force it
-        # filler-only so AP fill never gates the seed on a location the level
-        # makes permanently unreachable.
+        # Vanilla-only. A missable secret lives in a one-way level: reachable
+        # only while the player is passing through that level the single time.
+        # It is safe to hold progression only if guaranteed reachable then —
+        # i.e. allow_secrets_progression is on AND every item it depends on
+        # (region entry AND its own requires) is precollected. Otherwise force
+        # it filler-only so AP fill never gates the seed on a location the
+        # level makes permanently unreachable.
+        #
+        # Bingo has no missable secrets: the open castle makes every level
+        # infinitely replayable, so nothing is ever truly missed. The whole
+        # system is a vanilla concept; allow_secrets_progression is ignored in
+        # bingo and normal region-entry logic governs these secrets.
+        if self._is_bingo():
+            return
         precollected = self._starter_names()
-        deps_map = MISSABLE_SECRET_DEPS_BINGO if self._is_bingo() else MISSABLE_SECRET_DEPS_VANILLA
+        deps_map = MISSABLE_SECRET_DEPS_VANILLA
         allow_prog = bool(self.options.allow_secrets_progression)
         for name in MISSABLE_SECRETS:
             if not self._location_enabled(name):
@@ -533,40 +540,27 @@ class HP2World(World):
                 continue
             set_rule(loc, lambda state, fn=rule_fn, player=self.player: fn(state, player))
 
-        # Placement constraint: gold card locations cannot hold silver card
-        # items. Vanilla opens the gold card room after collecting 40 silver
-        # cards (=4 gold keys), so a silver card buried in a gold-room
-        # location creates a circular dependency where the player can't reach
-        # 40 silvers to unlock the room that contains that silver. Enforced
-        # at fill time.
+        # Placement constraint: gold-card locations cannot hold silver card
+        # items. The gold card room opens only after collecting 40 silver
+        # cards (=4 gold keys), so a silver buried in a gold-room location
+        # creates a circular dependency where the player can't reach 40
+        # silvers to unlock the room containing that silver. Enforced at
+        # fill time (the rule grammar can't express a placement constraint).
         #
-        # Resolve item-name → location-name via the two card maps emitted to
-        # locations.py / items.py (CARD_CLASS_TO_ITEM_NAME and
-        # CARD_CLASS_TO_LOCATION_NAME). The earlier `f"Card_{item_name}"`
-        # lookup never matched any real location (names are
-        # "Gold Card Room - Card Bott", not "Card_Bott"), so the
-        # try/except KeyError silently swallowed the entire constraint.
+        # GOLD_CARD_ROOM_LOCATIONS is generated from the items.yaml gold tier
+        # (cards_gold) — the same classification ITEM_GROUPS draws from — so
+        # the excluded item set and the target location set cannot drift.
         silver_items = frozenset(ITEM_GROUPS.get("Cards (Silver)", []))
-        gold_card_item_names = ITEM_GROUPS.get("Cards (Gold)", [])
-        item_name_to_card_class = {v: k for k, v in CARD_CLASS_TO_ITEM_NAME.items()}
-        for item_name in gold_card_item_names:
-            card_class = item_name_to_card_class.get(item_name)
-            if card_class is None:
-                continue
-            loc_name = CARD_CLASS_TO_LOCATION_NAME.get(card_class)
-            if loc_name is None:
-                continue
+        for loc_name in GOLD_CARD_ROOM_LOCATIONS:
             try:
                 loc = self.multiworld.get_location(loc_name, self.player)
             except KeyError:
                 continue
             add_item_rule(loc, lambda item, silvers=silver_items: item.name not in silvers)
-            # Only the placement constraint above is enforced here: no silver
-            # item may be PLACED in a gold-card location (a fill-time rule the
-            # logic grammar can't express). Gold Card Room *reachability* — the
-            # 40-silver gate — lives in the GoldCardRoom region `entry` of both
-            # logic_vanilla.yaml and logic_bingo.yaml as a single-quoted
-            # 'Silver Card - X' AND chain.
+        # Gold Card Room *reachability* — the 40-silver gate itself — lives in
+        # the GoldCardRoom region `entry` of logic_vanilla.yaml and
+        # logic_bingo.yaml as the `@all_silver_cards` macro, expanded by
+        # gen_apworld.py from the same cards_silver classification.
 
         # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a
         # lot of beans the player can't have collected early; gate them behind
@@ -587,21 +581,21 @@ class HP2World(World):
                 sum(state.has(s, player) for s in sp) >= 3
                 and sum(state.has(k, player) for k in kp) >= 3)
 
-        # Bingo: AP's completion_condition mirrors the mod's GoalSatisfied()
-        # 1:1 (Stefan, §12 review — full 1:1 committed). cards/spells as
-        # has-counts (the same items the mod counts; cards are promoted to
-        # progression_skip_balancing in create_item for bingo so AP guarantees
-        # them reachable), levels/duels/quidditch as the bingo keys that open
-        # those bookcases. Same _bingo_goal_config the mod gets via
-        # fill_slot_data. The GoldCardRoom key/spell exclusion below breaks the
-        # §12 #11 cycle (AP shoving a goal-required key behind the 40-silver
-        # wall).
+        # Bingo: AP's completion_condition mirrors the mod's GoalSatisfied().
+        # cards/spells are has-counts (the same items the mod counts; cards
+        # are promoted to progression_skip_balancing in create_item for bingo
+        # so AP guarantees them reachable). The levels clause gates on the
+        # reachability of the 11 "X Level - Complete" locations — completing a
+        # level, not merely owning its key (owning 'Boomslang Level Key' is
+        # not the same as finishing Boomslang, which also needs Diffindo).
+        # duels/quidditch gate on the key that opens that bookcase. Same
+        # _bingo_goal_config the mod gets via fill_slot_data. The GoldCardRoom
+        # key/spell placement exclusion below stops AP shoving a goal-required
+        # key behind the 40-silver wall.
         if self._is_bingo():
             keys_and_spells = frozenset(
                 ITEM_GROUPS.get("Bingo Keys", []) + ITEM_GROUPS.get("Spells", []))
-            for loc_name, region in LOCATION_REGIONS.items():
-                if region != "GoldCardRoom":
-                    continue
+            for loc_name in GOLD_CARD_ROOM_LOCATIONS:
                 try:
                     loc = self.multiworld.get_location(loc_name, self.player)
                 except KeyError:
@@ -618,15 +612,22 @@ class HP2World(World):
             spell_items = ITEM_GROUPS.get("Spells", [])
             duel_key = "Duelling Key"
             quidditch_key = "Quidditch Key"
-            level_keys = [k for k in ITEM_GROUPS.get("Bingo Keys", [])
-                          if k not in (duel_key, quidditch_key)]
+            # The 11 level-completion locations. Always created (no toggle),
+            # so this set is stable; each one's reachability already folds in
+            # its region entry plus any per-completion `requires:` Stefan
+            # authored on the level_completions rows. Counting reachable
+            # completions is the AP analogue of the mod's clause-3 detector.
+            completion_locs = [n for n, g in LOCATION_GROUPS.items()
+                               if g == "LevelCompletions"]
 
             def _bingo_complete(state, p=self.player):
                 if need_cards and sum(state.has(c, p) for c in card_items) < need_cards:
                     return False
                 if need_spells and sum(state.has(s, p) for s in spell_items) < need_spells:
                     return False
-                if need_levels and sum(state.has(k, p) for k in level_keys) < need_levels:
+                if need_levels and sum(
+                        state.can_reach_location(loc, p)
+                        for loc in completion_locs) < need_levels:
                     return False
                 if need_duels and not state.has(duel_key, p):
                     return False

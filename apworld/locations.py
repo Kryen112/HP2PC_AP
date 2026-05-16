@@ -1085,6 +1085,20 @@ CARD_GAME_ID_TO_LOCATION_NAME: dict[int, str] = {
     101: 'Gold Card Room - Card Dumbledore',
 }
 
+GOLD_CARD_ROOM_LOCATIONS: frozenset = frozenset({
+    'Gold Card Room - Card Bott',
+    'Gold Card Room - Card Dumbledore',
+    'Gold Card Room - Card Gryffindor',
+    'Gold Card Room - Card Herpo',
+    'Gold Card Room - Card Hufflepuff',
+    'Gold Card Room - Card Knightley',
+    'Gold Card Room - Card Paracelsus',
+    'Gold Card Room - Card Pinkstone',
+    'Gold Card Room - Card Potter',
+    'Gold Card Room - Card Ravenclaw',
+    'Gold Card Room - Card Slytherin',
+})
+
 # Secrets in one-way (un-replayable) levels: permanently lost once
 # the level is left behind. HP2World keeps these filler-only unless
 # allow_secrets_progression is set AND every item they depend on is
@@ -1132,8 +1146,10 @@ MISSABLE_SECRETS: frozenset = frozenset({
     'Whomping Willow - Secret 2',
 })
 
-# Item names appearing in (region entry AND location requires) for
-# each missable secret, per mode. A subset of the precollected
+# Item names appearing in (region entry AND location requires)
+# for each missable secret. Vanilla-only: the missable system is
+# a vanilla concept (bingo's open castle replays every level), so
+# there is no bingo dependency table. A subset of the precollected
 # starting inventory means the secret is reachable from the start.
 MISSABLE_SECRET_DEPS_VANILLA: dict[str, list[str]] = {
     'Bicorn Level - Secret 2': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Lumos', 'Rictusempra', 'Skurge'],
@@ -1173,48 +1189,6 @@ MISSABLE_SECRET_DEPS_VANILLA: dict[str, list[str]] = {
     'Slytherin Common Room - Secret 3': ['Alohomora', 'Bicorn Level Key', 'Boomslang Level Key', 'Diffindo', 'Flipendo', 'Goyle Level Key', 'Lumos', 'Rictusempra', 'Skurge', 'Slytherin Common Room Key'],
     'Slytherin Common Room - Secret 2': ['Alohomora', 'Bicorn Level Key', 'Boomslang Level Key', 'Diffindo', 'Flipendo', 'Goyle Level Key', 'Lumos', 'Rictusempra', 'Skurge', 'Slytherin Common Room Key'],
     'Slytherin Common Room - Secret 1': ['Alohomora', 'Bicorn Level Key', 'Boomslang Level Key', 'Diffindo', 'Flipendo', 'Goyle Level Key', 'Lumos', 'Rictusempra', 'Skurge', 'Slytherin Common Room Key'],
-    'Whomping Willow - Secret 1': ['Alohomora', 'Whomping Willow Key'],
-    'Whomping Willow - Secret 2': ['Alohomora', 'Whomping Willow Key'],
-}
-
-MISSABLE_SECRET_DEPS_BINGO: dict[str, list[str]] = {
-    'Bicorn Level - Secret 2': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Skurge'],
-    'Bicorn Level - Secret 1': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Skurge'],
-    'Bicorn Level - Secret 6': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Lumos', 'Skurge'],
-    'Bicorn Level - Secret 3': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Skurge'],
-    'Bicorn Level - Secret 4': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Skurge'],
-    'Bicorn Level - Secret 5': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Skurge'],
-    'Bicorn Level - Secret 7': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Skurge'],
-    'Boomslang Level - Secret 3': ['Alohomora', 'Boomslang Level Key', 'Diffindo'],
-    'Boomslang Level - Secret 2': ['Boomslang Level Key', 'Diffindo', 'Flipendo', 'Lumos'],
-    'Boomslang Level - Secret 1': ['Boomslang Level Key', 'Diffindo', 'Flipendo'],
-    'Chamber of Secrets - Secret 3': ['Alohomora', 'Chamber of Secrets Key', 'Diffindo', 'Flipendo', 'Skurge', 'Spongify'],
-    'Chamber of Secrets - Secret 2': ['Alohomora', 'Chamber of Secrets Key', 'Diffindo', 'Skurge', 'Spongify'],
-    'Chamber of Secrets - Secret 1': ['Alohomora', 'Chamber of Secrets Key', 'Lumos', 'Skurge'],
-    'Chamber of Secrets - Secret 5': ['Alohomora', 'Chamber of Secrets Key', 'Diffindo', 'Flipendo', 'Lumos', 'Rictusempra', 'Skurge', 'Spongify'],
-    'Chamber of Secrets - Secret 4': ['Alohomora', 'Chamber of Secrets Key', 'Diffindo', 'Flipendo', 'Rictusempra', 'Skurge', 'Spongify'],
-    'Chamber of Secrets - Secret 6': ['Alohomora', 'Chamber of Secrets Key', 'Diffindo', 'Flipendo', 'Rictusempra', 'Skurge', 'Spongify'],
-    "Dumbledore's Study - Secret": ['Alohomora', 'Flipendo'],
-    'Forbidden Forest - Secret 4': ['Diffindo', 'Forbidden Forest Key', 'Lumos', 'Spongify'],
-    'Forbidden Forest - Secret 3': ['Diffindo', 'Forbidden Forest Key', 'Lumos', 'Spongify'],
-    'Forbidden Forest - Secret 2': ['Diffindo', 'Forbidden Forest Key', 'Lumos', 'Rictusempra', 'Spongify'],
-    'Forbidden Forest - Secret 1': ['Forbidden Forest Key', 'Lumos', 'Spongify'],
-    'Goyle Level - Secret 5': ['Alohomora', 'Diffindo', 'Flipendo', 'Goyle Level Key', 'Rictusempra'],
-    'Goyle Level - Secret 6': ['Diffindo', 'Flipendo', 'Goyle Level Key', 'Lumos', 'Rictusempra'],
-    'Goyle Level - Secret 8': ['Alohomora', 'Diffindo', 'Flipendo', 'Goyle Level Key', 'Lumos', 'Rictusempra'],
-    'Goyle Level - Secret 7': ['Alohomora', 'Diffindo', 'Flipendo', 'Goyle Level Key', 'Rictusempra'],
-    'Goyle Level - Secret 1': ['Diffindo', 'Goyle Level Key', 'Lumos'],
-    'Goyle Level - Secret 3': ['Diffindo', 'Goyle Level Key', 'Lumos'],
-    'Goyle Level - Secret 4': ['Alohomora', 'Diffindo', 'Goyle Level Key', 'Lumos'],
-    'Goyle Level - Secret 2': ['Diffindo', 'Goyle Level Key'],
-    'Slytherin Common Room - Secret 7': ['Alohomora', 'Diffindo', 'Flipendo', 'Lumos', 'Skurge', 'Slytherin Common Room Key'],
-    'Slytherin Common Room - Secret 6': ['Alohomora', 'Diffindo', 'Flipendo', 'Lumos', 'Skurge', 'Slytherin Common Room Key'],
-    'Slytherin Common Room - Secret 5': ['Diffindo', 'Flipendo', 'Lumos', 'Skurge', 'Slytherin Common Room Key'],
-    'Slytherin Common Room - Secret 8': ['Diffindo', 'Flipendo', 'Lumos', 'Skurge', 'Slytherin Common Room Key'],
-    'Slytherin Common Room - Secret 4': ['Diffindo', 'Flipendo', 'Lumos', 'Skurge', 'Slytherin Common Room Key'],
-    'Slytherin Common Room - Secret 3': ['Diffindo', 'Flipendo', 'Lumos', 'Skurge', 'Slytherin Common Room Key'],
-    'Slytherin Common Room - Secret 2': ['Diffindo', 'Flipendo', 'Lumos', 'Skurge', 'Slytherin Common Room Key'],
-    'Slytherin Common Room - Secret 1': ['Diffindo', 'Flipendo', 'Slytherin Common Room Key'],
     'Whomping Willow - Secret 1': ['Alohomora', 'Lumos', 'Spongify', 'Whomping Willow Key'],
     'Whomping Willow - Secret 2': ['Alohomora', 'Flipendo', 'Lumos', 'Spongify', 'Whomping Willow Key'],
 }
