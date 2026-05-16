@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  APLogoArrowTex0 = 9001 foreign progression / trap (the "you need to take
+  this" cue). Same rosette as APLogoTex0, scaled 0.74 about its centre and
+  nudged left to clear the right third, with a bold upward arrow composited
+  on the right. Identical 256x256 canvas / format to APLogoTex0 so the
+  runtime skin swap is seamless.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <g transform="translate(86,128) scale(0.74) translate(-128,-128)">
+    <circle cx="128.0" cy="44.0"  r="38" fill="#CA7682"/>
+    <circle cx="200.7" cy="86.0"  r="38" fill="#75C175"/>
+    <circle cx="200.7" cy="170.0" r="38" fill="#CA95C2"/>
+    <circle cx="128.0" cy="212.0" r="38" fill="#DAA07D"/>
+    <circle cx="55.3"  cy="170.0" r="38" fill="#767EBD"/>
+    <circle cx="55.3"  cy="86.0"  r="38" fill="#EDE491"/>
+  </g>
+
+  <!-- upward "take this" arrow, right side -->
+  <path d="M200,52 L236,116 L216,116 L216,206 L184,206 L184,116 L164,116 Z"
+        fill="#FFD23F" stroke="#1A1A1A" stroke-width="6" stroke-linejoin="round"/>
+</svg>

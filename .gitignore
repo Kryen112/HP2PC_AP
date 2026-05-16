@@ -35,6 +35,10 @@ dist/
 /uscript/
 /wiki-clone/
 
+# Asset generators kept out of the repo (the logo SVGs are committed; the
+# PSK/PSA + texture generator scripts are not).
+tools/*.py
+
 # Local configs
 .env
 *.local.yaml
