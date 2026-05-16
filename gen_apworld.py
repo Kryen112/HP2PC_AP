@@ -33,6 +33,15 @@ LOCATION_CATEGORIES = (
     "level_completions",
 )
 
+# Non-card-location dedupe window. Mirrors `NONCARD_LOC_WINDOW` in
+# mod/HPArchipelago/Classes/APCardWatcher.uc — the two MUST hold the same
+# value. A non-card location whose id_offset >= this falls outside the mod's
+# NonCardLocationChecked[] array, so its dedupe is silently skipped and the
+# check re-fires on level re-entry / save-load. Card-location and item offsets
+# are deliberately NOT gated. See plans/ID_BAND_LEDGER.md.
+NONCARD_LOC_WINDOW = 1024
+CARD_LOCATION_CATEGORY = "cards"
+
 
 
 
@@ -423,6 +432,14 @@ def validate(items: dict, locations: dict) -> None:
             if entry["name"] in loc_names:
                 raise ValueError(f"Duplicate location name {entry['name']!r} in {category}")
             loc_names.add(entry["name"])
+            if category != CARD_LOCATION_CATEGORY and entry["id_offset"] >= NONCARD_LOC_WINDOW:
+                raise ValueError(
+                    f"Non-card location {entry['name']!r} (category {category!r}) has "
+                    f"id_offset {entry['id_offset']} >= NONCARD_LOC_WINDOW ({NONCARD_LOC_WINDOW}): "
+                    f"it falls outside the mod's NonCardLocationChecked[] dedupe window, so "
+                    f"the check would re-fire on every level re-entry / save-load. Pick an "
+                    f"in-window band and record it in plans/ID_BAND_LEDGER.md."
+                )
 
     classes_in_items = {e["class"] for cat in ("cards_bronze", "cards_silver", "cards_gold") for e in items.get(cat, [])}
     classes_in_locs = {e["card_class"] for e in locations.get("cards", [])}

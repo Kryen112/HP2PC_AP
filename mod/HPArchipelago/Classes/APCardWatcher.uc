@@ -9,13 +9,20 @@ const NUM_BINGO_KEYS = 13;
 // NonCardLocationChecked[] by `apId - LOC_BASE` for secrets/stars/etc.
 // Mirrors `BASE_ID` in apworld/locations.py.
 const LOC_BASE = 5760000;
+// Window size for the non-card-location dedupe array and every `slot` guard
+// below. Mirrors `NONCARD_LOC_WINDOW` in gen_apworld.py — the two MUST hold
+// the same value; gen_apworld.py fails generation if any non-card location
+// id_offset >= this. Sized generously to cover every band in
+// plans/ID_BAND_LEDGER.md with headroom.
+const NONCARD_LOC_WINDOW = 1024;
 // Class-default dedup for non-card AP locations (secrets, stars, vendors,
-// duels, matches, level completions). Indexed by `apId - LOC_BASE`. Sized to
-// fit the current id-space upper bound (level completions reach slot 710 =
-// 5760710-LOC_BASE) with headroom. Class-default so it persists across level
-// transitions in a session, like LocationChecked[]. Keep the `>= 768` bound
-// checks below in sync if this size changes.
-var byte NonCardLocationChecked[768];
+// duels, matches, level completions). Indexed by `apId - LOC_BASE`.
+// Class-default so it persists across level transitions in a session, like
+// LocationChecked[]. The dimension literal MUST equal NONCARD_LOC_WINDOW:
+// M212 UnrealScript array dimensions take an integer literal, not a const
+// (no vanilla array in the decompiled retail source uses a const/enum dim),
+// so the constant cannot be referenced here directly.
+var byte NonCardLocationChecked[1024];
 
 var harry HarryRef;
 var StatusItemWizardCards siBronze;
@@ -504,9 +511,9 @@ static function int LevelObjectiveIndexFor(string CapsLevelName)
     return -1;
 }
 
-// Mark a clause-3 level objective complete. Dedupe is now UNIFORM with
-// stars/duels/quidditch via NonCardLocationChecked[apId-LOC_BASE] (the array
-// was enlarged to [768] so slot 700+idx fits) AND we still set the sticky
+// Mark a clause-3 level objective complete. Dedupe is UNIFORM with
+// stars/duels/quidditch via NonCardLocationChecked[apId-LOC_BASE] AND we still
+// set the sticky
 // GoalLevelDone[idx] bit, which is the clause-3 gate state GoalSatisfied()
 // reads. Fires the Heretic-style "X Level Complete" CHECK_LOCID 5760700+idx.
 // Shared by Mechanisms A (key-item), B (boss), C (exit probe), D (end star).
@@ -518,7 +525,7 @@ static function NotifyLevelObjective(int idx)
     if (idx < 0 || idx >= 16) return;
     locId = 5760700 + idx;
     slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= 768) return;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
     if (default.NonCardLocationChecked[slot] == 1) return;
     default.NonCardLocationChecked[slot] = 1;
     default.GoalLevelDone[idx] = 1;
@@ -1433,7 +1440,7 @@ function ScanSecretMarkers(APIPCActor ipc)
         locId = class'APLocationRegistry'.static.GetSecretLocationId(levelName, string(marker.Name));
         if (locId == 0) continue;
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 768) continue;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
         default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APCardWatcher: secret bFound in " $ levelName
@@ -1459,7 +1466,7 @@ function ScanDuelWins(APIPCActor ipc)
     {
         locId = 5760600 + (rank - 1);
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 768) continue;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
         default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APCardWatcher: duel rank " $ rank
@@ -1485,7 +1492,7 @@ function ScanMatchWins(APIPCActor ipc)
         if (!HarryRef.quidGameResults[i].bWon) continue;
         locId = 5760620 + i;
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 768) continue;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
         default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APCardWatcher: quidditch match " $ (i + 1)
@@ -1636,7 +1643,7 @@ function ReplaceChallengeStars()
         locId = class'APLocationRegistry'.static.GetStarLocationId(levelName, markerName);
         if (locId == 0) continue;
         slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= 768) continue;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
         if (default.NonCardLocationChecked[slot] == 1) continue;
 
         // Capture mover-attachment state before destroying the vanilla star.
