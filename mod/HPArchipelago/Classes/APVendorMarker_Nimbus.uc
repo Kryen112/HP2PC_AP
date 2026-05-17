@@ -73,6 +73,15 @@ event Touch(Actor Other)
     Destroy();
 }
 
+// #3 capability contract. CheckLocationId (5760005, stamped after Spawn by
+// APCardWatcher.ReplaceVendorEquipment) is the resolvable AP location id.
+function ApplyAPAppearance()
+{
+    if (CheckLocationId <= 0) return;
+    class'APCardWatcher'.static.ApplyAppearanceTo(self,
+        class'APCardWatcher'.static.AppearanceForApId(CheckLocationId));
+}
+
 defaultproperties
 {
     // Override inherited StatusGroupQGear / StatusItemNimbus to prevent the

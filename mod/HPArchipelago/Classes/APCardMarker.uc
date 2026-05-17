@@ -56,6 +56,8 @@ var bool bIsFloatingCard;
 
 function PostBeginPlay()
 {
+    local APCardWatcher w;
+
     Super.PostBeginPlay();
 
     Log("[Archipelago] APCardMarker.PostBeginPlay: " $ string(self) $ " CardLocationId=" $ CardLocationId
@@ -68,6 +70,25 @@ function PostBeginPlay()
             $ " already checked - destroying immediately");
         Destroy();
         return;
+    }
+
+    // #3 capability contract: opt this marker into the appearance sweep and
+    // best-effort morph it now. Runs AFTER the self-destroy guard so a
+    // checked location never registers/morphs a stale ghost. Register on the
+    // live per-level watcher (instance registry — class-default actor refs
+    // crash level cleanup); the watcher exists by now (spawned in InitGame
+    // before ReplaceCardChests). Self-apply is independent of registration
+    // and a no-op until the table arrives (async-safe); the sweep is the
+    // authoritative re-stamp.
+    if (CardLocationId > 0 && CardLocationId <= 101)
+    {
+        w = class'APCardWatcher'.static.GetLatest();
+        if (w != None)
+        {
+            w.RegisterMorphMarker(self,
+                class'APCardAppearance'.static.CardIdToApId(CardLocationId));
+        }
+        ApplyAPAppearance();
     }
 
     // Defer bPersistent=False to next tick. chestbronze.generateobject (uc:163)
@@ -229,6 +250,18 @@ function Touch(Actor Other)
     }
 
     Destroy();
+}
+
+// #3 capability contract. Resolve this card location's appearance code and
+// stamp it onto self. The card branch of the resolver reads the exact card
+// face from <cardClass>.default.Skin. Called best-effort from PostBeginPlay
+// and authoritatively by APCardWatcher.RestampMarkerAppearance.
+function ApplyAPAppearance()
+{
+    if (CardLocationId <= 0 || CardLocationId > 101) return;
+    class'APCardWatcher'.static.ApplyAppearanceTo(self,
+        class'APCardWatcher'.static.AppearanceForApId(
+            class'APCardAppearance'.static.CardIdToApId(CardLocationId)));
 }
 
 defaultproperties

@@ -45,3 +45,14 @@ state PickupProp
         }
     }
 }
+
+// #3 capability contract. CheckLocationId is a full AP location id (stamped by
+// APCardWatcher.ReplaceChallengeStars AFTER Spawn), so the resolvable id is
+// that value directly. The watcher registers + best-effort applies right
+// after stamping; RestampMarkerAppearance is the authoritative re-stamp.
+function ApplyAPAppearance()
+{
+    if (CheckLocationId <= 0) return;
+    class'APCardWatcher'.static.ApplyAppearanceTo(self,
+        class'APCardWatcher'.static.AppearanceForApId(CheckLocationId));
+}

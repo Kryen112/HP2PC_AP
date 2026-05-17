@@ -35,9 +35,11 @@ dist/
 /uscript/
 /wiki-clone/
 
-# Asset generators kept out of the repo (the logo SVGs are committed; the
-# PSK/PSA + texture generator scripts are not).
+# Asset generators kept out of the repo (the logo SVG is committed as the
+# source of record; the PSK/PSA + texture generator scripts and their raster
+# work files are not -- the baked outputs under mod/HPArchipelago are).
 tools/*.py
+tools/*.png
 
 # Local configs
 .env

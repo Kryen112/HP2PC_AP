@@ -24,6 +24,50 @@ const NONCARD_LOC_WINDOW = 1024;
 // so the constant cannot be referenced here directly.
 var byte NonCardLocationChecked[1024];
 
+// #3 marker-appearance subsystem. Per-AP-location appearance code, indexed by
+// `apId - LOC_BASE` exactly like NonCardLocationChecked[] (same dedupe-window
+// math, same cross-level class-default persistence). Values: 0 = leave the
+// marker's native vanilla look (also the async-safe default until the table
+// arrives); 1..101 = HP2 card (value is the game card id); 1000+spellIdx =
+// HP2 spell; 2001..2008 = HP2 filler; 9000 = foreign filler/useful (AP-logo
+// plain); 9001 = foreign progression/trap (AP-logo arrow). Dimension literal
+// MUST equal NONCARD_LOC_WINDOW (M212 array dims take an integer literal, not
+// a const — see NonCardLocationChecked[] above).
+var int AppearanceCode[1024];
+// Set once SetAppearanceCSV has ingested a table this process. The sweep and
+// every marker self-apply early-return until then so a pre-table marker keeps
+// its native look instead of going blank.
+var byte bAppearanceReceived;
+// Per-level (instance) one-shot guard so Timer() runs the convergence sweep
+// exactly once after the table is present in a given level; resets with each
+// fresh per-level watcher instance.
+var byte bAppearanceRestampedThisLevel;
+
+// Morphable-marker registry (the #3 capability contract). A marker opts in by
+// calling RegisterMorphMarker(self, apId) on the live per-level watcher when
+// its AP location id is known (cards in PostBeginPlay; stars/vendors right
+// after the watcher stamps their CheckLocationId). The sweep applies the table
+// generically via ApplyAppearanceTo(Actor,code) — which only touches
+// Actor-level draw fields — so NO marker class is named here and a future
+// check marker (Tradersanity's APVendorMarker_Trader, etc.) opts in with the
+// same one call, no watcher edit.
+//
+// INSTANCE state, NOT class-default. A class-default array of Actor refs is a
+// fatal M212 hazard: the class default object outlives every level, so on
+// level cleanup ULevel::CleanupDestroyed walks the persistent ObjectProperty
+// array and asserts (Obj->IsValid) on a freed marker from the torn-down level
+// — the chest FancySpawn (18 copies) + pickup-Destroy pattern guarantees stale
+// slots. As instance state it lives and dies with the per-level watcher, which
+// the engine cleans up the normal same-level way; markers simply re-register
+// into each level's fresh watcher (and PostBeginPlay self-apply is the
+// independent safety net since AppearanceCode[] IS class-default). The value
+// array AppearanceCode[] above stays class-default — only Object refs are
+// unsafe there. MORPH_REGISTRY_SIZE is generous: a level holds at most a
+// handful of card chests + the chest FancySpawn burst + ≤6 stars + 2 vendors.
+const MORPH_REGISTRY_SIZE = 256;
+var Actor MorphActor[256];
+var int   MorphApId[256];
+
 var harry HarryRef;
 var StatusItemWizardCards siBronze;
 var StatusItemWizardCards siSilver;
@@ -489,6 +533,296 @@ static function SetGoalConfigCSV(string csv)
         $ " mask=" $ default.GoalLevelMask);
 }
 
+// ---------------------------------------------------------------------------
+// #3 marker-appearance subsystem
+// ---------------------------------------------------------------------------
+
+// Like NextCsvInt but the field separator is a parameter, so the APPEARANCE
+// payload's `apId:code,apId:code` form parses with one primitive (`:` then
+// `,`). Last field has no trailing separator → take the whole remainder.
+static function int NextCsvIntUpTo(out string rest, string sep)
+{
+    local int p, val;
+    p = InStr(rest, sep);
+    if (p >= 0)
+    {
+        val = int(Left(rest, p));
+        rest = Mid(rest, p + 1);
+    }
+    else
+    {
+        val = int(rest);
+        rest = "";
+    }
+    return val;
+}
+
+// Ingest the client's "apId:code,apId:code,…" appearance table. Full AP
+// location ids on the wire (same convention as CHECK_LOCID); stored at
+// `apId - LOC_BASE`. Clears the whole table first so a resend is authoritative
+// (a location that dropped out of the table reverts to native). Class-default
+// + sticky like the goal config; idempotent. Sets bAppearanceReceived so the
+// sweep / self-apply paths come alive.
+static function SetAppearanceCSV(string csv)
+{
+    local string rest;
+    local int apId, code, slot, n;
+
+    for (slot = 0; slot < NONCARD_LOC_WINDOW; slot++)
+    {
+        default.AppearanceCode[slot] = 0;
+    }
+
+    rest = csv;
+    n = 0;
+    while (rest != "")
+    {
+        apId = NextCsvIntUpTo(rest, ":");
+        code = NextCsvIntUpTo(rest, ",");
+        slot = apId - LOC_BASE;
+        if (slot >= 0 && slot < NONCARD_LOC_WINDOW)
+        {
+            default.AppearanceCode[slot] = code;
+            n++;
+        }
+    }
+    default.bAppearanceReceived = 1;
+    Log("[Archipelago] APCardWatcher.SetAppearanceCSV: ingested " $ n $ " appearance entry(ies)");
+}
+
+// Table lookup. 0 (native / unknown / out-of-window) is the safe default.
+static function int AppearanceForApId(int apId)
+{
+    local int slot;
+    slot = apId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return 0;
+    return default.AppearanceCode[slot];
+}
+
+// Vanilla in-world DrawScale read from a pickup class default at runtime
+// (each vanilla prop tunes its own; hardcoding one value mis-sized them).
+// Same proven `.default` reflection as cardCls.default.Skin
+// (APGameInfo.uc:1448). `fallback` if the class can't resolve (async-safe).
+static function float VanillaDrawScale(string clsName, float fallback)
+{
+    local class<Actor> ac;
+    ac = class<Actor>(DynamicLoadObject("HGame." $ clsName, class'Class'));
+    if (ac == None) return fallback;
+    return ac.default.DrawScale;
+}
+
+// AP defines four bean-pile sizes but vanilla has ONE jar mesh/class
+// (JarBeans). Anchor on JarBeans' real DrawScale (`base`, read at runtime via
+// VanillaDrawScale) and spread the four AP sizes around it so they stay
+// proportional to the vanilla jar. Multipliers are the cosmetic dial-in the
+// plan defers; "Large" == the vanilla jar size.
+static function float BeanScale(int code, float base)
+{
+    if (code == 2001) return base * 0.60; // Small
+    if (code == 2002) return base * 0.80; // Medium
+    if (code == 2003) return base * 1.00; // Large  (== vanilla JarBeans)
+    return base * 1.25;                    // 2004 Massive
+}
+
+// Spell-ball skin per spell index (0 Alohomora,1 Diffindo,2 Flipendo,3 Lumos,
+// 4 Rictusempra,5 Skurge,6 Spongify — same order as SpellNames[]). Alohomora,
+// Flipendo and Lumos have no baked icon imported anywhere → defaultSpellIcon.
+static function Texture SpellIconForIndex(int idx)
+{
+    if (idx == 1) return Texture(DynamicLoadObject("HGame.Icons.DiffindoTexture", class'Texture'));
+    if (idx == 4) return Texture(DynamicLoadObject("HGame.Icons.RictusempraTexture", class'Texture'));
+    if (idx == 5) return Texture(DynamicLoadObject("HGame.Icons.SkurgeTexture", class'Texture'));
+    if (idx == 6) return Texture(DynamicLoadObject("HGame.Icons.tSpongifyTexture", class'Texture'));
+    return Texture(DynamicLoadObject("HGame.Icons.defaultSpellIcon", class'Texture'));
+}
+
+// Stamp mesh + (optionally) skin + draw fields onto any Actor (runtime Mesh/
+// Skin/DrawType reassignment is engine-supported, Characters.uc:991-1034). If
+// the mesh can't resolve, nothing is touched → marker keeps its native look
+// (async-safe). 3-skin filler meshes pass bSetSkin=False (baked materials).
+// bLogoStyle = the foreign AP-logo: STY_Masked for the magenta chroma-key
+// transparency (see APLogoMesh.uc), unlit + full glow for constant brightness.
+static function ApplyMeshSkin(Actor a, Mesh m, Material tex, bool bSetSkin, float scale, bool bLogoStyle)
+{
+    if (a == None || m == None) return;
+    a.Mesh = m;
+    a.DrawType = DT_Mesh;
+    a.DrawScale = scale;
+    if (bSetSkin && tex != None)
+    {
+        a.Skin = tex;
+        a.MultiSkins[0] = tex;
+    }
+    if (bLogoStyle)
+    {
+        a.Style = STY_Masked;
+        a.bUnlit = True;
+        a.AmbientGlow = 255;
+    }
+    else
+    {
+        a.Style = STY_Normal;
+        a.bUnlit = False;
+    }
+}
+
+// The resolver. Morphs `a` to the vanilla art of whatever the location holds,
+// per the appearance code. code 0 ⇒ leave the marker's own native look (do
+// nothing). All asset objects are resolved by name via DynamicLoadObject so
+// there is no hard package link and a not-yet-loaded asset degrades to
+// "native" rather than failing. The per-card face is read from
+// <cardClass>.default.Skin (proven pattern, APGameInfo.uc:1448) so the
+// Griffindor/Gryffindor skin-name irregularity is auto-correct.
+static function ApplyAppearanceTo(Actor a, int code)
+{
+    local Mesh m;
+    // Actor.Skin / MultiSkins[] and WizardCardIcon.default.Skin are typed
+    // Material in this engine (Texture extends Material), so the skin handle
+    // must be Material — a Texture from DynamicLoadObject up-casts cleanly.
+    local Material tex;
+    local class<WizardCardIcon> cc;
+    local string cn;
+    local float sc;          // resolved per-prop vanilla DrawScale
+
+    if (a == None || code == 0) return;
+
+    if (code >= 1 && code <= 101)
+    {
+        m = Mesh(DynamicLoadObject("HProps.skWizardCardIconMesh", class'Mesh'));
+        sc = 2.0; // WizardCardIcon.defaultproperties DrawScale (fallback)
+        cn = class'APCardAppearance'.static.CardClassNameForId(code);
+        if (cn != "")
+        {
+            cc = class<WizardCardIcon>(DynamicLoadObject("HGame." $ cn, class'Class'));
+            if (cc != None)
+            {
+                tex = cc.default.Skin;
+                sc  = cc.default.DrawScale; // per-card vanilla size (== 2.0)
+            }
+        }
+        ApplyMeshSkin(a, m, tex, True, sc, False);
+    }
+    else if (code >= 1000 && code <= 1006)
+    {
+        // No vanilla world-pickup prop for spells (they are learned, not
+        // dropped); skSpellBall's HPMeshActor default DrawScale is 1.0.
+        // Constant, tunable — there is no vanilla pickup to anchor on.
+        m = Mesh(DynamicLoadObject("HProps.skSpellBallMesh", class'Mesh'));
+        tex = SpellIconForIndex(code - 1000);
+        ApplyMeshSkin(a, m, tex, True, 1.0, False);
+    }
+    else if (code >= 2001 && code <= 2004)
+    {
+        m = Mesh(DynamicLoadObject("HProps.skJarBeansMesh", class'Mesh'));
+        tex = Texture(DynamicLoadObject("HProps.skJarBeansTex0", class'Texture'));
+        ApplyMeshSkin(a, m, tex, True,
+            BeanScale(code, VanillaDrawScale("JarBeans", 2.5)), False);
+    }
+    else if (code == 2005)
+    {
+        m = Mesh(DynamicLoadObject("HProps.skBottlePotionGreen1Mesh", class'Mesh'));
+        tex = Texture(DynamicLoadObject("HProps.skBottlePotionGreen1Tex0", class'Texture'));
+        ApplyMeshSkin(a, m, tex, True,
+            VanillaDrawScale("BottlePotionGreen1", 1.0), False);
+    }
+    else if (code == 2006)
+    {
+        // 3-skin mesh — set Mesh only so the baked materials render.
+        m = Mesh(DynamicLoadObject("HProps.skJarWiggentreeBarkMesh", class'Mesh'));
+        ApplyMeshSkin(a, m, None, False,
+            VanillaDrawScale("JarWiggentreeBark", 1.2), False);
+    }
+    else if (code == 2007)
+    {
+        // 3-skin mesh — set Mesh only.
+        m = Mesh(DynamicLoadObject("HProps.skJarFlobberwormMucusMesh", class'Mesh'));
+        ApplyMeshSkin(a, m, None, False,
+            VanillaDrawScale("JarFlobberwormMucus", 1.2), False);
+    }
+    else if (code == 2008)
+    {
+        m = Mesh(DynamicLoadObject("HProps.skChocolateFrogMesh", class'Mesh'));
+        tex = Texture(DynamicLoadObject("HProps.skChocolateFrogTex0", class'Texture'));
+        ApplyMeshSkin(a, m, tex, True,
+            VanillaDrawScale("ChocolateFrog", 0.5), False);
+    }
+    else if (code == 9000)
+    {
+        // Foreign plain (per-orb AP-logo coins). Textures live in the `Skins`
+        // group so they MUST be loaded group-qualified (group-less DLO returns
+        // None, which would drop 9001 back to the baked plain skin). DrawScale
+        // 1.65 ≈ card-sized (tunable).
+        m = Mesh(DynamicLoadObject("HPArchipelago.APLogoMesh", class'Mesh'));
+        tex = Texture(DynamicLoadObject("HPArchipelago.Skins.APLogoTex0", class'Texture'));
+        ApplyMeshSkin(a, m, tex, True, 1.65, True);
+    }
+    else if (code == 9001)
+    {
+        m = Mesh(DynamicLoadObject("HPArchipelago.APLogoMesh", class'Mesh'));
+        tex = Texture(DynamicLoadObject("HPArchipelago.Skins.APLogoArrowTex0", class'Texture'));
+        ApplyMeshSkin(a, m, tex, True, 1.65, True);
+    }
+}
+
+// Capability-contract entry point. A morphable marker calls this on the live
+// per-level watcher (class'APCardWatcher'.static.GetLatest()) with itself and
+// its AP location id once that id is known. Instance (NOT static / NOT
+// class-default) — see the registry declaration: actor refs in class-default
+// storage crash the engine at level cleanup. Idempotent per actor (updates in
+// place). Registry-full just means this marker relies on its PostBeginPlay
+// self-apply for this level; never fatal.
+function RegisterMorphMarker(Actor a, int apId)
+{
+    local int i, free;
+
+    if (a == None) return;
+
+    free = -1;
+    for (i = 0; i < MORPH_REGISTRY_SIZE; i++)
+    {
+        if (MorphActor[i] == a)
+        {
+            MorphApId[i] = apId;
+            return;
+        }
+        if (free < 0 && (MorphActor[i] == None || MorphActor[i].bDeleteMe))
+        {
+            free = i;
+        }
+    }
+    if (free < 0) return;
+    MorphActor[free] = a;
+    MorphApId[free]  = apId;
+}
+
+// Convergence sweep: re-stamp every registered marker from the live table.
+// Authoritative for stars/vendors (id stamped after Spawn) and the catch-up
+// after an async table arrival. Native-safe: early return until a table
+// exists; empty/dead slots skipped. Instance; the registry is per-level
+// instance state so there is no cross-level entry to filter.
+function RestampMarkerAppearance()
+{
+    local int i, applied;
+    local Actor a;
+
+    if (default.bAppearanceReceived == 0) return;
+
+    applied = 0;
+    for (i = 0; i < MORPH_REGISTRY_SIZE; i++)
+    {
+        a = MorphActor[i];
+        if (a == None) continue;
+        if (a.bDeleteMe) continue;
+        ApplyAppearanceTo(a, AppearanceForApId(MorphApId[i]));
+        applied++;
+    }
+    if (applied > 0)
+    {
+        Log("[Archipelago] APCardWatcher.RestampMarkerAppearance: applied appearance to "
+            $ applied $ " marker(s) in " $ string(Level.Outer.Name));
+    }
+}
+
 // Clause-3 objective index for a Caps'd map name (goal_plan.md §6.4). The 3
 // key-item ingredient levels (idx 0-2) are listed too: their StatusItem nCount
 // path is unreliable in this build (orphaned StatusItemBitOGoyle; the
@@ -833,6 +1167,17 @@ event Timer()
         LastSilverCount = siSilver.nCount;
         LastGoldCount   = siGold.nCount;
     }
+    // #3: one convergence sweep per level once the table is present. Covers
+    // the case where the table was already sticky at level start but markers
+    // (e.g. lazily-spawned vendor markers) registered after Snapshot's sweep.
+    // Async mid-level arrival is handled separately by the APPEARANCE-IPC
+    // sweep in APIPCActor; per-marker immediate morphs by their self-apply.
+    if (default.bAppearanceReceived == 1 && bAppearanceRestampedThisLevel == 0)
+    {
+        RestampMarkerAppearance();
+        bAppearanceRestampedThisLevel = 1;
+    }
+
     HeartbeatCounter++;
     if (HeartbeatCounter >= 40)
     {
@@ -1332,6 +1677,12 @@ function Snapshot()
     }
 
     RecoverStuckCutsceneState();
+
+    // #3: morph every marker that registered before/at snapshot (cards via
+    // PostBeginPlay, stars via ReplaceChallengeStars above) to the real item
+    // art. No-op until the appearance table has arrived; the Timer one-shot +
+    // the APPEARANCE-IPC sweep converge anything registered later or async.
+    RestampMarkerAppearance();
 }
 
 function bool IsHarryOwned(int id)
@@ -1589,6 +1940,8 @@ function ReplaceVendorEquipment()
             continue;
         }
         apNimbus.CheckLocationId = 5760005;
+        RegisterMorphMarker(apNimbus, 5760005);
+        apNimbus.ApplyAPAppearance();
     }
 
     foreach AllActors(class'QArmor', armor)
@@ -1612,6 +1965,8 @@ function ReplaceVendorEquipment()
             continue;
         }
         apArmor.CheckLocationId = 5760006;
+        RegisterMorphMarker(apArmor, 5760006);
+        apArmor.ApplyAPAppearance();
     }
 }
 
@@ -1668,6 +2023,10 @@ function ReplaceChallengeStars()
             continue;
         }
         apStar.CheckLocationId = locId;
+        // #3: id is now known — opt this marker into the appearance sweep and
+        // best-effort morph it (no-op until the table arrives).
+        RegisterMorphMarker(apStar, locId);
+        apStar.ApplyAPAppearance();
         if (vanillaTag != 'None')
         {
             apStar.Tag = vanillaTag;

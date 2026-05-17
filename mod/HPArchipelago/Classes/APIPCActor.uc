@@ -157,6 +157,8 @@ event ReceivedText(string Text)
 
 function HandleLine(string line)
 {
+    local APCardWatcher w;
+
     Log("[Archipelago] APIPCActor: ReceivedText: " $ line);
 
     if (Left(line, 6) == "GRANT ")
@@ -179,6 +181,19 @@ function HandleLine(string line)
         // the watcher (mirrors bBingoMode); resent every HELLO so a fresh
         // launch / reconnect re-arms it. Idempotent.
         class'APCardWatcher'.static.SetGoalConfigCSV(Mid(line, 8));
+    }
+    else if (Left(line, 11) == "APPEARANCE ")
+    {
+        // #3 per-location appearance table from the client, as
+        // "apId:code,apId:code,…" (full AP location ids). Sticky class-default
+        // on the watcher (mirrors GOALCFG); resent every HELLO. Sweep the live
+        // watcher so an async mid-level arrival converges within a tick.
+        class'APCardWatcher'.static.SetAppearanceCSV(Mid(line, 11));
+        w = class'APCardWatcher'.static.GetLatest();
+        if (w != None)
+        {
+            w.RestampMarkerAppearance();
+        }
     }
 }
 

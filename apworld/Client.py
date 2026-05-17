@@ -43,7 +43,7 @@ from .locations import (
     CARD_GAME_ID_TO_LOCATION_NAME,
     LOCATION_NAME_TO_ID,
 )
-from .items import CARD_CLASS_TO_ITEM_NAME
+from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 NON_DURABLE_ITEM_NAMES = {"Small Pile of Beans", "Medium Pile of Beans", "Large Pile of Beans"}
@@ -82,7 +82,42 @@ SPELL_TO_LOCATION_NAME = {
 # silently skips. Add entries back when these become AP checks again.
 KEYITEM_TO_LOCATION_NAME: dict[str, str] = {}
 
+# #3 marker appearance. The client scouts every HP2 location, resolves what
+# item each holds, and pushes a per-location appearance code the mod uses to
+# morph the marker into that item's vanilla art. Codes mirror
+# APCardWatcher.AppearanceCode[] / plans/03-marker-appearance-by-owner.md.
+
+# Spell appearance index — MUST match APCardWatcher.SpellNames[] order
+# (0 Alohomora … 6 Spongify). Appearance code = 1000 + index.
+SPELL_NAME_TO_INDEX = {
+    "Alohomora": 0, "Diffindo": 1, "Flipendo": 2, "Lumos": 3,
+    "Rictusempra": 4, "Skurge": 5, "Spongify": 6,
+}
+
+# Filler appearance code — FILLER_NAMES order maps 1:1 to the mod's 2001..2008
+# (Small/Medium/Large/Massive Beans, Wiggenweld, Wiggentree Bark, Flobberworm,
+# Chocolate Frog).
+FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
+
+# Foreign (non-HP2) item codes — the only surviving #1 contribution: the
+# AP-logo plate, arrow variant when the foreign item is progression or trap
+# (progression_skip_balancing collapses to the progression bit), plain
+# otherwise. This is the sole place the classification arrow is computed.
+APPEARANCE_FOREIGN_PLAIN = 9000
+APPEARANCE_FOREIGN_ARROW = 9001
+
 logger = logging.getLogger("HP2Client")
+
+
+def _log_safe(text: str, limit: int = 180) -> str:
+    """Truncate a payload for logging only. The AP Kivy client renders every
+    INFO line into an on-screen log widget; a single multi-KB line (the #3
+    APPEARANCE table is ~6.5 KB) stalls Kivy's text layout and hangs the
+    asyncio event loop for over a minute. The full text is still sent to the
+    game unchanged — this shortens what is written to the log."""
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}… [+{len(text) - limit} more chars]"
 
 
 class HP2CommandProcessor(ClientCommandProcessor):
@@ -138,6 +173,10 @@ class HP2Context(CommonContext):
         # Connected; pushed to the mod on every game HELLO (sticky + idempotent
         # mod-side, so a fresh game launch / reconnect re-arms it).
         self.bingo_goalcfg: Optional[str] = None
+        # #3: last "apId:code,…" appearance payload pushed to the mod, or None
+        # if not yet built. Resent on every game HELLO (sticky + idempotent
+        # mod-side). Rebuilt from self.locations_info on each LocationInfo.
+        self.appearance_csv: Optional[str] = None
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -173,6 +212,32 @@ class HP2Context(CommonContext):
                     self._send_to_game("GOALCFG " + self.bingo_goalcfg)
             else:
                 self.bingo_goalcfg = None
+
+            # #3: scout this slot's HP2 locations so the appearance table can
+            # resolve what item each marker holds. create_as_hint=0 → peek
+            # only, no hint broadcast (no spoiler-policy issue).
+            #
+            # MUST intersect with server_locations: LOCATION_NAME_TO_ID is the
+            # full cross-mode/all-options universe, but a bingo / option-
+            # trimmed seed only instantiates a subset for this slot. Scouting a
+            # location id the slot doesn't have raises a server-side KeyError
+            # that drops the connection — and CommonClient auto-resends
+            # locations_scouted on every reconnect, so a bad entry would wedge
+            # the client permanently. server_locations (missing | checked) is
+            # the authoritative per-slot set and is populated before
+            # on_package runs.
+            scout_ids = sorted(
+                set(LOCATION_NAME_TO_ID.values()) & set(self.server_locations)
+            )
+            if scout_ids:
+                self.locations_scouted |= set(scout_ids)
+                asyncio.create_task(self._send_or_queue_ap_msg(
+                    {"cmd": "LocationScouts",
+                     "locations": scout_ids,
+                     "create_as_hint": 0},
+                    label=f"LocationScouts ({len(scout_ids)} HP2 locations, "
+                          f"#3 appearance, no hint)",
+                ))
         elif cmd == "ReceivedItems":
             package_index = args.get("index")
             for item in args.get("items", []):
@@ -202,6 +267,11 @@ class HP2Context(CommonContext):
                 self._send_to_game(f"GRANT {payload_with_sender}")
                 if isinstance(package_index, int):
                     package_index += 1
+        elif cmd == "LocationInfo":
+            # CommonContext's built-in handler has already populated
+            # self.locations_info[loc] = NetworkItem for every scouted
+            # location before on_package runs. Rebuild + push the table.
+            self._rebuild_appearance_table()
 
     def on_print_json(self, args: dict) -> None:
         # Toast feedback for items WE send to other slots ("Sent X to Y").
@@ -239,7 +309,7 @@ class HP2Context(CommonContext):
     def _send_to_game(self, text: str) -> None:
         if self.game_writer is None or self.game_writer.is_closing():
             self.pending_grants.append(text)
-            logger.info(f"Queued (no game connection yet, {len(self.pending_grants)} pending): {text}")
+            logger.info(f"Queued (no game connection yet, {len(self.pending_grants)} pending): {_log_safe(text)}")
             return
         try:
             self.game_writer.write((text + "\n").encode("utf-8"))
@@ -313,6 +383,11 @@ class HP2Context(CommonContext):
             # reconnects without harm. No-op for vanilla / pre-Connected.
             if self.bingo_goalcfg:
                 self._send_to_game("GOALCFG " + self.bingo_goalcfg)
+            # #3: re-push the appearance table. Sticky + idempotent mod-side,
+            # so resending every HELLO re-arms a fresh game launch / reconnect.
+            # is not None (not truthiness) so an all-native "" still re-arms.
+            if self.appearance_csv is not None:
+                self._send_to_game("APPEARANCE " + self.appearance_csv)
             return
         if line == "GOAL_COMPLETE":
             if self.goal_sent:
@@ -449,6 +524,58 @@ class HP2Context(CommonContext):
         for payload in to_send:
             self._send_to_game(f"GRANT {payload}")
 
+    def _appearance_code_for_item(self, ni) -> int:
+        """Resolve a scouted NetworkItem to the mod appearance code.
+
+        ni.player is the receiving/owner slot (LocationScouts semantics). A
+        non-HP2 owner (incl. group / item-link slots) → AP-logo plate, arrow
+        if the foreign item is progression or trap. An HP2 owner → that HP2
+        item's own art (card id 1..101 / spell 1000+idx / filler 2001..2008),
+        or 0 (native) for an HP2 item with no mapped look (equipment, bingo
+        keys, future).
+        """
+        owner = ni.player
+        slot = self.slot_info.get(owner) if self.slot_info else None
+        owner_game = slot.game if slot is not None else None
+        if owner_game != GAME_NAME:
+            if (ni.flags & 0b001) or (ni.flags & 0b100):
+                return APPEARANCE_FOREIGN_ARROW
+            return APPEARANCE_FOREIGN_PLAIN
+
+        name = self.item_names.lookup_in_slot(ni.item, owner)
+        if not name:
+            return 0
+        ucls = ITEM_NAME_TO_CARD_CLASS.get(name)
+        if ucls is not None:
+            return CARD_CLASS_TO_GAME_ID.get(ucls, 0)
+        if name in SPELL_NAME_TO_INDEX:
+            return 1000 + SPELL_NAME_TO_INDEX[name]
+        if name in FILLER_CODE:
+            return FILLER_CODE[name]
+        return 0
+
+    def _rebuild_appearance_table(self) -> None:
+        """Recompute the per-location appearance payload from locations_info
+        and push it to the mod if it changed. Only HP2 location ids appear in
+        locations_info (we scout only our own). Codes of 0 are omitted — the
+        mod clears its table on each ingest so an omitted location reverts to
+        its native look."""
+        pairs: list[str] = []
+        for loc_id, ni in self.locations_info.items():
+            try:
+                code = self._appearance_code_for_item(ni)
+            except Exception as e:
+                logger.exception(f"appearance: failed to classify {ni!r}: {e}")
+                code = 0
+            if code:
+                pairs.append(f"{loc_id}:{code}")
+        csv = ",".join(pairs)
+        if csv == self.appearance_csv:
+            return
+        self.appearance_csv = csv
+        logger.info(f"Appearance table rebuilt: {len(pairs)} morphable location(s)")
+        self._send_to_game("APPEARANCE " + csv)
+
     def _handle_seed_change(self, old_seed: str, new_seed: str) -> None:
         logger.info(
             f"Seed changed ({old_seed!r} → {new_seed!r}); clearing prior-seed state "
@@ -464,6 +591,9 @@ class HP2Context(CommonContext):
         self.checked_locations_seen = set()
         self.goal_sent = False
         self.delivered_to_game = set()
+        # #3: drop the prior seed's appearance table so the next Connected's
+        # scout rebuilds it from scratch (item placement differs per seed).
+        self.appearance_csv = None
 
     def _remember_durable_grant(self, payload: str, index: object) -> None:
         if isinstance(index, int) and index >= 0:

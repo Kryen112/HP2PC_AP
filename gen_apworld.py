@@ -872,6 +872,84 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
     return len(secret_entries) + len(star_entries)
 
 
+def emit_card_appearance_registry(locations: dict, base_id: int) -> int:
+    """Emit mod/HPArchipelago/Classes/APCardAppearance.uc.
+
+    Two static lookups keyed by game-side card id (1..101, the WC*.uc default
+    Id property the markers carry as CardLocationId):
+
+      CardIdToApId(id)        -> the card location's full AP id (base_id +
+                                 id_offset), or 0 if the id is unknown. The #3
+                                 appearance resolver does `apId - LOC_BASE` to
+                                 index AppearanceCode[].
+      CardClassNameForId(id)  -> the vanilla UScript card class name (e.g.
+                                 "WCGriffindor"), or "" if unknown. The
+                                 resolver DynamicLoadObjects "HGame."$name and
+                                 reads .default.Skin so the morphed marker
+                                 shows that exact card's face (the
+                                 Griffindor/Gryffindor skin-name irregularity
+                                 is auto-correct because it is read, never
+                                 string-transformed).
+
+    Built from CARD_GAME_ID_TO_CLASS (the canonical UScript id->class map) and
+    the card-location id_offsets in data/locations.yaml. Mirrors
+    emit_location_registry's structure (committed output, generator not
+    shipped). Returns the number of registered card ids.
+    """
+    class_to_ap_id: dict[str, int] = {}
+    for entry in locations.get("cards", []):
+        class_to_ap_id[entry["card_class"]] = base_id + entry["id_offset"]
+
+    id_to_ap: list[tuple[int, int]] = []
+    id_to_class: list[tuple[int, str]] = []
+    for game_id, ucls in sorted(CARD_GAME_ID_TO_CLASS.items()):
+        ap_id = class_to_ap_id.get(ucls)
+        if ap_id is None:
+            raise ValueError(
+                f"emit_card_appearance_registry: card class {ucls!r} (game id "
+                f"{game_id}) has no card location in data/locations.yaml"
+            )
+        id_to_ap.append((game_id, ap_id))
+        id_to_class.append((game_id, ucls))
+
+    out_path = MOD_CLASSES_DIR / "APCardAppearance.uc"
+    lines: list[str] = [
+        "// Auto-generated. Do not edit by hand; regenerate from",
+        "// data/locations.yaml (cards section) + CARD_GAME_ID_TO_CLASS.",
+        "class APCardAppearance extends Object;",
+        "",
+        "// Game-side card id (1..101) -> full AP location id. The #3 resolver",
+        "// indexes AppearanceCode[] by (return value - LOC_BASE).",
+        "static function int CardIdToApId(int cardId)",
+        "{",
+        "    switch (cardId)",
+        "    {",
+    ]
+    for game_id, ap_id in id_to_ap:
+        lines.append(f"        case {game_id}: return {ap_id};")
+    lines += [
+        "    }",
+        "    return 0;",
+        "}",
+        "",
+        "// Game-side card id (1..101) -> vanilla UScript card class name. The",
+        "// resolver reads <class>.default.Skin for the exact card face.",
+        "static function string CardClassNameForId(int cardId)",
+        "{",
+        "    switch (cardId)",
+        "    {",
+    ]
+    for game_id, ucls in id_to_class:
+        lines.append(f'        case {game_id}: return "{ucls}";')
+    lines += [
+        "    }",
+        '    return "";',
+        "}",
+    ]
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return len(id_to_ap)
+
+
 def emit_card_markers(items: dict) -> int:
     """Emit one APCardMarker_<ClassName>.uc per card in CARD_GAME_ID_TO_CLASS.
 
@@ -1021,6 +1099,7 @@ def main() -> int:
 
     n_markers = emit_card_markers(items)
     n_registry = emit_location_registry(locations, locations["base_id"])
+    n_appearance = emit_card_appearance_registry(locations, locations["base_id"])
 
     n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
@@ -1033,6 +1112,7 @@ def main() -> int:
     print(f"Wrote {rules_py} (vanilla: {n_loc_rules_v} per-loc rules, {len(logic_vanilla.get('goal') or {})} goal(s); bingo: {n_loc_rules_b}, {len(logic_bingo.get('goal') or {})})")
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
     print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star registrations)")
+    print(f"Wrote APCardAppearance.uc ({n_appearance} card id registrations)")
     return 0
 
 
