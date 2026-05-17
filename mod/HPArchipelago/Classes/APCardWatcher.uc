@@ -29,8 +29,9 @@ var byte NonCardLocationChecked[1024];
 // math, same cross-level class-default persistence). Values: 0 = leave the
 // marker's native vanilla look (also the async-safe default until the table
 // arrives); 1..101 = HP2 card (value is the game card id); 1000+spellIdx =
-// HP2 spell; 2001..2008 = HP2 filler; 9000 = foreign filler/useful (AP-logo
-// plain); 9001 = foreign progression/trap (AP-logo arrow). Dimension literal
+// HP2 spell; 2001..2008 = HP2 filler; 3001..3002 = HP2 equipment (Nimbus /
+// Quidditch Armour); 9000 = foreign filler/useful (AP-logo plain); 9001 =
+// foreign progression/trap (AP-logo arrow). Dimension literal
 // MUST equal NONCARD_LOC_WINDOW (M212 array dims take an integer literal, not
 // a const — see NonCardLocationChecked[] above).
 var int AppearanceCode[1024];
@@ -745,6 +746,21 @@ static function ApplyAppearanceTo(Actor a, int code)
         tex = Texture(DynamicLoadObject("HProps.skChocolateFrogTex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True,
             VanillaDrawScale("ChocolateFrog", 0.5), False);
+    }
+    else if (code == 3001)
+    {
+        // Nimbus 2001 — vanilla VendorNimbusBroom look (single baked skin,
+        // set Mesh only).
+        m = Mesh(DynamicLoadObject("HProps.skBroomQudditchMesh", class'Mesh'));
+        ApplyMeshSkin(a, m, None, False,
+            VanillaDrawScale("VendorNimbusBroom", 1.0), False);
+    }
+    else if (code == 3002)
+    {
+        // Quidditch Armour — vanilla QArmor look.
+        m = Mesh(DynamicLoadObject("HProps.skQuidArmorMesh", class'Mesh'));
+        ApplyMeshSkin(a, m, None, False,
+            VanillaDrawScale("QArmor", 1.0), False);
     }
     else if (code == 9000)
     {

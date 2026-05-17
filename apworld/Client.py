@@ -99,6 +99,10 @@ SPELL_NAME_TO_INDEX = {
 # Chocolate Frog).
 FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
 
+# Equipment appearance code — vanilla HProp pickups morphed to their own
+# vanilla mesh, same as cards/spells/filler (mod codes 3001..3002).
+EQUIPMENT_CODE = {'Nimbus 2001': 3001, 'Quidditch Armour': 3002}
+
 # Foreign (non-HP2) item codes — the only surviving #1 contribution: the
 # AP-logo plate, arrow variant when the foreign item is progression or trap
 # (progression_skip_balancing collapses to the progression bit), plain
@@ -530,9 +534,9 @@ class HP2Context(CommonContext):
         ni.player is the receiving/owner slot (LocationScouts semantics). A
         non-HP2 owner (incl. group / item-link slots) → AP-logo plate, arrow
         if the foreign item is progression or trap. An HP2 owner → that HP2
-        item's own art (card id 1..101 / spell 1000+idx / filler 2001..2008),
-        or 0 (native) for an HP2 item with no mapped look (equipment, bingo
-        keys, future).
+        item's own art (card 1..101 / spell 1000+idx / filler 2001..2008 /
+        equipment 3001..3002), or 0 (native) for an HP2 item with no mapped
+        look (keys, future).
         """
         owner = ni.player
         slot = self.slot_info.get(owner) if self.slot_info else None
@@ -552,6 +556,8 @@ class HP2Context(CommonContext):
             return 1000 + SPELL_NAME_TO_INDEX[name]
         if name in FILLER_CODE:
             return FILLER_CODE[name]
+        if name in EQUIPMENT_CODE:
+            return EQUIPMENT_CODE[name]
         return 0
 
     def _rebuild_appearance_table(self) -> None:
