@@ -43,7 +43,7 @@ from .locations import (
     CARD_GAME_ID_TO_LOCATION_NAME,
     LOCATION_NAME_TO_ID,
 )
-from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES
+from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 NON_DURABLE_ITEM_NAMES = {"Small Pile of Beans", "Medium Pile of Beans", "Large Pile of Beans"}
@@ -102,6 +102,11 @@ FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
 # Equipment appearance code — vanilla HProp pickups morphed to their own
 # vanilla mesh, same as cards/spells/filler (mod codes 3001..3002).
 EQUIPMENT_CODE = {'Nimbus 2001': 3001, 'Quidditch Armour': 3002}
+
+# Bingo key appearance code — the 13 level/challenge bookcase keys all share
+# the vanilla "silver key" FX sprite (mod code 3003). Sourced from the
+# canonical ITEM_GROUPS entry so the set never drifts from items.yaml.
+KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Bingo Keys']}
 
 # Foreign (non-HP2) item codes — the only surviving #1 contribution: the
 # AP-logo plate, arrow variant when the foreign item is progression or trap
@@ -535,8 +540,8 @@ class HP2Context(CommonContext):
         non-HP2 owner (incl. group / item-link slots) → AP-logo plate, arrow
         if the foreign item is progression or trap. An HP2 owner → that HP2
         item's own art (card 1..101 / spell 1000+idx / filler 2001..2008 /
-        equipment 3001..3002), or 0 (native) for an HP2 item with no mapped
-        look (keys, future).
+        equipment 3001..3002 / bingo key 3003), or 0 (native) for an HP2 item
+        with no mapped look.
         """
         owner = ni.player
         slot = self.slot_info.get(owner) if self.slot_info else None
@@ -558,6 +563,8 @@ class HP2Context(CommonContext):
             return FILLER_CODE[name]
         if name in EQUIPMENT_CODE:
             return EQUIPMENT_CODE[name]
+        if name in KEY_CODE:
+            return KEY_CODE[name]
         return 0
 
     def _rebuild_appearance_table(self) -> None:

@@ -30,7 +30,8 @@ var byte NonCardLocationChecked[1024];
 // marker's native vanilla look (also the async-safe default until the table
 // arrives); 1..101 = HP2 card (value is the game card id); 1000+spellIdx =
 // HP2 spell; 2001..2008 = HP2 filler; 3001..3002 = HP2 equipment (Nimbus /
-// Quidditch Armour); 9000 = foreign filler/useful (AP-logo plain); 9001 =
+// Quidditch Armour); 3003 = HP2 bingo level/challenge key (the vanilla
+// silver-key FX sprite); 9000 = foreign filler/useful (AP-logo plain); 9001 =
 // foreign progression/trap (AP-logo arrow). Dimension literal
 // MUST equal NONCARD_LOC_WINDOW (M212 array dims take an integer literal, not
 // a const — see NonCardLocationChecked[] above).
@@ -684,6 +685,7 @@ static function ApplyAppearanceTo(Actor a, int code)
     local class<WizardCardIcon> cc;
     local string cn;
     local float sc;          // resolved per-prop vanilla DrawScale
+    local Rotator r;         // 3003 key: 180° roll fix
 
     if (a == None || code == 0) return;
 
@@ -761,6 +763,26 @@ static function ApplyAppearanceTo(Actor a, int code)
         m = Mesh(DynamicLoadObject("HProps.skQuidArmorMesh", class'Mesh'));
         ApplyMeshSkin(a, m, None, False,
             VanillaDrawScale("QArmor", 1.0), False);
+    }
+    else if (code == 3003)
+    {
+        // Bingo level/challenge bookcase key — the vanilla "silver key" FX
+        // sprite (HPParticle.hp_fx.Particles.Key3, the texture SilverUnlock
+        // spawns on every 10th silver card). It is a light-on-black additive
+        // particle texture: the masked chroma-key (bLogoStyle) cannot key
+        // black, so override to STY_Translucent — black drops to transparent
+        // and the key glows. Card-sized on the flat card quad (DrawScale 2.0).
+        m   = Mesh(DynamicLoadObject("HProps.skWizardCardIconMesh", class'Mesh'));
+        tex = Texture(DynamicLoadObject("HPParticle.hp_fx.Particles.Key3", class'Texture'));
+        ApplyMeshSkin(a, m, tex, True, 2.0, True);
+        a.Style = STY_Translucent;
+        // Key3 maps onto the card quad upside down; roll 180° (32768 = 180°
+        // in Rotator units). Absolute set, not an increment, so repeated
+        // morph passes stay idempotent; the Wait-state spin animates Yaw
+        // only, so this Roll persists.
+        r = a.Rotation;
+        r.Roll = 32768;
+        a.SetRotation(r);
     }
     else if (code == 9000)
     {
