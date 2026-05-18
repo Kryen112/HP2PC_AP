@@ -54,11 +54,18 @@ ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_
 # data/items.yaml. Used both for non-durability and appearance.
 TRAP_ITEM_NAMES = frozenset(ITEM_GROUPS.get("Traps", []))
 # Items the mod must NOT have replayed to it on a HELLO/reconnect durable
-# resync. Beans are non-durable because RingLink owns the bean total. Traps
-# are one-shot by definition — without this every reconnect would re-fire
-# every trap ever received (re-stealing beans, re-clearing the spellbook, etc.).
+# resync. All four bean tiers are non-durable because RingLink owns the bean
+# total. Wiggenweld Potion / Wiggentree Bark / Flobberworm Mucous each add to
+# Harry's inventory on GRANT, so a resync replay would stack phantom
+# duplicates. (Chocolate Frog is intentionally NOT here: it only refills
+# health, which is idempotent — a replay can't exceed max, so it stays
+# durable.) Traps are one-shot by definition — without this every reconnect
+# would re-fire every trap ever received (re-stealing beans, re-clearing the
+# spellbook, etc.).
 NON_DURABLE_ITEM_NAMES = {
     "Small Pile of Beans", "Medium Pile of Beans", "Large Pile of Beans",
+    "Massive Pile of Beans", "Wiggenweld Potion", "Wiggentree Bark",
+    "Flobberworm Mucous",
 } | set(TRAP_ITEM_NAMES)
 
 # Build UScript class → game-side card Id by composing the two maps:
