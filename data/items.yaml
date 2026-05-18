@@ -10,14 +10,14 @@
 #   group         grouping for AP/yaml category options (e.g. "Cards (Bronze)")
 #   notes         free text, optional
 #
-# Total: 110 unique items + 8 filler types + 3 trap types = 121 entries
+# Total: 110 unique items + 11 filler types + 3 trap types = 124 entries
 # (filler/traps stack as needed).
 # Filler `weight:` is the relative frequency when the generator picks a filler
 # item via get_filler_item_name (multiworld.random.choices). Probabilities are
-# weight / sum(weights). Sum across the 8 filler types = 35; example expected
+# weight / sum(weights). Sum across the 11 filler types = 50; example expected
 # counts over a 154-slot fill (110 secrets + 44 stars - 0 non-filler items
-# added in v2): weight 1 → ~4 picks, weight 3 → ~13, weight 7 → ~31,
-# weight 10 → ~44.
+# added in v2): weight 1 → ~3 picks, weight 3 → ~9, weight 7 → ~22,
+# weight 8 → ~25.
 
 base_id: 5750000
 
@@ -194,14 +194,22 @@ bingo_keys:
 # Filler. Stacks — multiple copies allowed, count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).
 filler:
-  - { id_offset: 300, name: "Small Pile of Beans",   classification: filler, group: Filler, weight: 10, notes: "Grants ~25 beans" }
-  - { id_offset: 301, name: "Medium Pile of Beans",  classification: filler, group: Filler, weight: 7,  notes: "Grants ~50 beans" }
-  - { id_offset: 302, name: "Large Pile of Beans",   classification: filler, group: Filler, weight: 3,  notes: "Grants ~100 beans" }
+  # Bean denominations. The small ones (1/5/10) carry the bulk of the bean
+  # weight so most bean drops are tiny; the Pile tiers are trimmed and the
+  # big ones stay sparse premiums. APPEND new filler at the END only — the
+  # mod's appearance codes are 2001 + index in this list (Client.py
+  # FILLER_CODE), so inserting mid-list would renumber 2001..2008.
+  - { id_offset: 300, name: "Small Pile of Beans",   classification: filler, group: Filler, weight: 7,  notes: "Grants ~25 beans" }
+  - { id_offset: 301, name: "Medium Pile of Beans",  classification: filler, group: Filler, weight: 4,  notes: "Grants ~50 beans" }
+  - { id_offset: 302, name: "Large Pile of Beans",   classification: filler, group: Filler, weight: 2,  notes: "Grants ~100 beans" }
   - { id_offset: 303, name: "Massive Pile of Beans", classification: filler, group: Filler, weight: 1,  notes: "Sparse premium. Grants ~250 beans" }
   - { id_offset: 304, name: "Wiggenweld Potion",     classification: filler, group: Filler, weight: 1,  notes: "Sparse premium. Full health refill on grant" }
   - { id_offset: 305, name: "Wiggentree Bark",       classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }
   - { id_offset: 306, name: "Flobberworm Mucous",    classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }
   - { id_offset: 307, name: "Chocolate Frog",        classification: filler, group: Filler, weight: 7,  notes: "Health refill on grant" }
+  - { id_offset: 308, name: "1 Bean",                classification: filler, group: Filler, weight: 6,  notes: "Grants 1 bean" }
+  - { id_offset: 309, name: "5 Beans",               classification: filler, group: Filler, weight: 8,  notes: "Grants 5 beans" }
+  - { id_offset: 310, name: "10 Beans",              classification: filler, group: Filler, weight: 8,  notes: "Grants 10 beans" }
 
 # Negative "trap" items (AP ItemClassification.trap). Opt-in: only generated
 # when the `enable_traps` YAML option is on, replacing a `trap_fill_percent`

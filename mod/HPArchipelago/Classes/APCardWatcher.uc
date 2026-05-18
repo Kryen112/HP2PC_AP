@@ -867,6 +867,28 @@ static function Texture SpellGestureTextureForIndex(int idx)
     return None;
 }
 
+// A random Bertie Bott's bean skin for the loose-bean fillers (1 / 5 Bean) so
+// the pickup is a different colour each time it is stamped instead of one
+// static texture. All 12 are vanilla HProps single-bean skins (the set
+// Jellybean.uc's subclasses use). Re-rolled on every appearance re-stamp.
+static function Texture RandomBeanTexture()
+{
+    local int i;
+    i = Rand(12);
+    if (i == 0)  return Texture(DynamicLoadObject("HProps.skJellybeanTex0",     class'Texture'));
+    if (i == 1)  return Texture(DynamicLoadObject("HProps.skBeanRedTex0",       class'Texture'));
+    if (i == 2)  return Texture(DynamicLoadObject("HProps.skBeanBlueSpotTex0",  class'Texture'));
+    if (i == 3)  return Texture(DynamicLoadObject("HProps.skBeanBlackTex0",     class'Texture'));
+    if (i == 4)  return Texture(DynamicLoadObject("HProps.skBeanPurpleTex0",    class'Texture'));
+    if (i == 5)  return Texture(DynamicLoadObject("HProps.skBeanDarkGreenTex0", class'Texture'));
+    if (i == 6)  return Texture(DynamicLoadObject("HProps.skBeanBogieTex0",     class'Texture'));
+    if (i == 7)  return Texture(DynamicLoadObject("HProps.skBeanBrownTex0",     class'Texture'));
+    if (i == 8)  return Texture(DynamicLoadObject("HProps.skBeanDkBlueTex0",    class'Texture'));
+    if (i == 9)  return Texture(DynamicLoadObject("HProps.skBeanMauveTex0",     class'Texture'));
+    if (i == 10) return Texture(DynamicLoadObject("HProps.skBeanOrngeTex0",     class'Texture'));
+    return Texture(DynamicLoadObject("HProps.skBeanYellowyTex0", class'Texture'));
+}
+
 // Stamp mesh + (optionally) skin + draw fields onto any Actor (runtime Mesh/
 // Skin/DrawType reassignment is engine-supported, Characters.uc:991-1034). If
 // the mesh can't resolve, nothing is touched → marker keeps its native look
@@ -981,6 +1003,32 @@ static function ApplyAppearanceTo(Actor a, int code)
         tex = Texture(DynamicLoadObject("HProps.skChocolateFrogTex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True,
             VanillaDrawScale("ChocolateFrog", 0.5), False);
+    }
+    else if (code == 2009)
+    {
+        // 1 Bean — the vanilla jellybean prop, random colour per stamp.
+        // Smallest of the bean ladder so a single bean reads as the lowest
+        // reward.
+        m = Mesh(DynamicLoadObject("HProps.skJellybeanMesh", class'Mesh'));
+        tex = RandomBeanTexture();
+        ApplyMeshSkin(a, m, tex, True, 1.5, False);
+    }
+    else if (code == 2010)
+    {
+        // 5 Beans — same bean mesh, random colour per stamp, larger than
+        // 1 Bean so the two read apart by size.
+        m = Mesh(DynamicLoadObject("HProps.skJellybeanMesh", class'Mesh'));
+        tex = RandomBeanTexture();
+        ApplyMeshSkin(a, m, tex, True, 2.0, False);
+    }
+    else if (code == 2011)
+    {
+        // 10 Beans — the bean jar, below the Small Pile (0.60) so the size
+        // ladder reads loose bean -> small jar -> the Piles.
+        m = Mesh(DynamicLoadObject("HProps.skJarBeansMesh", class'Mesh'));
+        tex = Texture(DynamicLoadObject("HProps.skJarBeansTex0", class'Texture'));
+        ApplyMeshSkin(a, m, tex, True,
+            VanillaDrawScale("JarBeans", 2.5) * 0.45, False);
     }
     else if (code == 3001)
     {

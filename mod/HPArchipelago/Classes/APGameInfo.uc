@@ -2264,6 +2264,26 @@ function ApplyGrant(string Body)
         Log("[Archipelago] ApplyGrant: granted Massive Pile of Beans (+250)");
         return;
     }
+    // Small bean denominations — same no-broadcast bean path as the Piles,
+    // just tiny amounts so common filler barely moves the bean total.
+    if (ItemName == "1 Bean")
+    {
+        GrantBeansNoBroadcast(h, 1);
+        Log("[Archipelago] ApplyGrant: granted 1 Bean (+1)");
+        return;
+    }
+    if (ItemName == "5 Beans")
+    {
+        GrantBeansNoBroadcast(h, 5);
+        Log("[Archipelago] ApplyGrant: granted 5 Beans (+5)");
+        return;
+    }
+    if (ItemName == "10 Beans")
+    {
+        GrantBeansNoBroadcast(h, 10);
+        Log("[Archipelago] ApplyGrant: granted 10 Beans (+10)");
+        return;
+    }
     // Wiggenweld Potion: usable inventory item that auto-refills HP at low
     // health (and is manually-usable from the in-game menu). Mirrors vanilla
     // `harry.AddWiggenwellPotion` path which calls IncrementCount on
