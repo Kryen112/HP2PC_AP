@@ -55,6 +55,13 @@ var Actor SkurgeBlockerInstance;
 var Actor DiffindoBlockerInstance;
 var Actor SpongifyBlockerInstance;
 
+// Spawn point for the visible Slytherin Common Room end star
+// (Adv7SlythComRoom). WORLD coords, hand-tuned in-game via the APConsole
+// LogPos dev command the same way the *BlockerOffset literals were captured.
+// Rotation is cosmetically irrelevant (the star self-spins via PHYS_Rotating).
+var Vector SlytherinEndStarLocation;
+var Rotator SlytherinEndStarRotation;
+
 event InitGame(string Options, out string Error)
 {
     local class<Actor> cls;
@@ -1177,6 +1184,55 @@ function SpawnAllBingoBlockers()
     BlockBingoGreatHallEntryIfMissing();
 }
 
+// Spawn the visible end star in the Slytherin Common Room so the level's
+// objective is reachable without solving the full rotating-room puzzle, and so
+// it stays permanently available as the level's exit (like the challenge
+// FinalStar) - spawned on every entry, NOT gated on completion.
+// NotifyLevelObjective is idempotent, so re-touching a completed room never
+// re-fires the AP check; it just travels the player back to the hub. Driven
+// from APCardWatcher.Snapshot (post-Bind, so the HProp's PreBeginPlay resolves
+// a valid PlayerHarry) - spawning from APGameInfo.InitGame is too early
+// (PlayerHarry==None, so HProp.CanPickupNow can never fire). Level-gated to
+// ADV7SLYTHCOMROOM. Any prior instance (including one serialized into a save
+// by an earlier build) is destroyed and a fresh one respawned, so the live
+// actor is always correctly initialised - one destroy+respawn per level bind
+// (Snapshot runs once per bind), the same pattern as ReplaceChallengeStars.
+function SpawnSlytherinEndStarIfMissing()
+{
+    local Actor existing;
+    local APSlytherinEndStar star;
+    local int destroyed;
+
+    if (Caps(string(Level.Outer.Name)) != "ADV7SLYTHCOMROOM") return;
+
+    foreach AllActors(class'Actor', existing)
+    {
+        if (existing.Tag == 'APSlytherinEndStar' && !existing.bDeleteMe)
+        {
+            existing.Destroy();
+            destroyed++;
+        }
+    }
+    if (destroyed > 0)
+    {
+        Log("[Archipelago] SpawnSlytherinEndStar: destroyed " $ destroyed
+            $ " prior instance(s) before respawn");
+    }
+
+    star = Spawn(class'APSlytherinEndStar', None,
+        'APSlytherinEndStar', SlytherinEndStarLocation, SlytherinEndStarRotation);
+    if (star != None)
+    {
+        Log("[Archipelago] SpawnSlytherinEndStar: spawned at "
+            $ string(SlytherinEndStarLocation));
+    }
+    else
+    {
+        Log("[Archipelago] SpawnSlytherinEndStar: Spawn returned None at "
+            $ string(SlytherinEndStarLocation) $ " (encroachment? coords may need tweak)");
+    }
+}
+
 // Replace every card-class reference in chests/cauldrons (and every loose
 // WizardCardIcon actor in the level) with the corresponding APCardMarker_<class>
 // subclass. Called from InitGame on every level entry.
@@ -2266,4 +2322,6 @@ defaultproperties
     DiffindoBlockerOffsets(0)=(X=50.000000,Y=-172.000000,Z=-20.000000)
     DiffindoBlockerOffsets(1)=(X=50.000000,Y=-5.000000,Z=-20.000000)
     DiffindoBlockerOffsets(2)=(X=50.000000,Y=162.000000,Z=-20.000000)
+    SlytherinEndStarLocation=(X=-206.795639,Y=-11138.078125,Z=-379.500000)
+    SlytherinEndStarRotation=(Pitch=0,Yaw=0,Roll=0)
 }

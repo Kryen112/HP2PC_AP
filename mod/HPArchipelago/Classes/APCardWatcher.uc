@@ -1979,6 +1979,15 @@ function Snapshot()
     // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla
     // score. Already-checked stars stay vanilla, so replay still scores.
     ReplaceChallengeStars();
+    // Spawn the visible Slytherin Common Room end star here (post-Bind, so the
+    // HProp's PreBeginPlay resolves a valid PlayerHarry) - APGameInfo.InitGame
+    // runs before Harry exists, so a star spawned there has PlayerHarry==None
+    // and HProp.CanPickupNow can never fire. Save-load forces bSnapshotted=
+    // False, so this single hook covers the ProcessServerTravel path too.
+    if (APGameInfo(Level.Game) != None)
+        APGameInfo(Level.Game).SpawnSlytherinEndStarIfMissing();
+    else
+        Log("[Archipelago] APCardWatcher.Snapshot: Level.Game not APGameInfo - cannot spawn Slytherin end star");
     // Clause-3: credit terminal objective levels (ingredient levels 0-2,
     // Willow 5, Slytherin 6, and the 4 challenges 7-10) from the watcher's
     // own per-level bind history when we leave them. The challenge FinalStar
