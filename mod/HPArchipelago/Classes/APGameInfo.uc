@@ -1801,7 +1801,12 @@ static function harry TryGetViewportHarry(harry SourceHarry)
 // the tick-window between cutscene start and stateCutIdle transition (and
 // the cutscene-skip path where bBothBordersActive animates while Harry's
 // state hasn't transitioned yet).
-static function bool IsPlayerInPlayableState(harry h, out string DeferReason)
+// bAllowInGameMenu (optional, default False): when True the in-game pause
+// menu (menuBook.bIsOpen) is NOT a blocking reason. Only RingLink's bean
+// drain passes True — a bean apply is pure data (StatusItem.nCount) with no
+// UI-instantiating side effects, so it is safe mid-menu. The GRANT drain
+// leaves it False: spell/card grants do heavy work that can race the menu.
+static function bool IsPlayerInPlayableState(harry h, out string DeferReason, optional bool bAllowInGameMenu)
 {
     local string stateName;
     local HPHud hud;
@@ -1847,7 +1852,8 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason)
     // both the in-game pause menu (TogglePauseMenu → OpenBook("INGAME"))
     // and any other menu page. `bGamePlaying` was the wrong gate — it only
     // flips False on MainPage (title screen), not on the in-game menu.
-    if (HPConsole(h.Player.Console) != None
+    if (!bAllowInGameMenu
+        && HPConsole(h.Player.Console) != None
         && HPConsole(h.Player.Console).menuBook != None
         && HPConsole(h.Player.Console).menuBook.bIsOpen)
     {
@@ -1971,6 +1977,32 @@ function string FormatGrantText(string ItemName, string Sender)
     return base;
 }
 
+// AP-granted bean filler must not be mirrored by RingLink: the recipient
+// already received the AP item, so broadcasting the AddBeans as an organic
+// delta would double-count it across every linked slot. Route every AP
+// bean grant through the persistent APIPCActor's no-broadcast helper, which
+// resyncs the RingLink baseline after mutating so the next poll sees a zero
+// delta. Direct AddBeans fallback only if the IPC actor is somehow absent —
+// beans must never be silently dropped.
+function GrantBeansNoBroadcast(harry h, int Amount)
+{
+    local APIPCActor ipc;
+
+    if (h == None || h.managerStatus == None)
+    {
+        return;
+    }
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc != None)
+    {
+        ipc.MutateBeansNoBroadcast(h, Amount);
+    }
+    else
+    {
+        h.managerStatus.AddBeans(Amount);
+    }
+}
+
 function ApplyGrant(string Body)
 {
     local harry h;
@@ -2063,25 +2095,25 @@ function ApplyGrant(string Body)
 
     if (ItemName == "Small Pile of Beans")
     {
-        h.managerStatus.AddBeans(25);
+        GrantBeansNoBroadcast(h, 25);
         Log("[Archipelago] ApplyGrant: granted Small Pile of Beans (+25)");
         return;
     }
     if (ItemName == "Medium Pile of Beans")
     {
-        h.managerStatus.AddBeans(50);
+        GrantBeansNoBroadcast(h, 50);
         Log("[Archipelago] ApplyGrant: granted Medium Pile of Beans (+50)");
         return;
     }
     if (ItemName == "Large Pile of Beans")
     {
-        h.managerStatus.AddBeans(100);
+        GrantBeansNoBroadcast(h, 100);
         Log("[Archipelago] ApplyGrant: granted Large Pile of Beans (+100)");
         return;
     }
     if (ItemName == "Massive Pile of Beans")
     {
-        h.managerStatus.AddBeans(250);
+        GrantBeansNoBroadcast(h, 250);
         Log("[Archipelago] ApplyGrant: granted Massive Pile of Beans (+250)");
         return;
     }

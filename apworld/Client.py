@@ -15,7 +15,9 @@ Mod-side protocol (newline-delimited text):
     CHECK_SPELL <name>          (game → client, on spell learned)
     CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
     GOAL_COMPLETE               (game → client, once when post-Basilisk credits start)
+    RINGOUT <signed_int>        (game → client, local bean total changed organically)
     GRANT <classname>           (client → game, on item received)
+    RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -25,7 +27,9 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import random
 import sys
+import time
 import warnings
 from typing import Optional
 
@@ -186,6 +190,13 @@ class HP2Context(CommonContext):
         # if not yet built. Resent on every game HELLO (sticky + idempotent
         # mod-side). Rebuilt from self.locations_info on each LocationInfo.
         self.appearance_csv: Optional[str] = None
+        # RingLink (#5). Enabled per-slot via slot_data on Connected. ring_source
+        # is a per-connection random int UUID, re-rolled every Connected, used
+        # as the Bounce `source` field and as the self-filter key so the
+        # server's echo of our own Bounce is dropped. Replaces a slot-name key
+        # so co-op-on-one-slot links and SA2/SMW interop both work.
+        self.ring_link_enabled: bool = False
+        self.ring_source: Optional[int] = None
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -221,6 +232,18 @@ class HP2Context(CommonContext):
                     self._send_to_game("GOALCFG " + self.bingo_goalcfg)
             else:
                 self.bingo_goalcfg = None
+
+            # RingLink (#5). Re-roll the per-connection source UUID and
+            # (re)register the tag on every Connected so a reconnect stays
+            # routable for Bounced packets. Disable cleanly if a later seed
+            # / reconnect turns it off.
+            if sd.get("ring_link"):
+                asyncio.create_task(self._enable_ring_link())
+            else:
+                if self.ring_link_enabled:
+                    logger.info("RingLink disabled for this slot")
+                self.ring_link_enabled = False
+                self.ring_source = None
 
             # #3: scout this slot's HP2 locations so the appearance table can
             # resolve what item each marker holds. create_as_hint=0 → peek
@@ -281,6 +304,47 @@ class HP2Context(CommonContext):
             # self.locations_info[loc] = NetworkItem for every scouted
             # location before on_package runs. Rebuild + push the table.
             self._rebuild_appearance_table()
+        elif cmd == "Bounced":
+            self._handle_ring_bounce(args)
+
+    def _handle_ring_bounce(self, args: dict) -> None:
+        """Apply an inbound RingLink Bounce to the game's bean total.
+
+        Inbound is NOT cached (§4): if the game is offline the delta is
+        dropped, bypassing _send_to_game's offline queue — replaying stale
+        ring deltas after an outage double-applies across the room and beans
+        are filler. The only defer is the short mod-side PendingRingDelta,
+        cleared on save/level-load boundaries.
+        """
+        if not self.ring_link_enabled:
+            return
+        if "RingLink" not in (args.get("tags") or []):
+            return
+        data = args.get("data") or {}
+        # The server echoes our own Bounce back to us (true in stock AP); the
+        # source self-filter is mandatory. Other RingLink games may send a
+        # non-int source — a failed int() means it isn't ours, so apply it.
+        src = data.get("source")
+        if src is not None and self.ring_source is not None:
+            try:
+                if int(src) == self.ring_source:
+                    return
+            except (TypeError, ValueError):
+                pass
+        try:
+            amount = int(data.get("amount", 0))
+        except (TypeError, ValueError):
+            return
+        if amount == 0:
+            return
+        if self.game_writer is None or self.game_writer.is_closing():
+            logger.info(f"RingLink: dropping inbound {amount:+d} (game offline, not cached)")
+            return
+        try:
+            self.game_writer.write(f"RINGIN {amount}\n".encode("utf-8"))
+            logger.info(f"RingLink: inbound {amount:+d} → RINGIN")
+        except Exception as e:
+            logger.warning(f"RingLink: failed to forward inbound {amount:+d}, dropping: {e}")
 
     def on_print_json(self, args: dict) -> None:
         # Toast feedback for items WE send to other slots ("Sent X to Y").
@@ -314,6 +378,25 @@ class HP2Context(CommonContext):
             base_title = "Archipelago Harry Potter 2 PC Client"
 
         return HP2Manager
+
+    async def _enable_ring_link(self) -> None:
+        # Re-roll the per-connection source UUID every Connected (reconnect-
+        # safe). The tag must persist on self.tags so the Connect sent during
+        # auth on a later reconnect already carries it; a ConnectUpdate is
+        # only needed the first time we add it mid-session. AP 0.6.5's
+        # CommonContext has NO update_tags() — mirror update_death_link
+        # (CommonClient.py:752-760): mutate self.tags, then ConnectUpdate.
+        self.ring_link_enabled = True
+        self.ring_source = random.getrandbits(31)
+        newly_tagged = "RingLink" not in self.tags
+        self.tags = set(self.tags) | {"RingLink"}
+        if newly_tagged and self.server and not self.server.socket.closed:
+            try:
+                await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+            except Exception as e:
+                logger.exception(f"RingLink: ConnectUpdate(tags) failed, inbound deltas won't route: {e}")
+                return
+        logger.info(f"RingLink enabled (source={self.ring_source}); RingLink tag registered")
 
     def _send_to_game(self, text: str) -> None:
         if self.game_writer is None or self.game_writer.is_closing():
@@ -406,6 +489,35 @@ class HP2Context(CommonContext):
                 {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
                 label="ClientStatus.CLIENT_GOAL (slot complete)",
             )
+            return
+        if line.startswith("RINGOUT "):
+            if not self.ring_link_enabled or self.ring_source is None:
+                return
+            try:
+                delta = int(line[len("RINGOUT "):].strip())
+            except ValueError:
+                logger.warning(f"Unparseable RINGOUT: {line!r}")
+                return
+            if delta == 0:
+                return
+            # Do NOT route through the AP-outage replay queue
+            # (pending_ap_outbound): replaying stale ring deltas after a long
+            # outage double-applies across the room. If AP is down, drop the
+            # delta — beans are filler; the baseline has already moved, so it
+            # is a one-time small desync, not corruption.
+            if not (self.server and self.slot is not None):
+                logger.info(f"RingLink: AP offline, dropping outbound {delta:+d} (not queued)")
+                return
+            try:
+                await self.send_msgs([{
+                    "cmd": "Bounce",
+                    "tags": ["RingLink"],
+                    "data": {"time": time.time(), "amount": int(delta),
+                             "source": self.ring_source},
+                }])
+                logger.info(f"RingLink: outbound {delta:+d} → Bounce")
+            except Exception as e:
+                logger.warning(f"RingLink: send Bounce failed, dropping {delta:+d}: {e}")
             return
         if line.startswith("CHECK_SPELL "):
             spell_name = line[len("CHECK_SPELL "):].strip()

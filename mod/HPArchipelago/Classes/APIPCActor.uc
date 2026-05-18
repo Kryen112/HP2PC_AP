@@ -33,6 +33,26 @@ var float ReconnectBackoff;
 // queue.
 var string RecvBuffer;
 
+// RingLink (#5). The persistent singleton owns the bean baseline so it
+// survives level loads. LastBeanBaseline is the last bean count the poll
+// diffed against. The poll is deliberately NOT gated on
+// IsPlayerInPlayableState: a vendor spend drains beans while harry is
+// bKeepStationary (non-playable) and must still be mirrored. It IS gated on
+// harry + StatusManager being readable — every save-load and level/area
+// transition passes through a no-readable-harry window (the same gap the
+// grant drain defers on), and that window alone re-snapshots the baseline
+// so the load's bean jump is absorbed, never broadcast. bBaselineValid is
+// False until the first readable tick snapshots it. PendingRingDelta
+// accumulates inbound RINGIN deltas until a playable tick can apply them;
+// order is irrelevant so one int, not a queue.
+var int LastBeanBaseline;
+var bool bBaselineValid;
+var int PendingRingDelta;
+// Defensive backstop: a |delta| beyond this is treated as a baseline resync
+// (not broadcast) — guards against a save-load fast enough to skip the
+// no-readable-harry window from broadcasting a bogus room-wide swing.
+const RING_SANITY_CAP = 100000;
+
 static function APIPCActor GetInstance()
 {
     if (default.PersistentInstance != None && !default.PersistentInstance.bDeleteMe)
@@ -116,6 +136,11 @@ event Opened()
     Log("[Archipelago] APIPCActor: Opened - sending hello");
     bWantsReconnect = False;
     ReconnectBackoff = 1.0;
+    // RingLink: a (re)connect is a boundary — re-snapshot the baseline on
+    // the next playable tick and drop any deferred remote delta so it can't
+    // apply against a count that moved while the link was down.
+    bBaselineValid = False;
+    PendingRingDelta = 0;
     SendText("HELLO" $ Chr(10));
 }
 
@@ -195,6 +220,13 @@ function HandleLine(string line)
             w.RestampMarkerAppearance();
         }
     }
+    else if (Left(line, 7) == "RINGIN ")
+    {
+        // Net remote RingLink delta. Accumulate — order is irrelevant, only
+        // the sum matters. Applied by TickRingLink on the next playable tick.
+        PendingRingDelta += int(Mid(line, 7));
+        Log("[Archipelago] APIPCActor: RINGIN " $ Mid(line, 7) $ " (PendingRingDelta=" $ string(PendingRingDelta) $ ")");
+    }
 }
 
 // Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the
@@ -239,6 +271,117 @@ event Timer()
 {
     TryReconnect();
     TryDrainPendingGrants();
+    TickRingLink();
+}
+
+// RingLink poll + drain (#5). The poll diffs whenever harry + StatusManager
+// are readable — NOT gated on IsPlayerInPlayableState, because a vendor
+// spend drains beans while harry is bKeepStationary (non-playable) and must
+// still be broadcast. Readability alone is the load discriminator: every
+// save-load and level/area transition passes through a window with no
+// readable harry (the same gap the grant drain defers on), so that window
+// re-snapshots the baseline and the load's bean jump is absorbed, never
+// broadcast. The poll runs BEFORE the drain so an organic change in the
+// same tick is broadcast, while the remote delta the drain applies resyncs
+// the baseline (via MutateBeansNoBroadcast) and is not rebroadcast. The
+// drain alone keeps the playable gate so beans are never mutated
+// mid-cutscene / mid-vendor.
+function TickRingLink()
+{
+    local harry h;
+    local string deferReason;
+    local int current, delta, applied;
+
+    h = class'APGameInfo'.static.FindGrantReadyHarry(self);
+
+    if (h == None || h.managerStatus == None)
+    {
+        // No readable harry/StatusManager — the load gap every save-load
+        // and level/area transition passes through. Re-snapshot the
+        // baseline on the next readable tick so the load's bean jump is
+        // absorbed and never broadcast, and drop any pending remote delta
+        // so a delta that arrived just before the load can't apply against
+        // the post-load total. Beans are filler — a dropped inbound delta
+        // is a one-time small desync, not corruption.
+        bBaselineValid = False;
+        PendingRingDelta = 0;
+        return;
+    }
+
+    current = h.managerStatus.GetBeanCount();
+
+    if (!bBaselineValid)
+    {
+        LastBeanBaseline = current;
+        bBaselineValid = True;
+    }
+    else
+    {
+        delta = current - LastBeanBaseline;
+        if (delta != 0)
+        {
+            if (delta > RING_SANITY_CAP || delta < -RING_SANITY_CAP)
+            {
+                Log("[Archipelago] RingLink: implausible bean delta " $ string(delta)
+                    $ " - resyncing baseline, not broadcasting");
+            }
+            else
+            {
+                SendRingOut(delta);
+            }
+            LastBeanBaseline = current;
+        }
+    }
+
+    // Drain accumulated remote delta. Gated on IsPlayerInPlayableState (the
+    // laxer poll above only reads beans; this mutates them) so an inbound
+    // delta is never applied mid-cutscene / mid-vendor — it stays deferred
+    // in PendingRingDelta until safe. bAllowInGameMenu=True: a bean apply
+    // is pure data, safe with the pause menu open (unlike GRANT drain).
+    if (PendingRingDelta != 0
+        && class'APGameInfo'.static.IsPlayerInPlayableState(h, deferReason, true))
+    {
+        // Local clamp at zero so beans never display negative or break
+        // vendor affordability (belt-and-suspenders: StatusItem.SetCount
+        // already floors at 0). We still broadcast our own true deltas
+        // unclamped — only what we apply from inbound is clamped.
+        applied = PendingRingDelta;
+        if (applied < -current)
+        {
+            applied = -current;
+        }
+        if (applied != 0)
+        {
+            // No toast: the bean HUD already updates live when the count
+            // changes, and a per-delta toast would be spammy.
+            MutateBeansNoBroadcast(h, applied);
+        }
+        PendingRingDelta = 0;
+    }
+}
+
+// Shared "mutate beans without broadcasting" helper (§6.0). Applies the
+// bean change and then immediately resyncs LastBeanBaseline to the freshly
+// read truth so the next poll diff is zero — this is the linchpin that
+// kills the feedback loop and self-heals if AddBeans clamps. Every
+// non-organic bean mutation must route through here: AP-granted bean filler
+// (APGameInfo.ApplyGrant) and the #9 Bean Thief trap. Organic pickups /
+// vendor spend must NOT — they are exactly what RingLink broadcasts.
+function MutateBeansNoBroadcast(harry h, int Delta)
+{
+    if (h == None || h.managerStatus == None)
+    {
+        return;
+    }
+    h.managerStatus.AddBeans(Delta);
+    LastBeanBaseline = h.managerStatus.GetBeanCount();
+    bBaselineValid = True;
+}
+
+function SendRingOut(int Delta)
+{
+    SendText("RINGOUT " $ Delta $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent RINGOUT " $ Delta);
 }
 
 event Closed()

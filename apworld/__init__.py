@@ -257,6 +257,17 @@ class BingoGoalQuidditch(Toggle):
     display_name = "Bingo goal: all Quidditch matches"
 
 
+class RingLink(Toggle):
+    """If true, organic changes to your Bertie Bott's bean total — in-game
+    pickups and vendor spending — are mirrored to every other RingLink slot
+    in the room, and their organic bean changes are applied to yours
+    (clamped at zero). AP-granted bean filler and the Bean Thief trap are
+    not mirrored. Interoperable with Sonic-style RingLink games. Core
+    Archipelago ships a DeathLink option but no RingLink class — it is a
+    convention, so we define our own toggle."""
+    display_name = "Ring Link"
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -279,6 +290,7 @@ class HP2Options(PerGameCommonOptions):
     enable_quidditch_upgrades: EnableQuidditchUpgrades
     enable_duelling: EnableDuelling
     enable_quidditch_matches: EnableQuidditchMatches
+    ring_link: RingLink
     # Pulled out of the shared "Game Options" block into their own
     # OptionGroup-rendered headers (see HP2WebWorld.option_groups), so the
     # dataclass position here does not affect template ordering.
@@ -688,8 +700,10 @@ class HP2World(World):
         }
 
     def fill_slot_data(self) -> dict:
+        # The client only learns the RingLink toggle through slot_data; it
+        # has no other view of the YAML. Must be in both return paths.
         if not self._is_bingo():
-            return {"game_mode": "vanilla"}
-        sd = {"game_mode": "bingo"}
+            return {"game_mode": "vanilla", "ring_link": bool(self.options.ring_link)}
+        sd = {"game_mode": "bingo", "ring_link": bool(self.options.ring_link)}
         sd.update(self._bingo_goal_config())
         return sd
