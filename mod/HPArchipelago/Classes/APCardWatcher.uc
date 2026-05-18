@@ -35,7 +35,7 @@ var byte NonCardLocationChecked[1024];
 // math, same cross-level class-default persistence). Values: 0 = leave the
 // marker's native vanilla look (also the async-safe default until the table
 // arrives); 1..101 = HP2 card (value is the game card id); 1000+spellIdx =
-// HP2 spell; 2001..2008 = HP2 filler; 3001..3002 = HP2 equipment (Nimbus /
+// HP2 spell (wand-target gesture art on the card mesh); 2001..2008 = HP2 filler; 3001..3002 = HP2 equipment (Nimbus /
 // Quidditch Armour); 3003 = HP2 bingo level/challenge key (the vanilla
 // silver-key FX sprite); 9000 = foreign filler/useful (AP-logo plain); 9001 =
 // foreign progression/trap (AP-logo arrow). Dimension literal
@@ -850,16 +850,21 @@ static function float BeanScale(int code, float base)
     return base * 1.25;                    // 2004 Massive
 }
 
-// Spell-ball skin per spell index (0 Alohomora,1 Diffindo,2 Flipendo,3 Lumos,
-// 4 Rictusempra,5 Skurge,6 Spongify — same order as SpellNames[]). Alohomora,
-// Flipendo and Lumos have no baked icon imported anywhere → defaultSpellIcon.
-static function Texture SpellIconForIndex(int idx)
+// The per-spell wand-target gesture sprite (the shape SpellCursor draws on a
+// locked target, SpellCursor.uc:84-108) by spell index (0 Alohomora,
+// 1 Diffindo, 2 Flipendo, 3 Lumos, 4 Rictusempra, 5 Skurge, 6 Spongify — same
+// order as SpellNames[]). WetTexture is-a Texture, so it loads cleanly as
+// class'Texture'. None for an unknown index keeps the marker's native look.
+static function Texture SpellGestureTextureForIndex(int idx)
 {
-    if (idx == 1) return Texture(DynamicLoadObject("HGame.Icons.DiffindoTexture", class'Texture'));
-    if (idx == 4) return Texture(DynamicLoadObject("HGame.Icons.RictusempraTexture", class'Texture'));
-    if (idx == 5) return Texture(DynamicLoadObject("HGame.Icons.SkurgeTexture", class'Texture'));
-    if (idx == 6) return Texture(DynamicLoadObject("HGame.Icons.tSpongifyTexture", class'Texture'));
-    return Texture(DynamicLoadObject("HGame.Icons.defaultSpellIcon", class'Texture'));
+    if (idx == 0) return Texture(DynamicLoadObject("SpellShapes.SpellFX.AlohomoraWet1", class'Texture'));
+    if (idx == 1) return Texture(DynamicLoadObject("SpellShapes.SpellFX.DiffindoWet1", class'Texture'));
+    if (idx == 2) return Texture(DynamicLoadObject("SpellShapes.SpellFX.FlipendoWet1", class'Texture'));
+    if (idx == 3) return Texture(DynamicLoadObject("SpellShapes.SpellFX.LumosWet1", class'Texture'));
+    if (idx == 4) return Texture(DynamicLoadObject("SpellShapes.SpellFX.RictusWet1", class'Texture'));
+    if (idx == 5) return Texture(DynamicLoadObject("SpellShapes.SpellFX.SkurgeWet1", class'Texture'));
+    if (idx == 6) return Texture(DynamicLoadObject("SpellShapes.SpellFX.SpongifyWet1", class'Texture'));
+    return None;
 }
 
 // Stamp mesh + (optionally) skin + draw fields onto any Actor (runtime Mesh/
@@ -931,12 +936,16 @@ static function ApplyAppearanceTo(Actor a, int code)
     }
     else if (code >= 1000 && code <= 1006)
     {
-        // No vanilla world-pickup prop for spells (they are learned, not
-        // dropped); skSpellBall's HPMeshActor default DrawScale is 1.0.
-        // Constant, tunable — there is no vanilla pickup to anchor on.
-        m = Mesh(DynamicLoadObject("HProps.skSpellBallMesh", class'Mesh'));
-        tex = SpellIconForIndex(code - 1000);
-        ApplyMeshSkin(a, m, tex, True, 1.0, False);
+        // Spells are learned, not dropped — no vanilla world prop to anchor
+        // on. Put the wand-target gesture art (the shape the player already
+        // reads as "this spell") on the flat wizard-card mesh so a spell
+        // pickup spins like a card pickup in the same chest (the card actor's
+        // own Tick drives the Yaw spin). DrawScale 3.0 is deliberately above
+        // the WizardCardIcon default of 2.0 so the gesture glyph reads at a
+        // glance.
+        m = Mesh(DynamicLoadObject("HProps.skWizardCardIconMesh", class'Mesh'));
+        tex = SpellGestureTextureForIndex(code - 1000);
+        ApplyMeshSkin(a, m, tex, True, 3.0, False);
     }
     else if (code >= 2001 && code <= 2004)
     {
