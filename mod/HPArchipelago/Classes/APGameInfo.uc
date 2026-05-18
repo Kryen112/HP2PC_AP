@@ -1138,8 +1138,8 @@ function RemoveBingoQuidditchBlocker()     { DestroyTaggedBingoBlockers('APBingo
 // BingoKeyGranted). Spawn while the goal is unmet; APCardWatcher.Timer calls
 // RemoveBingoGreatHallBlocker the tick GoalSatisfied() first passes and sets
 // the sticky WasGoalUnlocked, after which this early-returns so it never
-// respawns. There is exactly one concrete way into the Great Hall, so this
-// single bookcase is the sole route to the bInEndGame credits cutscene.
+// respawns. There is exactly one concrete way into the Great Hall; these
+// corridor bookcases are the sole route to the bInEndGame credits cutscene.
 function BlockBingoGreatHallEntryIfMissing()
 {
     local Vector loc;
@@ -1152,9 +1152,22 @@ function BlockBingoGreatHallEntryIfMissing()
     foreach AllActors(class'Actor', existing)
         if (existing.Tag == 'APBingoGreatHallBlocker' && !existing.bDeleteMe) return;
 
-    // §3 Phase-0 capture (verbatim from PlaceBookcase log, GreatHall).
-    loc.X = 1061.760376; loc.Y = -831.163818; loc.Z = -275.498291;
+    // Five hand-tuned bookcase positions spanning the Great Hall corridor at
+    // Z=-273. A single spawn point can be occupied by an idling NPC at
+    // level-load (Spawn returns None on encroachment), which would leave the
+    // corridor open, so the spread keeps it sealed when one slot is blocked.
+    // All share the tag, so RemoveBingoGreatHallBlocker clears every one at
+    // goal unlock. First coord is the §3 Phase-0 PlaceBookcase capture.
+    loc.X = 1061.760376; loc.Y = -831.163818; loc.Z = -273;
     rot.Yaw = 16321;  rot.Roll = 0;
+    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    loc.X = 913.5; loc.y = -835.;
+    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    loc.X = 946.71; loc.y = -838.7;
+    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    loc.X = 1035.612; loc.y = -838.383;
+    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    loc.X = 853.645; loc.y = -837.000;
     SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
 }
 function RemoveBingoGreatHallBlocker()     { DestroyTaggedBingoBlockers('APBingoGreatHallBlocker'); }
