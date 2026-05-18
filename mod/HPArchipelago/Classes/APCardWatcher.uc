@@ -1782,6 +1782,14 @@ function bool Bind()
     Log("[Archipelago] APCardWatcher: bound key items - Boomslang=" $ string(KeyItemStatus[0])
         $ " Bicorn=" $ string(KeyItemStatus[1]) $ " BitOGoyle=" $ string(KeyItemStatus[2]));
 
+    // Suppress the vanilla first-trade narrator line ("Press on the Yes
+    // button to accept the trade, or the No button to decline."):
+    // VendorManager.WantInstructions() gates it on this travel flag, so
+    // pre-setting it sends card/trader vendors straight to the transaction.
+    // Duel vendors keep their own instruction (the IsDuelVendor clause).
+    // Re-asserted every bind so a fresh save never shows it.
+    HarryRef.bSaidVendorInstructions = True;
+
     Log("[Archipelago] APCardWatcher: bound to Harry's status items");
     return True;
 }
