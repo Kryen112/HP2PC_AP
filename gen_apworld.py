@@ -530,7 +530,13 @@ def emit_items(items: dict) -> str:
         add(e2, None, silver_names)
         card_class_to_item_name.append((entry["class"], entry["name"]))
     for entry in items.get("cards_gold", []):
-        e2 = {**entry, "classification": entry.get("classification", "useful")}
+        # Gold cards default to filler: they unlock nothing in vanilla (no
+        # game-side reward — only silvers feed StatusItemLock1..4 / the Gold
+        # Card Room — and no logic_*.yaml rule references a gold card). Bingo
+        # still guarantees them reachable: HP2World.create_item promotes every
+        # card to progression_skip_balancing in bingo mode regardless of this
+        # default, since bingo_goal_cards counts all 101 cards.
+        e2 = {**entry, "classification": entry.get("classification", "filler")}
         add(e2, None, gold_names)
         card_class_to_item_name.append((entry["class"], entry["name"]))
     for entry in items.get("filler", []):
