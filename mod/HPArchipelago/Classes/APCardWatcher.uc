@@ -70,6 +70,89 @@ const MORPH_REGISTRY_SIZE = 256;
 var Actor MorphActor[256];
 var int   MorphApId[256];
 
+// --- Tradersanity (plans/06-tradersanity.md) --------------------------------
+// Price mode from the apworld slot_data, pushed via the TRADECFG IPC line
+// (mirrors GOALCFG / bBingoMode). Class-default so it survives level
+// transitions in a session; resent every HELLO so it is sticky. Values mirror
+// the apworld Tradersanity Choice.
+const TRADER_OFF           = 0;
+const TRADER_PRICE_VANILLA = 1;
+const TRADER_PRICE_RANDOM  = 2;
+const TRADER_PRICE_LOW     = 3;
+var int TradersanityMode;
+// Price constants for the non-vanilla modes (retune freely). price_vanilla
+// never touches the vendor's price fields; price_low clamps to a flat value;
+// price_random rolls within [LO, HI] (LO == HI floor is intentional).
+const TRADER_PRICE_LOW_BEANS  = 10;
+const TRADER_PRICE_RAND_LO    = 10;
+const TRADER_PRICE_RAND_HI    = 250;
+// A freshly-sold item spawns within ~CollisionRadius+10 of its vendor and is
+// caught within ≤0.25s, so it is always far nearer its own vendor than the
+// closest neighbouring vendor (census min separation ≈ 210uu). Match the
+// NEAREST eligible unchecked Tradersanity vendor within this cap.
+const TRADER_MATCH_RADIUS = 256.0;
+// Per-level price-restore registry. INSTANCE, not class-default: it holds
+// Characters refs and the per-level watcher is torn down the safe same-level
+// way (see the MorphActor[] rationale above). A level holds ≤6 eligible
+// vendors; 16 is generous. SavedLo/Hi are the vendor's pre-override price
+// fields (card vendors: min/max; ingredient vendors: the single price in
+// both) snapshotted once so the revert restores the true vanilla price even
+// if the .unr tuned it per-instance.
+// Per-level Tradersanity registry. INSTANCE, not class-default: holds
+// Characters refs and the per-level watcher is torn down the safe same-level
+// way (see MorphActor[]). A level holds ≤6 eligible vendors; 16 is generous.
+//
+// Card vendors are turned INTO ingredient vendors while their check is
+// pending: HP2 card-vendor stock is tier-global and MakePurchase spawns a
+// real card (cardsanity cross-fire), but ingredient stock (nCurrIngrCount)
+// is PER-VENDOR and MakePurchase spawns a plain prop. So a Tradersanity card
+// vendor gets CharacterSells := Sells_WBark while pending; the existing
+// ingredient swap path handles it; on collection CharacterSells is restored
+// and it is a vanilla card vendor again.
+//   TraderOrigSells   SELLS_* from the GENERATED registry (not the mutated
+//                     actor) so card-vendor restore survives save/load.
+//   TraderSavedLo/Hi  original sale-price range (card: min/max; ingredient:
+//                     the single price twice) for price_vanilla / revert.
+//   TraderApplied     price mode applied this visit (once).
+//   TraderRestored    post-collect cleanup (price + CharacterSells) done.
+//   TraderDispensed   the sold prop has been morphed + claimed as this
+//                     vendor's AP pickup token (check fires on its pickup);
+//                     resets with the per-level watcher so an uncollected
+//                     check re-arms on re-entry.
+//   TraderToken       the morphed PotionIngredients prop acting as the AP
+//                     pickup; when it goes None/bDeleteMe (picked up or
+//                     unloaded) the check fires. Instance storage only —
+//                     actor refs in class-default crash level cleanup.
+//   TraderWait        ticks spent sold-but-untokenised; a safety counter so
+//                     a prop grabbed before we could morph it can't stick.
+//   TraderSavedIngr   the vendor's vanilla nCurrIngrCount at registration,
+//                     restored on revert so a genuine ingredient vendor
+//                     restocks immediately instead of sitting at the pinned
+//                     zero until a game-state change / hub reload.
+const TRADER_REG_SIZE = 16;
+// Sold-but-no-token ticks before the check fires anyway (the prop was picked
+// up before the morph pass saw it, or never appeared). The morph pass below
+// the vendor sweep normally claims the prop the same tick the sale lands, so
+// this only trips in the rare instant-grab race.
+const TRADER_PICKUP_WAIT_TICKS = 20;
+var Characters TraderVendor[16];
+var int  TraderOrigSells[16];
+var int  TraderSavedLo[16];
+var int  TraderSavedHi[16];
+var byte TraderApplied[16];
+var byte TraderRestored[16];
+var byte TraderDispensed[16];
+var Actor TraderToken[16];
+var byte TraderWait[16];
+var int  TraderSavedIngr[16];
+// Characters.ESells ordinal values (stable in the decompiled retail enum).
+// Used only to record/branch a vendor's ORIGINAL sell type from the
+// registry; live vendor comparisons still use the c.ESells.Sells_* idiom.
+const SELLS_WBARK  = 2;
+const SELLS_FMUCUS = 3;
+const SELLS_BRONZE = 4;
+const SELLS_SILVER = 5;
+
 var harry HarryRef;
 var StatusItemWizardCards siBronze;
 var StatusItemWizardCards siSilver;
@@ -662,6 +745,14 @@ static function SetGoalConfigCSV(string csv)
         $ " mask=" $ default.GoalLevelMask);
 }
 
+// Tradersanity price mode from the apworld slot_data (TRADECFG IPC line).
+// Class-default + sticky, mirroring SetGoalConfigCSV; idempotent.
+static function SetTradersanityMode(int m)
+{
+    default.TradersanityMode = m;
+    Log("[Archipelago] APCardWatcher.SetTradersanityMode: mode=" $ default.TradersanityMode);
+}
+
 // ---------------------------------------------------------------------------
 // #3 marker-appearance subsystem
 // ---------------------------------------------------------------------------
@@ -1167,8 +1258,11 @@ event Timer()
         }
     }
 
-    ReplaceVendorSpawnedCards();
+    // ReplaceVendorEquipment carries the Tradersanity pass. It is independent
+    // of ReplaceVendorSpawnedCards (Tradersanity vendors sell a plain
+    // ingredient prop, never a WizardCardIcon), so order does not matter.
     ReplaceVendorEquipment();
+    ReplaceVendorSpawnedCards();
     ScanSecretMarkers(ipc);
     ScanDuelWins(ipc);
     ScanMatchWins(ipc);
@@ -1532,6 +1626,13 @@ function ReplaceVendorSpawnedCards()
     foreach AllActors(class'WizardCardIcon', wci)
     {
         if (ClassIsChildOf(wci.Class, class'APCardMarker'))
+        {
+            continue;
+        }
+        // A Tradersanity marker is a WizardCardIcon child but not a card
+        // check; Id=200 already makes the range guard below skip it, this is
+        // the explicit belt so intent is local to this loop.
+        if (ClassIsChildOf(wci.Class, class'APVendorMarker_Trader'))
         {
             continue;
         }
@@ -2152,6 +2253,352 @@ function ReplaceVendorEquipment()
         apArmor.CheckLocationId = 5760006;
         RegisterMorphMarker(apArmor, 5760006);
         apArmor.ApplyAPAppearance();
+    }
+
+    // Tradersanity vendors (plans/06-tradersanity.md).
+    TradersanityPass();
+}
+
+// True for the four Tradersanity-eligible sell types. Fred/George
+// (Sells_Nimbus2001 / Sells_QArmor) and Sells_Duel / Sells_Nothing are
+// excluded by omission. Enum reference form per VendorManager.uc.
+function bool IsTradersanitySellType(Characters c)
+{
+    return c.CharacterSells == c.ESells.Sells_WBark
+        || c.CharacterSells == c.ESells.Sells_FMucus
+        || c.CharacterSells == c.ESells.Sells_BronzeCards
+        || c.CharacterSells == c.ESells.Sells_SilverCards;
+}
+
+// Find-or-add a vendor in the per-level registry. The original sell type
+// comes from the GENERATED registry (data/locations.yaml), NOT the live
+// actor, so a card vendor we converted to Sells_WBark is still known to be a
+// card vendor after a save/load. The price range is snapshotted from the
+// actor's original fields (best-effort; a save/load mid-pending can capture
+// an already-modified ingredient price — a minor price-only edge).
+function int TraderRegIndex(Characters c, string lvl)
+{
+    local int i, free, s;
+
+    free = -1;
+    for (i = 0; i < TRADER_REG_SIZE; i++)
+    {
+        if (TraderVendor[i] == c) return i;
+        if (free < 0 && (TraderVendor[i] == None || TraderVendor[i].bDeleteMe))
+        {
+            free = i;
+        }
+    }
+    if (free < 0) return -1;
+
+    s = class'APLocationRegistry'.static.GetVendorSells(lvl, string(c.Name));
+    TraderVendor[free]    = c;
+    TraderOrigSells[free] = s;
+    TraderApplied[free]   = 0;
+    TraderRestored[free]  = 0;
+    TraderDispensed[free] = 0;
+    TraderToken[free]     = None;
+    TraderWait[free]      = 0;
+    TraderSavedIngr[free] = c.nCurrIngrCount;
+    if (s == SELLS_BRONZE)
+    {
+        TraderSavedLo[free] = c.nPriceBronzeCardsMin;
+        TraderSavedHi[free] = c.nPriceBronzeCardsMax;
+    }
+    else if (s == SELLS_SILVER)
+    {
+        TraderSavedLo[free] = c.nPriceSilverCardsMin;
+        TraderSavedHi[free] = c.nPriceSilverCardsMax;
+    }
+    else if (s == SELLS_FMUCUS)
+    {
+        TraderSavedLo[free] = c.nPriceFMucus;
+        TraderSavedHi[free] = c.nPriceFMucus;
+    }
+    else
+    {
+        TraderSavedLo[free] = c.nPriceWBark;
+        TraderSavedHi[free] = c.nPriceWBark;
+    }
+    return free;
+}
+
+// Original sell type was a card tier — this vendor is converted to an
+// ingredient vendor while its check is pending and restored on collection.
+function bool IsTraderCardVendor(int idx)
+{
+    return TraderOrigSells[idx] == SELLS_BRONZE
+        || TraderOrigSells[idx] == SELLS_SILVER;
+}
+
+// Every pending Tradersanity vendor sells via the ingredient path (genuine
+// ones unchanged; card vendors set to Sells_WBark), so the active price is
+// always the single ingredient field that GetSellingPrice reads.
+function SetVendorActivePrice(Characters c, int p)
+{
+    if (c.CharacterSells == c.ESells.Sells_FMucus)
+    {
+        c.nPriceFMucus = p;
+    }
+    else
+    {
+        c.nPriceWBark = p;
+    }
+}
+
+// Apply the slot_data price mode to the vendor's active (ingredient) price,
+// once per visit. price_low: flat. price_random: one roll in [LO,HI] (the
+// ingredient field has no built-in RandRange, so re-rolling per tick would
+// flicker — applied once). price_vanilla: a genuine ingredient vendor keeps
+// its true price; a converted card vendor rolls within its original card
+// [min,max] so the AP sale still costs a card-like price.
+function ApplyVendorPrice(Characters c, int idx)
+{
+    if (default.TradersanityMode == TRADER_PRICE_LOW)
+    {
+        SetVendorActivePrice(c, TRADER_PRICE_LOW_BEANS);
+        return;
+    }
+    if (default.TradersanityMode == TRADER_PRICE_RANDOM)
+    {
+        SetVendorActivePrice(c,
+            int(RandRange(TRADER_PRICE_RAND_LO, TRADER_PRICE_RAND_HI)));
+        return;
+    }
+    // price_vanilla
+    if (IsTraderCardVendor(idx))
+    {
+        SetVendorActivePrice(c,
+            int(RandRange(TraderSavedLo[idx], TraderSavedHi[idx])));
+    }
+    else
+    {
+        SetVendorActivePrice(c, TraderSavedLo[idx]);
+    }
+}
+
+// Put a sold Tradersanity vendor fully back to vanilla, exactly once. Called
+// the instant the sale resolves (the AP token is claimed) — NOT deferred to
+// the token pickup — so the vendor is sellable again in the same trade
+// session. A converted card vendor returns to its card tier. The original
+// ingredient sale price is restored unconditionally: the AP price is written
+// into nPriceWBark/nPriceFMucus and the conformal save persists it, so on a
+// later level load (fresh per-level registry, TraderApplied==0) a guarded
+// restore would be skipped and the vendor would stay stuck at the AP price.
+// For a reverted card vendor SetVendorActivePrice writes an unread field (it
+// prices off its card min/max), so the restore is a harmless no-op there.
+// nCurrIngrCount is restored to the vanilla count snapshotted at registration
+// (card vendors sell from card stock so their ~0 snapshot is harmless;
+// genuine ingredient vendors get at least 1) so vanilla resumes managing
+// stock immediately instead of sitting at the pinned zero.
+function RevertTraderVendorOnce(Characters c, int idx, bool cardV, int locId)
+{
+    if (TraderRestored[idx] == 1) return;
+    if (cardV)
+    {
+        if (TraderOrigSells[idx] == SELLS_BRONZE)
+            c.CharacterSells = c.ESells.Sells_BronzeCards;
+        else
+            c.CharacterSells = c.ESells.Sells_SilverCards;
+    }
+    SetVendorActivePrice(c, TraderSavedLo[idx]);
+    c.nCurrIngrCount = TraderSavedIngr[idx];
+    if (!cardV && c.nCurrIngrCount <= 0)
+    {
+        c.nCurrIngrCount = 1;
+    }
+    // VendorManager caches Vendor.GetSellingPrice() into nCurrPrice ONCE at
+    // engage and reuses it for the whole dialogue (both the displayed price
+    // and the amount charged); it never recomputes per item. So an open menu
+    // keeps showing/charging the AP price after we revert the price fields
+    // until the player disengages and re-talks. Push the reverted price into
+    // the live menu instance so it updates in the same trade session.
+    if (c.managerVendor != None)
+    {
+        c.managerVendor.nCurrPrice = c.GetSellingPrice();
+    }
+    TraderRestored[idx] = 1;
+    Log("[Archipelago] APCardWatcher.TradersanityPass: reverted vendor "
+        $ string(c.Name) $ " (loc id " $ locId $ " price " $ TraderSavedLo[idx] $ ")");
+}
+
+// Tradersanity per-tick pass. No actor is ever Spawn()ed: a WizardCardIcon
+// subclass returns None from Spawn() at essentially every occupied point in
+// this engine (bCollideWhenPlacing=False is not honored), which is why the
+// marker-spawn approach could never place reliably. Instead we re-skin the
+// prop the vendor itself spawned.
+//
+// While a vendor's check is pending it is made to sell exactly ONE item:
+//   - card vendor  → CharacterSells coerced to Sells_WBark (plain prop, no
+//     real card, so cardsanity stays fully independent),
+//   - either kind  → nCurrIngrCount pinned to 1 and AP-priced.
+// Vanilla MakePurchase deducts the beans, does `--nCurrIngrCount`, and drops
+// a pickup prop. The single unit going 1 -> 0 between ticks is an
+// unambiguous "paid purchase happened" signal (MakePurchase early-returns
+// without decrementing if the player can't afford it). The PotionIngredients
+// sweep below the vendor loop then morphs that dropped prop to the AP item's
+// vanilla appearance and claims it as the vendor's pickup token; the check
+// fires when the player PICKS IT UP (the pickup destroys the actor). The
+// checkedLoc branch then permanently reverts the vendor to full vanilla
+// (card vendor back to its card tier; ingredient vendor back to its real
+// stock at its real price). Inert when the mode is off.
+function TradersanityPass()
+{
+    local Characters c, v;
+    local APIPCActor ipc;
+    local PotionIngredients pi;
+    local string lvl;
+    local int locId, slot, idx, i, bestIdx, bLoc;
+    local float bestD, dd;
+    local bool checkedLoc, cardV;
+
+    if (default.TradersanityMode == TRADER_OFF) return;
+
+    lvl = string(Level.Outer.Name);
+
+    foreach AllActors(class'Characters', c)
+    {
+        if (!IsTradersanitySellType(c)) continue;
+        locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(c.Name));
+        if (locId == 0) continue;
+        slot = locId - LOC_BASE;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+
+        idx = TraderRegIndex(c, lvl);
+        if (idx < 0) continue;
+
+        checkedLoc = (default.NonCardLocationChecked[slot] == 1);
+        cardV      = IsTraderCardVendor(idx);
+
+        if (checkedLoc)
+        {
+            // Already collected — ensure the vendor is back to vanilla
+            // (idempotent; normally already reverted at sale time) and leave
+            // it alone so vanilla owns its stock.
+            RevertTraderVendorOnce(c, idx, cardV, locId);
+            continue;
+        }
+
+        if (TraderDispensed[idx] == 1)
+        {
+            // Sold. The vendor was put fully back to vanilla the instant the
+            // sale resolved (RevertTraderVendorOnce, in the morph sweep), so
+            // it is sellable again in the same trade session — we do not
+            // touch its stock here. The morphed prop is the AP token; the
+            // check fires when the player PICKS IT UP (the pickup destroys
+            // the actor, so the ref goes None/bDeleteMe).
+            RevertTraderVendorOnce(c, idx, cardV, locId);
+            if (TraderToken[idx] == None || TraderToken[idx].bDeleteMe)
+            {
+                ipc = class'APIPCActor'.static.GetInstance();
+                if (ipc != None) ipc.SendCheckLocationId(locId);
+                default.NonCardLocationChecked[slot] = 1;
+                Log("[Archipelago] APCardWatcher.TradersanityPass: vendor "
+                    $ string(c.Name) $ " AP token picked up (loc id " $ locId
+                    $ ") - fired CHECK_LOCID");
+            }
+            continue;
+        }
+
+        // Pending and unsold. Coerce a card vendor onto the ingredient sale
+        // path so the sold prop is a plain WiggentreeBark, never a real card
+        // (only while undispensed — once sold the revert above owns it).
+        if (cardV)
+        {
+            c.CharacterSells = c.ESells.Sells_WBark;
+        }
+
+        if (TraderApplied[idx] == 0)
+        {
+            // Arm: AP price + a single purchasable unit, together (same tick,
+            // so it can't be misread as a sale).
+            ApplyVendorPrice(c, idx);
+            c.nCurrIngrCount = 1;
+            TraderApplied[idx] = 1;
+            TraderWait[idx] = 0;
+        }
+        else if (c.nCurrIngrCount == 0)
+        {
+            // Bought (beans paid, MakePurchase decremented it). The morph
+            // sweep below claims the dropped prop as the token AND reverts
+            // the vendor this same tick; hold at zero stock until it does.
+            // Safety net: if no token ever resolves (prop grabbed before the
+            // sweep saw it, or never appeared) fire the check directly and
+            // revert so the vendor can't stick pending forever.
+            c.nCurrIngrCount = 0;
+            TraderWait[idx] = TraderWait[idx] + 1;
+            if (TraderWait[idx] >= TRADER_PICKUP_WAIT_TICKS)
+            {
+                ipc = class'APIPCActor'.static.GetInstance();
+                if (ipc != None) ipc.SendCheckLocationId(locId);
+                default.NonCardLocationChecked[slot] = 1;
+                TraderDispensed[idx] = 1;
+                RevertTraderVendorOnce(c, idx, cardV, locId);
+                Log("[Archipelago] APCardWatcher.TradersanityPass: vendor "
+                    $ string(c.Name) $ " sold (loc id " $ locId
+                    $ ") but no pickup token resolved - fired CHECK_LOCID directly");
+            }
+        }
+        else
+        {
+            // Armed, unsold: re-pin the single unit against vanilla's
+            // per-state-change RandRange reroll.
+            c.nCurrIngrCount = 1;
+        }
+    }
+
+    // Morph + claim the freshly-dropped sale prop for any vendor that just
+    // sold but has no token yet. Sequential top-level iterator (never nested
+    // in the Characters sweep) and mutate-only — no Spawn. The prop is
+    // re-skinned to the AP item's vanilla appearance for its location and
+    // becomes the vendor's pickup token; picking it up fires the check.
+    foreach AllActors(class'PotionIngredients', pi)
+    {
+        if (pi.bDeleteMe) continue;
+        bestIdx = -1;
+        bestD = TRADER_MATCH_RADIUS;
+        for (i = 0; i < TRADER_REG_SIZE; i++)
+        {
+            v = TraderVendor[i];
+            if (v == None || v.bDeleteMe) continue;
+            if (TraderApplied[i] != 1 || TraderDispensed[i] != 0) continue;
+            if (TraderToken[i] != None) continue;
+            if (v.nCurrIngrCount != 0) continue;
+            dd = VSize(v.Location - pi.Location);
+            if (dd < bestD)
+            {
+                bestD = dd;
+                bestIdx = i;
+            }
+        }
+        if (bestIdx < 0) continue;
+
+        bLoc = class'APLocationRegistry'.static.GetVendorLocationId(
+            lvl, string(TraderVendor[bestIdx].Name));
+        if (bLoc == 0) continue;
+
+        ApplyAppearanceTo(pi, AppearanceForApId(bLoc));
+        // The dropped prop is a real WiggentreeBark/FlobberwormMucus; its
+        // ingredient grant is the stock HProp pickup pipeline reading these
+        // two class fields (the exact pair APVendorMarker_Trader nulls so it
+        // grants nothing). Null them on this instance: picking the morphed
+        // AP token up no longer adds the ingredient to inventory, while the
+        // pickup itself still destroys the actor so the check still fires.
+        pi.classStatusGroup = None;
+        pi.classStatusItem  = None;
+        RegisterMorphMarker(pi, bLoc);
+        TraderToken[bestIdx]     = pi;
+        TraderDispensed[bestIdx] = 1;
+        TraderWait[bestIdx]      = 0;
+        // Put the vendor back to vanilla in this same tick the sale resolves
+        // so it sells its normal stock again immediately (not deferred to the
+        // token pickup). The check still fires when the token is picked up.
+        RevertTraderVendorOnce(TraderVendor[bestIdx], bestIdx,
+            IsTraderCardVendor(bestIdx), bLoc);
+        Log("[Archipelago] APCardWatcher.TradersanityPass: vendor "
+            $ string(TraderVendor[bestIdx].Name) $ " sold - morphed dropped "
+            $ string(pi.Class.Name) $ " to AP appearance (loc id " $ bLoc
+            $ "), vendor reverted, check fires on pickup");
     }
 }
 

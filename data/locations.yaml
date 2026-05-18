@@ -455,3 +455,51 @@ level_completions:
   - { id_offset: 708, idx: 8,  level: Ch2Skurge,       name: "Skurge Challenge - Complete",       region: SkurgeChallenge,   group: LevelCompletions }
   - { id_offset: 709, idx: 9,  level: Ch3Diffindo,     name: "Diffindo Challenge - Complete",     region: DiffindoChallenge, group: LevelCompletions }
   - { id_offset: 710, idx: 10, level: Ch4Spongify,     name: "Spongify Challenge - Complete",     region: SpongifyChallenge, group: LevelCompletions }
+
+# 13 Tradersanity vendor locations (plans/06-tradersanity.md). Every
+# non-Weasley card vendor (Sells_BronzeCards/SilverCards) and ingredient
+# vendor (Sells_WBark/FMucus) sells one AP check on its first sale, then
+# reverts to its normal item once that check is collected. Sourced from the
+# Phase 0 runtime vendor census (vanilla + bingo walk, 2026-05-18). Vendor
+# `actor.Name` is stable across level re-entry / save-load and identical
+# between the vanilla and bingo installs, so the mod keys each location on
+# (level, vendor_name) exactly like secrets — APLocationRegistry gains
+# GetVendorLocationId(LevelName, VendorKey). `sells` IS consumed by the
+# generator (GetVendorSells): a card vendor (BronzeCards/SilverCards) is
+# turned into an ingredient vendor at runtime while its check is pending —
+# HP2 card-vendor stock is tier-global and a card sale spawns a real card
+# (cardsanity cross-fire), whereas ingredient stock is per-vendor and spawns
+# a plain prop — and restored to its card tier on collection; the mod reads
+# the ORIGINAL type from here (not the mutated actor) so restore survives
+# save/load. `vendor_class` / `loc` are census provenance only; the generic
+# loop also uses id_offset/name/region/group.
+#
+# Id band 800-812: reserved 800-899 in plans/ID_BAND_LEDGER.md, well inside
+# the 1024 NONCARD_LOC_WINDOW so the mod's NonCardLocationChecked[] dedupe
+# (and thus the revert-after-sold behaviour) works. gen_apworld.py fails
+# generation if any non-card offset >= the window.
+#
+# Generation gate: the `tradersanity` Choice (off / price_vanilla /
+# price_random / price_low). Off emits zero locations. No paired items —
+# these hold whatever the multiworld places (filler pads the delta).
+#
+# Region must exist in BOTH logic graphs: Entryhall_hub/Grandstaircase_hub
+# map to Hogwarts, Grounds_hub to CastleExterior (both Sphere-0 in bingo,
+# both already used by secrets/classrooms). Not all vendors are story-
+# accessible in vanilla but all spawn; per-location `requires:` is authored
+# in logic_vanilla.yaml / logic_bingo.yaml during Phase 3 (region-entry-only
+# until then).
+tradersanity:
+  - { id_offset: 800, name: "Hogwarts Entrance Hall - Card Vendor 1",       level: Entryhall_hub,       vendor_name: GOldMaleGry0, vendor_class: GOldMaleGry1, sells: BronzeCards, loc: "(-1751.78, -3153.07, 108.50)", region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 801, name: "Hogwarts Entrance Hall - Card Vendor 2",       level: Entryhall_hub,       vendor_name: GOldMaleSly2, vendor_class: GOldMaleSly2, sells: SilverCards, loc: "(-242.83, -986.37, -20.00)",   region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 802, name: "Hogwarts Entrance Hall - Card Vendor 3",       level: Entryhall_hub,       vendor_name: GFemGry4,     vendor_class: GFemGry4,     sells: SilverCards, loc: "(-1925.79, -2459.75, 107.00)", region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 803, name: "Hogwarts Entrance Hall - Ingredient Vendor 1", level: Entryhall_hub,       vendor_name: GOldMaleGry3, vendor_class: GOldMaleGry1, sells: WBark,       loc: "(-447.53, -1466.94, -275.50)", region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 804, name: "Hogwarts Entrance Hall - Ingredient Vendor 2", level: Entryhall_hub,       vendor_name: GFemSly4,     vendor_class: GFemSly3,     sells: WBark,       loc: "(-3556.57, -671.87, -467.40)", region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 805, name: "Hogwarts Entrance Hall - Ingredient Vendor 3", level: Entryhall_hub,       vendor_name: GMaleSly2,    vendor_class: GMaleSly4,    sells: FMucus,      loc: "(-3767.43, -676.76, -467.50)", region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 806, name: "Hogwarts Staircase - Card Vendor 1",           level: Grandstaircase_hub,  vendor_name: GMaleRav0,    vendor_class: GMaleRav3,    sells: BronzeCards, loc: "(-1014.72, -5290.09, 428.50)", region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 807, name: "Hogwarts Staircase - Card Vendor 2",           level: Grandstaircase_hub,  vendor_name: GOldMaleHuf0, vendor_class: GOldMaleHuf1, sells: SilverCards, loc: "(-1082.65, -5710.97, 428.50)", region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 808, name: "Hogwarts Staircase - Ingredient Vendor 1",     level: Grandstaircase_hub,  vendor_name: GFemSly0,     vendor_class: GFemSly4,     sells: FMucus,      loc: "(-751.42, -5811.37, 428.50)",  region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 809, name: "Castle Exterior - Card Vendor 1",              level: Grounds_hub,         vendor_name: GMaleGry3,    vendor_class: GMaleGry4,    sells: BronzeCards, loc: "(-1298.998, 220.142, 44.40)",  region: CastleExterior, group: Tradersanity }
+  - { id_offset: 810, name: "Castle Exterior - Card Vendor 2",              level: Grounds_hub,         vendor_name: GFemSly4,     vendor_class: GFemSly2,     sells: SilverCards, loc: "(413.536, -1315.564, 44.60)",  region: CastleExterior, group: Tradersanity }
+  - { id_offset: 811, name: "Castle Exterior - Ingredient Vendor 1",        level: Grounds_hub,         vendor_name: GFemRav3,     vendor_class: GFemRav1,     sells: WBark,       loc: "(-1443.021, -2010.919, 44.60)", region: CastleExterior, group: Tradersanity }
+  - { id_offset: 812, name: "Castle Exterior - Ingredient Vendor 2",        level: Grounds_hub,         vendor_name: GMaleGry2,    vendor_class: GMaleGry3,    sells: FMucus,      loc: "(-531.83, 343.49, 44.50)",     region: CastleExterior, group: Tradersanity }

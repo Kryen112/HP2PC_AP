@@ -31,6 +31,7 @@ LOCATION_CATEGORIES = (
     "secrets",
     "challenge_stars",
     "level_completions",
+    "tradersanity",
 )
 
 # Non-card-location dedupe window. Mirrors `NONCARD_LOC_WINDOW` in
@@ -815,14 +816,16 @@ def emit_rules_dual(logic_vanilla: dict, logic_bingo: dict, locations: dict) -> 
 def emit_location_registry(locations: dict, base_id: int) -> int:
     """Emit mod/HPArchipelago/Classes/APLocationRegistry.uc.
 
-    Two static lookups: secret-marker (LevelName, MarkerName) → AP location id
-    and star-marker (LevelName, MarkerName) → AP location id. Returns 0 if a
-    given marker isn't registered (e.g. star in a non-challenge level, secret
-    in a level we haven't catalogued). The watcher uses these to fire
-    CHECK_LOCID on the correct AP location when bFound flips / star vanishes.
-    Level names are normalised via Caps() in both the emitter and the watcher
-    so case differences between Level.Outer.Name and the catalogue don't bite.
-    Returns the total number of registered (level, marker) pairs.
+    Three static lookups: secret-marker (LevelName, MarkerName) → AP location
+    id, star-marker (LevelName, MarkerName) → AP location id, and vendor
+    (LevelName, VendorName) → AP location id (Tradersanity). Returns 0 if a
+    given key isn't registered (e.g. star in a non-challenge level, a vendor
+    not in the seed's Tradersanity set). The watcher uses these to fire
+    CHECK_LOCID on the correct AP location when bFound flips / a star vanishes
+    / a tagged vendor's first sale is touched. Level names are normalised via
+    Caps() in both the emitter and the watcher so case differences between
+    Level.Outer.Name and the catalogue don't bite. Returns the total number of
+    registered (level, key) pairs.
     """
 
     def expand_levels(level_field: Any) -> list[str]:
@@ -841,6 +844,31 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
         ap_id = base_id + row["id_offset"]
         for lvl in expand_levels(row["level"]):
             star_entries.append((lvl.upper(), row["marker"], ap_id))
+
+    # Tradersanity: keyed on the vendor actor's stable Name (Phase 0 census
+    # confirmed Names survive re-entry / save-load and match vanilla↔bingo),
+    # so this is the exact same (level, key) → id shape as secrets.
+    vendor_entries: list[tuple[str, str, int]] = []
+    for row in locations.get("tradersanity", []):
+        ap_id = base_id + row["id_offset"]
+        for lvl in expand_levels(row["level"]):
+            vendor_entries.append((lvl.upper(), row["vendor_name"], ap_id))
+
+    # Original sell type per vendor, as Characters.ESells ordinals (mirrored
+    # by SELLS_* in APCardWatcher.uc). The mod converts a pending card vendor
+    # to an ingredient vendor at runtime, so it must read the ORIGINAL type
+    # from here (not the mutated actor) to restore it on collection.
+    _sells_code = {"WBark": 2, "FMucus": 3, "BronzeCards": 4, "SilverCards": 5}
+    vendor_sells_entries: list[tuple[str, str, int]] = []
+    for row in locations.get("tradersanity", []):
+        code = _sells_code.get(str(row.get("sells", "")))
+        if code is None:
+            raise ValueError(
+                f"tradersanity row {row.get('name')!r} has unknown sells "
+                f"{row.get('sells')!r}; expected one of {sorted(_sells_code)}"
+            )
+        for lvl in expand_levels(row["level"]):
+            vendor_sells_entries.append((lvl.upper(), row["vendor_name"], code))
 
     def emit_lookup(fn_name: str, entries: list[tuple[str, str, int]]) -> list[str]:
         by_level: dict[str, list[tuple[str, int]]] = {}
@@ -869,7 +897,7 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
     out_path = MOD_CLASSES_DIR / "APLocationRegistry.uc"
     lines = [
         "// Auto-generated. Do not edit by hand; regenerate from",
-        "// data/locations.yaml (secrets + challenge_stars sections).",
+        "// data/locations.yaml (secrets + challenge_stars + tradersanity sections).",
         "class APLocationRegistry extends Object;",
         "",
     ]
@@ -877,8 +905,12 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
     lines.append("")
     lines += emit_lookup("GetStarLocationId", star_entries)
     lines.append("")
+    lines += emit_lookup("GetVendorLocationId", vendor_entries)
+    lines.append("")
+    lines += emit_lookup("GetVendorSells", vendor_sells_entries)
+    lines.append("")
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return len(secret_entries) + len(star_entries)
+    return len(secret_entries) + len(star_entries) + len(vendor_entries)
 
 
 def emit_card_appearance_registry(locations: dict, base_id: int) -> int:
@@ -1043,6 +1075,7 @@ def main() -> int:
         return 1
     n_secrets = len(locations.get("secrets", []))
     n_stars = len(locations.get("challenge_stars", []))
+    n_tradersanity = len(locations.get("tradersanity", []))
     known_items = collect_known_items(items)
     try:
         validate(items, locations)
@@ -1116,11 +1149,11 @@ def main() -> int:
     n_loc_rules_v = sum(1 for m in (logic_vanilla.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     n_loc_rules_b = sum(1 for m in (logic_bingo.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")
-    print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars)")
+    print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars + {n_tradersanity} tradersanity)")
     print(f"Wrote {regions_py} ({n_regions} regions, start={start_region!r})")
     print(f"Wrote {rules_py} (vanilla: {n_loc_rules_v} per-loc rules, {len(logic_vanilla.get('goal') or {})} goal(s); bingo: {n_loc_rules_b}, {len(logic_bingo.get('goal') or {})})")
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
-    print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star registrations)")
+    print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star+vendor registrations)")
     print(f"Wrote APCardAppearance.uc ({n_appearance} card id registrations)")
     return 0
 

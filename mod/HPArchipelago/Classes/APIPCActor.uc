@@ -207,6 +207,13 @@ function HandleLine(string line)
         // launch / reconnect re-arms it. Idempotent.
         class'APCardWatcher'.static.SetGoalConfigCSV(Mid(line, 8));
     }
+    else if (Left(line, 9) == "TRADECFG ")
+    {
+        // Tradersanity price mode from the apworld slot_data, as a single
+        // int (0 off / 1 vanilla / 2 random / 3 low). Sticky class-default
+        // on the watcher (mirrors GOALCFG); resent every HELLO. Idempotent.
+        class'APCardWatcher'.static.SetTradersanityMode(int(Mid(line, 9)));
+    }
     else if (Left(line, 11) == "APPEARANCE ")
     {
         // #3 per-location appearance table from the client, as

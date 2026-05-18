@@ -561,3 +561,72 @@ locations:
   "Diffindo Challenge - Complete":
     { requires: "Rictusempra & Flipendo & Diffindo & Lumos & Skurge" }
   "Spongify Challenge - Complete": { requires: "Spongify & Skurge & Flipendo" }
+
+  # Tradersanity vendors
+  # 13 vendor-purchase checks.
+  # `notes` carries the physical identity (level, actor, item, coords).
+  "Hogwarts Entrance Hall - Card Vendor 1":
+    {
+      requires: "true",
+      notes: "Entryhall_hub, GOldMaleGry0, BronzeCards, (-1751.78,-3153.07,108.50)",
+    }
+  "Hogwarts Entrance Hall - Card Vendor 2":
+    {
+      requires: "true",
+      notes: "Entryhall_hub, GOldMaleSly2, SilverCards, (-242.83,-986.37,-20.00)",
+    }
+  "Hogwarts Entrance Hall - Card Vendor 3":
+    {
+      requires: "true",
+      notes: "Entryhall_hub, GFemGry4, SilverCards, (-1925.79,-2459.75,107.00)",
+    }
+  "Hogwarts Entrance Hall - Ingredient Vendor 1":
+    {
+      requires: "true",
+      notes: "Entryhall_hub, GOldMaleGry3, WBark, (-447.53,-1466.94,-275.50)",
+    }
+  "Hogwarts Entrance Hall - Ingredient Vendor 2":
+    {
+      requires: "true",
+      notes: "Entryhall_hub, GFemSly4, WBark, (-3556.57,-671.87,-467.40)",
+    }
+  "Hogwarts Entrance Hall - Ingredient Vendor 3":
+    {
+      requires: "true",
+      notes: "Entryhall_hub, GMaleSly2, FMucus, (-3767.43,-676.76,-467.50)",
+    }
+  "Hogwarts Staircase - Card Vendor 1":
+    {
+      requires: "true",
+      notes: "Grandstaircase_hub, GMaleRav0, BronzeCards, (-1014.72,-5290.09,428.50)",
+    }
+  "Hogwarts Staircase - Card Vendor 2":
+    {
+      requires: "true",
+      notes: "Grandstaircase_hub, GOldMaleHuf0, SilverCards, (-1082.65,-5710.97,428.50)",
+    }
+  "Hogwarts Staircase - Ingredient Vendor 1":
+    {
+      requires: "true",
+      notes: "Grandstaircase_hub, GFemSly0, FMucus, (-751.42,-5811.37,428.50)",
+    }
+  "Castle Exterior - Card Vendor 1":
+    {
+      requires: "true",
+      notes: "Grounds_hub, GMaleGry3, BronzeCards, (-1298.998,220.142,44.40)",
+    }
+  "Castle Exterior - Card Vendor 2":
+    {
+      requires: "true",
+      notes: "Grounds_hub, GFemSly4, SilverCards, (413.536,-1315.564,44.60)",
+    }
+  "Castle Exterior - Ingredient Vendor 1":
+    {
+      requires: "true",
+      notes: "Grounds_hub, GFemRav3, WBark, (-1443.021,-2010.919,44.60)",
+    }
+  "Castle Exterior - Ingredient Vendor 2":
+    {
+      requires: "true",
+      notes: "Grounds_hub, GMaleGry2, FMucus, (-531.83,343.49,44.50)",
+    }

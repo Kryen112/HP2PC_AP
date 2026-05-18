@@ -1,0 +1,146 @@
+// AP-aware drop-in replacement for the card / ingredient a generic vendor
+// spawns on its first Tradersanity sale. One class covers every vendor type
+// (Bronze/Silver card, Wiggentree Bark, Flobberworm Mucus) — the actual look
+// is resolved at runtime by the #3 appearance sweep, not baked here.
+//
+// Why extend WizardCardIcon (the APCardMarker base) rather than the specific
+// sale item the way APVendorMarker_Nimbus extends VendorNimbusBroom: a Trader
+// marker stands in for four different vanilla items, so there is no single
+// item to inherit. WizardCardIcon gives the proven AP-pickup behaviour for
+// free — a visible default card mesh (so it never renders invisible even if
+// the appearance table never arrives, e.g. AP offline), the fly-to-HUD spin,
+// and the Id=200 sentinel that keeps vanilla card-management
+// (RemoveHarryOwnedCardsFromLevel / AssignVendorCards) from ever touching it.
+// The unified appearance subsystem (V2 reconciliation §1) then morphs it to
+// the real held item / AP-logo plate; no bespoke appearance code lives here.
+//
+// Semantics differ from APCardMarker: this is a NON-card AP location (band
+// 800-812), so Touch dedupes via NonCardLocationChecked[] and fires
+// SendCheckLocationId — exactly like APVendorMarker_Nimbus, not SendCheck.
+//
+// Spawned by APCardWatcher.TradersanityPass when it sees a freshly-sold item
+// next to an unchecked Tradersanity vendor; CheckLocationId is stamped after
+// Spawn with that vendor's AP location id (APLocationRegistry.GetVendorLocationId).
+class APVendorMarker_Trader extends WizardCardIcon;
+
+const LOC_BASE = 5760000;
+// Mirrors APCardWatcher.NONCARD_LOC_WINDOW / gen_apworld.py NONCARD_LOC_WINDOW
+// — the three MUST hold the same value (M212 UScript can't reference another
+// class's const, and array dims / guards take an integer literal anyway). The
+// Tradersanity band (800-812) is well inside this window.
+const NONCARD_LOC_WINDOW = 1024;
+
+var int CheckLocationId;
+
+// Drop straight down and settle, skipping WizardCardIcon.Spawned's
+// bounce-around state (which would carry the marker away from the vendor).
+// Mirrors APCardMarker.Spawned.
+function Spawned()
+{
+    SetPhysics(PHYS_Falling);
+    bBouncingState = False;
+    GotoState('Wait');
+}
+
+// Settle on the landing surface and spin in place. Mirrors APCardMarker's
+// Wait state; UE1 needs the begin: entry point.
+auto state Wait
+{
+    function HitWall(Vector HitNormal, Actor Wall)
+    {
+        Velocity = vect(0, 0, 0);
+    }
+
+    function Tick(float Delta)
+    {
+        local Rotator newRot;
+
+        newRot = Rotation;
+        newRot.Yaw = newRot.Yaw + (50000 * Delta);
+        SetRotation(newRot);
+    }
+
+begin:
+    Sleep(1.0);
+    goto ('Begin');
+}
+
+// `function` (not `event`) to match WizardCardIcon.Touch's declaration, the
+// same as APCardMarker — overriding with a mismatched keyword is an M212
+// hazard. No Super call: the vanilla card-grant path never runs.
+function Touch(Actor Other)
+{
+    local APIPCActor ipc;
+    local Rotator rotPickupFX;
+    local int slot;
+
+    if (harry(Other) == None) return;
+    if (CheckLocationId <= 0) return;
+
+    slot = CheckLocationId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+
+    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+    {
+        Log("[Archipelago] APVendorMarker_Trader.Touch: location " $ CheckLocationId
+            $ " already checked - destroying stale duplicate marker");
+        Destroy();
+        return;
+    }
+
+    class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+    Log("[Archipelago] APVendorMarker_Trader.Touch: firing CHECK_LOCID " $ CheckLocationId);
+
+    if (soundPickup != None)
+    {
+        PlaySound(soundPickup);
+    }
+
+    // AP pickup burst — matches APCardMarker / APVendorMarker_Nimbus styling.
+    // Pitch=16464 emits the stars upward.
+    rotPickupFX.Pitch = 16464;
+    rotPickupFX.Yaw = 0;
+    rotPickupFX.Roll = 0;
+    Spawn(class'APStarsRed',    , , Location, rotPickupFX);
+    Spawn(class'APStarsOrange', , , Location, rotPickupFX);
+    Spawn(class'APStarsYellow', , , Location, rotPickupFX);
+    Spawn(class'APStarsGreen',  , , Location, rotPickupFX);
+    Spawn(class'APStarsBlue',   , , Location, rotPickupFX);
+    Spawn(class'APStarsPurple', , , Location, rotPickupFX);
+
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc != None)
+    {
+        ipc.SendCheckLocationId(CheckLocationId);
+    }
+
+    Destroy();
+}
+
+// #3 capability contract. CheckLocationId (stamped after Spawn by
+// APCardWatcher.TradersanityPass) is the resolvable AP location id; the sweep
+// morphs this marker to whatever item the seed placed here.
+function ApplyAPAppearance()
+{
+    if (CheckLocationId <= 0) return;
+    class'APCardWatcher'.static.ApplyAppearanceTo(self,
+        class'APCardWatcher'.static.AppearanceForApId(CheckLocationId));
+}
+
+defaultproperties
+{
+    // Id=200 is the WizardCards[]-sentinel APCardMarker uses so vanilla
+    // card-owner sweeps skip us. classStatusGroup/Item cleared so no inherited
+    // HProp pickup pipeline grants inventory on touch (our Touch never calls
+    // Super anyway, but defensive — mirrors APVendorMarker_Nimbus).
+    Id=200
+    bPickupOnTouch=True
+    PickupFlyTo=FT_HudPosition
+    classStatusGroup=None
+    classStatusItem=None
+    // The sold item often comes to rest against geometry before the watcher
+    // tick swaps it; with placement-collision on, Spawn() at that spot
+    // returns None and the swap loses the item. We don't need placement
+    // collision (PHYS_Falling + the Wait HitWall settle it anyway), so off.
+    bCollideWhenPlacing=False
+}

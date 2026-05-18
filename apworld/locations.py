@@ -290,6 +290,19 @@ LOCATION_NAME_TO_ID: dict[str, int] = {
     'Skurge Challenge - Complete': 5760708,
     'Diffindo Challenge - Complete': 5760709,
     'Spongify Challenge - Complete': 5760710,
+    'Hogwarts Entrance Hall - Card Vendor 1': 5760800,
+    'Hogwarts Entrance Hall - Card Vendor 2': 5760801,
+    'Hogwarts Entrance Hall - Card Vendor 3': 5760802,
+    'Hogwarts Entrance Hall - Ingredient Vendor 1': 5760803,
+    'Hogwarts Entrance Hall - Ingredient Vendor 2': 5760804,
+    'Hogwarts Entrance Hall - Ingredient Vendor 3': 5760805,
+    'Hogwarts Staircase - Card Vendor 1': 5760806,
+    'Hogwarts Staircase - Card Vendor 2': 5760807,
+    'Hogwarts Staircase - Ingredient Vendor 1': 5760808,
+    'Castle Exterior - Card Vendor 1': 5760809,
+    'Castle Exterior - Card Vendor 2': 5760810,
+    'Castle Exterior - Ingredient Vendor 1': 5760811,
+    'Castle Exterior - Ingredient Vendor 2': 5760812,
 }
 
 LOCATION_REGIONS: dict[str, str] = {
@@ -580,6 +593,19 @@ LOCATION_REGIONS: dict[str, str] = {
     'Skurge Challenge - Complete': 'SkurgeChallenge',
     'Diffindo Challenge - Complete': 'DiffindoChallenge',
     'Spongify Challenge - Complete': 'SpongifyChallenge',
+    'Hogwarts Entrance Hall - Card Vendor 1': 'Hogwarts',
+    'Hogwarts Entrance Hall - Card Vendor 2': 'Hogwarts',
+    'Hogwarts Entrance Hall - Card Vendor 3': 'Hogwarts',
+    'Hogwarts Entrance Hall - Ingredient Vendor 1': 'Hogwarts',
+    'Hogwarts Entrance Hall - Ingredient Vendor 2': 'Hogwarts',
+    'Hogwarts Entrance Hall - Ingredient Vendor 3': 'Hogwarts',
+    'Hogwarts Staircase - Card Vendor 1': 'Hogwarts',
+    'Hogwarts Staircase - Card Vendor 2': 'Hogwarts',
+    'Hogwarts Staircase - Ingredient Vendor 1': 'Hogwarts',
+    'Castle Exterior - Card Vendor 1': 'CastleExterior',
+    'Castle Exterior - Card Vendor 2': 'CastleExterior',
+    'Castle Exterior - Ingredient Vendor 1': 'CastleExterior',
+    'Castle Exterior - Ingredient Vendor 2': 'CastleExterior',
 }
 
 LOCATION_GROUPS: dict[str, str] = {
@@ -870,6 +896,19 @@ LOCATION_GROUPS: dict[str, str] = {
     'Skurge Challenge - Complete': 'LevelCompletions',
     'Diffindo Challenge - Complete': 'LevelCompletions',
     'Spongify Challenge - Complete': 'LevelCompletions',
+    'Hogwarts Entrance Hall - Card Vendor 1': 'Tradersanity',
+    'Hogwarts Entrance Hall - Card Vendor 2': 'Tradersanity',
+    'Hogwarts Entrance Hall - Card Vendor 3': 'Tradersanity',
+    'Hogwarts Entrance Hall - Ingredient Vendor 1': 'Tradersanity',
+    'Hogwarts Entrance Hall - Ingredient Vendor 2': 'Tradersanity',
+    'Hogwarts Entrance Hall - Ingredient Vendor 3': 'Tradersanity',
+    'Hogwarts Staircase - Card Vendor 1': 'Tradersanity',
+    'Hogwarts Staircase - Card Vendor 2': 'Tradersanity',
+    'Hogwarts Staircase - Ingredient Vendor 1': 'Tradersanity',
+    'Castle Exterior - Card Vendor 1': 'Tradersanity',
+    'Castle Exterior - Card Vendor 2': 'Tradersanity',
+    'Castle Exterior - Ingredient Vendor 1': 'Tradersanity',
+    'Castle Exterior - Ingredient Vendor 2': 'Tradersanity',
 }
 
 # Map UScript card class name → AP location name. Used by the client to

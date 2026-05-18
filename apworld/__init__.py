@@ -282,6 +282,23 @@ class TrapFillPercent(Range):
     default = 5
 
 
+class Tradersanity(Choice):
+    """Every non-Weasley card vendor and ingredient vendor sells one AP
+    location check on its first sale, then permanently reverts to selling its
+    normal card/ingredient. Fred & George (Nimbus 2001 / Quidditch Armour) are
+    untouched. `off` (default) leaves all vendors vanilla and emits no
+    Tradersanity locations. The three on settings differ only in what the
+    AP-check sale costs: `price_vanilla` keeps the vendor's normal asking
+    price, `price_random` randomises it within a band, `price_low` clamps it
+    to a cheap fixed price."""
+    display_name = "Tradersanity"
+    option_off = 0
+    option_price_vanilla = 1
+    option_price_random = 2
+    option_price_low = 3
+    default = 0
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -307,6 +324,7 @@ class HP2Options(PerGameCommonOptions):
     ring_link: RingLink
     enable_traps: EnableTraps
     trap_fill_percent: TrapFillPercent
+    tradersanity: Tradersanity
     # Pulled out of the shared "Game Options" block into their own
     # OptionGroup-rendered headers (see HP2WebWorld.option_groups), so the
     # dataclass position here does not affect template ordering.
@@ -391,6 +409,9 @@ class HP2World(World):
         "QuidditchPurchases": "enable_quidditch_upgrades",
         "Duels":              "enable_duelling",
         "QuidditchMatches":   "enable_quidditch_matches",
+        # Tradersanity is a Choice, not a Toggle: _location_enabled treats any
+        # non-off value (price_vanilla/random/low) as enabled via .value.
+        "Tradersanity":       "tradersanity",
         # LevelCompletions has no opt: the 11 "X Level - Complete" spots are
         # always real checks. The bingo levels clause gates on their
         # reachability, so they must always exist; bingo_goal_levels (0..11)
@@ -437,7 +458,10 @@ class HP2World(World):
         opt_attr = self._LOC_GROUP_TO_OPT.get(group or "")
         if opt_attr is None:
             return True
-        return bool(getattr(self.options, opt_attr))
+        # .value generalises the Toggle gates and makes a Choice (Tradersanity:
+        # off=0) read as enabled for any non-off setting — bool(option) is
+        # always truthy for a Choice instance, so it must be bool(value).
+        return bool(getattr(self.options, opt_attr).value)
 
     def _item_enabled(self, item_name: str) -> bool:
         for group_name, opt_attr in self._ITEM_GROUP_TO_OPT.items():
@@ -743,7 +767,15 @@ class HP2World(World):
         # The client only learns the RingLink toggle through slot_data; it
         # has no other view of the YAML. Must be in both return paths.
         if not self._is_bingo():
-            return {"game_mode": "vanilla", "ring_link": bool(self.options.ring_link)}
-        sd = {"game_mode": "bingo", "ring_link": bool(self.options.ring_link)}
+            return {
+                "game_mode": "vanilla",
+                "ring_link": bool(self.options.ring_link),
+                "tradersanity": self.options.tradersanity.value,
+            }
+        sd = {
+            "game_mode": "bingo",
+            "ring_link": bool(self.options.ring_link),
+            "tradersanity": self.options.tradersanity.value,
+        }
         sd.update(self._bingo_goal_config())
         return sd

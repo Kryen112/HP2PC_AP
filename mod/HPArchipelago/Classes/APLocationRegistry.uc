@@ -1,5 +1,5 @@
 // Auto-generated. Do not edit by hand; regenerate from
-// data/locations.yaml (secrets + challenge_stars sections).
+// data/locations.yaml (secrets + challenge_stars + tradersanity sections).
 class APLocationRegistry extends Object;
 
 static function int GetSecretLocationId(string LevelName, string MarkerName)
@@ -229,6 +229,62 @@ static function int GetStarLocationId(string LevelName, string MarkerName)
         if (MarkerName == "ChallengeStar7") return 5760541;
         if (MarkerName == "ChallengeStar8") return 5760542;
         if (MarkerName == "ChallengeStar9") return 5760543;
+    }
+    return 0;
+}
+
+static function int GetVendorLocationId(string LevelName, string MarkerName)
+{
+    LevelName = Caps(LevelName);
+    if (LevelName == "ENTRYHALL_HUB")
+    {
+        if (MarkerName == "GFemGry4") return 5760802;
+        if (MarkerName == "GFemSly4") return 5760804;
+        if (MarkerName == "GMaleSly2") return 5760805;
+        if (MarkerName == "GOldMaleGry0") return 5760800;
+        if (MarkerName == "GOldMaleGry3") return 5760803;
+        if (MarkerName == "GOldMaleSly2") return 5760801;
+    }
+    else if (LevelName == "GRANDSTAIRCASE_HUB")
+    {
+        if (MarkerName == "GFemSly0") return 5760808;
+        if (MarkerName == "GMaleRav0") return 5760806;
+        if (MarkerName == "GOldMaleHuf0") return 5760807;
+    }
+    else if (LevelName == "GROUNDS_HUB")
+    {
+        if (MarkerName == "GFemRav3") return 5760811;
+        if (MarkerName == "GFemSly4") return 5760810;
+        if (MarkerName == "GMaleGry2") return 5760812;
+        if (MarkerName == "GMaleGry3") return 5760809;
+    }
+    return 0;
+}
+
+static function int GetVendorSells(string LevelName, string MarkerName)
+{
+    LevelName = Caps(LevelName);
+    if (LevelName == "ENTRYHALL_HUB")
+    {
+        if (MarkerName == "GFemGry4") return 5;
+        if (MarkerName == "GFemSly4") return 2;
+        if (MarkerName == "GMaleSly2") return 3;
+        if (MarkerName == "GOldMaleGry0") return 4;
+        if (MarkerName == "GOldMaleGry3") return 2;
+        if (MarkerName == "GOldMaleSly2") return 5;
+    }
+    else if (LevelName == "GRANDSTAIRCASE_HUB")
+    {
+        if (MarkerName == "GFemSly0") return 3;
+        if (MarkerName == "GMaleRav0") return 4;
+        if (MarkerName == "GOldMaleHuf0") return 5;
+    }
+    else if (LevelName == "GROUNDS_HUB")
+    {
+        if (MarkerName == "GFemRav3") return 2;
+        if (MarkerName == "GFemSly4") return 5;
+        if (MarkerName == "GMaleGry2") return 3;
+        if (MarkerName == "GMaleGry3") return 4;
     }
     return 0;
 }

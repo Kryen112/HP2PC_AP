@@ -198,6 +198,11 @@ class HP2Context(CommonContext):
         # Connected; pushed to the mod on every game HELLO (sticky + idempotent
         # mod-side, so a fresh game launch / reconnect re-arms it).
         self.bingo_goalcfg: Optional[str] = None
+        # Tradersanity price mode as the "TRADECFG <int>" payload (0 off /
+        # 1 vanilla / 2 random / 3 low), or None if not yet received. Parsed
+        # from slot_data on Connected; pushed every game HELLO (sticky +
+        # idempotent mod-side), same lifecycle as bingo_goalcfg.
+        self.tradersanity_cfg: Optional[str] = None
         # #3: last "apId:code,…" appearance payload pushed to the mod, or None
         # if not yet built. Resent on every game HELLO (sticky + idempotent
         # mod-side). Rebuilt from self.locations_info on each LocationInfo.
@@ -244,6 +249,14 @@ class HP2Context(CommonContext):
                     self._send_to_game("GOALCFG " + self.bingo_goalcfg)
             else:
                 self.bingo_goalcfg = None
+
+            # Tradersanity price mode (both game modes; slot_data carries it
+            # for vanilla and bingo). Sticky like bingo_goalcfg: push now if
+            # the game is up, else it rides the next HELLO. Default 0 (off).
+            self.tradersanity_cfg = str(int(sd.get("tradersanity", 0)))
+            logger.info(f"Tradersanity mode from slot_data: {self.tradersanity_cfg}")
+            if self.game_writer is not None:
+                self._send_to_game("TRADECFG " + self.tradersanity_cfg)
 
             # RingLink (#5). Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
@@ -487,6 +500,11 @@ class HP2Context(CommonContext):
             # reconnects without harm. No-op for vanilla / pre-Connected.
             if self.bingo_goalcfg:
                 self._send_to_game("GOALCFG " + self.bingo_goalcfg)
+            # Re-arm the Tradersanity price mode. Sticky + idempotent mod-side;
+            # is not None (not truthiness) so mode 0 (off) still re-arms and a
+            # later seed that turns Tradersanity off is honoured.
+            if self.tradersanity_cfg is not None:
+                self._send_to_game("TRADECFG " + self.tradersanity_cfg)
             # #3: re-push the appearance table. Sticky + idempotent mod-side,
             # so resending every HELLO re-arms a fresh game launch / reconnect.
             # is not None (not truthiness) so an all-native "" still re-arms.
