@@ -326,7 +326,9 @@ class HP2WebWorld(WebWorld):
     their own banner. Padded names render as a wide ``#`` box header.
     """
     option_groups = [
-        OptionGroup("           VANILLA           ", [VanillaGateLevels]),
+        OptionGroup("           VANILLA           ", [
+            VanillaGateLevels, AllowSecretsProgression,
+        ]),
         OptionGroup("            BINGO            ", [
             BingoGoalCards, BingoGoalSpells, BingoGoalLevels,
             BingoGoalDuels, BingoGoalQuidditch,
