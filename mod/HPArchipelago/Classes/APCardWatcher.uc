@@ -5,6 +5,12 @@ const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
 const NUM_BINGO_KEYS = 13;
 
+// Story state when the player first gains control in the Great Hall after
+// the opening sequence — the checkpoint where vanilla assigns silver wizard
+// cards to vendors, reached in both vanilla and bingo. The one-time startup
+// safety save fires at the first playable tick at or after this state.
+const STARTUP_SAFETY_SAVE_GAMESTATE = 180;
+
 // AP location base id (locations.yaml `base_id`). Used to index
 // NonCardLocationChecked[] by `apId - LOC_BASE` for secrets/stars/etc.
 // Mirrors `BASE_ID` in apworld/locations.py.
@@ -1189,6 +1195,8 @@ event Timer()
     local HPConsole console;
     local FEBook book;
     local harry viewportHarry;
+    local harry saveHarry;
+    local string deferReason;
     local APGameInfo gi;
 
     EnsureLatestRegistration();
@@ -1437,6 +1445,43 @@ event Timer()
         // vendor-available the moment their gate opens, without waiting for
         // a level reload.
         AssignMarkersToVendors();
+    }
+
+    // A genuine new game climbs gstate 0 -> ... -> 180 through the intro, so
+    // the persistent singleton observes a sub-Great-Hall value before 180.
+    // Loading a save already at/after 180 never does — and a loaded game
+    // inherently has a save, so the safety net is moot there. Recording this
+    // on the singleton is what scopes the save to new games only.
+    if (ipc != None && HarryRef.iGameState < STARTUP_SAFETY_SAVE_GAMESTATE)
+    {
+        ipc.bSawStateBelowGreatHall = True;
+    }
+
+    // One-time startup safety save. Vanilla guarantees a recoverable save
+    // around the opening (a SmartStart bDoLevelSave on the first level
+    // transition), so quitting right after gaining control still leaves a
+    // save; the AP open-castle flow can bypass that transition. Mirror the
+    // intent: the first time the player actually holds control at or after
+    // the Great Hall arrival state (reached in both modes), write the
+    // autosave once. Both flags live on the persistent singleton so it fires
+    // once per process, not once per level — this watcher re-spawns each
+    // level. bSawStateBelowGreatHall scopes it to new games (a load into a
+    // >=180 save already has a save, and re-saving there is a needless hitch
+    // every load). gstate crosses STARTUP_SAFETY_SAVE_GAMESTATE during the
+    // arrival cutscene, before control returns, so this is a per-tick retry
+    // (not gated on the transition above) until a safe tick: alive,
+    // PlayerWalking, no cutscene/menu — exactly IsPlayerInPlayableState.
+    if (ipc != None && !ipc.bStartupSafetySaveDone && ipc.bSawStateBelowGreatHall
+        && HarryRef.iGameState >= STARTUP_SAFETY_SAVE_GAMESTATE)
+    {
+        saveHarry = harry(Level.PlayerHarryActor);
+        if (saveHarry != None && saveHarry.GetHealthCount() > 0
+            && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+        {
+            ipc.bStartupSafetySaveDone = True;
+            Log("[Archipelago] APCardWatcher: startup safety save (iGameState=" $ HarryRef.iGameState $ ")");
+            saveHarry.SaveGame();
+        }
     }
 
     if (siBronze.nCount != LastBronzeCount || siSilver.nCount != LastSilverCount || siGold.nCount != LastGoldCount)

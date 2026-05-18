@@ -33,6 +33,18 @@ var float ReconnectBackoff;
 // queue.
 var string RecvBuffer;
 
+// One-time startup safety save. APCardWatcher drives the trigger; these
+// flags are owned by the persistent singleton so they survive level
+// transitions and fire exactly once per process — the player only needs the
+// early-quit safety net once per fresh launch. TcpLink is transient (not
+// serialized into the save), so a new launch re-arms them.
+// bSawStateBelowGreatHall: set once the watcher reads any gstate below the
+// Great Hall arrival state. Only a genuine new game does (it climbs through
+// the intro); a load straight into a >=180 save never does, which scopes
+// the safety save to new games and skips a redundant re-save every load.
+var bool bStartupSafetySaveDone;
+var bool bSawStateBelowGreatHall;
+
 // RingLink (#5). The persistent singleton owns the bean baseline so it
 // survives level loads. LastBeanBaseline is the last bean count the poll
 // diffed against. The poll is deliberately NOT gated on
