@@ -17,7 +17,7 @@ from typing import Any
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          LocationProgressType, Region)
 from Options import (Choice, DefaultOnToggle, NamedRange, OptionError,
-                     OptionGroup, OptionSet, PerGameCommonOptions,
+                     OptionGroup, OptionSet, PerGameCommonOptions, Range,
                      StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
@@ -25,17 +25,16 @@ from worlds.LauncherComponents import launch as launch_component
 
 from .items import BASE_ID as ITEM_BASE_ID
 from .items import (FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
-                    ITEM_NAME_TO_ID)
+                    ITEM_NAME_TO_ID, TRAP_NAMES)
 from .locations import BASE_ID as LOCATION_BASE_ID
 from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
-                        GOLD_CARD_ROOM_LOCATIONS,
-                        MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS,
-                        LOCATION_GROUPS, LOCATION_NAME_TO_ID, LOCATION_REGIONS)
+                        GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
+                        LOCATION_NAME_TO_ID, LOCATION_REGIONS,
+                        MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS)
 from .regions import (REGION_ENTRY_RULES_BINGO, REGION_ENTRY_RULES_VANILLA,
                       REGION_NAMES, START_REGION)
-from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA,
-                    GOAL_RULES_VANILLA, LOCATION_RULES_BINGO,
-                    LOCATION_RULES_VANILLA)
+from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_VANILLA,
+                    LOCATION_RULES_BINGO, LOCATION_RULES_VANILLA)
 
 PROGRESSION_ITEM_NAMES: list[str] = [
     name for name, c in ITEM_CLASSIFICATIONS.items() if c == ItemClassification.progression
@@ -268,6 +267,21 @@ class RingLink(Toggle):
     display_name = "Ring Link"
 
 
+class EnableTraps(Toggle):
+    """If true, trap items (Bean Thief, Goyle Transformation, Forgetfulness)
+    enter the seed, replacing a fraction of the filler set by `trap_fill_percent`."""
+    display_name = "Enable Traps"
+
+
+class TrapFillPercent(Range):
+    """Percentage of filler items replaced with traps when `enable_traps` is on.
+    Does nothing when `enable_traps` is off."""
+    display_name = "Trap fill percent"
+    range_start = 5
+    range_end = 50
+    default = 5
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -291,6 +305,8 @@ class HP2Options(PerGameCommonOptions):
     enable_duelling: EnableDuelling
     enable_quidditch_matches: EnableQuidditchMatches
     ring_link: RingLink
+    enable_traps: EnableTraps
+    trap_fill_percent: TrapFillPercent
     # Pulled out of the shared "Game Options" block into their own
     # OptionGroup-rendered headers (see HP2WebWorld.option_groups), so the
     # dataclass position here does not affect template ordering.
@@ -379,12 +395,16 @@ class HP2World(World):
         # is the only knob over how many count toward the Great Hall.
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
-    # Spells / Key Items / Filler aren't listed — always in the pool.
+    # Spells / Key Items / Filler aren't listed — always in the pool. Traps
+    # are also explicitly excluded from non_filler in create_items (they are
+    # drawn only via the filler-delta partition), so this entry is the
+    # belt-and-suspenders gate for any other _item_enabled consumer.
     _ITEM_GROUP_TO_OPT: dict[str, str] = {
         "Cards (Bronze)": "enable_wizard_cards",
         "Cards (Silver)": "enable_wizard_cards",
         "Cards (Gold)":   "enable_wizard_cards",
         "Equipment":      "enable_quidditch_upgrades",
+        "Traps":          "enable_traps",
     }
 
     def _is_bingo(self) -> bool:
@@ -514,9 +534,15 @@ class HP2World(World):
 
     def create_items(self) -> None:
         starters = self._starter_names()
+        # Traps are excluded here alongside filler: neither counts as a
+        # placeable non-filler item. Traps only ever enter the pool through
+        # the filler-delta partition below (so item/location balance is
+        # identical to a no-traps seed — they just displace some filler).
         non_filler = [
             name for name in ITEM_NAME_TO_ID
-            if name not in FILLER_NAMES and self._item_enabled(name)
+            if name not in FILLER_NAMES
+            and name not in TRAP_NAMES
+            and self._item_enabled(name)
         ]
         placeable_non_filler = [
             name for name in non_filler
@@ -536,9 +562,21 @@ class HP2World(World):
         delta = active_location_count - len(placeable_non_filler)
         if delta > 0:
             rng: _random.Random = self.multiworld.random if hasattr(self.multiworld, "random") else _random.Random()
-            for _ in range(delta):
-                name = rng.choice(FILLER_NAMES)
-                self.multiworld.itempool.append(self.create_item(name))
+            # Split the delta between traps and filler. Off / 0% / no
+            # TRAP_NAMES ⇒ trap_n stays 0 and the whole delta is filler, the
+            # pre-traps behaviour. The partition keeps the pool size exactly
+            # `delta`, so item/location balance is unaffected.
+            trap_n = 0
+            if bool(self.options.enable_traps) and TRAP_NAMES:
+                pct = int(self.options.trap_fill_percent.value)
+                trap_n = round(delta * pct / 100)
+                trap_n = max(0, min(trap_n, delta))
+            for _ in range(trap_n):
+                self.multiworld.itempool.append(
+                    self.create_item(rng.choice(TRAP_NAMES)))
+            for _ in range(delta - trap_n):
+                self.multiworld.itempool.append(
+                    self.create_item(rng.choice(FILLER_NAMES)))
 
     def set_rules(self) -> None:
         from worlds.generic.Rules import add_item_rule, add_rule, set_rule

@@ -336,7 +336,7 @@ def rule_idents(rule_str: str) -> set[str]:
 
 def collect_known_items(items: dict) -> set[str]:
     names: set[str] = set()
-    for category in ("spells", "key_items", "bingo_keys", "cards_bronze", "cards_silver", "cards_gold", "filler"):
+    for category in ("spells", "key_items", "bingo_keys", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
         for entry in items.get(category, []):
             names.add(entry["name"])
     return names
@@ -410,7 +410,7 @@ def validate(items: dict, locations: dict) -> None:
     item_ids: set[int] = set()
     item_names: set[str] = set()
     item_base = items["base_id"]
-    for category in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"):
+    for category in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
         for entry in items.get(category, []):
             iid = item_base + entry["id_offset"]
             if iid in item_ids:
@@ -485,6 +485,7 @@ def emit_items(items: dict) -> str:
     silver_names: list[str] = []
     gold_names: list[str] = []
     filler_names: list[str] = []
+    trap_names: list[str] = []
     classifications: list[tuple[str, str]] = []
     card_class_to_item_name: list[tuple[str, str]] = []
 
@@ -533,6 +534,12 @@ def emit_items(items: dict) -> str:
         card_class_to_item_name.append((entry["class"], entry["name"]))
     for entry in items.get("filler", []):
         add(entry, None, filler_names)
+    # Traps mirror filler structurally (pool items handed out, effect on
+    # GRANT) but carry classification: trap. HP2World.create_items partitions
+    # the filler delta between FILLER_NAMES and TRAP_NAMES per the
+    # enable_traps / trap_fill_percent options.
+    for entry in items.get("traps", []):
+        add(entry, None, trap_names)
 
     for name, ap_id, _, _ in rows:
         lines.append(f"    {name!r}: {ap_id},")
@@ -552,9 +559,11 @@ def emit_items(items: dict) -> str:
     lines.append(f"    'Cards (Silver)': {silver_names!r},")
     lines.append(f"    'Cards (Gold)': {gold_names!r},")
     lines.append(f"    'Filler': {filler_names!r},")
+    lines.append(f"    'Traps': {trap_names!r},")
     lines.append("}")
     lines.append("")
     lines.append(f"FILLER_NAMES: list[str] = {filler_names!r}")
+    lines.append(f"TRAP_NAMES: list[str] = {trap_names!r}")
     lines.append("")
     lines.append("# Map UScript card class name → AP item display name. Used by the client")
     lines.append("# when forwarding 'GRANT <classname>' messages to the mod for cards.")
@@ -1101,7 +1110,7 @@ def main() -> int:
     n_registry = emit_location_registry(locations, locations["base_id"])
     n_appearance = emit_card_appearance_registry(locations, locations["base_id"])
 
-    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler"))
+    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
     n_regions = len(all_regions)
     n_loc_rules_v = sum(1 for m in (logic_vanilla.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))

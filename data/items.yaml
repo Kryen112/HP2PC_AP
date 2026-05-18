@@ -10,7 +10,8 @@
 #   group         grouping for AP/yaml category options (e.g. "Cards (Bronze)")
 #   notes         free text, optional
 #
-# Total: 110 unique items + 8 filler types = 118 entries (filler stacks as needed).
+# Total: 110 unique items + 8 filler types + 3 trap types = 121 entries
+# (filler/traps stack as needed).
 # Filler `weight:` is the relative frequency when the generator picks a filler
 # item via get_filler_item_name (multiworld.random.choices). Probabilities are
 # weight / sum(weights). Sum across the 8 filler types = 35; example expected
@@ -201,3 +202,17 @@ filler:
   - { id_offset: 305, name: "Wiggentree Bark",       classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }
   - { id_offset: 306, name: "Flobberworm Mucous",    classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }
   - { id_offset: 307, name: "Chocolate Frog",        classification: filler, group: Filler, weight: 7,  notes: "Health refill on grant" }
+
+# Negative "trap" items (AP ItemClassification.trap). Opt-in: only generated
+# when the `enable_traps` YAML option is on, replacing a `trap_fill_percent`
+# fraction of the filler delta (item/location balance unchanged — same math as
+# filler). All grant-driven, dispatched by APGameInfo.TryApplyTrap on the
+# GRANT line; one-shot (Client.NON_DURABLE_ITEM_NAMES blocks reconnect
+# re-fire); self-terminating (instant / level-load revert / timer). id band
+# 400-404 — see plans/ID_BAND_LEDGER.md. 401 (Peeves) and 402 (Spider Swarm)
+# are retired: cut from v1 because this M212 bingo build does not render an
+# ad-hoc visible world actor spawned mid-level. Those ids are never reused.
+traps:
+  - { id_offset: 400, name: "Bean Thief Trap",            classification: trap, group: Traps, notes: "Steals up to 200 beans (clamped at 0); routed through RingLink's no-broadcast bean helper so it stays local. Permanent by design." }
+  - { id_offset: 403, name: "Goyle Transformation Trap",  classification: trap, group: Traps, notes: "harry.bIsGoyle=True + SetNewMesh(); reverts on the next level's fresh pawn." }
+  - { id_offset: 404, name: "Forgetfulness Trap",         classification: trap, group: Traps, notes: "Backs up + clears harry.SpellBook[]; restored on a timer or the next level transition, whichever comes first." }

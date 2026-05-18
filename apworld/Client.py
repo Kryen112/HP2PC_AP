@@ -50,7 +50,16 @@ from .locations import (
 from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
-NON_DURABLE_ITEM_NAMES = {"Small Pile of Beans", "Medium Pile of Beans", "Large Pile of Beans"}
+# Trap item names, from ITEM_GROUPS so it can never drift from
+# data/items.yaml. Used both for non-durability and appearance.
+TRAP_ITEM_NAMES = frozenset(ITEM_GROUPS.get("Traps", []))
+# Items the mod must NOT have replayed to it on a HELLO/reconnect durable
+# resync. Beans are non-durable because RingLink owns the bean total. Traps
+# are one-shot by definition — without this every reconnect would re-fire
+# every trap ever received (re-stealing beans, re-clearing the spellbook, etc.).
+NON_DURABLE_ITEM_NAMES = {
+    "Small Pile of Beans", "Medium Pile of Beans", "Large Pile of Beans",
+} | set(TRAP_ITEM_NAMES)
 
 # Build UScript class → game-side card Id by composing the two maps:
 #   CARD_GAME_ID_TO_LOCATION_NAME  (game_id → "Card_Foo")
@@ -666,6 +675,11 @@ class HP2Context(CommonContext):
         name = self.item_names.lookup_in_slot(ni.item, owner)
         if not name:
             return 0
+        # Our own traps have no vanilla pickup art; show the AP-logo arrow
+        # plate (same as a foreign progression/trap) so a trap-bearing chest
+        # is visually flagged instead of masquerading as a real card.
+        if name in TRAP_ITEM_NAMES:
+            return APPEARANCE_FOREIGN_ARROW
         ucls = ITEM_NAME_TO_CARD_CLASS.get(name)
         if ucls is not None:
             return CARD_CLASS_TO_GAME_ID.get(ucls, 0)

@@ -2003,6 +2003,84 @@ function GrantBeansNoBroadcast(harry h, int Amount)
     }
 }
 
+// Archipelago trap items (ItemClassification.trap). All grant-driven, fired
+// from the GRANT line exactly like the bean/potion filler branches. One-shot:
+// Client.NON_DURABLE_ITEM_NAMES keeps a trap from re-firing on reconnect /
+// durable resync. Each trap self-terminates:
+//   Bean Thief    - instant, permanent by design (beans clamp at 0).
+//   Goyle         - reverts on the next level's fresh (bIsGoyle=false) pawn.
+//   Forgetfulness - APCardWatcher restores the spellbook on a timer or the
+//                   next level transition, whichever comes first.
+//
+// Spider Swarm and Peeves were cut from v1: they require an ad-hoc visible
+// world actor spawned mid-level, which this M212 bingo build does not render
+// (proven by a card-marker-clone bisect - a free-standing actor with the
+// exact mesh the card markers render with stayed invisible solely because it
+// was Spawn()'d at runtime rather than built during level bring-up).
+function bool TryApplyTrap(string Name, harry h)
+{
+    local int beans, lost;
+
+    if (h == None)
+    {
+        return False;
+    }
+
+    if (Name == "Bean Thief Trap")
+    {
+        if (h.managerStatus != None)
+        {
+            beans = h.managerStatus.GetBeanCount();
+            // Steal amount. min(N, current) so the count never goes negative
+            // (StatusItem.SetCount also floors at 0 — belt-and-suspenders).
+            // Per-trap tuning/weighting is a documented v2 extension.
+            lost = 200;
+            if (lost > beans)
+            {
+                lost = beans;
+            }
+            if (lost > 0)
+            {
+                // Route the decrement through RingLink's shared no-broadcast
+                // bean helper (04-ringlink.md §6.0) so the steal stays LOCAL
+                // (not mirrored room-wide like every other trap) and the
+                // RingLink poll baseline is resynced. Degrades to a clamped
+                // AddBeans when the IPC actor is absent — same call site
+                // either way, so enabling RingLink later needs no change here.
+                GrantBeansNoBroadcast(h, -lost);
+            }
+            Log("[Archipelago] ApplyGrant: Bean Thief Trap - stole " $ lost $ " beans (had " $ beans $ ")");
+        }
+        return True;
+    }
+
+    if (Name == "Goyle Transformation Trap")
+    {
+        // Model swap only (harry.uc:4136 SetNewMesh swaps the mesh when
+        // bIsGoyle flips). The next level loads a fresh pawn with the default
+        // bIsGoyle=false, so this reverts naturally — the watcher sticky just
+        // records it and clears on the level change.
+        h.bIsGoyle = True;
+        h.SetNewMesh();
+        class'APCardWatcher'.static.MarkGoyleTrapActiveDefault(h);
+        Log("[Archipelago] ApplyGrant: Goyle Transformation Trap - applied (reverts next level)");
+        return True;
+    }
+
+    if (Name == "Forgetfulness Trap")
+    {
+        // Back up the spellbook into an APCardWatcher class-default (survives
+        // the per-level watcher respawn and save-load) then clear it. The
+        // watcher restores on a timer or the next level transition, whichever
+        // comes first, so spells are never permanently lost.
+        class'APCardWatcher'.static.BackupAndClearSpellBook(h);
+        Log("[Archipelago] ApplyGrant: Forgetfulness Trap - spellbook backed up + cleared");
+        return True;
+    }
+
+    return False;
+}
+
 function ApplyGrant(string Body)
 {
     local harry h;
@@ -2155,6 +2233,11 @@ function ApplyGrant(string Body)
     }
 
     if (TryApplyCard(ItemName, h))
+    {
+        return;
+    }
+
+    if (TryApplyTrap(ItemName, h))
     {
         return;
     }

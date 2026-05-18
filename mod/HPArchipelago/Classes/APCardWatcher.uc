@@ -188,6 +188,33 @@ var string LastBoundLevelCaps;
 // stamped InLessonForSpell entry, and fires the check there).
 var byte InLessonForSpell[7];
 
+// --- Archipelago trap lifetime state (05-trap-items.md §8) ---------------
+// All class-default + sticky like bBingoMode / APGrantedSpell: the backup
+// and flags MUST survive the per-level watcher respawn and save-load, or a
+// cleared spellbook would travel to the next level with no way to restore
+// it. APGameInfo.TryApplyTrap sets these via the static helpers below;
+// TrapTick() (called from Timer) terminates them.
+//
+// Forgetfulness Trap: SpellTrapBackup holds harry.SpellBook[0..31] (the
+// engine array is class<baseSpell> SpellBook[32], harry.uc:156). bSpell-
+// TrapActive==1 while spells are withheld; restored when Level.TimeSeconds
+// reaches SpellTrapExpiry OR the level changes, whichever comes first, so
+// spells are never permanently lost.
+const SPELL_TRAP_DURATION = 30.0;
+var byte bSpellTrapActive;
+var float SpellTrapExpiry;
+var class<baseSpell> SpellTrapBackup[32];
+// Goyle Transformation Trap: the pawn reverts naturally on the next level's
+// fresh (bIsGoyle=false) pawn; this sticky just records the active state and
+// is cleared on the level change so it stays accurate.
+var byte bGoyleTrapActive;
+// Level the watcher last observed (Level.Outer.Name). A trap helper stamps
+// the apply-level here; TrapTick compares each tick and treats any change as
+// the "left the level" boundary that ends the Goyle/spell traps. Level NAME
+// (not watcher instance) is the discriminator so bingo's streamed-sublevel
+// watcher churn never false-triggers.
+var name TrapLastLevelName;
+
 static function APCardWatcher GetLatest()
 {
     if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
@@ -488,6 +515,106 @@ static function MarkBingoKeyAsAPGrantedDefault(string KeyName)
     }
     default.APGrantedBingoKey[idx] = 1;
     Log("[Archipelago] APCardWatcher.MarkBingoKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
+}
+
+// Forgetfulness Trap entry point (called from APGameInfo.TryApplyTrap). Backs
+// the full spellbook up into the class-default array, arms the restore timer
+// + level-change record, then clears Harry's spellbook. Static + class-default
+// so it works even when no watcher instance is alive (mirrors
+// MarkSpellAsAPGrantedDefault); TrapTick() does the matching restore.
+static function BackupAndClearSpellBook(harry h)
+{
+    local int i;
+
+    if (h == None)
+    {
+        return;
+    }
+    // Stacking guard: a second Forgetfulness while one is still active must
+    // NOT re-snapshot the spellbook — it is already cleared, so backing it up
+    // again would capture an empty book and the timer would "restore" nothing
+    // (spells lost permanently). Just extend the expiry; the original backup
+    // (the real spells) is preserved and restored when it finally ends.
+    if (default.bSpellTrapActive == 1)
+    {
+        default.SpellTrapExpiry = h.Level.TimeSeconds + SPELL_TRAP_DURATION;
+        Log("[Archipelago] APCardWatcher.BackupAndClearSpellBook: already active - extended expiry to Level.TimeSeconds " $ string(default.SpellTrapExpiry) $ ", original backup preserved");
+        return;
+    }
+    // 32 == harry.MAX_NUM_SPELLS / the SpellBook[32] dimension. Back up all
+    // slots (a superset of what ClearSpellBook wipes) so the restore is exact.
+    for (i = 0; i < 32; i++)
+    {
+        default.SpellTrapBackup[i] = h.SpellBook[i];
+    }
+    default.bSpellTrapActive  = 1;
+    default.SpellTrapExpiry   = h.Level.TimeSeconds + SPELL_TRAP_DURATION;
+    default.TrapLastLevelName = h.Level.Outer.Name;
+    h.ClearSpellBook();
+    Log("[Archipelago] APCardWatcher.BackupAndClearSpellBook: spellbook backed up + cleared (expires at Level.TimeSeconds " $ string(default.SpellTrapExpiry) $ " or on level change)");
+}
+
+// Goyle Transformation Trap bookkeeping (called from APGameInfo.TryApplyTrap
+// after it flips bIsGoyle + SetNewMesh). The mesh reverts for free on the next
+// level's fresh pawn; this sticky just records the active state and the
+// apply-level so TrapTick can clear it on the level change.
+static function MarkGoyleTrapActiveDefault(harry h)
+{
+    default.bGoyleTrapActive = 1;
+    if (h != None)
+    {
+        default.TrapLastLevelName = h.Level.Outer.Name;
+    }
+    Log("[Archipelago] APCardWatcher.MarkGoyleTrapActiveDefault: Goyle trap active (reverts on next level)");
+}
+
+// Called once per Timer() tick (after Snapshot, HarryRef valid). Terminates
+// the Goyle and Forgetfulness traps: Goyle clears on the level change (pawn
+// already reverted); Forgetfulness restores the backed-up spellbook on the
+// SpellTrapExpiry timeout OR the level change, whichever comes first, so
+// spells are never permanently lost (a cleared SpellBook travels to the next
+// level). Level NAME is the change discriminator — robust against bingo's
+// per-sublevel watcher respawn (Level.Outer.Name is stable across those).
+function TrapTick()
+{
+    local int i;
+    local name curLevel;
+    local bool bLevelChanged;
+
+    curLevel = Level.Outer.Name;
+    // Only meaningful while a trap is active, where a helper has stamped
+    // TrapLastLevelName to a real apply-level; the pre-trap '' -> levelname
+    // transition is harmless because both guarded blocks check their flag.
+    bLevelChanged = (default.TrapLastLevelName != curLevel);
+
+    if (default.bGoyleTrapActive == 1 && bLevelChanged)
+    {
+        default.bGoyleTrapActive = 0;
+        Log("[Archipelago] APCardWatcher.TrapTick: Goyle trap cleared on level change (pawn already reverted)");
+    }
+
+    if (default.bSpellTrapActive == 1
+        && (bLevelChanged || Level.TimeSeconds >= default.SpellTrapExpiry))
+    {
+        if (HarryRef != None)
+        {
+            for (i = 0; i < 32; i++)
+            {
+                HarryRef.SpellBook[i] = default.SpellTrapBackup[i];
+            }
+        }
+        default.bSpellTrapActive = 0;
+        if (bLevelChanged)
+        {
+            Log("[Archipelago] APCardWatcher.TrapTick: Forgetfulness trap ended on level change - spellbook restored");
+        }
+        else
+        {
+            Log("[Archipelago] APCardWatcher.TrapTick: Forgetfulness trap ended on timer - spellbook restored");
+        }
+    }
+
+    default.TrapLastLevelName = curLevel;
 }
 
 // Pop the leading comma-delimited integer off `rest` (consumes it, including
@@ -987,6 +1114,12 @@ event Timer()
         }
         Snapshot();
         bSnapshotted = True;
+        // Run the trap lifetime check on this first post-Bind tick too, so a
+        // level transition restores the Forgetfulness spellbook immediately
+        // (HarryRef is valid here) instead of one tick later — and before the
+        // spell-revert loop, which we return short of, can run. Idempotent
+        // with the TrapTick() below; only acts when a trap is active.
+        TrapTick();
         return;
     }
 
@@ -1009,6 +1142,11 @@ event Timer()
 
     // Cheap once-per-process patch (no-op after the first successful inject).
     EnsureHomeMenuInjected();
+
+    // Terminate the Goyle / Forgetfulness traps on their timer or the level
+    // change. Runs before the spell-revert loop so a same-tick restore is
+    // visible to it (and bSpellTrapActive is cleared before that loop checks).
+    TrapTick();
 
     for (id = 1; id <= MAX_CARD_ID; id++)
     {
@@ -1087,6 +1225,15 @@ event Timer()
 
     for (i = 0; i < NUM_SPELLS; i++)
     {
+        // Forgetfulness Trap active: the spellbook is intentionally emptied
+        // (or being restored this very tick by TrapTick). Skip the per-tick
+        // vanilla-spell reconciliation entirely so the trap and the revert
+        // don't fight; TrapTick owns restore (timer or level change). break
+        // (not continue) — when active, none of the 7 are reconciled.
+        if (default.bSpellTrapActive == 1)
+        {
+            break;
+        }
         if (APGrantedSpell[i] == 1)
         {
             continue;
