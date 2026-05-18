@@ -2803,31 +2803,39 @@ function EnsureHomeMenuInjected()
 }
 
 // Post-snapshot recovery for two related save/delta-cache corruptions that
-// leave the player visually softlocked (black border bars + hidden HUD) on a
-// level the engine restores from a persistent cache:
+// leave the player softlocked (forced black screen, frozen input, hidden HUD)
+// on a level the engine restores from a persistent cache:
 //
-// 1) CutScene actor stuck in (bPlaying=False, bFastForwarding=True). This pair
-//    is unreachable via the normal CutScene state machine (FastForwarding
-//    always sets bFastForwarding=False before transitioning to Finished, which
-//    then sets bPlaying=False). It happens when a `ChangeLevel` command fires
-//    from inside the cutscene's own FF-tick, the engine saves mid-state, and
-//    the FastForwarding→Finished latent transition doesn't survive the save
-//    round-trip. The corruption is in the .usa save file itself - reloads keep
-//    re-seeing it. Force bFastForwarding=False on detection; no other state on
-//    the actor matters once it's not "in flight".
+// 1) CutScene actor stuck in (bPlaying=False, bFastForwarding=True) in
+//    UnrealScript state 'FastForwarding'. This pair is unreachable via the
+//    normal CutScene state machine (FastForwarding clears bFastForwarding
+//    before GotoState('Finished'), which sets bPlaying=False). It is baked
+//    into Save0.usa when a victory cutscene's own `ChangeLevel` fires from
+//    inside its fast-forward tick (Aragog/Basilisk wrap-up) and the
+//    FastForwarding->Finished latent transition does not survive the save
+//    round-trip; it re-appears on every load of that save.
 //
 // 2) CutSceneManager.bPopupBorderActive (or bBothBordersActive) stuck True
-//    with no CutScene actively bPlaying. The manager flag is set by SlideIn's
+//    with no CutScene bPlaying. The manager flag is set by SlideIn's
 //    BeginState (CutSceneManager.uc:177-188) on every StartCutScene call;
 //    it's cleared only when SlideOut completes inside RenderHudItemManager
 //    (line 213-216), which requires an EndCutScene to trigger SlideOut. If
 //    the player exits the level mid-Hold (level-entry cutscene running, no
 //    text-clear or EnablePlayerInput fired yet), the delta-cache write saves
-//    Hold-state. On re-entry the manager resumes Hold but no fresh cutscene
-//    calls EndCutScene to slide it out - the player sees stuck black border
-//    bars + hidden HUD ("softlock"). Detection: borders active + zero CutScene
-//    instances with bPlaying=True is by definition invalid. Force EndCutScene
-//    via HPHud.EndCutScene to trigger the natural SlideOut path.
+//    Hold-state and on re-entry no fresh cutscene slides it out.
+//
+// The actual unfreeze (clear bForceBlackScreen, re-enable input, end the
+// manager cutscene, unmute) is performed by HPConsole.HandleFastForward
+// (HPConsole.uc:694-726), gated on HPConsole.bFastForwarding. harry only
+// re-arms that console flag post-load when the restored save had
+// managerCutScene.bShowFF==True (harry.uc:1025-1028) - true on a boss-kill
+// direct travel, false on a player save+quit from the still-broken hub. So
+// clearing the FF flag alone unlocks only on the direct-travel path; on the
+// save+quit path HandleFastForward never runs and the flag clear heals
+// nothing. On a detected corruption signature this asserts the unlocked
+// end-state directly (ForceCutsceneUnlock), independent of that chain. Gated
+// on actually-detected corruption so normal level-intro captures (which are
+// briefly bPlaying=False at the early Snapshot tick) are never disturbed.
 function RecoverStuckCutsceneState()
 {
     local CutScene cs;
@@ -2849,8 +2857,15 @@ function RecoverStuckCutsceneState()
         if (cs.bFastForwarding)
         {
             Log("[Archipelago] RecoverStuckCutsceneState: clearing invalid bFastForwarding=True on "
-                $ string(cs.Name) $ " (FN='" $ cs.FileName $ "', bPlaying=False)");
+                $ string(cs.Name) $ " (FN='" $ cs.FileName $ "', bPlaying=False) - forcing GotoState('Finished')");
             cs.bFastForwarding = False;
+            // Push the actor out of the dead 'FastForwarding' state so a clean
+            // save no longer round-trips it. Finished's Begin sets
+            // bPlaying=False, deletes threads and idles; bPlayOnce story
+            // cutscenes stay Finished, so the already-played wrap-up never
+            // replays. The numScriptsPlaying-- in Finished's Begin is inert:
+            // the engine only ever writes that class default, never reads it.
+            cs.GotoState('Finished');
             ffCorruptCount++;
         }
     }
@@ -2861,8 +2876,14 @@ function RecoverStuckCutsceneState()
         {
             Log("[Archipelago] RecoverStuckCutsceneState: cleared " $ ffCorruptCount
                 $ " stale FF flag(s); active CutScene(s) present (count=" $ playingCount
-                $ "), leaving CutSceneManager alone");
+                $ "), leaving player capture + CutSceneManager alone");
         }
+        return;
+    }
+
+    if (ffCorruptCount > 0)
+    {
+        ForceCutsceneUnlock("stuck FastForwarding CutScene (count=" $ ffCorruptCount $ ")");
         return;
     }
 
@@ -2876,11 +2897,30 @@ function RecoverStuckCutsceneState()
         return;
     }
 
-    Log("[Archipelago] RecoverStuckCutsceneState: no CutScene bPlaying but manager has borders up"
+    ForceCutsceneUnlock("CutSceneManager borders up with no CutScene bPlaying"
         $ " (bPopupBorderActive=" $ hud.managerCutScene.bPopupBorderActive
-        $ " bBothBordersActive=" $ hud.managerCutScene.bBothBordersActive
-        $ ") - forcing HPHud.EndCutScene to slide out");
-    hud.EndCutScene();
+        $ " bBothBordersActive=" $ hud.managerCutScene.bBothBordersActive $ ")");
+}
+
+// Assert the post-cutscene unlocked state directly. Does NOT depend on
+// HPConsole.HandleFastForward (gated on HPConsole.bFastForwarding, which the
+// player save+quit path never re-arms). harry.EnablePlayerInput clears
+// bIsCaptured/bKeepStationary, calls HPHud.EndCutScene (manager SlideOut +
+// bCutSceneMode/bCutPopupMode clear) and releases captured pawns;
+// bForceBlackScreen and the sound mute are the two HandleFastForward-only
+// effects, restored here explicitly. myHUD is guarded because
+// EnablePlayerInput dereferences it (always set on a possessed gameplay
+// harry; the guard only matters in degenerate teardown).
+function ForceCutsceneUnlock(string reason)
+{
+    Log("[Archipelago] RecoverStuckCutsceneState: " $ reason
+        $ " - asserting unlock (clear bForceBlackScreen + EnablePlayerInput + unmute)");
+    HarryRef.bForceBlackScreen = False;
+    if (HarryRef.myHUD != None)
+    {
+        HarryRef.EnablePlayerInput();
+    }
+    HarryRef.ConsoleCommand("UNMUTESOUNDS");
 }
 
 event Destroyed()
