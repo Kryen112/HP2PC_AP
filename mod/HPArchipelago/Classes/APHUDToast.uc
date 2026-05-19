@@ -275,12 +275,15 @@ defaultproperties
     bBlockActors=False
     bBlockPlayers=False
     Physics=PHYS_None
-    // NOT bGameRelevant. The toast is a per-level HUD widget — each level
-    // gets a fresh one via APGameInfo.InitGame on regular load, and via
-    // APCardWatcher.TrySpawnClassroomBlockers on save-load (which skips
-    // InitGame). Persisting via bGameRelevant=True previously caused multi-
-    // instance bugs: Entry-spawned toasts survived into Grandstaircase with
-    // a stale Level reference, fighting the saved/deserialized toast for
-    // default.LatestInstance ownership while only one was in HPHud's
-    // propArray.
+    // bGameRelevant=False is REQUIRED, not inherited: HProp→HPawn→Pawn
+    // defaults bGameRelevant=True, which would persist the toast across level
+    // travel. A persisted toast is a per-package private actor that the HP2
+    // conformal save graph then links to (e.g. Entry.APHUDToast0), aborting
+    // the whole level-entry autosave ("Graph is linked to external private
+    // object"). It also keeps the singleton clean: a per-level toast cannot
+    // leave a stale Entry/old-level instance fighting the live one for
+    // default.LatestInstance. The toast is a per-level HUD widget: each
+    // level gets a fresh one via APGameInfo.InitGame, and via
+    // APCardWatcher.TrySpawnClassroomBlockers on save-load (skips InitGame).
+    bGameRelevant=False
 }
