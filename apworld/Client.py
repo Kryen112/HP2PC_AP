@@ -284,10 +284,7 @@ class HP2Context(CommonContext):
             if sd.get("ring_link"):
                 asyncio.create_task(self._enable_ring_link())
             else:
-                if self.ring_link_enabled:
-                    logger.info("RingLink disabled for this slot")
-                self.ring_link_enabled = False
-                self.ring_source = None
+                asyncio.create_task(self._disable_ring_link())
 
             # DeathLink (#8). Opt-in via slot_data. update_death_link
             # (CommonClient.py) mutates self.tags then ConnectUpdate, so the
@@ -475,6 +472,27 @@ class HP2Context(CommonContext):
                 logger.exception(f"RingLink: ConnectUpdate(tags) failed, inbound deltas won't route: {e}")
                 return
         logger.info(f"RingLink enabled (source={self.ring_source}); RingLink tag registered")
+
+    async def _disable_ring_link(self) -> None:
+        # Clean teardown mirroring update_death_link(False): drop the RingLink
+        # tag + ConnectUpdate so the server stops routing RingLink Bounces to a
+        # slot that no longer honours them (we'd ignore them anyway, but
+        # advertising a dead tag is wasteful and asymmetric with DeathLink).
+        # No-op when never tagged (the common ring_link-off case).
+        was_enabled = self.ring_link_enabled
+        self.ring_link_enabled = False
+        self.ring_source = None
+        if "RingLink" not in self.tags:
+            return
+        self.tags = set(self.tags) - {"RingLink"}
+        if self.server and not self.server.socket.closed:
+            try:
+                await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+            except Exception as e:
+                logger.exception(f"RingLink: ConnectUpdate(tags) untag failed: {e}")
+                return
+        if was_enabled:
+            logger.info("RingLink disabled for this slot; RingLink tag removed")
 
     def _send_to_game(self, text: str) -> None:
         if self.game_writer is None or self.game_writer.is_closing():
