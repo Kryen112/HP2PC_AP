@@ -1893,18 +1893,15 @@ static function harry FindActiveHarry(Actor caller)
         h = TryGetViewportHarry(harry(watcher.Level.PlayerHarryActor));
         if (h != None)
         {
-            Log("[Archipelago] FindActiveHarry: using watcher console Viewport.Actor=" $ string(h) $ " (watcher.Level=" $ string(watcher.Level) $ ")");
             return h;
         }
         h = harry(watcher.Level.PlayerHarryActor);
         if (h != None && !h.bDeleteMe)
         {
-            Log("[Archipelago] FindActiveHarry: using watcher.Level.PlayerHarryActor=" $ string(h) $ " (watcher.Level=" $ string(watcher.Level) $ ")");
             return h;
         }
         if (watcher.HarryRef != None && !watcher.HarryRef.bDeleteMe)
         {
-            Log("[Archipelago] FindActiveHarry: using watcher.HarryRef=" $ string(watcher.HarryRef));
             return watcher.HarryRef;
         }
     }
@@ -1912,14 +1909,12 @@ static function harry FindActiveHarry(Actor caller)
     h = TryGetViewportHarry(harry(caller.Level.PlayerHarryActor));
     if (h != None)
     {
-        Log("[Archipelago] FindActiveHarry: using caller console Viewport.Actor=" $ string(h));
         return h;
     }
 
     h = harry(caller.Level.PlayerHarryActor);
     if (h != None && !h.bDeleteMe)
     {
-        Log("[Archipelago] FindActiveHarry: fallback to caller.Level.PlayerHarryActor=" $ string(h));
         return h;
     }
 
@@ -1933,10 +1928,6 @@ static function harry FindActiveHarry(Actor caller)
         {
             fallback = h;
         }
-    }
-    if (fallback != None)
-    {
-        Log("[Archipelago] FindActiveHarry: last-resort foreach fallback=" $ string(fallback));
     }
     return fallback;
 }
@@ -2082,27 +2073,23 @@ static function harry FindGrantReadyHarry(Actor caller)
         h = TryGetViewportHarry(watcher.HarryRef);
         if (h != None)
         {
-            Log("[Archipelago] FindGrantReadyHarry: using watcher.HarryRef console Viewport.Actor=" $ string(h));
             return h;
         }
 
         h = TryGetViewportHarry(harry(watcher.Level.PlayerHarryActor));
         if (h != None)
         {
-            Log("[Archipelago] FindGrantReadyHarry: using watcher.Level.PlayerHarryActor console Viewport.Actor=" $ string(h));
             return h;
         }
 
         if (watcher.HarryRef != None && watcher.HarryRef.Player != None && !watcher.HarryRef.bDeleteMe)
         {
-            Log("[Archipelago] FindGrantReadyHarry: using watcher.HarryRef=" $ string(watcher.HarryRef));
             return watcher.HarryRef;
         }
 
         h = harry(watcher.Level.PlayerHarryActor);
         if (h != None && h.Player != None && !h.bDeleteMe)
         {
-            Log("[Archipelago] FindGrantReadyHarry: using watcher.Level.PlayerHarryActor=" $ string(h));
             return h;
         }
     }
@@ -2110,14 +2097,12 @@ static function harry FindGrantReadyHarry(Actor caller)
     h = TryGetViewportHarry(harry(caller.Level.PlayerHarryActor));
     if (h != None)
     {
-        Log("[Archipelago] FindGrantReadyHarry: using caller console Viewport.Actor=" $ string(h));
         return h;
     }
 
     h = harry(caller.Level.PlayerHarryActor);
     if (h != None && h.Player != None && !h.bDeleteMe)
     {
-        Log("[Archipelago] FindGrantReadyHarry: using caller.Level.PlayerHarryActor=" $ string(h));
         return h;
     }
 
