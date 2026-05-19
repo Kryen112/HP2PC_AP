@@ -21,6 +21,7 @@ Mod-side protocol (newline-delimited text):
     GRANT <classname>           (client → game, on item received)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
     DEATHLINK                   (client → game, a linked player died — kill Harry)
+    CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -33,6 +34,7 @@ import logging
 import random
 import sys
 import time
+import urllib.parse
 import warnings
 from typing import Optional
 
@@ -247,6 +249,34 @@ class HP2Context(CommonContext):
         # (CommonContext.last_death_link is stamped by both send_death and
         # on_deathlink, so it tracks the last death in either direction).
         self.death_link_enabled: bool = False
+        # Startup "Connected to host:port" toast. The effective AP server
+        # address (scheme stripped, port defaulted), formatted on every
+        # Connected from self.server_address — which server_loop has by then
+        # normalised to ws://host[:port]. Pushed as the sticky CONNECTED IPC
+        # line now if the game is up, else on the next game HELLO. Sticky +
+        # idempotent mod-side (same lifecycle as bingo_goalcfg); the mod owns
+        # the once-per-launch / once-per-save-load fire latch, so resending
+        # the same address on a reconnect / HELLO never re-toasts.
+        self.connected_address: Optional[str] = None
+
+    @staticmethod
+    def _format_ap_address(raw: Optional[str]) -> Optional[str]:
+        """`host:port` for the toast, or None. Mirrors server_loop: prefix
+        ws:// if schemeless so urlparse populates host/port, drop any
+        user:pass@ credentials, and default the port to 38281 exactly as
+        websockets.connect does (server_url.port or 38281)."""
+        if not raw:
+            return None
+        addr = raw if "://" in raw else f"ws://{raw}"
+        try:
+            u = urllib.parse.urlparse(addr)
+            host = u.hostname
+            port = u.port or 38281
+        except ValueError:
+            return None
+        if not host:
+            return None
+        return f"{host}:{port}"
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -265,6 +295,16 @@ class HP2Context(CommonContext):
             logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
             if self.pending_ap_outbound:
                 asyncio.create_task(self._flush_pending_ap_outbound())
+
+            # Startup connection toast. server_loop has set self.server_address
+            # to the normalised ws://host[:port] it actually connected to by
+            # the time Connected is processed. Push now if the game is up;
+            # otherwise it rides the next game HELLO. Sticky + idempotent
+            # mod-side; recomputed every Connected so a reconnect stays
+            # correct (the mod's latch keeps it from re-toasting).
+            self.connected_address = self._format_ap_address(self.server_address)
+            if self.connected_address and self.game_writer is not None:
+                self._send_to_game("CONNECTED " + self.connected_address)
             sd = args.get("slot_data") or {}
             self.bingo_is_bingo = sd.get("game_mode") == "bingo"
             if self.bingo_is_bingo and self.game_writer is not None:
@@ -603,6 +643,12 @@ class HP2Context(CommonContext):
             # is not None (not truthiness) so an all-native "" still re-arms.
             if self.appearance_csv is not None:
                 self._send_to_game("APPEARANCE " + self.appearance_csv)
+            # Re-arm the startup connection toast address. Sticky + idempotent
+            # mod-side (the mod owns the once-per-launch / once-per-save-load
+            # latch), so a fresh game launch or reconnect HELLO re-delivers
+            # the address without re-toasting. None until AP-connected.
+            if self.connected_address:
+                self._send_to_game("CONNECTED " + self.connected_address)
             return
         if line == "GOAL_COMPLETE":
             if self.goal_sent:

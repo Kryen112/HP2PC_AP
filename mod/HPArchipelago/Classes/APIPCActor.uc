@@ -226,6 +226,15 @@ function HandleLine(string line)
         // on the watcher (mirrors GOALCFG); resent every HELLO. Idempotent.
         class'APCardWatcher'.static.SetTradersanityMode(int(Mid(line, 9)));
     }
+    else if (Left(line, 10) == "CONNECTED ")
+    {
+        // AP server address for the startup "Connected to host:port" toast,
+        // client-formatted (scheme stripped). Sticky class-default on the
+        // watcher (mirrors GOALCFG / TRADECFG); resent every HELLO. The toast
+        // fire/arm is owned by APCardWatcher (Timer + .usa-restore re-arm),
+        // so this line only records the address — idempotent on resend.
+        class'APCardWatcher'.static.SetConnectedAddress(Mid(line, 10));
+    }
     else if (Left(line, 5) == "MODE ")
     {
         // Authoritative bingo signal from the apworld slot_data game_mode

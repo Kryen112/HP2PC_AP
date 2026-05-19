@@ -296,6 +296,32 @@ var string LastBoundLevelCaps;
 // stamped InLessonForSpell entry, and fires the check there).
 var byte InLessonForSpell[7];
 
+// "Connected to host:port" startup toast. ConnectedAddress is the AP server
+// address the Python client resolved (scheme stripped), delivered via the
+// sticky CONNECTED IPC line on AP Connected and re-sent every HELLO — same
+// class-default + sticky convention as GOALCFG / TRADECFG. Empty until the
+// client is AP-connected. bConnToastShown is the fire latch: armed (0) at
+// process start (class-defaults are compiled, never from .usa), set to 1 once
+// the toast has fired so an area/level transition can't re-toast, and re-armed
+// (0) on a save-load so it shows again per spec.
+//
+// Fire is delayed ~1s after the first playable tick the address is known so
+// it doesn't pop the instant control returns: the first eligible tick sets
+// bConnToastScheduled=1 / ConnToastTicksLeft=CONN_TOAST_DELAY_TICKS, then each
+// watcher tick decrements until it fires. Tick-counted, not Level.TimeSeconds-
+// stamped, so it survives the per-level watcher respawn and the per-level
+// clock reset if a transition lands inside the window.
+//
+// Save-load re-arm is owned by EnsureFreshToast: a save-load is the only
+// source of a stale cross-package toast, so the tick it replaces one is
+// exactly a save-load and it clears bConnToastShown there.
+// Watcher Timer is SetTimer(0.25, true), so 4 ticks ≈ 1.0s.
+const CONN_TOAST_DELAY_TICKS = 4;
+var string ConnectedAddress;
+var byte bConnToastShown;
+var byte bConnToastScheduled;
+var int ConnToastTicksLeft;
+
 // --- Archipelago trap lifetime state (05-trap-items.md §8) ---------------
 // All class-default + sticky like bBingoMode / APGrantedSpell: the backup
 // and flags MUST survive the per-level watcher respawn and save-load, or a
@@ -825,6 +851,19 @@ static function SetPendingDeathLink()
     Log("[Archipelago] APCardWatcher.SetPendingDeathLink: inbound DeathLink armed");
 }
 
+// AP server address for the startup "Connected to host:port" toast (CONNECTED
+// IPC line, client-formatted with scheme stripped). Class-default + sticky
+// like the other setters; idempotent (the client resends the same address
+// every HELLO). Does NOT touch bConnToastShown — arming/firing is owned by
+// the Timer / EnsureLatestRegistration so a resend of the same address on a
+// mid-session HELLO can never re-trigger the toast.
+static function SetConnectedAddress(string addr)
+{
+    if (addr == "") return;
+    default.ConnectedAddress = addr;
+    Log("[Archipelago] APCardWatcher.SetConnectedAddress: '" $ default.ConnectedAddress $ "'");
+}
+
 // ---------------------------------------------------------------------------
 // #3 marker-appearance subsystem
 // ---------------------------------------------------------------------------
@@ -1325,6 +1364,7 @@ event Timer()
     local baseWand wand;
     local baseSpell cur;
     local int idx;
+    local APHUDToast connToast;
 
     EnsureLatestRegistration();
     if (default.LatestInstance != self)
@@ -1650,6 +1690,55 @@ event Timer()
             ipc.bStartupSafetySaveDone = True;
             Log("[Archipelago] APCardWatcher: startup safety save (iGameState=" $ HarryRef.iGameState $ ")");
             saveHarry.SaveGame();
+        }
+    }
+
+    // Guarantee a rendering toast actor before any toast consumer
+    // (connection / received / sent) resolves one via GetInstance(): on a
+    // save-load the toast is a stale cross-package actor that never renders.
+    EnsureFreshToast();
+
+    // "Connected to host:port" startup toast, delayed ~1s after the first
+    // playable tick the AP address is known (delivered over the sticky
+    // CONNECTED IPC line) so it doesn't pop the instant control returns.
+    // bConnToastShown is compiled-default 0 every launch, so a fresh launch
+    // shows it once; an area/level transition can't (the latch survives as a
+    // class-default); a save-load re-arms it in EnsureFreshToast when it
+    // replaces the deserialized toast. Mode-agnostic and NOT gated on the
+    // safety-save's STARTUP_SAFETY_SAVE_GAMESTATE — first IsPlayerInPlayableState is
+    // Whomping Willow (vanilla) / Entry Hall (bingo). If the client isn't
+    // AP-connected yet ConnectedAddress is "" and this stays a no-op until it
+    // arrives. Same alive/playable guard shape as the safety save above gates
+    // only the SCHEDULE; the countdown then fires regardless of state (the
+    // toast renders during cutscenes anyway) so a cutscene that triggers
+    // inside the 1s window can't strand it.
+    if (default.bConnToastShown == 0 && default.ConnectedAddress != "")
+    {
+        if (default.bConnToastScheduled == 0)
+        {
+            saveHarry = harry(Level.PlayerHarryActor);
+            if (saveHarry != None && saveHarry.GetHealthCount() > 0
+                && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+            {
+                default.bConnToastScheduled = 1;
+                default.ConnToastTicksLeft = CONN_TOAST_DELAY_TICKS;
+            }
+        }
+        else
+        {
+            default.ConnToastTicksLeft -= 1;
+            if (default.ConnToastTicksLeft <= 0)
+            {
+                connToast = class'APHUDToast'.static.GetInstance();
+                if (connToast != None)
+                {
+                    connToast.EnqueueToast("Connected to " $ default.ConnectedAddress);
+                    default.bConnToastShown = 1;
+                    default.bConnToastScheduled = 0;
+                    Log("[Archipelago] APCardWatcher: connection toast shown ('"
+                        $ default.ConnectedAddress $ "')");
+                }
+            }
         }
     }
 
@@ -2015,6 +2104,49 @@ function bool HasLivePlayerHarry()
     }
 
     return False;
+}
+
+// Guarantee a rendering APHUDToast in the live harry's level before any toast
+// consumer (connection / received / sent) resolves one via GetInstance().
+// Runs every snapshotted-LatestInstance Timer tick. A toast deserialized from
+// a .usa is a private actor of the save's original package, so its Level is
+// that stale LevelInfo, never the loaded level's — it never renders. M212
+// does not honor `transient`, so the only reliable "stale" signal is the
+// Level mismatch; replace on it. Idempotent: an InitGame-spawned toast is
+// already in the live level (new game / area transition), so this returns
+// immediately and never re-arms there. A replace only happens on a save-load
+// (the sole source of a cross-package toast), which is where the connection
+// toast re-arms so the loaded game re-shows "Connected to host:port".
+function EnsureFreshToast()
+{
+    local APHUDToast existing;
+    local harry h;
+
+    h = harry(Level.PlayerHarryActor);
+    if (h == None)
+    {
+        return;
+    }
+
+    existing = class'APHUDToast'.static.GetInstance();
+    if (existing != None && existing.Level == h.Level)
+    {
+        return;
+    }
+
+    if (existing != None)
+    {
+        existing.Destroy();
+    }
+    if (h.Spawn(class'APHUDToast') == None)
+    {
+        Log("[Archipelago] APCardWatcher.EnsureFreshToast: Spawn(APHUDToast) FAILED");
+        return;
+    }
+    Log("[Archipelago] APCardWatcher.EnsureFreshToast: replaced stale toast - fresh APHUDToast in " $ string(h.Level));
+
+    default.bConnToastShown = 0;
+    default.bConnToastScheduled = 0;
 }
 
 function TrySpawnClassroomBlockers()

@@ -119,10 +119,11 @@ event InitGame(string Options, out string Error)
     SpawnAllBingoBlockers();
 }
 
-// Spawn an APHUDToast in the current level if one doesn't already exist.
-// Called from both APGameInfo.InitGame (regular load path) and
-// APCardWatcher.TrySpawnClassroomBlockers (save-load path that bypasses
-// InitGame). Idempotent — extra calls find the existing instance and skip.
+// Spawn an APHUDToast in the current level if one isn't already here. Called
+// from APGameInfo.InitGame (the launch / level / area-transition path).
+// Save-load (which bypasses InitGame) is handled by APCardWatcher.Ensure-
+// FreshToast, which also replaces a stale cross-package toast — a case this
+// in-level check can't see. Idempotent: an in-level instance is a no-op.
 function SpawnAPHUDToastIfMissing()
 {
     local class<Actor> cls;

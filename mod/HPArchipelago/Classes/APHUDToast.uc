@@ -77,6 +77,17 @@ event PreBeginPlay()
 
 event Destroyed()
 {
+    // Leave the HUD's propArray cleanly. HPHud.RenderHud iterates
+    // `propArray[I].RenderHud(Canvas)` with NO None-guard, so a destroyed
+    // toast still referenced there is an Accessed-None every frame. Matters
+    // when EnsureFreshToast destroys a stale toast while its HUD lives;
+    // harmless on normal per-level teardown (the bDeleteMe guard skips a
+    // HUD that is dying with the level).
+    if (RegisteredHud != None && !RegisteredHud.bDeleteMe)
+    {
+        RegisteredHud.UnregisterPickupProp(self);
+    }
+    RegisteredHud = None;
     if (default.LatestInstance == self)
     {
         default.LatestInstance = None;
