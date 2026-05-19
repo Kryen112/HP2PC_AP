@@ -16,6 +16,7 @@ Mod-side protocol (newline-delimited text):
     CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
     GOAL_COMPLETE               (game → client, once when post-Basilisk credits start)
     RINGOUT <signed_int>        (game → client, local bean total changed organically)
+    SAY <text>                  (game → client, ~1/100 on spell cast — cosmetic chat)
     DEATH [cause]               (game → client, Harry entered stateDead — DeathLink out)
     GRANT <classname>           (client → game, on item received)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
@@ -42,7 +43,7 @@ warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
 
 import CommonClient
 from CommonClient import CommonContext, ClientCommandProcessor, get_base_parser, server_loop, gui_enabled
-from NetUtils import ClientStatus
+from NetUtils import ClientStatus, SlotType
 
 from .locations import (
     CARD_CLASS_TO_LOCATION_NAME,
@@ -100,6 +101,13 @@ SPELL_TO_LOCATION_NAME = {
     "Diffindo":    "Learned Diffindo",
     "Spongify":    "Learned Spongify",
 }
+
+# plans/09 spell-cast chat flavor. The mod fires a bare ASCII spell name over
+# SAY on a rate-limited ~1/100 roll; the client builds the chat line. Two
+# forms, picked 50/50 per cast: "<Spell>!" or "casts <Spell> on <other>",
+# where <other> is a random *other* real player. AP already prefixes the line
+# with our own slot name, so it never appears in the body. Solo / AP-offline
+# (no resolvable other player) always uses "<Spell>!". See _build_spell_flavor.
 
 # Map UScript special progression name to its AP check. v1: empty — Boomslang,
 # Bicorn, and BitOGoyle are not randomized, they flow through vanilla story.
@@ -642,6 +650,12 @@ class HP2Context(CommonContext):
             logger.info(f"DeathLink: outbound death → Bounce ({cause})")
             await self.send_death(cause)
             return
+        if line.startswith("SAY "):
+            # Cosmetic only: a ~1/100 spell-cast roll fired mod-side. Post a
+            # random flavor line to multiworld chat. No dedupe / no location
+            # semantics — purely a gag.
+            await self._handle_spell_say(line[4:].strip())
+            return
         if line.startswith("CHECK_SPELL "):
             spell_name = line[len("CHECK_SPELL "):].strip()
             await self._send_named_location_check(
@@ -709,6 +723,48 @@ class HP2Context(CommonContext):
         await self._send_or_queue_ap_msg(
             {"cmd": "LocationChecks", "locations": [location_id]},
             label=f"LocationChecks for {location_name} (id={location_id}, {kind} {game_name!r})",
+        )
+
+    def _random_other_player(self) -> Optional[str]:
+        """A random real player that isn't us, or None if there is no such
+        player resolvable. Excludes our own slot, the Server pseudo-slot
+        (slot 0), and group / item-link pseudo-slots (SlotType.group). When
+        AP is offline self.slot is None — we can't reliably tell ourselves
+        apart, so return None and let the caller fall back to "<Spell>!"."""
+        if self.slot is None:
+            return None
+        names: list[str] = []
+        for sid, name in self.player_names.items():
+            if sid == self.slot or sid == 0:
+                continue
+            si = self.slot_info.get(sid) if self.slot_info else None
+            if si is not None and si.type == SlotType.group:
+                continue
+            names.append(name)
+        if not names:
+            return None
+        return random.choice(names)
+
+    def _build_spell_flavor(self, spell_name: str) -> str:
+        """Build the chat line for a cast spell. 50/50 between "<Spell>!" and
+        "casts <Spell> on <other>" (a random other real player); AP prefixes
+        our own slot name, so it's never in the body. Falls back to the plain
+        form when there's no other player (solo / AP offline)."""
+        forms = [f"{spell_name}!"]
+        other = self._random_other_player()
+        if other is not None:
+            forms.append(f"casts {spell_name} on {other}")
+        return random.choice(forms)
+
+    async def _handle_spell_say(self, spell_name: str) -> None:
+        """A ~1/100 spell-cast roll fired SAY mod-side — post a random flavor
+        line to multiworld chat. Routed through the same offline-safe queue as
+        checks so an AP-down gag is replayed on reconnect (never lost, never
+        blocks the game). Purely cosmetic: no location / dedupe semantics."""
+        msg = self._build_spell_flavor(spell_name)
+        await self._send_or_queue_ap_msg(
+            {"cmd": "Say", "text": msg},
+            label=f"Say (spell-cast flavor for {spell_name!r})",
         )
 
     async def _send_or_queue_ap_msg(self, msg: dict, label: str) -> None:

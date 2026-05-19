@@ -183,6 +183,17 @@ var byte APGrantedSpell[7];
 // Class-default so it persists across watcher instances within a session.
 var byte LessonCheckFired[7];
 
+// Spell-cast chat flavor (plans/09). LastSeenCastedSpell holds the
+// baseWand.LastCastedSpell reference observed last tick; its identity
+// changing is the "≥1 new cast happened" signal. PLAIN per-level instance
+// var (NOT class-default/travel) — re-spawned each level like the
+// WasSpellOwned baseline, so a harmless one-time re-trigger after load is
+// acceptable. NextSpellSayEarliest is the Level.TimeSeconds anti-flood
+// floor; SaySpellChance is the per-detected-cast roll (defaultproperties).
+var baseSpell LastSeenCastedSpell;
+var float NextSpellSayEarliest;
+var float SaySpellChance;
+
 var StatusItem KeyItemStatus[3];
 var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
@@ -1293,6 +1304,9 @@ event Timer()
     local harry saveHarry;
     local string deferReason;
     local APGameInfo gi;
+    local baseWand wand;
+    local baseSpell cur;
+    local int idx;
 
     EnsureLatestRegistration();
     if (default.LatestInstance != self)
@@ -1464,6 +1478,31 @@ event Timer()
             {
                 ipc.SendCheckKeyItem(KeyItemNames[i]);
             }
+        }
+    }
+
+    // plans/09 spell-cast chat flavor. baseWand.LastCastedSpell is set on
+    // every successful cast (baseWand.uc:391/463) and survives spell death
+    // (SubtractFromCastedSpellList never clears it), so its reference
+    // identity changing since the last 0.25s tick is a reliable "≥1 new
+    // cast happened" signal — NumCastedSpells is non-monotonic and unread.
+    // Store-then-compare prevents a double-fire; re-arm to None when the
+    // casted list drains so the next cast of the same spell still triggers.
+    // The wand is None during cutscene/menu (guarded). Duel/boss/sword
+    // casts also reach here but SpellIndexForClass returns -1 for them.
+    wand = baseWand(HarryRef.Weapon);
+    if (wand != None)
+    {
+        cur = wand.LastCastedSpell;
+        if (cur != None && cur != LastSeenCastedSpell)
+        {
+            LastSeenCastedSpell = cur;
+            idx = SpellIndexForClass(cur.Class);
+            if (idx >= 0) MaybeSaySpellCast(idx);
+        }
+        else if (cur == None)
+        {
+            LastSeenCastedSpell = None;
         }
     }
 
@@ -1832,6 +1871,42 @@ function int LessonShapeToSpellIndex(SpellLessonTrigger lesson)
     if (lesson.LessonShape == lesson.ELessonShape.LessonShape_Diffindo)    return 1;
     if (lesson.LessonShape == lesson.ELessonShape.LessonShape_Spongify)    return 6;
     return -1;
+}
+
+// plans/09: reverse of the SpellClasses[]/SpellNames[] table — maps a live
+// baseSpell's class back to its 0..NUM_SPELLS-1 index, or -1 for any non-AP
+// spell (duel / boss / sword-fire casts also flow through CastSpell ->
+// AddToCastedSpellList but must not post chat). Same single-source table the
+// learn-poll uses, so the 7-spell scope can never drift.
+function int SpellIndexForClass(class<baseSpell> c)
+{
+    local int i;
+
+    if (c == None) return -1;
+    for (i = 0; i < NUM_SPELLS; i++)
+    {
+        if (SpellClasses[i] == c) return i;
+    }
+    return -1;
+}
+
+// plans/09: a detected cast of one of the 7 AP spells gets a rate-limited
+// ~1/100 roll; on success ship the bare ASCII spell name over SAY and let
+// Python own all flavor text (unicode/emoticons). FRand() is the codebase
+// RNG idiom (cf. baseWand.Finish). The 5s NextSpellSayEarliest floor caps a
+// lucky streak independently of the 0.25s poll coalescing rapid casts.
+function MaybeSaySpellCast(int idx)
+{
+    local APIPCActor ipc;
+
+    if (idx < 0 || idx >= NUM_SPELLS) return;
+    if (Level.TimeSeconds < NextSpellSayEarliest) return;
+    if (FRand() >= SaySpellChance) return;
+    NextSpellSayEarliest = Level.TimeSeconds + 5.0;
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc == None) return;
+    ipc.SendSay(SpellNames[idx]);
+    Log("[Archipelago] APCardWatcher: spell-cast flavor roll hit for " $ SpellNames[idx] $ " - sent SAY");
 }
 
 function bool Bind()
@@ -3224,4 +3299,5 @@ event Destroyed()
 defaultproperties
 {
     bHidden=True
+    SaySpellChance=0.010000
 }

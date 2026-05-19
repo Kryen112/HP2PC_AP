@@ -447,6 +447,43 @@ function SendCheckSpell(string SpellName)
     Log("[Archipelago] APIPCActor: sent CHECK_SPELL " $ SpellName);
 }
 
+// plans/09: strip every CR/LF from a payload so a SAY line cannot be split
+// across frames or truncate the newline-delimited wire. There is no Repl
+// helper in this class — InStr/Left/Mid loop, the same idiom ReceivedText
+// uses to split incoming lines.
+function string StripNewlines(string s)
+{
+    local int p;
+
+    p = InStr(s, Chr(10));
+    while (p >= 0)
+    {
+        s = Left(s, p) $ Mid(s, p + 1);
+        p = InStr(s, Chr(10));
+    }
+    p = InStr(s, Chr(13));
+    while (p >= 0)
+    {
+        s = Left(s, p) $ Mid(s, p + 1);
+        p = InStr(s, Chr(13));
+    }
+    return s;
+}
+
+// plans/09: ~1/100-on-cast cosmetic chat. The watcher sends a bare ASCII
+// spell name only; Python owns all flavor text (unicode/emoticons) and the
+// random variant. Strip CR/LF so the gag can't split or truncate the wire
+// frame; drop an empty payload. Mirrors SendCheckSpell.
+function SendSay(string Msg)
+{
+    local string clean;
+
+    clean = StripNewlines(Msg);
+    if (clean == "") return;
+    SendText("SAY " $ clean $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent SAY " $ clean);
+}
+
 function SendCheckKeyItem(string KeyItemName)
 {
     SendText("CHECK_KEYITEM " $ KeyItemName $ Chr(10));
