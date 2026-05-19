@@ -613,12 +613,14 @@ class HP2Context(CommonContext):
             if (time.time() - self.last_death_link) < DEATHLINK_AMNESTY_S:
                 logger.info("DeathLink: outbound suppressed (within amnesty window)")
                 return
-            cause = line[len("DEATH "):].strip() if line.startswith("DEATH ") else ""
-            if not cause:
-                cause = "Harry was defeated"
             if not (self.server and self.slot is not None):
                 logger.info("DeathLink: AP offline, dropping outbound death (not queued)")
                 return
+            # The DeathLink spec asks for a non-empty cause that contains the
+            # player name (slot known here — the offline guard above ran), so
+            # receiving games show which AP slot died, not the in-game avatar.
+            me = self.player_names.get(self.slot, "Harry")
+            cause = f"{me} got avada kadavra'd"
             logger.info(f"DeathLink: outbound death → Bounce ({cause})")
             await self.send_death(cause)
             return
