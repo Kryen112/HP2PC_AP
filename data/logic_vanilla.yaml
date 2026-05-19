@@ -523,6 +523,19 @@ locations:
   "Spongify Challenge - Challenge Star 10":
     { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
 
+  # Spell-challenge "beat par time". Beating the par means clearing the whole
+  # challenge, so each requires the union of that challenge's star and
+  # complete requirements (the "X Challenge - Complete" locations are
+  # region-access-only here, so the stars drive these).
+  "Rictusempra Challenge - Beat Par Time":
+    { requires: "Rictusempra & Alohomora" }
+  "Skurge Challenge - Beat Par Time":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Diffindo Challenge - Beat Par Time":
+    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Spongify Challenge - Beat Par Time":
+    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+
   # Tradersanity vendors
   # 13 vendor-purchase checks.
   # `notes` carries the physical identity (level, actor, item, coords).

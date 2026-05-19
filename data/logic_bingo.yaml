@@ -562,6 +562,18 @@ locations:
     { requires: "Rictusempra & Flipendo & Diffindo & Lumos & Skurge" }
   "Spongify Challenge - Complete": { requires: "Spongify & Skurge & Flipendo" }
 
+  # Spell-challenge "beat par time". Beating the par means clearing the whole
+  # challenge, so each requires the union of that challenge's star and
+  # complete requirements.
+  "Rictusempra Challenge - Beat Par Time":
+    { requires: "Rictusempra & Flipendo & Alohomora & Lumos" }
+  "Skurge Challenge - Beat Par Time":
+    { requires: "Skurge & Flipendo & Lumos & Alohomora" }
+  "Diffindo Challenge - Beat Par Time":
+    { requires: "Rictusempra & Flipendo & Diffindo & Lumos & Skurge & Alohomora" }
+  "Spongify Challenge - Beat Par Time":
+    { requires: "Spongify & Skurge & Flipendo & Alohomora & Lumos" }
+
   # Tradersanity vendors
   # 13 vendor-purchase checks.
   # `notes` carries the physical identity (level, actor, item, coords).

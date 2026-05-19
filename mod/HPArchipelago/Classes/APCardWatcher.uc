@@ -1331,6 +1331,7 @@ event Timer()
     ScanSecretMarkers(ipc);
     ScanDuelWins(ipc);
     ScanMatchWins(ipc);
+    ScanChallengeMastery(ipc);
     ScanBossKills(ipc);
 
     // Lesson-end hook for the four spell-tutorial location checks.
@@ -2254,6 +2255,37 @@ function ScanMatchWins(APIPCActor ipc)
         Log("[Archipelago] APCardWatcher: quidditch match " $ (i + 1)
             $ " won (vs " $ HarryRef.quidGameResults[i].Opponent
             $ ") - firing CHECK_LOCID " $ locId);
+        if (ipc != None) ipc.SendCheckLocationId(locId);
+    }
+}
+
+// Per-tick poll of harry.ChallengeScores[0..3]. A spell challenge is Mastered
+// once nHighScore >= nMaxScore (the par), the same predicate vanilla
+// ChallengeScoreManager.EndState() uses to set bMastered. The `nMaxScore > 0`
+// guard rejects a never-played challenge (0/0) so it cannot false-fire.
+// ChallengeScores is var travel, so a Mastered challenge persists across
+// save-load exactly like quidGameResults. AP location id = 5760630 + i, per
+// data/locations.yaml `spell_challenge_times`, indexed 0=Rictusempra,
+// 1=Skurge, 2=Diffindo, 3=Spongify. Idempotent for the same reason as
+// ScanMatchWins.
+function ScanChallengeMastery(APIPCActor ipc)
+{
+    local int i, locId, slot;
+
+    if (HarryRef == None) return;
+
+    for (i = 0; i < 4; i++)
+    {
+        if (HarryRef.ChallengeScores[i].nMaxScore <= 0) continue;
+        if (HarryRef.ChallengeScores[i].nHighScore < HarryRef.ChallengeScores[i].nMaxScore) continue;
+        locId = 5760630 + i;
+        slot = locId - LOC_BASE;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        if (default.NonCardLocationChecked[slot] == 1) continue;
+        default.NonCardLocationChecked[slot] = 1;
+        Log("[Archipelago] APCardWatcher: spell challenge " $ i $ " mastered (high="
+            $ HarryRef.ChallengeScores[i].nHighScore $ " par="
+            $ HarryRef.ChallengeScores[i].nMaxScore $ ") - firing CHECK_LOCID " $ locId);
         if (ipc != None) ipc.SendCheckLocationId(locId);
     }
 }

@@ -9,7 +9,7 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 ## What you're getting
 
 - An Archipelago multiworld randomizer for HP2 (PC, KnowWonder 2002 release).
-- Up to 276 checks across 7 categories — 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, and 2 Fred & George vendor purchases. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
+- Up to 280 checks across 8 categories — 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, and 2 Fred & George vendor purchases. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
 - Goal: defeat the Basilisk.
 - Plays solo or as a slot in a larger AP multiworld.
 
@@ -109,6 +109,7 @@ If you're playing solo (just you, no other AP slots):
    | `enable_challenge_stars`    | on      | 44 challenge stars across the 4 spell-challenge levels.                                                    |
    | `enable_duelling`           | off     | 10 Dueling Club ranked-duel wins.                                                                          |
    | `enable_quidditch_matches`  | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
+   | `enable_spell_challenge_times` | off  | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.               |
    | `enable_quidditch_upgrades` | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
 
    The 4 spell-tutorial classrooms are always on — randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.

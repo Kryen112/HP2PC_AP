@@ -201,6 +201,14 @@ class EnableQuidditchMatches(Toggle):
     display_name = "Enable Quidditch matches"
 
 
+class EnableSpellChallengeTimes(Toggle):
+    """If true, beating the replay par time ("Mastered") on each of the 4
+    spell challenges (Rictusempra, Skurge, Diffindo, Spongify) becomes a
+    location.
+    """
+    display_name = "Enable Spell Challenge times"
+
+
 class EnableQuidditchUpgrades(Toggle):
     """If true, the Nimbus 2001 from Fred and the Quidditch Armour from George
     become locations.
@@ -321,6 +329,7 @@ class HP2Options(PerGameCommonOptions):
     enable_quidditch_upgrades: EnableQuidditchUpgrades
     enable_duelling: EnableDuelling
     enable_quidditch_matches: EnableQuidditchMatches
+    enable_spell_challenge_times: EnableSpellChallengeTimes
     ring_link: RingLink
     enable_traps: EnableTraps
     trap_fill_percent: TrapFillPercent
@@ -409,6 +418,7 @@ class HP2World(World):
         "QuidditchPurchases": "enable_quidditch_upgrades",
         "Duels":              "enable_duelling",
         "QuidditchMatches":   "enable_quidditch_matches",
+        "SpellChallengeTimes": "enable_spell_challenge_times",
         # Tradersanity is a Choice, not a Toggle: _location_enabled treats any
         # non-off value (price_vanilla/random/low) as enabled via .value.
         "Tradersanity":       "tradersanity",

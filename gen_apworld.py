@@ -28,6 +28,7 @@ LOCATION_CATEGORIES = (
     "quidditch_purchases",
     "duels",
     "quidditch_matches",
+    "spell_challenge_times",
     "secrets",
     "challenge_stars",
     "level_completions",

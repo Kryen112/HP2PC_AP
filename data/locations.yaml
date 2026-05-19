@@ -162,6 +162,42 @@ quidditch_matches:
   - { id_offset: 624, name: "Quidditch - Match 5 (Ravenclaw)",  match_index: 4, opponent: Ravenclaw,  region: Quidditch, group: QuidditchMatches }
   - { id_offset: 625, name: "Quidditch - Match 6 (Slytherin)",  match_index: 5, opponent: Slytherin,  region: Quidditch, group: QuidditchMatches, notes: "Final match. Fires MatchEvents_Final.Won instead of MatchEvents.Won; watcher must subscribe to both event names." }
 
+# 4 spell-challenge "beat par time" locations, one per spell challenge. Each
+# fires when its challenge is Mastered: replaying a challenge runs a countdown-
+# score timer and `ChallengeScoreManager.EndState()`
+# (HGame/Classes/HUD/ChallengeScoreManager.uc:587) sets bMastered=True once
+# nHighScore >= nMaxScore, where nMaxScore is the par. The best score and the
+# par persist per-challenge in `harry.ChallengeScores[4]` (var travel array,
+# harry.uc:305; struct ChallengeScoreType {nHighScore, nMaxScore} at
+# harry.uc:12-16), so a Mastered challenge survives save/load exactly like
+# `quidGameResults` for Quidditch. `challenge_index` is the stable handle into
+# that array: 0=Rictusempra, 1=Skurge, 2=Diffindo, 3=Spongify.
+#
+# Generation gate: `enable_spell_challenge_times` YAML option (Toggle, default
+# false — optional skill content, mirroring enable_duelling /
+# enable_quidditch_matches). When false the 4 locations aren't emitted and
+# Mastering a challenge fires no AP check. Locations only — no paired items in
+# the pool (these checks hold whatever AP places at them, like cards do).
+#
+# Per-challenge requires in data/logic_vanilla.yaml / data/logic_bingo.yaml
+# are Stefan's (provenance gate). The 4 challenge regions already exist
+# (RictusempraChallenge / SkurgeChallenge / DiffindoChallenge /
+# SpongifyChallenge), so rules attach per-location.
+#
+# Mod wiring: APCardWatcher.ScanChallengeMastery polls harry.ChallengeScores
+# each tick (same poll pattern as ScanMatchWins / ScanDuelWins, no new bridge
+# message). It fires CHECK for challenge i when nHighScore >= nMaxScore with an
+# `nMaxScore > 0` guard so a never-played challenge (0/0) cannot false-fire.
+# NonCardLocationChecked[slot] (slot = id - LOC_BASE) dedupes per-challenge so
+# re-entering the challenge level after the AP check, or a save-load, does not
+# refire (challenges are replayable in vanilla, but the AP check counts the
+# first Master).
+spell_challenge_times:
+  - { id_offset: 630, name: "Rictusempra Challenge - Beat Par Time", challenge_index: 0, region: RictusempraChallenge, group: SpellChallengeTimes, notes: "Fires when ChallengeScores[0] is Mastered (nHighScore >= nMaxScore, nMaxScore > 0)." }
+  - { id_offset: 631, name: "Skurge Challenge - Beat Par Time",      challenge_index: 1, region: SkurgeChallenge,      group: SpellChallengeTimes }
+  - { id_offset: 632, name: "Diffindo Challenge - Beat Par Time",    challenge_index: 2, region: DiffindoChallenge,    group: SpellChallengeTimes }
+  - { id_offset: 633, name: "Spongify Challenge - Beat Par Time",    challenge_index: 3, region: SpongifyChallenge,    group: SpellChallengeTimes }
+
 # 101 card pickup locations. One per card. Region = vanilla level the card lives in.
 # `card_class` matches data/items.yaml `class` so the mod can use card.Id to
 # resolve location. Regions catalogued from Stefan's open-hub playthrough.
