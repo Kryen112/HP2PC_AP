@@ -16,8 +16,10 @@ Mod-side protocol (newline-delimited text):
     CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
     GOAL_COMPLETE               (game → client, once when post-Basilisk credits start)
     RINGOUT <signed_int>        (game → client, local bean total changed organically)
+    DEATH [cause]               (game → client, Harry entered stateDead — DeathLink out)
     GRANT <classname>           (client → game, on item received)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
+    DEATHLINK                   (client → game, a linked player died — kill Harry)
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -76,6 +78,14 @@ CARD_CLASS_TO_GAME_ID = {
 GAME_NAME = "Harry Potter 2 PC"
 GAME_TCP_HOST = "127.0.0.1"
 GAME_TCP_PORT = 38281
+
+# DeathLink (#8) race-insurance amnesty. An inbound death within this window
+# of the last death in either direction (CommonContext.last_death_link, stamped
+# by send_death and on_deathlink) is treated as simultaneity and not bounced
+# into the game; an outbound DEATH within it is not re-broadcast. The
+# deterministic loop is handled mod-side by the suppression latch — this only
+# mops up genuine within-a-round-trip races.
+DEATHLINK_AMNESTY_S = 2.0
 
 # Map UScript spell name (as fired by APCardWatcher's CHECK_SPELL) to the
 # AP location it represents. Lumos/Flipendo/Alohomora are starter cutscene
@@ -214,6 +224,15 @@ class HP2Context(CommonContext):
         # so co-op-on-one-slot links and SA2/SMW interop both work.
         self.ring_link_enabled: bool = False
         self.ring_source: Optional[int] = None
+        # DeathLink (#8). Opt-in per-slot via slot_data on Connected; the tag
+        # itself lives on self.tags (managed by update_death_link). Inbound
+        # deaths are NOT queued for an offline game — you can't die when not
+        # playing, so a death received then is stale and dropped. Loop
+        # prevention is the deterministic mod-side suppression latch; this
+        # timestamp amnesty is only race insurance for genuine simultaneity
+        # (CommonContext.last_death_link is stamped by both send_death and
+        # on_deathlink, so it tracks the last death in either direction).
+        self.death_link_enabled: bool = False
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -269,6 +288,16 @@ class HP2Context(CommonContext):
                     logger.info("RingLink disabled for this slot")
                 self.ring_link_enabled = False
                 self.ring_source = None
+
+            # DeathLink (#8). Opt-in via slot_data. update_death_link
+            # (CommonClient.py) mutates self.tags then ConnectUpdate, so the
+            # tag persists across a reconnect's Connect; re-run on every
+            # Connected so a seed change / reconnect re-asserts the right
+            # state. Built-in dispatch (process_server_cmd) calls
+            # on_deathlink for inbound DeathLink Bounces once tagged.
+            self.death_link_enabled = bool(sd.get("death_link"))
+            asyncio.create_task(self.update_death_link(self.death_link_enabled))
+            logger.info(f"DeathLink {'enabled' if self.death_link_enabled else 'disabled'} for this slot")
 
             # #3: scout this slot's HP2 locations so the appearance table can
             # resolve what item each marker holds. create_as_hint=0 → peek
@@ -370,6 +399,30 @@ class HP2Context(CommonContext):
             logger.info(f"RingLink: inbound {amount:+d} → RINGIN")
         except Exception as e:
             logger.warning(f"RingLink: failed to forward inbound {amount:+d}, dropping: {e}")
+
+    def on_deathlink(self, data: dict) -> None:
+        """Inbound DeathLink: a linked player died → tell the mod to kill
+        Harry. Dispatched synchronously by CommonClient.process_server_cmd,
+        which already drops our own echo (last_death_link != data['time']).
+        Amnesty is read before super() stamps last_death_link so it reflects
+        our prior death activity, not this event. Not queued when the game is
+        offline: a death received while not playing is stale (you can't die),
+        and replaying it on reconnect would kill a freshly-loaded Harry."""
+        amnesty = (time.time() - self.last_death_link) < DEATHLINK_AMNESTY_S
+        super().on_deathlink(data)
+        if not self.death_link_enabled:
+            return
+        if amnesty:
+            logger.info("DeathLink: inbound within amnesty window — not forwarding")
+            return
+        if self.game_writer is None or self.game_writer.is_closing():
+            logger.info("DeathLink: inbound dropped (game offline; stale when not playing)")
+            return
+        try:
+            self.game_writer.write(b"DEATHLINK\n")
+            logger.info(f"DeathLink: inbound from {data.get('source', '?')} → DEATHLINK")
+        except Exception as e:
+            logger.warning(f"DeathLink: failed to forward inbound, dropping: {e}")
 
     def on_print_json(self, args: dict) -> None:
         # Toast feedback for items WE send to other slots ("Sent X to Y").
@@ -548,6 +601,26 @@ class HP2Context(CommonContext):
                 logger.info(f"RingLink: outbound {delta:+d} → Bounce")
             except Exception as e:
                 logger.warning(f"RingLink: send Bounce failed, dropping {delta:+d}: {e}")
+            return
+        if line == "DEATH" or line.startswith("DEATH "):
+            # Harry entered stateDead. Broadcast a DeathLink Bounce only while
+            # tagged (death_link on) and outside the amnesty window — the mod
+            # already skipped the outbound edge for an induced (incoming) kill
+            # via its suppression latch, so anything reaching here is an
+            # organic death. send_death stamps last_death_link itself.
+            if not self.death_link_enabled or "DeathLink" not in self.tags:
+                return
+            if (time.time() - self.last_death_link) < DEATHLINK_AMNESTY_S:
+                logger.info("DeathLink: outbound suppressed (within amnesty window)")
+                return
+            cause = line[len("DEATH "):].strip() if line.startswith("DEATH ") else ""
+            if not cause:
+                cause = "Harry was defeated"
+            if not (self.server and self.slot is not None):
+                logger.info("DeathLink: AP offline, dropping outbound death (not queued)")
+                return
+            logger.info(f"DeathLink: outbound death → Bounce ({cause})")
+            await self.send_death(cause)
             return
         if line.startswith("CHECK_SPELL "):
             spell_name = line[len("CHECK_SPELL "):].strip()

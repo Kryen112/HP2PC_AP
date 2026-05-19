@@ -16,9 +16,9 @@ from typing import Any
 
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          LocationProgressType, Region)
-from Options import (Choice, DefaultOnToggle, NamedRange, OptionError,
-                     OptionGroup, OptionSet, PerGameCommonOptions, Range,
-                     StartInventoryPool, Toggle)
+from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
+                     OptionError, OptionGroup, OptionSet,
+                     PerGameCommonOptions, Range, StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
@@ -331,6 +331,10 @@ class HP2Options(PerGameCommonOptions):
     enable_quidditch_matches: EnableQuidditchMatches
     enable_spell_challenge_times: EnableSpellChallengeTimes
     ring_link: RingLink
+    # Built-in AP Bounce-channel option (Toggle, default off). Pure runtime
+    # channel — no fill/logic impact; the client reads it from slot_data on
+    # Connected and (de)registers the DeathLink tag.
+    death_link: DeathLink
     enable_traps: EnableTraps
     trap_fill_percent: TrapFillPercent
     tradersanity: Tradersanity
@@ -774,17 +778,19 @@ class HP2World(World):
         }
 
     def fill_slot_data(self) -> dict:
-        # The client only learns the RingLink toggle through slot_data; it
-        # has no other view of the YAML. Must be in both return paths.
+        # The client only learns the RingLink / DeathLink toggles through
+        # slot_data; it has no other view of the YAML. Must be in both paths.
         if not self._is_bingo():
             return {
                 "game_mode": "vanilla",
                 "ring_link": bool(self.options.ring_link),
+                "death_link": bool(self.options.death_link.value),
                 "tradersanity": self.options.tradersanity.value,
             }
         sd = {
             "game_mode": "bingo",
             "ring_link": bool(self.options.ring_link),
+            "death_link": bool(self.options.death_link.value),
             "tradersanity": self.options.tradersanity.value,
         }
         sd.update(self._bingo_goal_config())
