@@ -246,6 +246,14 @@ function HandleLine(string line)
         PendingRingDelta += int(Mid(line, 7));
         Log("[Archipelago] APIPCActor: RINGIN " $ Mid(line, 7) $ " (PendingRingDelta=" $ string(PendingRingDelta) $ ")");
     }
+    else if (line == "DEATHLINK")
+    {
+        // A linked player died. The IPC actor has no Harry ref or state
+        // gating, so just arm the class-default flag on the watcher (mirrors
+        // GOALCFG); APCardWatcher.ScanDeathLink applies the kill on the next
+        // playable tick and owns the loop-prevention latch.
+        class'APCardWatcher'.static.SetPendingDeathLink();
+    }
 }
 
 // Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the
@@ -449,6 +457,14 @@ function SendGoalComplete()
 {
     SendText("GOAL_COMPLETE" $ Chr(10));
     Log("[Archipelago] APIPCActor: sent GOAL_COMPLETE");
+}
+
+// DeathLink out: Harry entered stateDead. Cause is optional flavour; the
+// client gates on the DeathLink tag, so an untagged slot makes this a no-op.
+function SendDeath(string Cause)
+{
+    SendText("DEATH " $ Cause $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent DEATH " $ Cause);
 }
 
 function QueueGrant(string ItemName)

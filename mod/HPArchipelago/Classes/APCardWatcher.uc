@@ -260,6 +260,12 @@ var byte WasGoalUnlocked;
 // it to tell a menu-bail apart from a real Mechanism-C completion; cleared on
 // any bind back inside a Mechanism-C level (a fresh attempt supersedes a bail).
 var string MenuReturnFromLevelCaps;
+// Caps'd name of the level Harry was in when he entered stateDead (stamped by
+// ScanDeathLink, organic OR induced DeathLink). HP2's death penalty is
+// LoadGame 0, which reloads the autosave and so travels OUT of the level —
+// CheckExitedLevelObjective uses this to tell a death-reload apart from a real
+// completion (same role as MenuReturnFromLevelCaps for the Return-to-Hub bail).
+var string DeathExitFromLevelCaps;
 // Caps'd name of the level the watcher was last bound in. Mechanism-C credits
 // off OUR own per-level bind history, NOT harry.PreviousLevelName: the return
 // SmartStart auto-saves, and harry.PreSaveGame wipes PreviousLevelName before
@@ -303,6 +309,28 @@ var byte bGoyleTrapActive;
 // (not watcher instance) is the discriminator so bingo's streamed-sublevel
 // watcher churn never false-triggers.
 var name TrapLastLevelName;
+
+// --- DeathLink (#8) state. All class-default + sticky: an induced kill runs
+// GotoState('stateDead') → ConsoleCommand("LoadGame 0"), which destroys the
+// current Harry + watcher and spawns fresh ones, so an instance var would not
+// survive the reload. ----------------------------------------------------
+// Rising-edge latch for the outgoing detector: 1 while Harry is in stateDead
+// so a death broadcasts exactly once; cleared when Harry is alive again
+// (post-reload PlayerWalking), which re-arms the edge.
+var byte bWasDead;
+// One-shot deterministic loop-prevention: set at incoming-kill time so the
+// outgoing edge detector consumes it and does NOT rebroadcast the induced
+// death back to the room.
+var byte bSuppressNextDeathBroadcast;
+// Inbound linked death awaiting application. Set by SetPendingDeathLink (the
+// IPC DEATHLINK line); ScanDeathLink consumes it once Harry is playable, or
+// holds it across a cutscene/menu/load until control returns.
+var byte bPendingDeathLink;
+// Latch-timeout insurance: ticks left before bSuppressNextDeathBroadcast
+// auto-clears when no stateDead was observed, so a missed GotoState cannot
+// wrongly suppress a later natural death. 0 = disarmed. ~10s at 0.25s/tick.
+var int DeathSuppressTicksLeft;
+const DEATH_SUPPRESS_TIMEOUT_TICKS = 40;
 
 static function APCardWatcher GetLatest()
 {
@@ -757,6 +785,16 @@ static function SetTradersanityMode(int m)
 {
     default.TradersanityMode = m;
     Log("[Archipelago] APCardWatcher.SetTradersanityMode: mode=" $ default.TradersanityMode);
+}
+
+// Inbound DeathLink arm (DEATHLINK IPC line). Class-default + sticky like the
+// other setters; ScanDeathLink applies it on the next playable tick. Setting
+// 1 over an already-pending 1 is idempotent (a death you can't act on yet
+// collapses to a single kill on return — correct, you only die once).
+static function SetPendingDeathLink()
+{
+    default.bPendingDeathLink = 1;
+    Log("[Archipelago] APCardWatcher.SetPendingDeathLink: inbound DeathLink armed");
 }
 
 // ---------------------------------------------------------------------------
@@ -1333,6 +1371,7 @@ event Timer()
     ScanMatchWins(ipc);
     ScanChallengeMastery(ipc);
     ScanBossKills(ipc);
+    ScanDeathLink(ipc);
 
     // Lesson-end hook for the four spell-tutorial location checks.
     // Fires CHECK_SPELL the tick after harry.CurrSpellLesson transitions from
@@ -2290,6 +2329,90 @@ function ScanChallengeMastery(APIPCActor ipc)
     }
 }
 
+// DeathLink (#8). Outgoing rising-edge detection on the single terminal state
+// every death cause funnels through (stateDead → LoadGame 0), plus inbound
+// application via a dedicated terminal path that never routes through
+// Died/KillHarry — KillHarry's boss-victory branch (harry.uc:1576) would send
+// SendVictoriousTrigger instead of dying when Harry has a boss target with
+// TrigEventWhenVictor, gifting a bingo player an Aragog/Basilisk goal.
+// StopBossEncounter clears that target; bClubDeath bypasses the Wiggenweld
+// auto-quaff; GotoState('stateDead') is the same engine terminal state a
+// natural death uses (→ LoadGame 0, which discards boss state anyway).
+function ScanDeathLink(APIPCActor ipc)
+{
+    local string reason;
+    local bool bDead;
+
+    if (HarryRef == None) return;
+
+    bDead = (HarryRef.GetStateName() == 'stateDead');
+
+    // Outgoing: rising edge into stateDead.
+    if (bDead && default.bWasDead == 0)
+    {
+        default.bWasDead = 1;
+        // Death (organic OR induced) → LoadGame 0 reloads the autosave, which
+        // travels out of this level. Mark it so CheckExitedLevelObjective does
+        // not miscredit the death-reload as completing an exit-credited level.
+        default.DeathExitFromLevelCaps = Caps(string(Level.Outer.Name));
+        if (default.bSuppressNextDeathBroadcast == 1)
+        {
+            // This stateDead is our own induced (incoming) kill — consume the
+            // latch and do NOT rebroadcast (deterministic loop prevention).
+            default.bSuppressNextDeathBroadcast = 0;
+            default.DeathSuppressTicksLeft = 0;
+            Log("[Archipelago] APCardWatcher: stateDead from induced DeathLink kill - rebroadcast suppressed");
+        }
+        else
+        {
+            Log("[Archipelago] APCardWatcher: Harry died (stateDead) - firing DEATH");
+            if (ipc != None) ipc.SendDeath("Harry was defeated");
+        }
+    }
+    else if (!bDead && default.bWasDead == 1)
+    {
+        // Alive again (post-reload PlayerWalking) — re-arm the edge.
+        default.bWasDead = 0;
+    }
+
+    // Latch timeout: if the induced GotoState was somehow missed, don't let a
+    // stale suppress flag eat a later natural death.
+    if (default.bSuppressNextDeathBroadcast == 1 && !bDead
+        && default.DeathSuppressTicksLeft > 0)
+    {
+        default.DeathSuppressTicksLeft -= 1;
+        if (default.DeathSuppressTicksLeft <= 0)
+        {
+            default.bSuppressNextDeathBroadcast = 0;
+            Log("[Archipelago] APCardWatcher: DeathLink suppress latch timed out (no stateDead) - cleared");
+        }
+    }
+
+    // Incoming: apply a pending linked death.
+    if (default.bPendingDeathLink == 1)
+    {
+        if (bDead)
+        {
+            // Already dying (our own death raced the inbound) — the reload is
+            // happening regardless, so just drop the pending kill.
+            default.bPendingDeathLink = 0;
+        }
+        else if (class'APGameInfo'.static.IsPlayerInPlayableState(HarryRef, reason))
+        {
+            default.bPendingDeathLink = 0;
+            default.bSuppressNextDeathBroadcast = 1;
+            default.DeathSuppressTicksLeft = DEATH_SUPPRESS_TIMEOUT_TICKS;
+            Log("[Archipelago] APCardWatcher: applying inbound DeathLink kill (dedicated terminal path)");
+            if (baseBoss(HarryRef.BossTarget) != None) HarryRef.StopBossEncounter();
+            HarryRef.bClubDeath       = True;
+            HarryRef.bHarryKilled     = True;
+            HarryRef.bAllowHarryToDie = True;
+            HarryRef.GotoState('stateDead');
+        }
+        // else not playable (cutscene/menu/load): keep pending, retry next tick.
+    }
+}
+
 // Clause-3 Mechanism B (goal_plan.md §6.2): poll the boss in its level.
 // Aragog: Health<=0 routes to GotoState('stateBeatAragog') (Aragog.uc:176-181),
 // the unambiguous "defeated" state (the level has 2 Aragog actors; only the
@@ -2868,13 +2991,18 @@ function CheckExitedLevelObjective()
 
     curCaps = Caps(string(Level.Outer.Name));
     // Physically back inside an exit-credited level => a fresh attempt; any
-    // earlier menu-bail record is moot and must not suppress this run's exit.
+    // earlier menu-bail or death-reload record is moot and must not suppress
+    // this run's exit (covers the case where the autosave was in-level, so a
+    // death reloaded the same level and the marker would otherwise go stale).
     if (curCaps == "ADV1WILLOW" || curCaps == "ADV7SLYTHCOMROOM"
         || curCaps == "ADV4GREENHOUSE" || curCaps == "ADV3DUNGEONQUEST"
         || curCaps == "ADV6GOYLE" || curCaps == "CH1RICTUSEMPRA"
         || curCaps == "CH2SKURGE" || curCaps == "CH3DIFFINDO"
         || curCaps == "CH4SPONGIFY")
+    {
         default.MenuReturnFromLevelCaps = "";
+        default.DeathExitFromLevelCaps = "";
+    }
 
     prevCaps = default.LastBoundLevelCaps;
     // Record this bind's level for the NEXT bind's comparison before any
@@ -2894,6 +3022,16 @@ function CheckExitedLevelObjective()
     {
         Log("[Archipelago] APCardWatcher.CheckExitedLevelObjective: idx=" $ idx
             $ " skipped - left " $ prevCaps $ " via Return-to-Hub menu");
+        return;
+    }
+    // Death (organic or DeathLink-induced) reloads the autosave (LoadGame 0),
+    // which travels out of the level WITHOUT completing it. Not a completion.
+    // Clear on consume so a later genuine completion of the same level credits.
+    if (prevCaps == default.DeathExitFromLevelCaps)
+    {
+        default.DeathExitFromLevelCaps = "";
+        Log("[Archipelago] APCardWatcher.CheckExitedLevelObjective: idx=" $ idx
+            $ " skipped - left " $ prevCaps $ " via death-reload (LoadGame 0)");
         return;
     }
     // idx 0-2: leaving the terminal ingredient level == obtained the
