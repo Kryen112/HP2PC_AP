@@ -110,6 +110,10 @@ regions:
     entry: "'Chamber of Secrets Key' & Alohomora"
     notes: "Final goal region. Hosts Chamber of Secrets - Card Elphick + 6 secrets; the 11 Gold cards live in GoldCardRoom."
 
+  GryffindorChallenge:
+    entry: "'Gryffindor Challenge Key'"
+    notes: "Bingo-only challenge level (Ch7Gryffindor), entered from the Entryhall_hub Gryffindor bookcase. The vanilla give-all-spells actor (TriggerTurnOnAllSpells) is neutralized at level-init so spells stay AP-controlled. Entry carries only the key; per-star spell combos live in each location's requires."
+
 # Per-location rules. KEY = location.name from locations.yaml.
 # Listed only when an extra requirement applies beyond region entry; every
 # other location in a region is implicitly "true" (region access suffices).
@@ -503,7 +507,47 @@ locations:
   "Spongify Challenge - Challenge Star 10":
     { requires: "Spongify & Flipendo & Skurge" }
 
-  # ── ForbiddenForest ───────────────────────────────────────────────────────
+  # GryffindorChallenge
+  "Gryffindor Challenge - Challenge Star 1": { requires: "true" }
+  "Gryffindor Challenge - Challenge Star 2": { requires: "Diffindo & Spongify" }
+  "Gryffindor Challenge - Challenge Star 3":
+    { requires: "Diffindo & Spongify & Alohomora" }
+  "Gryffindor Challenge - Challenge Star 4":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Challenge Star 5":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Challenge Star 6":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Challenge Star 7":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Challenge Star 8":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Challenge Star 9":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Challenge Star 10":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Secret 1":
+    { requires: "Diffindo & Spongify & Alohomora" }
+  "Gryffindor Challenge - Secret 2":
+    { requires: "Diffindo & Spongify & Alohomora" }
+  "Gryffindor Challenge - Secret 3":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Secret 4":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Secret 5":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Secret 6":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Secret 7":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Secret 8":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Secret 9":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Complete":
+    { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+
+  # ForbiddenForest
   "Forbidden Forest - Card Fancourt":
     { requires: "Lumos & Spongify & Diffindo & Alohomora" }
   "Forbidden Forest - Card Ollerton":
@@ -522,7 +566,7 @@ locations:
     { requires: "Lumos & Spongify & Diffindo & Rictusempra" }
   "Forbidden Forest - Secret 1": { requires: "Lumos & Spongify" }
 
-  # ── ChamberOfSecrets (region entry already requires Alohomora) ────────────
+  # ChamberOfSecrets (region entry already requires Alohomora)
   "Chamber of Secrets - Card Elphick":
     { requires: "Spongify & Diffindo & Skurge" }
   "Chamber of Secrets - Secret 3":
@@ -570,7 +614,9 @@ locations:
   "Skurge Challenge - Beat Par Time":
     { requires: "Skurge & Flipendo & Lumos & Alohomora" }
   "Diffindo Challenge - Beat Par Time":
-    { requires: "Rictusempra & Flipendo & Diffindo & Lumos & Skurge & Alohomora" }
+    {
+      requires: "Rictusempra & Flipendo & Diffindo & Lumos & Skurge & Alohomora",
+    }
   "Spongify Challenge - Beat Par Time":
     { requires: "Spongify & Skurge & Flipendo & Alohomora & Lumos" }
 

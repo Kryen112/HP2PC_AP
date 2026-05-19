@@ -106,6 +106,11 @@ event InitGame(string Options, out string Error)
 
     ReplaceCardChests();
     DestroyUnobtainableSecretMarkers();
+    // Durable bingo detection runs pre-Harry so DestroyGryffindorSpellGiver's
+    // bBingoMode gate is reliable even on a cold load into a sentinel-less
+    // level (no MGBingo actor in Ch7Gryffindor).
+    class'APCardWatcher'.static.EnsureBingoModeDetected();
+    DestroyGryffindorSpellGiver();
     ForceCutScenesSkippable();
     BlockRictaClassroomIfMissing();
     BlockSkurgeClassroomIfMissing();
@@ -246,6 +251,40 @@ function DestroyUnobtainableSecretMarkers()
                 m.Destroy();
             }
         }
+    }
+}
+
+// Ch7Gryffindor (bingo-only challenge level) ships a vanilla
+// TriggerTurnOnAllSpells (tag Givespells) that, on its first Touch/Trigger,
+// sets harry.bNoSpellBookCheck=True — making harry.IsInSpellBook return True
+// for EVERY spell (harry.uc:568), so the player can cast everything and the
+// watcher's revert loop can never clear a spell. The level-start dispatcher
+// fires it almost immediately, before the per-level watcher's Snapshot runs,
+// so the actor must die HERE in InitGame (pre-Harry, pre-level-scripts), not
+// in Snapshot. The watcher also clears the flag every tick to cover a save
+// reloaded inside the room (ProcessServerTravel skips InitGame). Bingo-only;
+// vanilla never enters this level so the giver is left intact there.
+function DestroyGryffindorSpellGiver()
+{
+    local Actor a;
+    local int n;
+
+    if (Caps(string(Level.Outer.Name)) != "CH7GRYFFINDOR") return;
+    if (class'APCardWatcher'.default.bBingoMode != 1) return;
+
+    foreach AllActors(class'Actor', a)
+    {
+        if (a != None && !a.bDeleteMe
+            && string(a.Class.Name) == "TriggerTurnOnAllSpells")
+        {
+            a.Destroy();
+            n++;
+        }
+    }
+    if (n > 0)
+    {
+        Log("[Archipelago] DestroyGryffindorSpellGiver: destroyed " $ n
+            $ " TriggerTurnOnAllSpells actor(s) at InitGame (CH7GRYFFINDOR bingo)");
     }
 }
 
@@ -911,14 +950,25 @@ function bool ShouldSpawnBingoBlocker(name Tag, int KeyIdx)
 function Actor SpawnBingoBookcase(name Tag, Vector Loc, Rotator Rot)
 {
     local Actor blocker;
+
     blocker = Spawn(class'BookcaseGlassDoors', None, Tag, Loc, Rot);
+    if (blocker == None)
+    {
+        // Encroachment: an actor (typically an ambient hub NPC such as Percy)
+        // is sitting in the footprint, so Spawn returns None and the doorway/
+        // corridor stays open. Clear non-Harry pawns at the spot and retry
+        // once. Only runs on an actual failure, so it never disturbs NPCs /
+        // Tradersanity vendors standing near a bookcase that spawned fine.
+        ClearBookcaseEncroachers(Loc, 120.0);
+        blocker = Spawn(class'BookcaseGlassDoors', None, Tag, Loc, Rot);
+    }
     if (blocker != None)
     {
         Log("[Archipelago] " $ string(Tag) $ ": spawned at " $ string(Loc) $ " Rotation=" $ string(Rot));
     }
     else
     {
-        Log("[Archipelago] " $ string(Tag) $ ": Spawn returned None at " $ string(Loc) $ " (encroachment? coords may need tweak)");
+        Log("[Archipelago] " $ string(Tag) $ ": Spawn returned None at " $ string(Loc) $ " (encroachment persists after clearing pawns; coords may need a tweak)");
     }
     return blocker;
 }
@@ -1132,6 +1182,60 @@ function BlockBingoQuidditchEntryIfMissing()
 }
 function RemoveBingoQuidditchBlocker()     { DestroyTaggedBingoBlockers('APBingoQuidditchBlocker'); }
 
+// A hub ambient NPC (Percy in particular, sometimes a student) can idle
+// exactly where a bookcase spawns; a Pawn in the footprint makes Spawn return
+// None (encroachment), leaving the doorway/corridor open. SpawnBingoBookcase
+// calls this on a failed spawn to destroy any non-Harry Pawn within Radius of
+// Loc, then retries. Hub NPCs are ambient in bingo and restored fresh from
+// the persistent-actor cache on every level entry, so removing the one in the
+// way each load is cosmetically harmless and reliably keeps the seal. Used by
+// every bookcase blocker (all spawn through SpawnBingoBookcase).
+function ClearBookcaseEncroachers(Vector Loc, float Radius)
+{
+    local Pawn p;
+    local int n;
+
+    foreach AllActors(class'Pawn', p)
+    {
+        if (p == None || p.bDeleteMe) continue;
+        if (harry(p) != None) continue;            // never touch Harry
+        // Never destroy a Tradersanity vendor: its check is keyed on this
+        // actor by (level, Name), so removing it would break that vendor's
+        // sale until hub re-entry. Data-driven via the same registry the
+        // Tradersanity feature uses, so it cannot drift. (A vendor that ever
+        // truly blocks a bookcase leaves a transient gap that visit — an
+        // accepted, ~never-hit trade-off given ~360uu vendor/bookcase spacing.)
+        if (class'APLocationRegistry'.static.GetVendorLocationId(
+                string(Level.Outer.Name), string(p.Name)) != 0) continue;
+        if (VSize(p.Location - Loc) <= Radius)
+        {
+            p.Destroy();
+            n++;
+        }
+    }
+    if (n > 0)
+    {
+        Log("[Archipelago] ClearBookcaseEncroachers: removed " $ n
+            $ " pawn(s) within " $ Radius $ " of " $ string(Loc));
+    }
+}
+
+// ----- 14. Gryffindor challenge entry (Entryhall_hub). 2 bookcases. -----
+function BlockBingoGryffindorEntryIfMissing()
+{
+    local Vector loc;
+    local Rotator rot;
+    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnBingoBlocker('APBingoGryffindorBlocker', 13)) return;
+    loc.X = 2641.93;  loc.Y = -1884.27; loc.Z = 620.50;
+    rot.Yaw = 302;    rot.Roll = 65535;
+    SpawnBingoBookcase('APBingoGryffindorBlocker', loc, rot);
+    loc.X = 2636.15;  loc.Y = -1838.34; loc.Z = 620.50;
+    rot.Yaw = 375;    rot.Roll = 0;
+    SpawnBingoBookcase('APBingoGryffindorBlocker', loc, rot);
+}
+function RemoveBingoGryffindorBlocker()    { DestroyTaggedBingoBlockers('APBingoGryffindorBlocker'); }
+
 // ----- Great Hall goal gate (EntryHall_Hub; 1 bookcase — goal_plan.md §3) -----
 // NOT keyed by an APGrantedBingoKey: this one is gated by the 5-clause goal
 // evaluator, so it does not use ShouldSpawnBingoBlocker (which checks
@@ -1194,6 +1298,7 @@ function SpawnAllBingoBlockers()
     BlockBingoBicornEntryIfMissing();
     BlockBingoDuellingEntryIfMissing();
     BlockBingoQuidditchEntryIfMissing();
+    BlockBingoGryffindorEntryIfMissing();
     BlockBingoGreatHallEntryIfMissing();
 }
 
@@ -1749,6 +1854,7 @@ function bool TryApplyBingoKey(string Name)
         else if (idx == 10) RemoveBingoBicornBlocker();
         else if (idx == 11) RemoveBingoDuellingBlocker();
         else if (idx == 12) RemoveBingoQuidditchBlocker();
+        else if (idx == 13) RemoveBingoGryffindorBlocker();
     }
     else
     {

@@ -120,6 +120,18 @@ static function int GetSecretLocationId(string LevelName, string MarkerName)
         if (MarkerName == "SecretAreaMarker8") return 5760400;
         if (MarkerName == "SecretAreaMarker9") return 5760401;
     }
+    else if (LevelName == "CH7GRYFFINDOR")
+    {
+        if (MarkerName == "SecretAreaMarker0") return 5760410;
+        if (MarkerName == "SecretAreaMarker1") return 5760411;
+        if (MarkerName == "SecretAreaMarker2") return 5760412;
+        if (MarkerName == "SecretAreaMarker3") return 5760413;
+        if (MarkerName == "SecretAreaMarker4") return 5760414;
+        if (MarkerName == "SecretAreaMarker5") return 5760415;
+        if (MarkerName == "SecretAreaMarker6") return 5760416;
+        if (MarkerName == "SecretAreaMarker7") return 5760417;
+        if (MarkerName == "SecretAreaMarker8") return 5760418;
+    }
     else if (LevelName == "ENTRYHALL_HUB")
     {
         if (MarkerName == "SecretAreaMarker0") return 5760348;
@@ -229,6 +241,19 @@ static function int GetStarLocationId(string LevelName, string MarkerName)
         if (MarkerName == "ChallengeStar7") return 5760541;
         if (MarkerName == "ChallengeStar8") return 5760542;
         if (MarkerName == "ChallengeStar9") return 5760543;
+    }
+    else if (LevelName == "CH7GRYFFINDOR")
+    {
+        if (MarkerName == "ChallengeStar0") return 5760544;
+        if (MarkerName == "ChallengeStar10") return 5760552;
+        if (MarkerName == "ChallengeStar11") return 5760553;
+        if (MarkerName == "ChallengeStar2") return 5760546;
+        if (MarkerName == "ChallengeStar3") return 5760547;
+        if (MarkerName == "ChallengeStar4") return 5760548;
+        if (MarkerName == "ChallengeStar5") return 5760549;
+        if (MarkerName == "ChallengeStar6") return 5760550;
+        if (MarkerName == "ChallengeStar8") return 5760551;
+        if (MarkerName == "ChallengeStar9") return 5760545;
     }
     return 0;
 }

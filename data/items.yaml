@@ -190,6 +190,7 @@ bingo_keys:
   - { id_offset: 260, name: "Bicorn Level Key",          classification: progression, group: "Bingo Keys" }
   - { id_offset: 261, name: "Duelling Key",              classification: progression, group: "Bingo Keys" }
   - { id_offset: 262, name: "Quidditch Key",             classification: progression, group: "Bingo Keys" }
+  - { id_offset: 263, name: "Gryffindor Challenge Key",  classification: progression, group: "Bingo Keys" }
 
 # Filler. Stacks — multiple copies allowed, count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).

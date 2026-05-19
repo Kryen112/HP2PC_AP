@@ -3,7 +3,7 @@ class APCardWatcher extends Actor;
 const MAX_CARD_ID = 101;
 const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
-const NUM_BINGO_KEYS = 13;
+const NUM_BINGO_KEYS = 14;
 
 // Story state when the player first gains control in the Great Hall after
 // the opening sequence — the checkpoint where vanilla assigns silver wizard
@@ -209,8 +209,10 @@ var byte APGrantedKeyItem[3];
 // MarkBingoKeyAsGrantedDefault keep the flag sticky across save/load and
 // across the per-level watcher instance lifecycle. Index → name mapping in
 // BingoKeyNames[] below; new entries here must mirror items.yaml bingo_keys.
-var string BingoKeyNames[13];
-var byte APGrantedBingoKey[13];
+// Dimension literal MUST be the integer 14, not NUM_BINGO_KEYS (M212 array
+// dims take an integer literal, not a const) — keep in sync with the const.
+var string BingoKeyNames[14];
+var byte APGrantedBingoKey[14];
 
 // M7 goal detection: tracks whether we've already fired GOAL_COMPLETE this
 // session. Class-default so it survives level transitions (the credits flow
@@ -528,6 +530,12 @@ event PreBeginPlay()
     default.LatestInstance = self;
     SetTimer(0.25, true);
 
+    // Durable bingo detection BEFORE the default->instance copy loops below,
+    // so on the bingo install they see the wiped default.APGrantedSpell[].
+    // Works on the save-load path (ProcessServerTravel skips InitGame) since
+    // it needs no instance/level/IPC.
+    class'APCardWatcher'.static.EnsureBingoModeDetected();
+
     SpellClasses[0] = class'spellAlohomora';   SpellNames[0] = "Alohomora";
     SpellClasses[1] = class'spellDiffindo';    SpellNames[1] = "Diffindo";
     SpellClasses[2] = class'spellFlipendo';    SpellNames[2] = "Flipendo";
@@ -556,6 +564,7 @@ event PreBeginPlay()
     BingoKeyNames[10] = "Bicorn Level Key";
     BingoKeyNames[11] = "Duelling Key";
     BingoKeyNames[12] = "Quidditch Key";
+    BingoKeyNames[13] = "Gryffindor Challenge Key";
 
     // Inherit cross-session AP-grant flags from class default so a freshly
     // spawned watcher (e.g. after a save-load while AP grants arrived
@@ -583,6 +592,13 @@ event PreBeginPlay()
             APGrantedBingoKey[i] = 1;
         }
     }
+
+    // Close the save-load-inside-Ch7Gryffindor window: ProcessServerTravel
+    // skips APGameInfo.InitGame (so its DestroyGryffindorSpellGiver never
+    // runs), but this per-level watcher's PreBeginPlay still fires pre-Harry,
+    // before the level begin-dispatcher triggers Givespells. No-op outside
+    // CH7GRYFFINDOR / non-bingo (guarded inside).
+    NeutralizeGryffindorSpellGiver();
 }
 
 // Class-default-only marker so APGameInfo.ApplyGrant can mark a spell as
@@ -630,6 +646,7 @@ static function int BingoKeyIndexFromName(string KeyName)
     if (KeyName == "Bicorn Level Key")          return 10;
     if (KeyName == "Duelling Key")              return 11;
     if (KeyName == "Quidditch Key")             return 12;
+    if (KeyName == "Gryffindor Challenge Key")  return 13;
     return -1;
 }
 
@@ -1210,6 +1227,7 @@ static function int LevelObjectiveIndexFor(string CapsLevelName)
     if (CapsLevelName == "CH2SKURGE")        return 8;
     if (CapsLevelName == "CH3DIFFINDO")      return 9;
     if (CapsLevelName == "CH4SPONGIFY")      return 10;
+    if (CapsLevelName == "CH7GRYFFINDOR")    return 11;  // Gryffindor challenge
     return -1;
 }
 
@@ -1434,6 +1452,21 @@ event Timer()
                 ipc.SendCheckSpell(SpellNames[i]);
             }
         }
+    }
+
+    // Ch7Gryffindor's TriggerTurnOnAllSpells sets harry.bNoSpellBookCheck=
+    // True, which makes IsInSpellBook return True for EVERY spell
+    // (harry.uc:568) — the revert loop below could then never clear a spell
+    // and the player keeps full casting. APGameInfo.InitGame destroys the
+    // actor before it can fire on the normal entry path; clearing the flag
+    // here every tick also covers a save reloaded inside the room (save-load
+    // skips InitGame) or any other re-set. Guarded so it only acts/logs when
+    // actually set. Bingo-only; vanilla never enters this level.
+    if (default.bBingoMode == 1 && HarryRef.bNoSpellBookCheck
+        && Caps(string(Level.Outer.Name)) == "CH7GRYFFINDOR")
+    {
+        HarryRef.bNoSpellBookCheck = False;
+        Log("[Archipelago] APCardWatcher: cleared harry.bNoSpellBookCheck in CH7GRYFFINDOR (bingo)");
     }
 
     for (i = 0; i < NUM_SPELLS; i++)
@@ -2043,45 +2076,73 @@ function EnsureLatestRegistration()
     }
 }
 
-// Detect bingo-distribution maps by looking for an MGBingoLearnAllSpells
-// actor placed in the level (the package MGBingo.u ships only with the
-// bingo install, so we identify by class-name string to avoid a hard
-// reference that would prevent HPArchipelago.u from loading on the
-// vanilla/Modded install). Once detected, the flag persists for the rest
-// of the session via class-default write; sub-levels without the actor
-// still get treated as bingo mode.
+// One-way-sticky bingo-mode transition, shared by every entry path (durable
+// DLO probe, in-level MGBingo actor scan, IPC `MODE bingo`). Static so the
+// pre-Harry / pre-IPC callers (APGameInfo.InitGame, APCardWatcher.
+// PreBeginPlay, APIPCActor) can enter bingo mode without a live instance;
+// only touches class-defaults (each watcher mirrors them from its
+// PreBeginPlay). On the FIRST transition it wipes stale default.APGrantedSpell
+// so the bingo revert loop can't keep a prior vanilla-seed's precollected
+// Lumos/Flipendo/Alohomora — the AP client's durable resync re-sets the flag
+// over IPC for spells THIS seed grants. Idempotent: a second call (already
+// bingo) is a no-op, so reconnect / save-load that already has AP-granted
+// spells does NOT re-wipe them. bBingoMode is never cleared (one-way).
+static function EnterBingoMode(string reason)
+{
+    local int i;
+
+    if (default.bBingoMode == 1) return;
+    default.bBingoMode = 1;
+    Log("[Archipelago] APCardWatcher: entering bingo mode (sticky) - " $ reason);
+    for (i = 0; i < NUM_SPELLS; i++)
+    {
+        default.APGrantedSpell[i] = 0;
+    }
+    Log("[Archipelago] APCardWatcher: reset APGrantedSpell[] (AP grants this session will re-set as they arrive)");
+}
+
+// Durable, level-independent bingo probe. The bingo install is the only one
+// that ships the MGBingo package; a soft DynamicLoadObject of its class
+// returns non-None there and None on the vanilla/Modded install (MayFail=true
+// → no error, no hard reference that would block HPArchipelago.u loading on
+// vanilla). Works pre-Harry / pre-IPC and on a cold load into a sentinel-less
+// level (e.g. Ch7Gryffindor) where the in-level actor scan misses. Callable
+// from APGameInfo.InitGame / APCardWatcher.PreBeginPlay / APIPCActor.
+static function EnsureBingoModeDetected()
+{
+    if (default.bBingoMode == 1) return;
+    if (DynamicLoadObject("MGBingo.MGBingoLearnAllSpells", class'Class', true) != None)
+    {
+        EnterBingoMode("DLO MGBingo package present");
+    }
+}
+
+// Per-level call from Snapshot. Durable probe first (covers cold-load into
+// sentinel-less levels), then the legacy in-level MGBingoLearnAllSpells actor
+// scan as a secondary fallback. IPC `MODE bingo` is the late authoritative
+// belt (APIPCActor). Mirrors the class-default flag/wipe onto this instance.
 function DetectBingoMode()
 {
     local Actor a;
     local int i;
 
+    if (default.bBingoMode == 1) return;
+
+    class'APCardWatcher'.static.EnsureBingoModeDetected();
     if (default.bBingoMode == 1)
     {
+        bBingoMode = 1;
+        for (i = 0; i < NUM_SPELLS; i++) APGrantedSpell[i] = 0;
         return;
     }
+
     foreach AllActors(class'Actor', a)
     {
         if (string(a.Class.Name) == "MGBingoLearnAllSpells")
         {
-            default.bBingoMode = 1;
+            class'APCardWatcher'.static.EnterBingoMode("found MGBingoLearnAllSpells actor in level");
             bBingoMode = 1;
-            Log("[Archipelago] APCardWatcher: DetectBingoMode - found " $ string(a.Class.Name) $ " - entering bingo mode (sticky)");
-            // Wipe stale AP-grant flags carried over from previous vanilla-seed
-            // sessions. MarkSpellAsAPGrantedDefault sticks default.APGrantedSpell
-            // across save/load, so a prior vanilla seed that precollected
-            // Lumos/Flipendo/Alohomora as starters would leave those flags set
-            // forever — the bingo revert loop would then skip them and the
-            // player keeps L/F/A despite bingo wanting them in the AP pool.
-            // Resetting both default and instance flags forces the revert loop
-            // to wipe every spell Harry currently has; the AP client's durable
-            // resync re-sets the flag for spells legitimately granted by THIS
-            // seed as they arrive over IPC via ApplyGrant.
-            for (i = 0; i < NUM_SPELLS; i++)
-            {
-                default.APGrantedSpell[i] = 0;
-                APGrantedSpell[i] = 0;
-            }
-            Log("[Archipelago] APCardWatcher: DetectBingoMode - reset APGrantedSpell[] (AP grants this session will re-set as they arrive)");
+            for (i = 0; i < NUM_SPELLS; i++) APGrantedSpell[i] = 0;
             return;
         }
     }
@@ -2155,6 +2216,11 @@ function Snapshot()
     // chest/loose markers in this level become vendor-available (vanilla's
     // pass can't see our markers because of the Default.Id=200 sentinel).
     AssignMarkersToVendors();
+    // Bingo-only: destroy Ch7Gryffindor's give-all-spells actor at the source
+    // so Harry has only AP-granted spells inside the room (no-op elsewhere).
+    // After DetectBingoMode (bBingoMode stuck) and the spell baseline above,
+    // before the stars are replaced.
+    NeutralizeGryffindorSpellGiver();
     // Subclass-replace each unchecked vanilla challenge star with an
     // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla
     // score. Already-checked stars stay vanilla, so replay still scores.
@@ -2958,6 +3024,40 @@ function TradersanityPass()
 // adds the CHECK_LOCID fire. Already-checked locations are left as vanilla
 // stars so level replay still grants vanilla score but never re-fires AP.
 // Skips actors already of our subclass so re-running is idempotent.
+// Bingo-only Snapshot-path safety net for the Gryffindor spell giver. The
+// PRIMARY kill is APGameInfo.DestroyGryffindorSpellGiver (InitGame, pre-Harry)
+// — by Snapshot the level-start dispatcher has usually already fired the
+// TriggerTurnOnAllSpells and set harry.bNoSpellBookCheck=True. This still
+// destroys any surviving giver (covers the save-load path, where
+// ProcessServerTravel skips InitGame and the level package re-instantiates
+// the actor) AND clears bNoSpellBookCheck so IsInSpellBook stops reporting
+// every spell as owned (harry.uc:568). The per-tick clear in the reconcile
+// loop is the continuous guarantee. Class match is by class-name string (no
+// hard ref). Vanilla never enters this level so the giver is left intact.
+function NeutralizeGryffindorSpellGiver()
+{
+    local Actor a;
+    local int n;
+
+    if (Caps(string(Level.Outer.Name)) != "CH7GRYFFINDOR") return;
+    if (default.bBingoMode != 1) return;
+
+    foreach AllActors(class'Actor', a)
+    {
+        if (!a.bDeleteMe && string(a.Class.Name) == "TriggerTurnOnAllSpells")
+        {
+            a.Destroy();
+            n++;
+        }
+    }
+    if (HarryRef != None)
+    {
+        HarryRef.bNoSpellBookCheck = False;
+    }
+    Log("[Archipelago] NeutralizeGryffindorSpellGiver: destroyed " $ n
+        $ " TriggerTurnOnAllSpells actor(s) + cleared bNoSpellBookCheck (CH7GRYFFINDOR bingo)");
+}
+
 function ReplaceChallengeStars()
 {
     local ChallengeStar star;
@@ -3073,7 +3173,7 @@ function CheckExitedLevelObjective()
         || curCaps == "ADV4GREENHOUSE" || curCaps == "ADV3DUNGEONQUEST"
         || curCaps == "ADV6GOYLE" || curCaps == "CH1RICTUSEMPRA"
         || curCaps == "CH2SKURGE" || curCaps == "CH3DIFFINDO"
-        || curCaps == "CH4SPONGIFY")
+        || curCaps == "CH4SPONGIFY" || curCaps == "CH7GRYFFINDOR")
     {
         default.MenuReturnFromLevelCaps = "";
         default.DeathExitFromLevelCaps = "";

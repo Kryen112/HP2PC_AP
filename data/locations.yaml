@@ -414,6 +414,15 @@ secrets:
   - { id_offset: 407, name: "Spongify Challenge - Secret 16", level: Ch4Spongify, marker: SecretAreaMarker15, tag: SecretAreaMarker, loc: "(-1343.59, -0.06, 1606.24)", missable: false, region: SpongifyChallenge, group: Secrets }
   - { id_offset: 408, name: "Whomping Willow - Secret 1", level: Adv1Willow, marker: SecretAreaMarker0, tag: Secret01door, loc: "(3.96, -1465.10, -450.27)", missable: true, region: WhompingWillow, group: Secrets }
   - { id_offset: 409, name: "Whomping Willow - Secret 2", level: Adv1Willow, marker: SecretAreaMarker1, tag: Secret02, loc: "(1600.48, -3015.89, -256.00)", missable: true, region: WhompingWillow, group: Secrets }
+  - { id_offset: 410, name: "Gryffindor Challenge - Secret 1", level: Ch7Gryffindor, marker: SecretAreaMarker0, tag: SecretAreaMarker, loc: "(-590.11, 192.73, 1026.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 411, name: "Gryffindor Challenge - Secret 2", level: Ch7Gryffindor, marker: SecretAreaMarker1, tag: SecretAreaMarker, loc: "(-703.05, 371.53, 1026.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 412, name: "Gryffindor Challenge - Secret 3", level: Ch7Gryffindor, marker: SecretAreaMarker2, tag: SecretAreaMarker, loc: "(417.04, -1405.51, 3007.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 413, name: "Gryffindor Challenge - Secret 4", level: Ch7Gryffindor, marker: SecretAreaMarker3, tag: SecretAreaMarker, loc: "(414.93, -1759.01, 3007.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 414, name: "Gryffindor Challenge - Secret 5", level: Ch7Gryffindor, marker: SecretAreaMarker4, tag: SecretAreaMarker, loc: "(1081.07, -2387.06, 3007.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 415, name: "Gryffindor Challenge - Secret 6", level: Ch7Gryffindor, marker: SecretAreaMarker5, tag: SecretAreaMarker, loc: "(2201.13, -1392.20, 3007.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 416, name: "Gryffindor Challenge - Secret 7", level: Ch7Gryffindor, marker: SecretAreaMarker6, tag: SecretAreaMarker, loc: "(2022.91, -579.03, 3279.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 417, name: "Gryffindor Challenge - Secret 8", level: Ch7Gryffindor, marker: SecretAreaMarker7, tag: SecretAreaMarker, loc: "(2376.98, -575.33, 3285.09)", missable: false, region: GryffindorChallenge, group: Secrets }
+  - { id_offset: 418, name: "Gryffindor Challenge - Secret 9", level: Ch7Gryffindor, marker: SecretAreaMarker8, tag: SecretAreaMarker, loc: "(2735.23, -2892.30, 2763.09)", missable: false, region: GryffindorChallenge, group: Secrets }
 
 challenge_stars:
   - { id_offset: 500, name: "Rictusempra Challenge - Challenge Star 3", level: Ch1Rictusempra, marker: ChallengeStar0, tag: ChallengeStar01, loc: "(864.93, -1.04, -105.67)", missable: false, region: RictusempraChallenge, group: ChallengeStars }
@@ -460,8 +469,18 @@ challenge_stars:
   - { id_offset: 541, name: "Spongify Challenge - Challenge Star 8", level: Ch4Spongify, marker: ChallengeStar7, tag: ChallengeStar, loc: "(576.51, -576.06, 820.32)", missable: false, region: SpongifyChallenge, group: ChallengeStars }
   - { id_offset: 542, name: "Spongify Challenge - Challenge Star 9", level: Ch4Spongify, marker: ChallengeStar8, tag: ChallengeStar, loc: "(-63.28, -1792.09, 821.71)", missable: false, region: SpongifyChallenge, group: ChallengeStars }
   - { id_offset: 543, name: "Spongify Challenge - Challenge Star 10", level: Ch4Spongify, marker: ChallengeStar9, tag: ChallengeStar, loc: "(-1791.79, -1471.35, 1071.05)", missable: false, region: SpongifyChallenge, group: ChallengeStars }
+  - { id_offset: 544, name: "Gryffindor Challenge - Challenge Star 7", level: Ch7Gryffindor, marker: ChallengeStar0, tag: ChallengeStar, loc: "(2048.00, -1920.00, 3009.30)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 545, name: "Gryffindor Challenge - Challenge Star 8", level: Ch7Gryffindor, marker: ChallengeStar9, tag: ChallengeStar, loc: "(2195.14, -597.52, 3256.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 546, name: "Gryffindor Challenge - Challenge Star 9", level: Ch7Gryffindor, marker: ChallengeStar2, tag: ChallengeStar, loc: "(1988.71, -1531.56, 2744.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 547, name: "Gryffindor Challenge - Challenge Star 1", level: Ch7Gryffindor, marker: ChallengeStar3, tag: ChallengeStar, loc: "(-8.00, 568.00, 816.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 548, name: "Gryffindor Challenge - Challenge Star 2", level: Ch7Gryffindor, marker: ChallengeStar4, tag: ChallengeStar, loc: "(398.28, 574.23, 1080.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 549, name: "Gryffindor Challenge - Challenge Star 3", level: Ch7Gryffindor, marker: ChallengeStar5, tag: ChallengeStar, loc: "(734.81, -606.26, 2870.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 550, name: "Gryffindor Challenge - Challenge Star 6", level: Ch7Gryffindor, marker: ChallengeStar6, tag: ChallengeStar, loc: "(1464.00, -1920.00, 3006.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 551, name: "Gryffindor Challenge - Challenge Star 4", level: Ch7Gryffindor, marker: ChallengeStar8, tag: ChallengeStar, loc: "(421.88, -1586.93, 3000.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 552, name: "Gryffindor Challenge - Challenge Star 5", level: Ch7Gryffindor, marker: ChallengeStar10, tag: ChallengeStar, loc: "(1072.48, -1726.51, 3288.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
+  - { id_offset: 553, name: "Gryffindor Challenge - Challenge Star 10", level: Ch7Gryffindor, marker: ChallengeStar11, tag: ChallengeStar, loc: "(2637.92, -3127.11, 2730.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
 
-# 11 "X Level Complete" locations (Heretic-AP model). One per level / challenge
+# 12 "X Level Complete" locations (Heretic-AP model). One per level / challenge
 # / boss; reaching the end IS the check. AP id = base 5760000 + id_offset, so
 # id_offset = 700 + idx where idx is the clause-3 objective index the mod's
 # APCardWatcher.NotifyLevelObjective fires CHECK_LOCID (5760700+idx) for.
@@ -476,7 +495,7 @@ challenge_stars:
 # logic region (must exist in BOTH logic_vanilla.yaml and logic_bingo.yaml).
 # Always real AP checks (no enable toggle): the bingo Great Hall levels
 # clause gates on the reachability of these locations, so they must always
-# exist. bingo_goal_levels (0..11) is the only knob over how many count.
+# exist. bingo_goal_levels (0..12) is the only knob over how many count.
 # These are NOT bingo-only: in vanilla they are ordinary progress checks; the
 # Great Hall clause-3 gate uses the same detector but only in bingo mode.
 level_completions:
@@ -491,6 +510,7 @@ level_completions:
   - { id_offset: 708, idx: 8,  level: Ch2Skurge,       name: "Skurge Challenge - Complete",       region: SkurgeChallenge,   group: LevelCompletions }
   - { id_offset: 709, idx: 9,  level: Ch3Diffindo,     name: "Diffindo Challenge - Complete",     region: DiffindoChallenge, group: LevelCompletions }
   - { id_offset: 710, idx: 10, level: Ch4Spongify,     name: "Spongify Challenge - Complete",     region: SpongifyChallenge, group: LevelCompletions }
+  - { id_offset: 711, idx: 11, level: Ch7Gryffindor,   name: "Gryffindor Challenge - Complete",   region: GryffindorChallenge, group: LevelCompletions }
 
 # 13 Tradersanity vendor locations (plans/06-tradersanity.md). Every
 # non-Weasley card vendor (Sells_BronzeCards/SilverCards) and ingredient

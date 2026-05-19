@@ -221,6 +221,12 @@ class HP2Context(CommonContext):
         # from slot_data on Connected; pushed every game HELLO (sticky +
         # idempotent mod-side), same lifecycle as bingo_goalcfg.
         self.tradersanity_cfg: Optional[str] = None
+        # True when slot_data game_mode == "bingo". Drives the one-way
+        # "MODE bingo" IPC line (sticky + idempotent mod-side; resent every
+        # game HELLO) — a durable, authoritative bingo signal that survives a
+        # cold load into a sentinel-less level. Vanilla never sends MODE
+        # (bBingoMode is one-way sticky and never cleared).
+        self.bingo_is_bingo: bool = False
         # #3: last "apId:code,…" appearance payload pushed to the mod, or None
         # if not yet built. Resent on every game HELLO (sticky + idempotent
         # mod-side). Rebuilt from self.locations_info on each LocationInfo.
@@ -260,6 +266,9 @@ class HP2Context(CommonContext):
             if self.pending_ap_outbound:
                 asyncio.create_task(self._flush_pending_ap_outbound())
             sd = args.get("slot_data") or {}
+            self.bingo_is_bingo = sd.get("game_mode") == "bingo"
+            if self.bingo_is_bingo and self.game_writer is not None:
+                self._send_to_game("MODE bingo")
             if sd.get("game_mode") == "bingo":
                 self.bingo_goalcfg = "{},{},{},{},{},{}".format(
                     sd.get("bingo_goal_cards", 0),
@@ -574,6 +583,11 @@ class HP2Context(CommonContext):
     async def _handle_game_line(self, line: str) -> None:
         if line == "HELLO":
             self._resync_durable_grants()
+            # Re-arm the durable bingo signal. One-way + sticky + idempotent
+            # mod-side, so every HELLO (fresh launch / reconnect / cold load
+            # into a sentinel-less level) re-asserts it. Vanilla never sends.
+            if self.bingo_is_bingo:
+                self._send_to_game("MODE bingo")
             # Re-arm the bingo Great Hall key thresholds. Sticky + idempotent
             # mod-side, so resending every HELLO covers fresh game launches and
             # reconnects without harm. No-op for vanilla / pre-Connected.

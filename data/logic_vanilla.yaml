@@ -108,6 +108,10 @@ regions:
     entry: "@all_silver_cards"
     notes: "Ch6WizardCard.unr — the gold card vault, reached via a door in the Grand Staircase (Hogwarts sub-area). The room opens after collecting 40 silvers (= 4 gold keys); `@all_silver_cards` is expanded by gen_apworld.py to the AND of every items.yaml cards_silver name, so the gate cannot drift from the silver tier classification. HP2World.set_rules adds a separate fill-time placement constraint (no silver item may be PLACED in a gold-card location) that the rule grammar can't express."
 
+  GryffindorChallenge:
+    entry: "false"
+    notes: "Bingo-only challenge level — never entered in a vanilla game. This region only exists here because gen_apworld requires the vanilla and bingo region SETS to match; HP2World._location_enabled (BINGO_ONLY_REGIONS) filters every Gryffindor location out of vanilla generation, so the region is inert in vanilla (entry false, zero locations attached) and its 10 stars, 9 secrets and completion are never created as vanilla checks."
+
 # Per-location rules. KEY = location.name from locations.yaml.
 # A location's effective rule is: region.entry AND location.requires.
 # Many locations are "true" implicitly (just region access); only listed
@@ -522,6 +526,11 @@ locations:
     { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
   "Spongify Challenge - Challenge Star 10":
     { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+
+  # GryffindorChallenge has no vanilla location rows: the whole region is
+  # filtered out of vanilla generation by HP2World._location_enabled
+  # (BINGO_ONLY_REGIONS), so its 10 stars, 9 secrets and completion are never
+  # created as vanilla checks. The bingo combos live in logic_bingo.yaml.
 
   # Spell-challenge "beat par time". Beating the par means clearing the whole
   # challenge, so each requires the union of that challenge's star and

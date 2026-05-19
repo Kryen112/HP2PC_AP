@@ -226,6 +226,18 @@ function HandleLine(string line)
         // on the watcher (mirrors GOALCFG); resent every HELLO. Idempotent.
         class'APCardWatcher'.static.SetTradersanityMode(int(Mid(line, 9)));
     }
+    else if (Left(line, 5) == "MODE ")
+    {
+        // Authoritative bingo signal from the apworld slot_data game_mode
+        // (sticky class-default on the watcher; resent every HELLO). A late
+        // belt alongside the durable DLO probe. One-way by design: only
+        // "MODE bingo" acts; "MODE vanilla" is ignored (bBingoMode is never
+        // cleared — the whole mod relies on that invariant).
+        if (Mid(line, 5) == "bingo")
+        {
+            class'APCardWatcher'.static.EnterBingoMode("IPC MODE bingo");
+        }
+    }
     else if (Left(line, 11) == "APPEARANCE ")
     {
         // #3 per-location appearance table from the client, as

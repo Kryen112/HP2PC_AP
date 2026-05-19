@@ -17,8 +17,8 @@ from typing import Any
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          LocationProgressType, Region)
 from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
-                     OptionError, OptionGroup, OptionSet,
-                     PerGameCommonOptions, Range, StartInventoryPool, Toggle)
+                     OptionError, OptionGroup, OptionSet, PerGameCommonOptions,
+                     Range, StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
@@ -51,12 +51,12 @@ CARD_ITEM_NAMES: frozenset[str] = frozenset(
     + ITEM_GROUPS.get("Cards (Silver)", [])
     + ITEM_GROUPS.get("Cards (Gold)", [])
 )
-# Level-entry keys. In bingo, all 13 are AP items gating every level
+# Level-entry keys. In bingo, all 14 are AP items gating every level
 # transition. In vanilla with vanilla_gate_levels on, the 7 in
 # VANILLA_BLOCKED_KEY_NAMES are also AP items (the mod spawns a bookcase
-# blocking each region until the key arrives) and the other 6 are
+# blocking each region until the key arrives) and the other 7 are
 # precollected so their logic.yaml terms pass trivially without entering the
-# pool. With vanilla_gate_levels off, all 13 are precollected and no bookcase
+# pool. With vanilla_gate_levels off, all 14 are precollected and no bookcase
 # spawns.
 BINGO_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Bingo Keys", []))
 # Keys that gate a region behind a bookcase in vanilla when
@@ -70,6 +70,15 @@ VANILLA_BLOCKED_KEY_NAMES: set[str] = {
     "Slytherin Common Room Key", "Forbidden Forest Key",
     "Duelling Key", "Quidditch Key",
 }
+
+# Regions that exist only in a bingo seed. Their level is never entered in a
+# vanilla playthrough, so every location in them must not be created as a
+# vanilla check at all — not merely made unreachable. _location_enabled
+# enforces this (the mirror image of the Classrooms+bingo exclusion). The
+# region name itself still appears in BOTH logic files because gen_apworld
+# requires the vanilla and bingo region SETS to be identical; in vanilla the
+# region is inert (entry false, zero locations attached).
+BINGO_ONLY_REGIONS: set[str] = {"GryffindorChallenge"}
 
 
 def launch_client(*args: str) -> None:
@@ -238,18 +247,18 @@ class BingoGoalSpells(NamedRange):
     range_start = 0
     range_end = 7
     default = 7
-    special_range_names = {"none": 0, "half": 4, "all": 7}
+    special_range_names = {"none": 0, "all": 7}
 
 
 class BingoGoalLevels(NamedRange):
     """Bingo only. Level objectives finished to open the Great Hall. 0
-    disables. 11 objectives, fixed: 3 key-item levels + 2 bosses + 2 story
-    levels + 4 challenges."""
+    disables. 12 objectives, fixed: 3 key-item levels + 2 bosses + 2 story
+    levels + 5 challenges."""
     display_name = "Bingo goal: level objectives"
     range_start = 0
-    range_end = 11
-    default = 11
-    special_range_names = {"none": 0, "challenges": 4, "all": 11}
+    range_end = 12
+    default = 12
+    special_range_names = {"none": 0, "all": 12}
 
 
 class BingoGoalDuels(Toggle):
@@ -426,9 +435,9 @@ class HP2World(World):
         # Tradersanity is a Choice, not a Toggle: _location_enabled treats any
         # non-off value (price_vanilla/random/low) as enabled via .value.
         "Tradersanity":       "tradersanity",
-        # LevelCompletions has no opt: the 11 "X Level - Complete" spots are
+        # LevelCompletions has no opt: the 12 "X Level - Complete" spots are
         # always real checks. The bingo levels clause gates on their
-        # reachability, so they must always exist; bingo_goal_levels (0..11)
+        # reachability, so they must always exist; bingo_goal_levels (0..12)
         # is the only knob over how many count toward the Great Hall.
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
@@ -468,6 +477,12 @@ class HP2World(World):
     def _location_enabled(self, loc_name: str) -> bool:
         group = LOCATION_GROUPS.get(loc_name)
         if group == "Classrooms" and self._is_bingo():
+            return False
+        # Bingo-only regions (e.g. the Gryffindor challenge level): the room is
+        # physically unreachable in vanilla, so its stars + completion never
+        # exist as vanilla checks.
+        if (not self._is_bingo()
+                and LOCATION_REGIONS.get(loc_name) in BINGO_ONLY_REGIONS):
             return False
         opt_attr = self._LOC_GROUP_TO_OPT.get(group or "")
         if opt_attr is None:
@@ -519,7 +534,7 @@ class HP2World(World):
 
     def _starter_names(self) -> set[str]:
         # Precollected = the spells the player chose via `starting_spells`,
-        # plus (vanilla only) all 13 bingo level-entry keys so logic.yaml
+        # plus (vanilla only) all 14 bingo level-entry keys so logic.yaml
         # references to them auto-pass without entering the vanilla pool.
         # Bingo keeps the keys in the pool — the mod-side bookcases gate each
         # level transition until the matching key arrives via the AP grant.
@@ -529,9 +544,9 @@ class HP2World(World):
             # so force them precollected — a vanilla seed is always playable
             # regardless of what (if anything) starting_spells lists.
             spells |= {"Lumos", "Flipendo"}
-        # Bingo: no keys precollected (all 13 are AP items). Vanilla with
+        # Bingo: no keys precollected (all 14 are AP items). Vanilla with
         # vanilla_gate_levels on: precollect every key except the 7 that gate a
-        # region behind a bookcase. Vanilla with it off: precollect all 13 so
+        # region behind a bookcase. Vanilla with it off: precollect all 14 so
         # every region opens immediately and no bookcase spawns.
         if self._is_bingo():
             keys: set[str] = set()
@@ -772,9 +787,9 @@ class HP2World(World):
             "bingo_goal_duels": duels,
             "bingo_goal_quidditch": quidditch,
             # Bit i set => level objective i (goal_plan.md §6.4) counts toward
-            # bingo_goal_levels. v1: all 11 in scope. Field exists so a future
+            # bingo_goal_levels. All 12 in scope. Field exists so a future
             # "which objectives" option needs no slot_data schema bump.
-            "bingo_level_mask": (1 << 11) - 1,
+            "bingo_level_mask": (1 << 12) - 1,
         }
 
     def fill_slot_data(self) -> dict:
