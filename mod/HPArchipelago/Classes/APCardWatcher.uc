@@ -1666,6 +1666,26 @@ event Timer()
         ipc.bSawStateBelowGreatHall = True;
     }
 
+    // Durable-ledger new-game signal. Both vanilla and bingo start a genuine
+    // new game at iGameState 0 and climb; a loaded save resumes at its saved
+    // gstate and never re-observes 0. So iGameState==0 ⇒ genuine new game →
+    // tell the client to wipe its AP-Data-Storage consumed-index ledger so the
+    // fresh playthrough re-receives every item. One-shot via the singleton
+    // latch; re-armed once gstate climbs > 0 so a later new game in the same
+    // process signals again. NOT pinned to the bingo-only 180 threshold.
+    if (ipc != None && HarryRef.iGameState == 0)
+    {
+        if (!ipc.bNewGameSignalled)
+        {
+            ipc.SendNewGame();
+            ipc.bNewGameSignalled = True;
+        }
+    }
+    else if (ipc != None && HarryRef.iGameState > 0)
+    {
+        ipc.bNewGameSignalled = False;
+    }
+
     // One-time startup safety save. Vanilla guarantees a recoverable save
     // around the opening (a SmartStart bDoLevelSave on the first level
     // transition), so quitting right after gaining control still leaves a

@@ -18,10 +18,17 @@ Mod-side protocol (newline-delimited text):
     RINGOUT <signed_int>        (game → client, local bean total changed organically)
     SAY <text>                  (game → client, ~1/100 on spell cast — cosmetic chat)
     DEATH [cause]               (game → client, Harry entered stateDead — DeathLink out)
-    GRANT <classname>           (client → game, on item received)
+    APPLIED <index>             (game → client, item at AP index applied → mark durably consumed)
+    NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
+    GRANT <index> <classname>   (client → game, forward item received; index = AP ReceivedItems index)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
     DEATHLINK                   (client → game, a linked player died — kill Harry)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
+
+Durable-grant ledger: the set of applied AP indices is persisted in AP server
+Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
+APPLIED, wiped on NEWGAME. The mod's .usa cannot persist mod data (M212), so AP
+storage is the source of truth (the Stick Ranger model).
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -56,18 +63,11 @@ from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 # Trap item names, from ITEM_GROUPS so it can never drift from
-# data/items.yaml. Used both for non-durability and appearance.
+# data/items.yaml. Used by the #3 marker-appearance classifier. Durability is
+# no longer name-based: every received item is gated by the AP-Data-Storage
+# consumed-index ledger (see _forward_one / consumed_indices), so filler and
+# traps are durable-but-once exactly like cards/spells — no special-casing.
 TRAP_ITEM_NAMES = frozenset(ITEM_GROUPS.get("Traps", []))
-# Items the mod must NOT have replayed to it on a HELLO/reconnect durable
-# resync. EVERY filler type is non-durable: bean tiers because RingLink owns
-# the bean total, and the rest (potion / brewing ingredients / Chocolate Frog)
-# because a GRANT replay would stack phantom inventory or re-trigger a
-# consumable. Derived from FILLER_NAMES (the generated source of truth) rather
-# than hand-listed so adding a new filler in data/items.yaml can never silently
-# leave it durable again. Traps are one-shot by definition — without this every
-# reconnect would re-fire every trap ever received (re-stealing beans,
-# re-clearing the spellbook, etc.).
-NON_DURABLE_ITEM_NAMES = set(FILLER_NAMES) | set(TRAP_ITEM_NAMES)
 
 # Build UScript class → game-side card Id by composing the two maps:
 #   CARD_GAME_ID_TO_LOCATION_NAME  (game_id → "Card_Foo")
@@ -190,28 +190,44 @@ class HP2Context(CommonContext):
         # inventory delivered before game boot, mid-session game crash, etc).
         # Drained by handle_game_connection on each new game connect.
         self.pending_grants: list[str] = []
-        # Durable items (cards/spells/key items) that should be replayed to the
-        # game when it reconnects or loads an earlier save. Excludes bean filler,
-        # because replaying filler would duplicate a consumable/spendable state.
-        self.durable_grants: list[Optional[str]] = []
         # Outbound AP messages queued while the AP server is offline. Drained
         # on every successful Connected. In-memory only — a client crash
-        # during an AP outage loses these. Disk persistence is parked for v2
-        # alongside bean durability (see ../DESIGN.md#v2-parking-lot).
+        # during an AP outage loses these.
         self.pending_ap_outbound: list[dict] = []
-        # Per-game-session set of GRANT/SENT lines successfully written to the
-        # game writer. Reset every time a new game connects (handle_game_connection).
-        # Used by _resync_durable_grants on HELLO to skip items that were
-        # already delivered earlier in this session — without it, the very
-        # first HELLO of a new seed would replay every item on top of the
-        # initial ReceivedItems delivery (3 starter spells × 2 = 6 toasts).
-        self.delivered_to_game: set[str] = set()
+        # --- Durable-grant ledger (Stick Ranger model) ---------------------
+        # The single source of truth for "which AP items has this slot's
+        # playthrough already had applied" is an Archipelago server-side Data
+        # Storage record (NOT the M212 .usa, which cannot persist mod data).
+        # consumed_indices = the set of absolute AP ReceivedItems indices the
+        # mod has confirmed-applied (via the APPLIED ack). It is loaded from AP
+        # storage on Connected and written back on every APPLIED. On (re)connect
+        # / HELLO the client replays every received item whose index is NOT in
+        # the set; an item already in the set is never re-sent → no double
+        # bean / re-fired trap / phantom inventory. ledger_key is
+        # HP2PC_AP:{team}:{slot} (the store is per-seed by virtue of being on
+        # that seed's server, so seed need not be in the key — mirrors Stick
+        # Ranger's StickRangerSaveData:{team}:{slot}).
+        self.ledger_key: Optional[str] = None
+        self.consumed_indices: set[int] = set()
+        # Held until the AP-storage Get resolves so replay can't run against an
+        # unknown ledger and double-grant.
+        self.ledger_loaded: bool = False
+        # Every (abs_index → NetworkItem) seen on the current AP connection, so
+        # HELLO / post-load / post-NEWGAME can re-evaluate and forward the ones
+        # not yet consumed. Idempotent across AP resyncs (keyed by index).
+        self.received_by_index: dict[int, object] = {}
+        # Per-game-session set of AP indices already written to the game writer
+        # (immediate or via the offline-queue drain). Reset on every new game
+        # connect (handle_game_connection). Prevents the HELLO re-forward and
+        # the pending-grants drain from double-sending the same index before
+        # its APPLIED ack lands.
+        self.sent_this_session: set[int] = set()
         # Last seed_name observed via RoomInfo. On change, wipe seed-specific
         # state in _handle_seed_change so a long-running client targeting the
         # same host:port across seeds doesn't replay seed A's items to seed B.
         # CommonContext.reset_server_state is NOT the right hook — it runs on
-        # every disconnect, including transient AP blips, and the whole point
-        # of durable_grants is to survive those.
+        # every disconnect, including transient AP blips, which the durable
+        # ledger must survive.
         self._last_seed_name: Optional[str] = None
         # Bingo Great Hall key config as the "GOALCFG c,s,l,d,q,mask" payload,
         # or None for vanilla / not-yet-received. Parsed from slot_data on
@@ -296,6 +312,19 @@ class HP2Context(CommonContext):
             if self.pending_ap_outbound:
                 asyncio.create_task(self._flush_pending_ap_outbound())
 
+            # Durable-grant ledger: (re)fetch this slot's consumed-index set
+            # from AP server Data Storage. Hold replay until the Retrieved
+            # response lands (handled in on_package below) so we never replay
+            # against an unknown ledger. received_by_index is rebuilt from the
+            # fresh ReceivedItems AP resends on this connection.
+            self.ledger_key = f"HP2PC_AP:{self.team}:{self.slot}"
+            self.ledger_loaded = False
+            self.received_by_index = {}
+            asyncio.create_task(self._send_or_queue_ap_msg(
+                {"cmd": "Get", "keys": [self.ledger_key]},
+                label=f"Get durable ledger {self.ledger_key}",
+            ))
+
             # Startup connection toast. server_loop has set self.server_address
             # to the normalised ws://host[:port] it actually connected to by
             # the time Connected is processed. Push now if the game is up;
@@ -379,34 +408,30 @@ class HP2Context(CommonContext):
                           f"#3 appearance, no hint)",
                 ))
         elif cmd == "ReceivedItems":
-            package_index = args.get("index")
-            for item in args.get("items", []):
-                # item is a NetworkItem namedtuple: (item, location, player, flags)
-                item_id = item.item
-                item_name = self.item_names.lookup_in_game(item_id, GAME_NAME) or f"item_id_{item_id}"
-                # Cards: forward as 'GRANT <UScriptClassName>' so mod's ApplyGrant
-                # can DynamicLoadObject the card class and SetCardOwner. Non-cards
-                # get the raw item name and route through ApplyGrant's spell /
-                # key-item / beans branches.
-                ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
-                payload = ucls if ucls else item_name
-                # Sender's slot name for the HUD toast ("from <sender>"). For
-                # items the seed placed in your own world, sender == self.slot
-                # (i.e. shows your own name — matches AP client UX). Mod's
-                # ApplyGrant parses the pipe-separated form back out;
-                # legacy mod builds without the parse just see the full
-                # `<payload>|<sender>` as the item name and fall through to
-                # the unknown-item branch. To keep the durable resync
-                # backward-compatible, store with sender so a later resync
-                # round-trips identically.
-                sender_name = self.player_names.get(item.player, f"player_{item.player}")
-                payload_with_sender = f"{payload}|{sender_name}"
-                if item_name not in NON_DURABLE_ITEM_NAMES:
-                    self._remember_durable_grant(payload_with_sender, package_index)
-                logger.info(f"Received item: {item_name} (id={item_id}) from {sender_name} → forwarding as GRANT {payload_with_sender}")
-                self._send_to_game(f"GRANT {payload_with_sender}")
-                if isinstance(package_index, int):
-                    package_index += 1
+            base = args.get("index") or 0
+            for offset, item in enumerate(args.get("items", [])):
+                # Absolute index in this slot's cumulative ReceivedItems list —
+                # the stable per-item key used by the durable ledger. AP resends
+                # the full list (base 0) on every reconnect, so storing by index
+                # is idempotent.
+                idx = base + offset
+                self.received_by_index[idx] = item
+                # Only forward once the ledger is known; otherwise replay could
+                # run against an unknown consumed-set and double-grant. The
+                # Retrieved handler does the catch-up forward.
+                if self.ledger_loaded:
+                    self._forward_one(idx, item)
+        elif cmd == "Retrieved":
+            keys = args.get("keys") or {}
+            if self.ledger_key is not None and self.ledger_key in keys:
+                val = keys.get(self.ledger_key)
+                self.consumed_indices = set(val) if val else set()
+                self.ledger_loaded = True
+                logger.info(
+                    f"Durable ledger loaded: {len(self.consumed_indices)} "
+                    f"consumed index(es) for {self.ledger_key}"
+                )
+                self._forward_all_received()
         elif cmd == "LocationInfo":
             # CommonContext's built-in handler has already populated
             # self.locations_info[loc] = NetworkItem for every scouted
@@ -558,7 +583,7 @@ class HP2Context(CommonContext):
             return
         try:
             self.game_writer.write((text + "\n").encode("utf-8"))
-            self.delivered_to_game.add(text)
+            self._note_sent(text)
         except Exception as e:
             logger.exception(f"Failed to write to game, re-queuing: {e}")
             self.pending_grants.append(text)
@@ -567,9 +592,9 @@ class HP2Context(CommonContext):
         peer = writer.get_extra_info("peername")
         logger.info(f"Game connected from {peer}")
         self.game_writer = writer
-        # Fresh game session — clear the per-session "already delivered" set so
-        # _resync_durable_grants on HELLO knows nothing has been delivered yet.
-        self.delivered_to_game = set()
+        # Fresh game session — clear the per-session sent-index guard so the
+        # HELLO re-forward / drain below repopulate it from scratch.
+        self.sent_this_session = set()
 
         # Drain anything queued while the game wasn't connected (start
         # inventory grants delivered before game boot, items received during
@@ -580,7 +605,7 @@ class HP2Context(CommonContext):
             for line in queued:
                 try:
                     writer.write((line + "\n").encode("utf-8"))
-                    self.delivered_to_game.add(line)
+                    self._note_sent(line)
                 except Exception as e:
                     logger.exception(f"Failed to drain {line!r}, re-queuing remainder: {e}")
                     # Stash this one and everything after back at the queue head
@@ -621,8 +646,39 @@ class HP2Context(CommonContext):
             # cleanup; the OS reaps the socket either way.
 
     async def _handle_game_line(self, line: str) -> None:
+        if line.startswith("APPLIED "):
+            # Mod confirms an item was applied to the live game. Mark its AP
+            # index durably consumed and persist the ledger to AP storage so a
+            # reconnect / save-load / client restart never re-grants it.
+            try:
+                idx = int(line[len("APPLIED "):].strip())
+            except ValueError:
+                logger.warning(f"Unparseable APPLIED: {line!r}")
+                return
+            if idx not in self.consumed_indices:
+                self.consumed_indices.add(idx)
+                self._persist_ledger()
+            return
+        if line == "NEWGAME":
+            # Mod observed a genuine new game (iGameState 0). Wipe the ledger
+            # (memory + AP storage) so the fresh playthrough re-receives every
+            # item, then re-forward. sent_this_session is deliberately NOT
+            # cleared: the mod's grant queue / TCP session is continuous across
+            # a NEWGAME, so anything already sent this session must not be
+            # re-sent (that would double-queue → double-apply). Items skipped
+            # pre-NEWGAME because they were in the stale prior-playthrough
+            # ledger are now forwarded (consumed is empty); each index ends up
+            # sent exactly once.
+            logger.info("NEWGAME: wiping durable ledger and re-forwarding all received items")
+            self.consumed_indices = set()
+            self._persist_ledger()
+            self._forward_all_received()
+            return
         if line == "HELLO":
-            self._resync_durable_grants()
+            # Game (re)connected — re-forward every received item not yet
+            # consumed (the sent_this_session guard, reset on this connect,
+            # stops the pending-grants drain + this from double-sending).
+            self._forward_all_received()
             # Re-arm the durable bingo signal. One-way + sticky + idempotent
             # mod-side, so every HELLO (fresh launch / reconnect / cold load
             # into a sentinel-less level) re-asserts it. Vanilla never sends.
@@ -860,29 +916,59 @@ class HP2Context(CommonContext):
             logger.exception(f"Flush failed, re-queuing {len(msgs)} message(s): {e}")
             self.pending_ap_outbound = msgs + self.pending_ap_outbound
 
-    def _resync_durable_grants(self) -> None:
-        grants = [payload for payload in self.durable_grants if payload is not None]
-        if not grants:
-            logger.info("Game HELLO received; no durable grants to resync")
+    def _note_sent(self, line: str) -> None:
+        """Record that a GRANT line was actually written to the game writer
+        (immediate or via the offline-queue drain), so the HELLO re-forward and
+        the drain don't double-send the same index before its APPLIED ack."""
+        if line.startswith("GRANT "):
+            try:
+                self.sent_this_session.add(int(line.split(" ", 2)[1]))
+            except (IndexError, ValueError):
+                pass
+
+    def _persist_ledger(self) -> None:
+        """Write the consumed-index set back to AP server Data Storage. Routed
+        through the offline-safe queue so an AP blip can't lose it (replayed on
+        reconnect). want_reply=False — single writer, no read-back needed."""
+        if self.ledger_key is None:
             return
-        # Skip items already delivered earlier in this game session. Without
-        # this filter, the very first HELLO of a new seed would replay each
-        # item on top of the original ReceivedItems delivery (e.g. 3 starter
-        # spells × 2 = 6 toasts on game start). Reset of `delivered_to_game`
-        # in handle_game_connection guarantees each new game session does
-        # see a full replay if it actually needs one (post-restart, save load
-        # mid-session, etc.).
-        to_send = [p for p in grants if f"GRANT {p}" not in self.delivered_to_game]
-        if not to_send:
-            logger.info(f"Game HELLO received; game is in sync ({len(grants)} grant(s) already pushed via pre-HELLO drain or inline ReceivedItems)")
+        asyncio.create_task(self._send_or_queue_ap_msg(
+            {"cmd": "Set", "key": self.ledger_key, "default": [],
+             "want_reply": False,
+             "operations": [{"operation": "replace",
+                             "value": sorted(self.consumed_indices)}]},
+            label=f"persist durable ledger ({len(self.consumed_indices)} index(es))",
+        ))
+
+    def _forward_one(self, idx: int, item) -> None:
+        """Forward one received item to the game as `GRANT <idx> <payload>`,
+        unless its index is already durably consumed (applied in a prior
+        session, per the AP-storage ledger) or already sent this game session
+        (awaiting its APPLIED ack). item is a NetworkItem (item, location,
+        player, flags)."""
+        if idx in self.consumed_indices or idx in self.sent_this_session:
             return
-        skipped = len(grants) - len(to_send)
-        if skipped > 0:
-            logger.info(f"Game HELLO received; resyncing {len(to_send)} of {len(grants)} durable grant(s) ({skipped} already pushed since game connect)")
-        else:
-            logger.info(f"Game HELLO received; resyncing {len(to_send)} durable grant(s)")
-        for payload in to_send:
-            self._send_to_game(f"GRANT {payload}")
+        item_name = self.item_names.lookup_in_game(item.item, GAME_NAME) or f"item_id_{item.item}"
+        # Cards forward as the UScript class name so ApplyGrant can
+        # DynamicLoadObject + SetCardOwner; everything else forwards its raw
+        # item name through ApplyGrant's spell / key-item / filler branches.
+        ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
+        payload = ucls if ucls else item_name
+        sender_name = self.player_names.get(item.player, f"player_{item.player}")
+        logger.info(
+            f"Forwarding item idx={idx} {item_name} (id={item.item}) "
+            f"from {sender_name} → GRANT {idx} {payload}|{sender_name}"
+        )
+        self._send_to_game(f"GRANT {idx} {payload}|{sender_name}")
+
+    def _forward_all_received(self) -> None:
+        """Re-evaluate every received item and forward the ones not yet
+        consumed. Called after the ledger loads, on HELLO, and after a NEWGAME
+        wipe. Idempotent via the consumed / sent-this-session guards."""
+        if not self.ledger_loaded:
+            return
+        for idx in sorted(self.received_by_index):
+            self._forward_one(idx, self.received_by_index[idx])
 
     def _appearance_code_for_item(self, ni) -> int:
         """Resolve a scouted NetworkItem to the mod appearance code.
@@ -948,29 +1034,26 @@ class HP2Context(CommonContext):
     def _handle_seed_change(self, old_seed: str, new_seed: str) -> None:
         logger.info(
             f"Seed changed ({old_seed!r} → {new_seed!r}); clearing prior-seed state "
-            f"({len(self.durable_grants)} durable grant(s), "
-            f"{len(self.pending_grants)} pending grant(s), "
+            f"({len(self.pending_grants)} pending grant(s), "
             f"{len(self.pending_ap_outbound)} pending AP msg(s), "
             f"{len(self.checked_locations_seen)} checked location(s), "
             f"goal_sent={self.goal_sent})"
         )
-        self.durable_grants = []
         self.pending_grants = []
         self.pending_ap_outbound = []
         self.checked_locations_seen = set()
         self.goal_sent = False
-        self.delivered_to_game = set()
+        # Drop the prior seed's durable-ledger state; the new seed is a
+        # different AP server/room, so the next Connected recomputes ledger_key
+        # and re-fetches its own consumed-index set from AP storage.
+        self.ledger_key = None
+        self.consumed_indices = set()
+        self.ledger_loaded = False
+        self.received_by_index = {}
+        self.sent_this_session = set()
         # #3: drop the prior seed's appearance table so the next Connected's
         # scout rebuilds it from scratch (item placement differs per seed).
         self.appearance_csv = None
-
-    def _remember_durable_grant(self, payload: str, index: object) -> None:
-        if isinstance(index, int) and index >= 0:
-            while len(self.durable_grants) <= index:
-                self.durable_grants.append(None)
-            self.durable_grants[index] = payload
-            return
-        self.durable_grants.append(payload)
 
     async def run_tcp_server(self) -> None:
         server = await asyncio.start_server(

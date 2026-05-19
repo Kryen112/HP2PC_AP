@@ -216,8 +216,10 @@ filler:
 # when the `enable_traps` YAML option is on, replacing a `trap_fill_percent`
 # fraction of the filler delta (item/location balance unchanged — same math as
 # filler). All grant-driven, dispatched by APGameInfo.TryApplyTrap on the
-# GRANT line; one-shot (Client.NON_DURABLE_ITEM_NAMES blocks reconnect
-# re-fire); self-terminating (instant / level-load revert / timer). id band
+# GRANT line; one-shot (the client's AP-Data-Storage consumed-index
+# ledger marks each applied trap so it never re-fires on reconnect /
+# save-load — only a genuine new game replays it); self-terminating
+# (instant / level-load revert / timer). id band
 # 400-404 — see plans/ID_BAND_LEDGER.md. 401 (Peeves) and 402 (Spider Swarm)
 # are retired: cut from v1 because this M212 bingo build does not render an
 # ad-hoc visible world actor spawned mid-level. Those ids are never reused.

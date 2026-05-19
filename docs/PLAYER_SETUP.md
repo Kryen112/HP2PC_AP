@@ -205,7 +205,7 @@ Quick checklist after first launch:
 **Client disconnects mid-session**:
 
 - The mod auto-reconnects with exponential backoff (1s up to a 16s cap). Just restart the client; the game will reconnect on the next try.
-- Items the AP server delivered while the client was down get replayed on reconnect. Most items are durable across crashes (cards, spells, equipment, the new filler types — Massive Beans / Wiggenweld / Wiggentree Bark / Flobberworm Mucous / Chocolate Frog). The Small / Medium / Large Pile of Beans are intentionally non-durable and can be lost across a client crash; that's the only filler category that doesn't replay.
+- Items the AP server delivered while the client was down get replayed on reconnect. Every item type — cards, spells, equipment, all bean tiers, every other filler, and traps — is durable across a client crash, reconnect, or game save-load: the client keeps a per-slot consumed-item ledger in Archipelago server storage, so an item already applied is never re-granted (no double beans) and one you haven't received yet still arrives. The only way to lose an item: receive it in-game, then quit **without saving** and reload that older save — the ledger correctly considers it already delivered, so it won't be handed out again. Save after receiving items, or start a new game on the slot (which re-grants everything).
 
 **Game crashes at level transition**:
 

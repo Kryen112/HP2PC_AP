@@ -2,6 +2,17 @@ class APIPCActor extends IpDrv.TcpLink;
 
 var APIPCActor PersistentInstance;
 var array<string> PendingGrants;
+// AP ReceivedItems index for each PendingGrants entry, in lockstep (same push
+// in QueueGrant, same Remove(0,1) in the drain). On successful apply the drain
+// sends `APPLIED <index>` so the client marks it durably consumed in AP Data
+// Storage and never re-grants it (the Stick Ranger durable-ledger model — the
+// .usa cannot persist mod data on M212).
+var array<int> PendingGrantIndex;
+// One-shot-per-new-game latch on the persistent singleton (survives level
+// travel; a fresh process re-arms it). Set when NEWGAME is sent on observing
+// iGameState 0; APCardWatcher re-arms it (clears) once iGameState climbs > 0,
+// so a later genuine new game in the same process signals again.
+var bool bNewGameSignalled;
 var bool bLoggedGrantDeferral;
 var float NextGrantDrainTime;
 // Stability gate. Bumped to `Level.TimeSeconds + N` whenever any drain check
@@ -195,12 +206,28 @@ event ReceivedText(string Text)
 function HandleLine(string line)
 {
     local APCardWatcher w;
+    local string rest;
+    local int sp;
 
     Log("[Archipelago] APIPCActor: ReceivedText: " $ line);
 
     if (Left(line, 6) == "GRANT ")
     {
-        QueueGrant(Mid(line, 6));
+        // Wire form: `GRANT <apIndex> <payload>`. Split on the first space
+        // after "GRANT ". A malformed line (no space) still applies, with
+        // index -1 so the drain skips the APPLIED ack (item lands; ledger
+        // just doesn't record it — graceful degradation, never a hang).
+        rest = Mid(line, 6);
+        sp = InStr(rest, " ");
+        if (sp < 0)
+        {
+            Log("[Archipelago] APIPCActor: malformed GRANT (no index) - " $ rest);
+            QueueGrant(rest, -1);
+        }
+        else
+        {
+            QueueGrant(Mid(rest, sp + 1), int(Left(rest, sp)));
+        }
     }
     else if (Left(line, 5) == "SENT ")
     {
@@ -525,11 +552,56 @@ function SendDeath(string Cause)
     Log("[Archipelago] APIPCActor: sent DEATH " $ Cause);
 }
 
-function QueueGrant(string ItemName)
+function QueueGrant(string ItemName, int ApIndex)
 {
+    local int i;
+
+    // Dedupe: if this AP index is already queued (not yet drained), drop the
+    // duplicate. The client's consumed-index ledger prevents re-sends of
+    // already-APPLIED items; this guards the in-flight window (e.g. a HELLO
+    // re-forward racing the NEWGAME re-forward) so an index can never be
+    // applied twice. ApIndex < 0 is the malformed-wire sentinel — never dedupe
+    // those against each other.
+    if (ApIndex >= 0)
+    {
+        for (i = 0; i < PendingGrantIndex.Length; i++)
+        {
+            if (PendingGrantIndex[i] == ApIndex)
+            {
+                Log("[Archipelago] APIPCActor: dropping duplicate queued grant apIndex=" $ string(ApIndex) $ " (" $ ItemName $ ")");
+                return;
+            }
+        }
+    }
+
     PendingGrants[PendingGrants.Length] = ItemName;
-    Log("[Archipelago] APIPCActor: queued grant " $ ItemName $ " (pending=" $ string(PendingGrants.Length) $ ")");
+    PendingGrantIndex[PendingGrantIndex.Length] = ApIndex;
+    Log("[Archipelago] APIPCActor: queued grant " $ ItemName $ " (apIndex=" $ string(ApIndex) $ " pending=" $ string(PendingGrants.Length) $ ")");
     TryDrainPendingGrants();
+}
+
+// Tell the client an item was applied to the live game so it records the AP
+// index in its durable AP-Data-Storage ledger and never re-grants it. idx < 0
+// means the GRANT wire was malformed (no index) — skip the ack.
+function SendApplied(int idx)
+{
+    if (idx < 0)
+    {
+        return;
+    }
+    SendText("APPLIED " $ idx $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent APPLIED " $ idx);
+}
+
+// One-shot-per-new-game NEWGAME signal. Called by APCardWatcher when it
+// observes iGameState 0 (a genuine new game, both vanilla and bingo). The
+// client wipes its durable ledger so the fresh playthrough re-receives every
+// item. Latch lives on this persistent singleton; the watcher re-arms it once
+// iGameState climbs > 0.
+function SendNewGame()
+{
+    SendText("NEWGAME" $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent NEWGAME (iGameState 0 - genuine new game)");
 }
 
 // Pushes the earliest-allowed drain time forward by `seconds` from now. Only
@@ -552,6 +624,7 @@ function TryDrainPendingGrants()
     local APCardWatcher watcher;
     local string ItemName;
     local string deferReason;
+    local int apIdx;
 
     if (PendingGrants.Length == 0)
     {
@@ -637,9 +710,16 @@ function TryDrainPendingGrants()
     bLoggedGrantDeferral = False;
 
     ItemName = PendingGrants[0];
+    apIdx = PendingGrantIndex[0];
     PendingGrants.Remove(0, 1);
-    Log("[Archipelago] APIPCActor: draining queued grant " $ ItemName $ " to " $ string(readyHarry));
+    PendingGrantIndex.Remove(0, 1);
+    Log("[Archipelago] APIPCActor: draining queued grant " $ ItemName $ " (apIndex=" $ string(apIdx) $ ") to " $ string(readyHarry));
     gi.ApplyGrant(ItemName);
+    // Past all the playable-state gating above, ApplyGrant has delivered (or
+    // idempotently no-op'd an already-owned item) — either way the AP index is
+    // accounted for in this slot's playthrough. Ack so the client records it
+    // durably and never re-grants it.
+    SendApplied(apIdx);
     NextGrantDrainTime = Level.TimeSeconds + 0.75;
 }
 
