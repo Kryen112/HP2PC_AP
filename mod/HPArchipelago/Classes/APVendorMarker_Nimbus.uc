@@ -5,15 +5,15 @@
 //
 // Differences vs vanilla:
 //   - classStatusGroup / classStatusItem cleared so the inherited HProp
-//     pickup pipeline does NOT increment StatusItemNimbus. The player keeps
+//     pickup pipeline does not increment StatusItemNimbus. The player keeps
 //     the bHaveNimbus2001 flag that MakePurchase set (vendor stops offering),
-//     but no inventory item is granted — the AP grant of "Nimbus 2001"
-//     elsewhere in the seed is what populates StatusItemNimbus.
+//     but no inventory item is granted; the AP grant of "Nimbus 2001"
+//     elsewhere in the seed populates StatusItemNimbus.
 //   - Touch is overridden to bypass PickupProp entirely (vanilla's begin:
-//     code's fly-to-HUD relies on a valid classStatusItem position lookup,
-//     which would return garbage with classStatusItem=None). Instead, we
-//     play the inherited soundPickup, spawn the AP rainbow burst (matches
-//     APCardMarker pickup feedback), fire CHECK_LOCID, and Destroy.
+//     fly-to-HUD relies on a valid classStatusItem position lookup, which
+//     would return garbage with classStatusItem=None). Instead it plays the
+//     inherited soundPickup, spawns the AP rainbow burst (matching
+//     APCardMarker pickup feedback), fires CHECK_LOCID, and Destroys.
 //
 // Spawned by APCardWatcher.ReplaceVendorEquipment when it sees a freshly
 // MakePurchase'd VendorNimbusBroom in AllActors. CheckLocationId is stamped
@@ -52,7 +52,7 @@ event Touch(Actor Other)
         PlaySound(soundPickup);
     }
 
-    // AP pickup burst — matches APCardMarker.Touch styling so vendor markers
+    // AP pickup burst, matching APCardMarker.Touch styling so vendor markers
     // read as AP-aware to the player. Pitch=16464 emits stars upward.
     rotPickupFX.Pitch = 16464;
     rotPickupFX.Yaw = 0;
@@ -73,8 +73,8 @@ event Touch(Actor Other)
     Destroy();
 }
 
-// #3 capability contract. CheckLocationId (5760005, stamped after Spawn by
-// APCardWatcher.ReplaceVendorEquipment) is the resolvable AP location id.
+// Appearance capability contract. CheckLocationId (5760005, stamped after
+// Spawn by APCardWatcher.ReplaceVendorEquipment) is the resolvable AP id.
 function ApplyAPAppearance()
 {
     if (CheckLocationId <= 0) return;

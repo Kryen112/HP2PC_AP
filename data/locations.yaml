@@ -10,8 +10,7 @@
 #   group         grouping for YAML options (e.g. "Card Locations")
 #   notes         free text — vanilla item that lives there, route hints, etc.
 #
-# Card regions are sourced from Stefan's open-hub playthrough cataloguing
-# (2026-05-11). Card_Sykes is still TBD — not encountered in playthrough yet.
+# Card regions are catalogued from an open-hub playthrough.
 
 base_id: 5760000
 
@@ -103,10 +102,9 @@ quidditch_purchases:
 # vanilla gameplay (per the "spell/item requires only" decision — AP doesn't
 # enforce 'must win Rank N-1 before Rank N').
 #
-# Per-rank requires in data/logic.yaml currently default to "true" (just
-# region access). Real per-rank spell/item gating will be filled in during
-# Stefan's playthrough — higher-rank duels likely need more spells than
-# Rictusempra alone, but the exact gating is observation-pending.
+# Per-rank requires live in the logic files. Higher-rank duels may need
+# additional spells beyond Rictusempra; exact per-rank gating is to be
+# confirmed.
 #
 # Mod wiring (planned for the watcher-wiring session alongside secrets/stars):
 #   - A listener actor with Tag='HarryWonDuel' (matching Duellist's default
@@ -139,11 +137,10 @@ duels:
 # default false). When false the 6 locations aren't emitted and match wins
 # fire no AP check. Locations only — no paired items in the pool.
 #
-# Per-match requires in data/logic.yaml currently default to "true" (just
-# region access). Matches unlock further into the story in vanilla — later
-# matches likely need Skurge / Diffindo / Spongify on top of the
-# Rictusempra floor in the Quidditch region entry. Real per-match gating
-# will be filled in during Stefan's playthrough.
+# Per-match requires live in the logic files. Matches unlock further into
+# the story in vanilla; later matches may need Skurge / Diffindo / Spongify
+# on top of the Rictusempra floor in the Quidditch region entry. Exact
+# per-match gating is to be confirmed.
 #
 # Mod wiring (planned for the watcher-wiring session):
 #   - Watcher subscribes to BOTH TriggerEvent(MatchEvents.Won) and
@@ -179,8 +176,8 @@ quidditch_matches:
 # Mastering a challenge fires no AP check. Locations only — no paired items in
 # the pool (these checks hold whatever AP places at them, like cards do).
 #
-# Per-challenge requires in data/logic_vanilla.yaml / data/logic_bingo.yaml
-# are Stefan's (provenance gate). The 4 challenge regions already exist
+# Per-challenge requires live in data/logic_vanilla.yaml /
+# data/logic_bingo.yaml. The 4 challenge regions already exist
 # (RictusempraChallenge / SkurgeChallenge / DiffindoChallenge /
 # SpongifyChallenge), so rules attach per-location.
 #
@@ -200,7 +197,7 @@ spell_challenge_times:
 
 # 101 card pickup locations. One per card. Region = vanilla level the card lives in.
 # `card_class` matches data/items.yaml `class` so the mod can use card.Id to
-# resolve location. Regions catalogued from Stefan's open-hub playthrough.
+# resolve location. Regions catalogued from an open-hub playthrough.
 cards:
   - { id_offset: 100, name: "Bicorn Level - Card Agrippa",       card_class: WCAgrippa,       region: BicornLevel,         group: CardLocations }
   - { id_offset: 101, name: "Hogwarts - Card Alderton",      card_class: WCAlderton,      region: Hogwarts,            group: CardLocations }
@@ -237,7 +234,7 @@ cards:
   - { id_offset: 132, name: "Goyle Level - Card Stroulger",     card_class: WCStroulger,     region: GoyleLevel,          group: CardLocations }
   - { id_offset: 133, name: "Bicorn Level - Card Stump",         card_class: WCStump,         region: BicornLevel,         group: CardLocations }
   - { id_offset: 134, name: "Castle Exterior - Card Sweeting",      card_class: WCSweeting,      region: CastleExterior,      group: CardLocations }
-  - { id_offset: 135, name: "Castle Exterior - Card Sykes",         card_class: WCSykes,         region: CastleExterior,      group: CardLocations, notes: "Stefan correction 2026-05-11: this was the card he originally mis-listed as Furmage in Castle Exterior. Requires Spongify per his earlier listing." }
+  - { id_offset: 135, name: "Castle Exterior - Card Sykes",         card_class: WCSykes,         region: CastleExterior,      group: CardLocations, notes: "Castle Exterior card; requires Spongify." }
   - { id_offset: 136, name: "Rictusempra Challenge - Card Thruston",      card_class: WCThruston,      region: RictusempraChallenge, group: CardLocations }
   - { id_offset: 137, name: "Boomslang Level - Card Toke",          card_class: WCToke,          region: BoomslangLevel,      group: CardLocations }
   - { id_offset: 138, name: "Castle Exterior - Card Twonk",         card_class: WCTwonk,         region: CastleExterior,      group: CardLocations }
@@ -516,7 +513,7 @@ level_completions:
 # non-Weasley card vendor (Sells_BronzeCards/SilverCards) and ingredient
 # vendor (Sells_WBark/FMucus) sells one AP check on its first sale, then
 # reverts to its normal item once that check is collected. Sourced from the
-# Phase 0 runtime vendor census (vanilla + bingo walk, 2026-05-18). Vendor
+# runtime vendor census (vanilla + bingo walk). Vendor
 # `actor.Name` is stable across level re-entry / save-load and identical
 # between the vanilla and bingo installs, so the mod keys each location on
 # (level, vendor_name) exactly like secrets — APLocationRegistry gains
@@ -543,8 +540,7 @@ level_completions:
 # map to Hogwarts, Grounds_hub to CastleExterior (both Sphere-0 in bingo,
 # both already used by secrets/classrooms). Not all vendors are story-
 # accessible in vanilla but all spawn; per-location `requires:` is authored
-# in logic_vanilla.yaml / logic_bingo.yaml during Phase 3 (region-entry-only
-# until then).
+# in logic_vanilla.yaml / logic_bingo.yaml.
 tradersanity:
   - { id_offset: 800, name: "Hogwarts Entrance Hall - Card Vendor 1",       level: Entryhall_hub,       vendor_name: GOldMaleGry0, vendor_class: GOldMaleGry1, sells: BronzeCards, loc: "(-1751.78, -3153.07, 108.50)", region: Hogwarts,       group: Tradersanity }
   - { id_offset: 801, name: "Hogwarts Entrance Hall - Card Vendor 2",       level: Entryhall_hub,       vendor_name: GOldMaleSly2, vendor_class: GOldMaleSly2, sells: SilverCards, loc: "(-242.83, -986.37, -20.00)",   region: Hogwarts,       group: Tradersanity }

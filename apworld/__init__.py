@@ -45,7 +45,7 @@ SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
 # All 101 wizard-card item names. In bingo these are upgraded to
 # progression_skip_balancing at create_item time so AP guarantees them
 # reachable (a card-count Great Hall goal needs that); vanilla keeps the
-# generated classification (mostly `useful`) so vanilla seeds are unchanged.
+# generated classification so vanilla seeds are unchanged.
 CARD_ITEM_NAMES: frozenset[str] = frozenset(
     ITEM_GROUPS.get("Cards (Bronze)", [])
     + ITEM_GROUPS.get("Cards (Silver)", [])
@@ -64,7 +64,7 @@ BINGO_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Bingo Keys", []))
 # Bicorn/Boomslang/Goyle/Slytherin/Forbidden Forest are a cumulative chain (a
 # region needs its own key plus every earlier level key); Duelling and
 # Quidditch are standalone (own key only, gating just their duels / matches).
-# The other 6 keys are always vanilla-precollected.
+# The other 7 keys are always vanilla-precollected.
 VANILLA_BLOCKED_KEY_NAMES: set[str] = {
     "Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
     "Slytherin Common Room Key", "Forbidden Forest Key",
@@ -112,11 +112,11 @@ class GameMode(Choice):
 
     `vanilla` (default): retail HP2 + M212 patch — the normal story flow.
     Whether the 7 region keys gate their regions behind bookcases or are
-    precollected is governed by `vanilla_gate_levels`; the other 6 keys are
+    precollected is governed by `vanilla_gate_levels`; the other 7 keys are
     always precollected here.
 
     `bingo`: the bingo-distribution maps (open castle, every door unlocked).
-    The 13 bingo keys are AP items gating each level transition.
+    The 14 bingo keys are AP items gating each level transition.
 
     Which spells Harry starts with is governed by `starting_spells`;
     `vanilla_gate_levels` governs the 7 region keys. Neither is set by this
@@ -137,7 +137,7 @@ class VanillaGateLevels(DefaultOnToggle):
 
     If false, those 7 keys are precollected instead, so the regions open
     immediately and no bookcases spawn — the classic precollect-everything
-    vanilla flow. Has no effect in bingo mode (all 13 keys are always AP items
+    vanilla flow. Has no effect in bingo mode (all 14 keys are always AP items
     there).
     """
     display_name = "Vanilla gate levels"
@@ -279,8 +279,8 @@ class RingLink(Toggle):
     in the room, and their organic bean changes are applied to yours
     (clamped at zero). AP-granted bean filler and the Bean Thief trap are
     not mirrored. Interoperable with Sonic-style RingLink games. Core
-    Archipelago ships a DeathLink option but no RingLink class — it is a
-    convention, so we define our own toggle."""
+    Archipelago ships a DeathLink option but no RingLink class (it is a
+    convention), so this toggle is defined here."""
     display_name = "Ring Link"
 
 
@@ -347,9 +347,9 @@ class HP2Options(PerGameCommonOptions):
     enable_traps: EnableTraps
     trap_fill_percent: TrapFillPercent
     tradersanity: Tradersanity
-    # Pulled out of the shared "Game Options" block into their own
-    # OptionGroup-rendered headers (see HP2WebWorld.option_groups), so the
-    # dataclass position here does not affect template ordering.
+    # Rendered under their own OptionGroup headers (see
+    # HP2WebWorld.option_groups), so the dataclass position here does not
+    # affect template ordering.
     vanilla_gate_levels: VanillaGateLevels
     bingo_goal_cards: BingoGoalCards
     bingo_goal_spells: BingoGoalSpells
@@ -618,9 +618,9 @@ class HP2World(World):
         if delta > 0:
             rng: _random.Random = self.multiworld.random if hasattr(self.multiworld, "random") else _random.Random()
             # Split the delta between traps and filler. Off / 0% / no
-            # TRAP_NAMES ⇒ trap_n stays 0 and the whole delta is filler, the
-            # pre-traps behaviour. The partition keeps the pool size exactly
-            # `delta`, so item/location balance is unaffected.
+            # TRAP_NAMES ⇒ trap_n stays 0 and the whole delta is filler. The
+            # partition keeps the pool size exactly `delta`, so item/location
+            # balance is unaffected.
             trap_n = 0
             if bool(self.options.enable_traps) and TRAP_NAMES:
                 pct = int(self.options.trap_fill_percent.value)
@@ -719,9 +719,9 @@ class HP2World(World):
             quidditch_key = "Quidditch Key"
             # The 11 level-completion locations. Always created (no toggle),
             # so this set is stable; each one's reachability already folds in
-            # its region entry plus any per-completion `requires:` Stefan
-            # authored on the level_completions rows. Counting reachable
-            # completions is the AP analogue of the mod's clause-3 detector.
+            # its region entry plus any per-completion `requires:` on the
+            # level_completions rows. Counting reachable completions is the
+            # AP analogue of the mod's clause-3 detector.
             completion_locs = [n for n, g in LOCATION_GROUPS.items()
                                if g == "LevelCompletions"]
 

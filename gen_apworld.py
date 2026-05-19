@@ -1,10 +1,10 @@
-"""Generates apworld/items.py, locations.py, regions.py, rules.py from data/*.yaml.
+"""Generate apworld/{items,locations,regions,rules}.py and the mod's
+APLocationRegistry/APCardAppearance/APCardMarker_*.uc from data/*.yaml.
 
 Run from the repo root:
     py -3.12 gen_apworld.py
 
-After every edit to data/items.yaml, data/locations.yaml, or data/logic.yaml,
-re-run this and commit the regenerated apworld/*.py.
+Re-run after editing any data/*.yaml and commit the regenerated files.
 """
 
 from __future__ import annotations
@@ -75,20 +75,17 @@ CARD_GAME_ID_TO_CLASS: dict[int, str] = {
 }
 
 
-# Per-card vendor metadata, harvested from each WCXxx.uc default in
-# HP2UScriptDecompile/HGame/Classes/WizardCards/. Stable across game versions
-# (extracted once 2026-05-12). Used by emit_card_markers to write the
-# corresponding fields onto each generated APCardMarker_<X> subclass so
-# APCardWatcher.AssignMarkersToVendors can assign markers into vendor stock —
-# vanilla AssignVendorCards reads slotClass.Default.Id (=200 sentinel on our
-# markers) and slotClass.Default.bVendorsCanSell (=False inherited from
-# WizardCardIcon base), so without these copied defaults vanilla skips every
-# marker and our cards never reach vendor inventory.
+# Per-card vendor metadata harvested from each WCXxx.uc default in
+# HGame/Classes/WizardCards/. Stable across game versions. emit_card_markers
+# copies these onto each generated APCardMarker_<X> subclass: vanilla
+# AssignVendorCards reads slotClass.Default.Id and .bVendorsCanSell, and the
+# markers inherit the WizardCardIcon sentinel Id=200 / bVendorsCanSell=False,
+# so without the real per-card values vanilla skips every marker and the cards
+# never reach vendor stock.
 #
-# Tuple is (bVendorsCanSell, strVendorOwnedAfterGState, tier).
-# Tier is "Bronze"/"Silver"/"Gold" — derived from the parent class
-# (BronzeCards/SilverCards/Goldcards). All 11 gold cards are non-sellable
-# (set rewards). 59 of 101 cards are sellable in vanilla.
+# Tuple is (bVendorsCanSell, strVendorOwnedAfterGState, tier); tier
+# "Bronze"/"Silver"/"Gold" from the parent class (BronzeCards/SilverCards/
+# Goldcards). All 11 gold cards are non-sellable; 59 of 101 are sellable.
 CARD_VENDOR_META: dict[str, tuple[bool, str, str]] = {
     "WCAgrippa":      (True,  "GSTATE065", "Bronze"),
     "WCAlderton":     (False, "",          "Bronze"),
@@ -512,21 +509,18 @@ def emit_items(items: dict) -> str:
         # them when the toggle is off, alongside the matching locations.
         add(entry, None, equipment_names)
     for entry in items.get("cards_bronze", []):
-        # cards inherit classification = useful unless overridden (cards aren't progression in v1).
+        # cards default to useful unless overridden.
         e2 = {**entry, "classification": entry.get("classification", "useful")}
         add(e2, None, bronze_names)
         card_class_to_item_name.append((entry["class"], entry["name"]))
     for entry in items.get("cards_silver", []):
-        # Silvers default to progression_skip_balancing (not useful). The
-        # HP2World.set_rules silver-gate on GoldCardRoom locations requires
-        # state.has(silver, player) to return True for every silver, and
-        # state.has only tracks items in `prog_items` — advancement-flagged
-        # items (progression OR progression_skip_balancing). Useful-tier
-        # items skip prog_items so the gate could never be satisfied even
-        # after all 40 silvers were collected. skip_balancing variant keeps
-        # silvers out of progression rebalancing (they aren't strictly
-        # required for the basilisk goal) while still flagging them as
-        # advancement so state.has + the accessibility sweep both work.
+        # Silvers default to progression_skip_balancing, not useful: the
+        # GoldCardRoom silver-gate in HP2World.set_rules needs
+        # state.has(silver, player), which only sees advancement-flagged
+        # items (progression / progression_skip_balancing); useful-tier items
+        # would never satisfy it. skip_balancing keeps silvers out of
+        # progression rebalancing since they aren't required for the basilisk
+        # goal.
         e2 = {**entry, "classification": entry.get("classification", "progression_skip_balancing")}
         add(e2, None, silver_names)
         card_class_to_item_name.append((entry["class"], entry["name"]))
@@ -1024,10 +1018,9 @@ def emit_card_markers(items: dict) -> int:
             class_to_tier[entry["class"]] = tier
             class_to_display[entry["class"]] = entry["name"]
 
-    # Clean any previously-generated APCardMarker_WC*.uc files to avoid stale
-    # entries if data/items.yaml ever shrinks. Scoped to the WC prefix so the
-    # cleanup never sweeps up hand-authored APCardMarker_* subclasses (the
-    # generated set is always WC-prefixed because every card class in
+    # Remove generated APCardMarker_WC*.uc so a shrunk data/items.yaml leaves
+    # no stale files. Scoped to the WC prefix so it never deletes the
+    # hand-authored APCardMarker subclasses (every generated card class in
     # CARD_GAME_ID_TO_CLASS starts with "WC").
     for stale in MOD_CLASSES_DIR.glob("APCardMarker_WC*.uc"):
         stale.unlink()

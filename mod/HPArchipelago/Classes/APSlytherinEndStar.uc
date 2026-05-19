@@ -9,9 +9,9 @@
 //     the same inventory/quest-preserving path APFEInGamePage.TeleportToHub
 //     uses.
 //
-// It is NOT a Super.EndState() call: vanilla FinalStar.EndState drives a
+// Not a Super.EndState() call: vanilla FinalStar.EndState drives a
 // ChallengeScoreManager (challenge-levels only) and TriggerEvent on its
-// editor-wired Event/CutName - none of which exist for a runtime-spawned
+// editor-wired Event/CutName, none of which exist for a runtime-spawned
 // actor in this adventure level, so calling it would null-access.
 //
 // Lifecycle: APGameInfo.SpawnSlytherinEndStarIfMissing spawns one near the
@@ -23,20 +23,18 @@ class APSlytherinEndStar extends FinalStar;
 // (APCardWatcher.LevelObjectiveIndexFor("ADV7SLYTHCOMROOM") == 6).
 const SLYTHERIN_OBJECTIVE_INDEX = 6;
 
-// HPawn.OnResolveGameState (HPawn.uc:139-146) does
-// `bHidden=True; SetCollision(False,False,False)` for any actor not in the
-// level's CURRENT game state. A runtime-Spawned actor has no editor-assigned
-// game-state membership, so the moment Adv7SlythComRoom resolves a game state
-// (log: iGameState 0 -> 180) the vanilla resolver would make this star
-// invisible AND non-touchable. This is a permanent level-exit star, so we
-// never want it culled - override the resolver to do nothing.
+// HPawn.OnResolveGameState does `bHidden=True; SetCollision(False,False,False)`
+// for any actor not in the level's current game state. A runtime-Spawned actor
+// has no editor-assigned game-state membership, so when Adv7SlythComRoom
+// resolves a game state the vanilla resolver would make this star invisible
+// and non-touchable. This is a permanent level-exit star, so override the
+// resolver to do nothing.
 event OnResolveGameState() {}
 
-// Belt-and-suspenders: assert the star is visible and overlap-collidable
-// (bCollideActors=True so HProp.Touch fires; bBlock* False so the player
-// passes through like a vanilla star) right after spawn, in case any base
-// PreBeginPlay/PostBeginPlay path disabled collision before OnResolveGameState
-// is overridden out.
+// Force the star visible and overlap-collidable (bCollideActors=True so
+// HProp.Touch fires; bBlock* False so the player passes through like a
+// vanilla star) right after spawn, in case any base PreBeginPlay/PostBeginPlay
+// path disabled collision.
 function PostBeginPlay()
 {
     Super.PostBeginPlay();
@@ -60,7 +58,7 @@ state PickupProp
 
         // Reach the local player's console without depending on
         // APCardWatcher.HarryRef (the watcher may not be bound at the instant
-        // of touch). Same cast HPConsole(... .Player.Console) used elsewhere.
+        // of touch).
         foreach AllActors(class'Pawn', p)
         {
             localPlayerPawn = PlayerPawn(p);

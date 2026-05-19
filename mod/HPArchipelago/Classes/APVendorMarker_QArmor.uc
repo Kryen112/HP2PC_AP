@@ -55,8 +55,8 @@ event Touch(Actor Other)
     Destroy();
 }
 
-// #3 capability contract. CheckLocationId (5760006, stamped after Spawn by
-// APCardWatcher.ReplaceVendorEquipment) is the resolvable AP location id.
+// Appearance capability contract. CheckLocationId (5760006, stamped after
+// Spawn by APCardWatcher.ReplaceVendorEquipment) is the resolvable AP id.
 function ApplyAPAppearance()
 {
     if (CheckLocationId <= 0) return;

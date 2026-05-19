@@ -31,10 +31,9 @@ spells:
   - { id_offset: 7, name: Spongify,   classification: progression, group: Spells }
 
 # 2 unique pieces of Quidditch equipment sold by Fred & George on the vanilla
-# Castle Exterior grounds (post-Rictusempra spawn gate). v2 randomized as
-# "useful" items: still useful for the Quidditch progression sub-track (when
-# v2 adds match/practice locations) but not strictly required for the
-# Basilisk goal. Each is a one-time purchase.
+# Castle Exterior grounds (post-Rictusempra spawn gate). Randomized as
+# "useful" items: useful for the Quidditch progression sub-track but not
+# strictly required for the Basilisk goal. Each is a one-time purchase.
 #
 # Generation gate: this entire section is paired with the
 # `quidditch_purchases` section in data/locations.yaml under the

@@ -1,5 +1,5 @@
 // AP-aware drop-in replacement for a vanilla ChallengeStar. Visually and
-// behaviourally identical to vanilla — inherits mesh, glow, rotation, sound,
+// behaviourally identical to vanilla; inherits mesh, glow, rotation, sound,
 // and the entire PickupProp pickup pipeline (sound, fly-to-HUD, score). The
 // only additions are:
 //   - CheckLocationId carries the AP location id baked in at Spawn time.
@@ -10,7 +10,7 @@
 // vanilla ChallengeStar at level entry and Spawns one of these in its place
 // at the same Location/Rotation, stamped with the AP id from
 // APLocationRegistry.GetStarLocationId. Already-AP-checked spots are left as
-// vanilla stars on level replay — the player still gets score, the watcher
+// vanilla stars on level replay: the player still gets score, the watcher
 // fires no AP CHECK for them.
 class APChallengeStarMarker extends ChallengeStar;
 
@@ -46,10 +46,11 @@ state PickupProp
     }
 }
 
-// #3 capability contract. CheckLocationId is a full AP location id (stamped by
-// APCardWatcher.ReplaceChallengeStars AFTER Spawn), so the resolvable id is
-// that value directly. The watcher registers + best-effort applies right
-// after stamping; RestampMarkerAppearance is the authoritative re-stamp.
+// Appearance capability contract. CheckLocationId is a full AP location id
+// (stamped by APCardWatcher.ReplaceChallengeStars after Spawn), so the
+// resolvable id is that value directly. The watcher registers + best-effort
+// applies right after stamping; RestampMarkerAppearance is the authoritative
+// re-stamp.
 function ApplyAPAppearance()
 {
     if (CheckLocationId <= 0) return;

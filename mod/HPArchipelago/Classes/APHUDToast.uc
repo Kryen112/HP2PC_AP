@@ -15,9 +15,9 @@
 // on save-load) spawns a fresh one. Class-default `LatestInstance` lets
 // APGameInfo.ApplyGrant reach the active toast via GetInstance().
 //
-// Queue: simple parallel arrays (UScript has no nice struct vec). When full,
-// drops the OLDEST toast to make room for a new one — newer info matters more
-// during a resync flood. Entries decay over `TOAST_DURATION` then auto-remove.
+// Queue: parallel arrays. When full, drops the OLDEST toast to make room for
+// a new one — newer info matters more during a resync flood. Entries decay
+// over `TOAST_DURATION` then auto-remove.
 class APHUDToast extends HProp;
 
 const MAX_QUEUE = 8;

@@ -28,11 +28,9 @@ const POST_DEFER_STABILITY_SECS = 1.0;
 const POST_SNAPSHOT_WARMUP_SECS = 3.0;
 
 // Reconnect state. If the client terminal closes / crashes mid-session, the
-// engine fires Closed() and the connection stays dead — previously the mod
-// sat silent for the rest of the session and the player had to restart the
-// game. Now Closed() schedules a retry; Timer() drives the actual attempts
-// with exponential backoff so a never-running client doesn't spin Open()
-// hot on every 0.25s tick.
+// engine fires Closed() and the connection stays dead. Closed() schedules a
+// retry; Timer() drives the actual attempts with exponential backoff so a
+// never-running client doesn't spin Open() hot on every 0.25s tick.
 var bool bWantsReconnect;
 var float NextReconnectAttempt;
 var float ReconnectBackoff;
@@ -40,8 +38,8 @@ var float ReconnectBackoff;
 // burst-writes a resync (e.g. 39 GRANTs back-to-back), TCP coalesces them into
 // one or a few packets; UE1 fires ReceivedText with the whole blob. We have to
 // split on \n ourselves and carry any trailing partial line across the next
-// chunk. Pre-fix this lost ~95% of resync grants and silently truncated the
-// queue.
+// chunk. Without this, a burst loses most resync grants and silently
+// truncates the queue.
 var string RecvBuffer;
 
 // One-time startup safety save. APCardWatcher drives the trigger; these
@@ -650,10 +648,10 @@ function TryDrainPendingGrants()
 
     // Don't drain while the engine is paused (HPConsole sets Level.Pauser
     // briefly during e.g. exec-script sleeps; load screens; dev `pause`).
-    // Note: HP2's in-game menu does NOT flip Level.Pauser — that case is
-    // caught further down by IsPlayerInPlayableState's `menuBook.bIsOpen`
-    // check. Level.Pauser is a string in HP2 (UE1 retail), not an object
-    // ref — compare to "" not None. See HPConsole.uc:752.
+    // HP2's in-game menu does NOT flip Level.Pauser — that case is caught
+    // further down by IsPlayerInPlayableState's `menuBook.bIsOpen` check.
+    // Level.Pauser is a string in HP2 (UE1 retail), not an object ref —
+    // compare to "" not None. See HPConsole.uc:752.
     if (Level.Pauser != "")
     {
         if (!bLoggedGrantDeferral)

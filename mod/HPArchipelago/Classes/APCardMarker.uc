@@ -3,11 +3,10 @@
 // auto-generated from data/items.yaml; each subclass sets CardLocationId
 // to the real card id.
 //
-// Why we extend WizardCardIcon: we want the vanilla visual experience (mesh,
-// bouncing physics, fall-from-chest, fly-to-HUD spin). Extending WizardCardIcon
-// inherits all that for free.
+// Extends WizardCardIcon to inherit the vanilla visual experience (mesh,
+// bouncing physics, fall-from-chest, fly-to-HUD spin).
 //
-// Why Id=200 in defaults: vanilla harry.uc:977 / RemoveHarryOwnedCardsFromLevel
+// Id=200 in defaults: vanilla harry.uc:977 / RemoveHarryOwnedCardsFromLevel
 // iterates chests and bean-swaps EjectedObjects[i] whose class is a WizardCardIcon
 // child IF IsOwnedByHarry(class.Default.Id) returns true. Setting Id=200 (a
 // sentinel never present in WizardCards[]) makes that check always-false, so our
@@ -135,17 +134,15 @@ function Spawned()
 }
 
 // Called by APGameInfo.ReplaceCardChests right after spawning a loose-icon
-// replacement at a design-time placement. v1 had this switch to PHYS_None to
-// pin the marker, but that broke mover-carried cards (Chamber-II descending
-// platform) because PHYS_None actors don't get pushed by mover collision.
-//
-// v2: no-op. We leave PHYS_Falling from Spawned() in place. The Wait state's
-// HitWall override below zeroes velocity on contact so the card settles on
-// its initial surface without drifting, and a mover sliding through it still
-// carries it via collision.
+// replacement at a design-time placement. No physics change: PHYS_Falling
+// from Spawned() stays (PHYS_None would stop mover-carried cards, e.g. the
+// Chamber-II descending platform, since PHYS_None actors aren't pushed by
+// mover collision). The Wait state's HitWall override zeroes velocity on
+// contact so the card settles without drifting, and a mover sliding through
+// it still carries it via collision.
 //
 // Sets bIsLooseSpawn so the deferred Timer leaves bPersistent at the default
-// True. Without this flag, our Timer-driven bPersistent=False (intended for
+// True. Without this flag, the Timer-driven bPersistent=False (intended for
 // chest-spawned markers) would also nuke loose-spawned markers, and since the
 // cache delta records the vanilla wci as destroyed, the spot would be empty
 // on every re-entry.

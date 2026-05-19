@@ -3,7 +3,7 @@
 //
 // Activated by patching Modded\system\Default.ini:
 //   [Engine.Engine]
-//   Console=HPArchipelago.APConsole   ; (was HGame.HPConsole)
+//   Console=HPArchipelago.APConsole   ; default: HGame.HPConsole
 //
 // Adds exec commands callable from the in-game console (~ key):
 //

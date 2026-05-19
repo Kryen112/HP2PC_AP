@@ -35,12 +35,12 @@ var byte NonCardLocationChecked[1024];
 // math, same cross-level class-default persistence). Values: 0 = leave the
 // marker's native vanilla look (also the async-safe default until the table
 // arrives); 1..101 = HP2 card (value is the game card id); 1000+spellIdx =
-// HP2 spell (wand-target gesture art on the card mesh); 2001..2008 = HP2 filler; 3001..3002 = HP2 equipment (Nimbus /
-// Quidditch Armour); 3003 = HP2 bingo level/challenge key (the vanilla
-// silver-key FX sprite); 9000 = foreign filler/useful (AP-logo plain); 9001 =
-// foreign progression/trap (AP-logo arrow). Dimension literal
-// MUST equal NONCARD_LOC_WINDOW (M212 array dims take an integer literal, not
-// a const — see NonCardLocationChecked[] above).
+// HP2 spell (wand-target gesture art on the card mesh); 2001..2011 = HP2
+// filler; 3001..3002 = HP2 equipment (Nimbus / Quidditch Armour); 3003 = HP2
+// bingo level/challenge key (the vanilla silver-key FX sprite); 9000 = foreign
+// filler/useful (AP-logo plain); 9001 = foreign progression/trap (AP-logo
+// arrow). Dimension literal MUST equal NONCARD_LOC_WINDOW (M212 array dims
+// take an integer literal, not a const — see NonCardLocationChecked[] above).
 var int AppearanceCode[1024];
 // Set once SetAppearanceCSV has ingested a table this process. The sweep and
 // every marker self-apply early-return until then so a pre-table marker keeps
@@ -65,13 +65,12 @@ var byte bAppearanceRestampedThisLevel;
 // level cleanup ULevel::CleanupDestroyed walks the persistent ObjectProperty
 // array and asserts (Obj->IsValid) on a freed marker from the torn-down level
 // — the chest FancySpawn (18 copies) + pickup-Destroy pattern guarantees stale
-// slots. As instance state it lives and dies with the per-level watcher, which
-// the engine cleans up the normal same-level way; markers simply re-register
-// into each level's fresh watcher (and PostBeginPlay self-apply is the
-// independent safety net since AppearanceCode[] IS class-default). The value
-// array AppearanceCode[] above stays class-default — only Object refs are
-// unsafe there. MORPH_REGISTRY_SIZE is generous: a level holds at most a
-// handful of card chests + the chest FancySpawn burst + ≤6 stars + 2 vendors.
+// slots. As instance state it dies with the per-level watcher; markers
+// re-register into each level's fresh watcher, with the PostBeginPlay
+// self-apply as the independent safety net since AppearanceCode[] IS
+// class-default (only Object refs are unsafe there). MORPH_REGISTRY_SIZE is
+// generous: a level holds at most a handful of card chests + the chest
+// FancySpawn burst + ≤6 stars + 2 vendors.
 const MORPH_REGISTRY_SIZE = 256;
 var Actor MorphActor[256];
 var int   MorphApId[256];
@@ -86,9 +85,10 @@ const TRADER_PRICE_VANILLA = 1;
 const TRADER_PRICE_RANDOM  = 2;
 const TRADER_PRICE_LOW     = 3;
 var int TradersanityMode;
-// Price constants for the non-vanilla modes (retune freely). price_vanilla
-// never touches the vendor's price fields; price_low clamps to a flat value;
-// price_random rolls within [LO, HI] (LO == HI floor is intentional).
+// Price constants for the non-vanilla modes (retune freely). price_low clamps
+// to a flat value; price_random rolls within [LO, HI] (LO == HI floor is
+// intentional). price_vanilla restores the snapshotted price (a card vendor
+// rolls within its original card [min,max]).
 const TRADER_PRICE_LOW_BEANS  = 10;
 const TRADER_PRICE_RAND_LO    = 10;
 const TRADER_PRICE_RAND_HI    = 250;
@@ -97,13 +97,6 @@ const TRADER_PRICE_RAND_HI    = 250;
 // closest neighbouring vendor (census min separation ≈ 210uu). Match the
 // NEAREST eligible unchecked Tradersanity vendor within this cap.
 const TRADER_MATCH_RADIUS = 256.0;
-// Per-level price-restore registry. INSTANCE, not class-default: it holds
-// Characters refs and the per-level watcher is torn down the safe same-level
-// way (see the MorphActor[] rationale above). A level holds ≤6 eligible
-// vendors; 16 is generous. SavedLo/Hi are the vendor's pre-override price
-// fields (card vendors: min/max; ingredient vendors: the single price in
-// both) snapshotted once so the revert restores the true vanilla price even
-// if the .unr tuned it per-instance.
 // Per-level Tradersanity registry. INSTANCE, not class-default: holds
 // Characters refs and the per-level watcher is torn down the safe same-level
 // way (see MorphActor[]). A level holds ≤6 eligible vendors; 16 is generous.
@@ -214,9 +207,9 @@ var byte APGrantedKeyItem[3];
 var string BingoKeyNames[14];
 var byte APGrantedBingoKey[14];
 
-// M7 goal detection: tracks whether we've already fired GOAL_COMPLETE this
-// session. Class-default so it survives level transitions (the credits flow
-// stays in the same level instance, but defensive-default just in case).
+// M7 goal detection: 1 once GOAL_COMPLETE has fired this session. Class-default
+// so it survives level transitions (the credits flow stays in the same level
+// instance; class-default is the defensive belt).
 var byte WasInEndGame;
 
 var APCardWatcher LatestInstance;
@@ -231,11 +224,10 @@ var byte LocationChecked[102];
 // InitialState=TriggerToggle and HP2 preserves mover keyframe state across
 // level exits within a session, so refiring a TriggerEvent('WCn') on
 // re-entry toggles the mover BACK to closed. Tracking once-fired-per-session
-// here keeps each curtain stably open after the first fire. Cross-session
-// note: on a fresh game launch this resets to all zeros, so if the save
-// preserved the mover position as open from a prior session, the first
-// re-entry will toggle it back to closed once before stabilising —
-// acceptable as a known edge case.
+// here keeps each curtain stably open after the first fire. On a fresh game
+// launch this resets to all zeros, so if the save preserved the mover position
+// as open from a prior session, the first re-entry toggles it back to closed
+// once before stabilising — a known edge case.
 var byte WCnFiredThisSession[12];
 
 // Sticky bingo-mode flag. Set once Snapshot finds an MGBingoLearnAllSpells
@@ -303,7 +295,7 @@ var byte InLessonForSpell[7];
 // client is AP-connected. bConnToastShown is the fire latch: armed (0) at
 // process start (class-defaults are compiled, never from .usa), set to 1 once
 // the toast has fired so an area/level transition can't re-toast, and re-armed
-// (0) on a save-load so it shows again per spec.
+// (0) on a save-load so it shows again.
 //
 // Fire is delayed ~1s after the first playable tick the address is known so
 // it doesn't pop the instant control returns: the first eligible tick sets
@@ -1270,11 +1262,10 @@ static function int LevelObjectiveIndexFor(string CapsLevelName)
     return -1;
 }
 
-// Mark a clause-3 level objective complete. Dedupe is UNIFORM with
-// stars/duels/quidditch via NonCardLocationChecked[apId-LOC_BASE] AND we still
-// set the sticky
-// GoalLevelDone[idx] bit, which is the clause-3 gate state GoalSatisfied()
-// reads. Fires the Heretic-style "X Level Complete" CHECK_LOCID 5760700+idx.
+// Mark a clause-3 level objective complete. Dedupe is uniform with
+// stars/duels/quidditch via NonCardLocationChecked[apId-LOC_BASE], and the
+// sticky GoalLevelDone[idx] bit (the clause-3 gate state GoalSatisfied()
+// reads) is also set. Fires the "X Level Complete" CHECK_LOCID 5760700+idx.
 // Shared by Mechanisms A (key-item), B (boss), C (exit probe), D (end star).
 static function NotifyLevelObjective(int idx)
 {
@@ -1401,9 +1392,9 @@ event Timer()
     }
 
     // Use the singleton directly instead of Level.Game.IPCActor. Save-load
-    // skips APGameInfo.InitGame, leaving the post-save GameInfo with IPCActor=None
-    // even though the persistent singleton is still alive. Pre-fix this dropped
-    // every game→client CHECK after a save-load.
+    // skips APGameInfo.InitGame, leaving the post-save GameInfo with
+    // IPCActor=None even though the persistent singleton is still alive, so
+    // Level.Game.IPCActor would drop every game->client CHECK after a save-load.
     ipc = class'APIPCActor'.static.GetInstance();
 
     // Cheap once-per-process patch (no-op after the first successful inject).
@@ -1452,9 +1443,8 @@ event Timer()
     // `AddToSpellBook(...)` and before the teleport-to-challenge-level event.
     // The transition is what the player perceives as "minigame finished".
     //
-    // Workaround case (Bug the earlier lesson-start hook fixed): when AP has
-    // already granted the spell (e.g. start_inventory_from_pool), the
-    // IsInSpellBook poll below cannot fire on the lesson because there's no
+    // When AP has already granted the spell (e.g. start_inventory_from_pool),
+    // the IsInSpellBook poll below cannot fire on the lesson because there's no
     // not-having → having transition. Detecting the CurrSpellLesson clear is
     // independent of spell ownership, so this hook still fires the check.
     //
@@ -2204,9 +2194,9 @@ function EnsureLatestRegistration()
     if (current == None || current.bDeleteMe)
     {
         default.LatestInstance = self;
-        // Save-load fix: a watcher restored from a .usa save can come back with
+        // A watcher restored from a .usa save can come back with
         // bSnapshotted=True but stale/zeroed APGrantedSpell[] (e.g. when the
-        // class layout changed between save creation and load). That makes the
+        // class layout differs between save creation and load). That makes the
         // next Timer skip Bind+Snapshot and run the revert path, wiping any
         // AP-granted spells the save preserved in HarryRef.SpellBook[]. Forcing
         // a re-snapshot here re-baselines APGrantedSpell from the live
@@ -2711,8 +2701,8 @@ function ScanDeathLink(APIPCActor ipc)
 // the unambiguous "defeated" state (the level has 2 Aragog actors; only the
 // beaten boss enters it). Basilisk has TWO phases: BeatBoss() runs at BOTH the
 // phase-1 (Tom-revealed, 17170VoldRevealedV2) and final kill, so Health<=0 is
-// NOT a final-defeat signal (it fired idx=4 on phase 1 in Stefan's 2026-05-15
-// run). Use bBasilFinishedForGood — set True only in BeatBoss()'s
+// NOT a final-defeat signal (it also fires idx=4 on phase 1). Use
+// bBasilFinishedForGood — set True only in BeatBoss()'s
 // bDidFirstBattle branch that also destroys the collision + goes stateInactive
 // (Basilisk.uc:2215-2220). Level-gated so it never scans unrelated maps or
 // matches a stray actor. Idempotent via NotifyLevelObjective's dedupe.

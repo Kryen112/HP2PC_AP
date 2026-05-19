@@ -3,46 +3,40 @@ class APGameInfo extends GameInfo;
 var APIPCActor IPCActor;
 
 // Per-classroom offset applied to the cutscene's Location when spawning the
-// blocker. Lets us nudge the bookshelf without recompiling the cutscene
+// blocker, so the bookshelf can be nudged without touching the cutscene
 // lookup.
 //
-// RictaBlockerOffset is interpreted in WORLD coords (hand-tuned for the
-// 02060DADARictaInt cutscene's specific Rotation in Grandstaircase_hub).
+// RictaBlockerOffset is WORLD coords (hand-tuned for the 02060DADARictaInt
+// cutscene's Rotation in Grandstaircase_hub).
 //
-// SkurgeBlockerOffset is interpreted in the cutscene's LOCAL coords (rotated
-// into world via `>>` at spawn time) — (X=180, Y=0, Z=0) means "180 units
-// forward in whichever direction the cutscene faces." We don't have ground
-// truth for Flitwick's cutscene Rotation so the rotation-relative model is
-// safer: positive local X is always "forward from the cutscene's facing."
+// SkurgeBlockerOffset is the cutscene's LOCAL coords (rotated into world via
+// `>>` at spawn time): positive local X is "forward from the cutscene's
+// facing". The Flitwick cutscene Rotation has no ground truth, so the
+// rotation-relative model avoids guessing it.
 var Vector RictaBlockerOffset;
 var Vector SkurgeBlockerOffset;
 // Spongify's intro cutscene fires in Lockhart's DADA classroom (same room as
 // Rictusempra) but only after the Slytherin Common Room story beat. Vanilla
-// gates it via iGameState >= SpongifyGameStateGate; we mirror that gate so
-// the bookcase blocker only spawns once Spongify actually becomes the next
+// gates it via iGameState >= SpongifyGameStateGate (130 for stock HP2, the
+// point where the game prompts "go to DADA to learn Spongify"); the bookcase
+// blocker mirrors that gate so it only spawns once Spongify becomes the next
 // quest spell, instead of locking the player out of DADA from the start.
-// Threshold value (130 for stock HP2) determined empirically by logging
-// HarryRef.iGameState transitions through a vanilla playthrough until the
-// game prompted "go to DADA to learn Spongify".
 //
-// Spongify shares the DADA doorway chokepoint with Rictusempra, so we anchor
-// the blocker to the SAME cutscene actor as Ricta (`02060DADARictaInt`) — the
-// `13040SpongeIntro` cutscene actor exists but is parked off-path in the
-// level (its Location isn't a meaningful chokepoint). Offset is in WORLD
-// coords (mirroring RictaBlockerOffset). Set to a tiny delta from Ricta so a
-// not-yet-removed Ricta blocker doesn't encroach this spawn.
+// Spongify shares the DADA doorway chokepoint with Rictusempra, so the
+// blocker anchors to the SAME cutscene actor as Ricta (`02060DADARictaInt`);
+// the `13040SpongeIntro` cutscene actor exists but is parked off-path (its
+// Location isn't a meaningful chokepoint). Offset is WORLD coords (mirroring
+// RictaBlockerOffset), a tiny delta from Ricta so a not-yet-removed Ricta
+// blocker doesn't encroach this spawn.
 var Vector SpongifyBlockerOffset;
 var int SpongifyGameStateGate;
-// Sprout's herbology classroom entrance is wide enough that one bookcase
-// doesn't cover it. Each slot in `DiffindoBlockerOffsets` is the spawn
-// position for one bookcase, in WORLD coords relative to the cutscene
-// actor (no rotation transformation — added directly to cs.Location).
-// World coords match what you see in spawnLoc log lines and let you step
-// purely along a world axis to follow a doorway. Array size = number of
-// bookcases spawned. The bookcase ORIENTATION is still derived from the
-// cutscene rotation (Yaw + 32768 so it faces Harry); only position is
-// world-coords. Tune each slot independently — they don't have to be
-// collinear.
+// Sprout's herbology classroom entrance is too wide for one bookcase. Each
+// slot in `DiffindoBlockerOffsets` is one bookcase's spawn position in WORLD
+// coords relative to the cutscene actor (added directly to cs.Location, no
+// rotation transform). Array size = number of bookcases spawned. Bookcase
+// ORIENTATION still comes from the cutscene rotation (Yaw + 32768 so it
+// faces Harry); only position is world-coords. Slots are independent and
+// need not be collinear.
 var Vector DiffindoBlockerOffsets[3];
 
 // Class-default reference to the spawned blocker. Set after a successful
@@ -213,12 +207,12 @@ function bool IsCutSceneAllowedToSkip(string FileName)
 // Per-(level, cutscene-name) blacklist of cutscenes that softlock the game
 // when their fastforward path runs. Names are stable per map-save. Level
 // name comparison is uppercase (caller already Caps()'d it) so casing drift
-// between bingo versions doesn't matter. Add entries as Stefan identifies
-// more softlock-prone cutscenes from gameplay.
+// between bingo versions doesn't matter. Add entries as more
+// softlock-prone cutscenes are identified from gameplay.
 function bool IsCutSceneBlocked(string LevelNameUpper, string CutSceneName)
 {
     // Grand Staircase secret-opening cutscenes with empty FileName — confirmed
-    // softlocks on skip during bingo playtest 2026-05-14.
+    // softlocks on skip during bingo playtest.
     if (LevelNameUpper == "GRANDSTAIRCASE_HUB")
     {
         if (CutSceneName == "CutScene12") return True;
@@ -371,8 +365,8 @@ function BlockRictaClassroomIfMissing()
     }
 }
 
-// Live removal: destroy any blocker we previously spawned. Called when AP
-// grants Rictusempra mid-session.
+// Live removal: destroy any spawned Ricta blocker. Called when AP grants
+// Rictusempra mid-session.
 //
 // Two paths:
 //  1) Direct ref via default.RictaBlockerInstance (set when BlockRicta
@@ -496,17 +490,13 @@ function BlockSkurgeClassroomIfMissing()
         return;
     }
 
-    // SkurgeBlockerOffset is interpreted in the cutscene's LOCAL coords —
-    // (X=180, Y=0, Z=0) means "180 units forward in whichever direction the
-    // cutscene actor is facing." This removes the need to guess the
-    // Skurge cutscene's world Rotation (Ricta's offset is in world coords,
-    // hand-tuned for that specific cutscene's orientation; we don't have
-    // the equivalent ground truth for the Flitwick one). `vector >> rotator`
-    // is UE1's rotate-into-world operator.
+    // SkurgeBlockerOffset is the cutscene's LOCAL coords; `vector >> rotator`
+    // is UE1's rotate-into-world operator, so the offset needs no guess at
+    // the Skurge cutscene's world Rotation.
     //
     // Yaw +32768 = 180° in UE1's 16-bit-rotator space. The Flitwick cutscene
-    // faces away from Harry's approach direction, so we flip the bookcase to
-    // face Harry instead (verified visually in Grandstaircase_hub).
+    // faces away from Harry's approach direction, so the bookcase is flipped
+    // to face Harry (verified visually in Grandstaircase_hub).
     spawnRot = candidate.Rotation;
     spawnRot.Yaw = spawnRot.Yaw + 32768;
     spawnLoc = candidate.Location + (SkurgeBlockerOffset >> candidate.Rotation);
@@ -719,21 +709,18 @@ function RemoveDiffindoBlocker()
     }
 }
 
-// Mirror of BlockRictaClassroomIfMissing for Lockhart's Spongify lesson.
-// Spongify is the second lesson Lockhart teaches in the DADA classroom (after
-// Rictusempra) and vanilla only enables its intro cutscene once iGameState
-// reaches SpongifyGameStateGate (130 in stock HP2 — post-Slytherin Common
-// Room). Spawning the blocker before that point would lock Harry out of DADA
-// for no reason, so we early-return when iGameState is below the gate.
+// Mirror of BlockRictaClassroomIfMissing for Lockhart's Spongify lesson, the
+// second DADA lesson after Rictusempra. Vanilla only enables its intro
+// cutscene once iGameState reaches SpongifyGameStateGate (post-Slytherin
+// Common Room), so spawning earlier would lock Harry out of DADA for no
+// reason; early-return below the gate.
 //
 // Anchored to the Rictusempra cutscene actor (`02060DADARictaInt`) — same
-// physical doorway chokepoint as the Ricta blocker. The `13040SpongeIntro`
-// cutscene actor IS in the level but its position is not at the doorway
-// (cutscene actors can be parked anywhere; only their trigger location
-// matters for activation). Offset is WORLD coords like Ricta; small Y delta
-// from RictaBlockerOffset prevents encroachment-failure when both blockers
-// are up at the same time (e.g., Rictusempra not yet AP-granted at the
-// moment iGameState crosses 130).
+// doorway chokepoint as the Ricta blocker. The `13040SpongeIntro` cutscene
+// actor is in the level but parked away from the doorway (only its trigger
+// location matters for activation). Offset is WORLD coords like Ricta; the
+// small Y delta from RictaBlockerOffset prevents encroachment failure when
+// both blockers are up at once.
 function BlockSpongifyClassroomIfMissing()
 {
     local CutScene cs, candidate;
@@ -869,12 +856,12 @@ function RemoveSpongifyBlocker()
 //=============================================================================
 // Bingo-mode level-entry bookcases.
 //
-// 13 keys, 17 bookcases. Each helper is level-scoped (early-returns when
-// Level.Outer.Name doesn't match) so InitGame can call all 13 unconditionally
-// and let each one decide. APGrantedBingoKey[i] on APCardWatcher tracks which
-// keys the player has received this session — Block helpers early-return on
-// granted, Remove helpers tag-scan + Destroy. Idempotent on re-entry via the
-// tag check.
+// 14 keyed regions, 18 bookcases. Each helper is level-scoped (early-returns
+// when Level.Outer.Name doesn't match) so InitGame can call them all
+// unconditionally and let each one decide. APGrantedBingoKey[i] on
+// APCardWatcher tracks which keys the player has received this session —
+// Block helpers early-return on granted, Remove helpers tag-scan + Destroy.
+// Idempotent on re-entry via the tag check.
 //
 // Shared utilities below dedupe the per-helper boilerplate. The actual
 // Location/Rotation literals were captured via the dev console PlaceBookcase
@@ -1202,10 +1189,10 @@ function ClearBookcaseEncroachers(Vector Loc, float Radius)
         if (harry(p) != None) continue;            // never touch Harry
         // Never destroy a Tradersanity vendor: its check is keyed on this
         // actor by (level, Name), so removing it would break that vendor's
-        // sale until hub re-entry. Data-driven via the same registry the
-        // Tradersanity feature uses, so it cannot drift. (A vendor that ever
-        // truly blocks a bookcase leaves a transient gap that visit — an
-        // accepted, ~never-hit trade-off given ~360uu vendor/bookcase spacing.)
+        // sale until hub re-entry. Keyed off the same registry the
+        // Tradersanity feature uses, so it cannot drift. A vendor truly
+        // blocking a bookcase leaves a transient gap, an accepted trade-off
+        // given the ~360uu vendor/bookcase spacing.
         if (class'APLocationRegistry'.static.GetVendorLocationId(
                 string(Level.Outer.Name), string(p.Name)) != 0) continue;
         if (VSize(p.Location - Loc) <= Radius)
@@ -1282,8 +1269,9 @@ function RemoveBingoGreatHallBlocker()     { DestroyTaggedBingoBlockers('APBingo
 // InitGame). Each helper is level-scoped and key-gated, so unconditional
 // iteration is safe in both modes — a Grounds bookcase in Entryhall_hub just
 // early-returns, and the per-region gate decides spawn/skip per mode. Bingo
-// may spawn all 13 (each behind its own key); vanilla spawns only the 7
-// chain/standalone level regions (the other 6 are gated by spells/story).
+// may spawn all 14 keyed regions (each behind its own key); vanilla spawns
+// only the 7 chain/standalone level regions (the rest are gated by
+// spells/story).
 function SpawnAllBingoBlockers()
 {
     BlockBingoChamberEntryIfMissing();
@@ -1312,10 +1300,10 @@ function SpawnAllBingoBlockers()
 // from APCardWatcher.Snapshot (post-Bind, so the HProp's PreBeginPlay resolves
 // a valid PlayerHarry) - spawning from APGameInfo.InitGame is too early
 // (PlayerHarry==None, so HProp.CanPickupNow can never fire). Level-gated to
-// ADV7SLYTHCOMROOM. Any prior instance (including one serialized into a save
-// by an earlier build) is destroyed and a fresh one respawned, so the live
-// actor is always correctly initialised - one destroy+respawn per level bind
-// (Snapshot runs once per bind), the same pattern as ReplaceChallengeStars.
+// ADV7SLYTHCOMROOM. Any prior instance (including one serialized into a save)
+// is destroyed and a fresh one respawned, so the live actor is always
+// correctly initialised - one destroy+respawn per level bind (Snapshot runs
+// once per bind), the same pattern as ReplaceChallengeStars.
 function SpawnSlytherinEndStarIfMissing()
 {
     local Actor existing;
@@ -1471,7 +1459,7 @@ function ReplaceCardChests()
 
         // If this loose icon's location has already been checked this session,
         // just destroy the vanilla wci and don't spawn a replacement. Avoids
-        // the "ghost sprite" Stefan saw after day/night transitions: the
+        // the ghost sprite seen after day/night transitions: the
         // freshly-spawned APCardMarker_<X> would self-destroy in PostBeginPlay
         // due to the LocationChecked[] guard, but the brief lifetime + render
         // timing could leave a visible-but-untouchable card icon behind.
@@ -1496,15 +1484,15 @@ function ReplaceCardChests()
             // Tag and Base get copied so the new marker keeps any mover
             // attachment the level designer set up. In UE1, movers attach actors
             // via their `AttachTag` field in `PostBeginPlay` (which runs AFTER
-            // InitGame, i.e. AFTER this function); a Tag-match on our new marker
-            // makes that scan attach us. Base is copied too in case the editor
+            // InitGame, i.e. AFTER this function); a Tag-match on the new marker
+            // makes that scan attach it. Base is copied too in case the editor
             // set it directly on the wci (rare but cheap to handle).
             //
-            // Concrete case this fixes: Chamber-of-Secrets II has a freestanding
-            // card on a descending platform. Pre-fix, the marker stayed at its
-            // original Z while the platform dropped because PHYS_None pins to
-            // world coords. With Tag inherited, the mover's PostBeginPlay scan
-            // SetBases the marker so it follows the platform down.
+            // Case this covers: Chamber-of-Secrets II has a freestanding card on
+            // a descending platform. Without the inherited Tag the marker stays
+            // at its original Z (PHYS_None pins to world coords) while the
+            // platform drops; with it, the mover's PostBeginPlay scan SetBases
+            // the marker so it follows the platform down.
             looseLoc = wci.Location;
             looseRot = wci.Rotation;
             looseTag = wci.Tag;
@@ -1670,13 +1658,12 @@ function bool TryApplyCard(string ItemName, harry h)
     siCard.SetCardOwner(cardClass.default.Id, siCard.ECardOwner.CardOwner_Harry);
     nNewCardCount = siCard.nCount;
     PlayCardRewardFX(h, cardClass, nOldCardCount, nNewCardCount);
-    // NOTE: vanilla Touch chain ends with sgCards.RemoveHarryOwnedCardsFromLevel(self)
+    // Vanilla's Touch chain ends with sgCards.RemoveHarryOwnedCardsFromLevel(self)
     // to clean up the picked-up icon and replace duplicate-card chest contents
-    // with Jellybeans. We deliberately DO NOT call it here. For an AP grant we
-    // have no in-level icon to clean up, and the chest-mutation side effect
-    // makes the player unable to visit those card locations later (the chest
-    // would spawn a bean instead of the card icon). Trade-off documented in
-    // ../DESIGN.md v2 parking lot.
+    // with Jellybeans. This deliberately does NOT call it: an AP grant has no
+    // in-level icon to clean up, and the chest-mutation side effect would make
+    // those card locations unreachable later (the chest spawns a bean instead
+    // of the card icon). Trade-off documented in ../DESIGN.md v2 parking lot.
     Log("[Archipelago] ApplyGrant: granted card " $ ItemName $ " (Id=" $ cardClass.default.Id $ ")");
     return True;
 }
@@ -1959,15 +1946,13 @@ static function harry TryGetViewportHarry(harry SourceHarry)
 
 // Authoritative "Harry is actually playing right now" check. Layered on top
 // of the Level.Pauser / FindGrantReadyHarry / watcher.bSnapshotted gates in
-// APIPCActor.TryDrainPendingGrants. Only PlayerWalking grants —
-// every other state (stateCutIdle, SpellLearning, harryfrozen, stateDead,
-// GameEnded, exittoMenu, stateInactive, Mounting / MountFinish, Quidditch,
-// dueling, statePickupItem, statePotionMixing*, wingspell, LookAtActor,
-// ChessDeath, CelebrateCardSet, etc.) defers. The grant queue drains the
-// moment Harry returns to PlayerWalking. HUD cutscene/popup check covers
-// the tick-window between cutscene start and stateCutIdle transition (and
-// the cutscene-skip path where bBothBordersActive animates while Harry's
-// state hasn't transitioned yet).
+// APIPCActor.TryDrainPendingGrants. Only PlayerWalking grants; every other
+// state (cutscene, spell learning, frozen, dead, quidditch, dueling, pickup,
+// potion mixing, etc.) defers, and the grant queue drains the moment Harry
+// returns to PlayerWalking. The HUD cutscene/popup check covers the
+// tick-window between cutscene start and stateCutIdle transition (and the
+// cutscene-skip path where bBothBordersActive animates while Harry's state
+// hasn't transitioned yet).
 // bAllowInGameMenu (optional, default False): when True the in-game pause
 // menu (menuBook.bIsOpen) is NOT a blocking reason. Only RingLink's bean
 // drain passes True — a bean apply is pure data (StatusItem.nCount) with no
@@ -2017,8 +2002,8 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason, op
     // In-game pause menu (FEBook on the console). `bIsOpen` is True from
     // OpenBook (FEBook.uc:840) until CloseBook (FEBook.uc:880), covering
     // both the in-game pause menu (TogglePauseMenu → OpenBook("INGAME"))
-    // and any other menu page. `bGamePlaying` was the wrong gate — it only
-    // flips False on MainPage (title screen), not on the in-game menu.
+    // and any other menu page. `bGamePlaying` is the wrong gate here — it
+    // only flips False on MainPage (title screen), not on the in-game menu.
     if (!bAllowInGameMenu
         && HPConsole(h.Player.Console) != None
         && HPConsole(h.Player.Console).menuBook != None
@@ -2173,11 +2158,9 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //   Forgetfulness - APCardWatcher restores the spellbook on a timer or the
 //                   next level transition, whichever comes first.
 //
-// Spider Swarm and Peeves were cut from v1: they require an ad-hoc visible
-// world actor spawned mid-level, which this M212 bingo build does not render
-// (proven by a card-marker-clone bisect - a free-standing actor with the
-// exact mesh the card markers render with stayed invisible solely because it
-// was Spawn()'d at runtime rather than built during level bring-up).
+// Spider Swarm and Peeves are not implemented: they require an ad-hoc visible
+// world actor spawned mid-level, and this bingo build does not render actors
+// Spawn()'d at runtime (only those built during level bring-up).
 function bool TryApplyTrap(string Name, harry h)
 {
     local int beans, lost;
@@ -2249,10 +2232,9 @@ function ApplyGrant(string Body)
     local string ItemName, Sender;
     local int pipeIdx;
 
-    // Body is `<itemname>` (legacy) or `<itemname>|<sender>` (client
-    // post-2026-05-12 sends the AP slot name as the sender). Parse out
-    // both so the toast can include "from <sender>" without the rest of
-    // ApplyGrant caring.
+    // Body is `<itemname>` (legacy) or `<itemname>|<sender>` (the client
+    // sends the AP slot name as the sender). Parse out both so the toast
+    // can include "from <sender>" without the rest of ApplyGrant caring.
     pipeIdx = InStr(Body, "|");
     if (pipeIdx >= 0)
     {

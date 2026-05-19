@@ -30,10 +30,10 @@ How this dev machine is configured and the daily build/run loop. Update whenever
 | `Game.exe` | `...\Modded\system\Game.exe` |
 | `Default.ini` (per-install engine config) | `...\Modded\system\Default.ini` |
 | `IpDrv.dll` (UT99-restored networking) | `...\Modded\system\IpDrv.dll` |
-| Python 3.12 | `C:\Users\kryen\AppData\Local\Programs\Python\Python312\python.exe` (use `py -3.12` to invoke) |
-| HP2PC_AP repo | `C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP\` |
-| M212 user data (saves, `User.ini`, `HP2.log`) | `C:\Users\kryen\Documents\Harry - Coding Evolved\` |
-| Retail HP2 user data (saves, kept separate from M212) | `C:\Users\kryen\Documents\Harry Potter II\` |
+| Python 3.12 | `C:\Users\<you>\AppData\Local\Programs\Python\Python312\python.exe` (use `py -3.12` to invoke) |
+| HP2PC_AP repo | `C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP\` |
+| M212 user data (saves, `User.ini`, `HP2.log`) | `C:\Users\<you>\Documents\Harry - Coding Evolved\` |
+| Retail HP2 user data (saves, kept separate from M212) | `C:\Users\<you>\Documents\Harry Potter II\` |
 
 Start Menu shortcuts (created by the M212 installer, repointed to `Modded\` on 2026-05-07):
 
@@ -46,7 +46,7 @@ Start Menu shortcuts (created by the M212 installer, repointed to `Modded\` on 2
 Project-local venv keeps HP2PC_AP from fighting other AP projects on this PC.
 
 ```powershell
-cd "C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP"
+cd "C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP"
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
@@ -58,14 +58,14 @@ pip install pyyaml
 
 ## Archipelago framework (existing install)
 
-Stefan's existing AP framework is at `C:\Users\kryen\Documents\Archipelago-play\Archipelago\` — currently on `main` at `0.6.2-rc2-60-g5da059d9` (close to 0.6.7 release; world-building API has been stable across these versions). HP2PC_AP integrates with this existing install rather than maintaining a separate clone.
+The existing AP framework install is at `C:\Users\<you>\Documents\Archipelago-play\Archipelago\` — currently on `main` at `0.6.2-rc2-60-g5da059d9` (close to 0.6.7 release; world-building API has been stable across these versions). HP2PC_AP integrates with this existing install rather than maintaining a separate clone.
 
 For HP2PC_AP development, the repo's `apworld/` directory is the AP-world source. To make AP discover it during seed generation, we mirror it into `Archipelago/worlds/harry_potter_2_pc/` via a directory junction:
 
 ```powershell
 New-Item -ItemType Junction `
-  -Path   'C:\Users\kryen\Documents\Archipelago-play\Archipelago\worlds\harry_potter_2_pc' `
-  -Target 'C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP\apworld'
+  -Path   'C:\Users\<you>\Documents\Archipelago-play\Archipelago\worlds\harry_potter_2_pc' `
+  -Target 'C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP\apworld'
 ```
 
 (One-time setup. Edits in the repo's `apworld/` are immediately visible to the AP framework via the junction. No copy step.)
@@ -74,7 +74,7 @@ New-Item -ItemType Junction `
 
 If you ever need to recreate the junction (e.g., it got broken), `cmd /c rmdir <junction-path>` removes it safely without touching the target, then re-run the `New-Item` command.
 
-If Stefan ever needs to bump the AP framework version, do a controlled `git fetch && git checkout <tag>` in `Archipelago-play\Archipelago\`. Test that other AP projects still work, then test HP2PC_AP.
+To bump the AP framework version, do a controlled `git fetch && git checkout <tag>` in `Archipelago-play\Archipelago\`. Test that other AP projects still work, then test HP2PC_AP.
 
 ## Player files (AP slot YAMLs)
 
@@ -143,7 +143,7 @@ Status: scripted helper not yet written — manual steps for now. Both steps req
 2. Mirror the package folder into the engine and compile, in one shot:
 
    ```powershell
-   $repo = 'C:\Users\kryen\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP'
+   $repo = 'C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP'
    $sys = 'C:\Program Files (x86)\Harry Potter 2\Modded\system'
    robocopy "$repo\mod\HPArchipelago" 'C:\Program Files (x86)\Harry Potter 2\Modded\HPArchipelago' /MIR /XF .gitkeep
    Push-Location $sys
@@ -162,7 +162,7 @@ Launch via the **M212 → Launch Game** Start Menu shortcut (or `Modded\system\G
 To search logs from PowerShell:
 
 ```powershell
-Get-Content -LiteralPath 'C:\Users\kryen\Documents\Harry - Coding Evolved\Game.log' -Encoding Unicode | Select-String -Pattern 'Archipelago'
+Get-Content -LiteralPath 'C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log' -Encoding Unicode | Select-String -Pattern 'Archipelago'
 ```
 
 ## Running the client (dev)
@@ -172,7 +172,7 @@ The client is `apworld/Client.py` and is shipped inside `harry_potter_2_pc.apwor
 For dev (running against a local seed), launch it as a module of the apworld so its relative imports resolve:
 
 ```powershell
-$ap = 'C:\Users\kryen\Documents\Archipelago-play\Archipelago'
+$ap = 'C:\Users\<you>\Documents\Archipelago-play\Archipelago'
 Push-Location $ap
 try {
     py -3.12 -m worlds.harry_potter_2_pc.Client --name HP2_Test --connect localhost:38282
@@ -189,7 +189,7 @@ Alternative: `ArchipelagoLauncher.exe "HP2 PC Client"` runs the launcher entry p
 
 ## Fresh-PC bootstrap
 
-If you (or a future Claude) clones this repo on a new Windows machine, do these in order:
+If you clone this repo on a new Windows machine, do these in order:
 
 1. Install retail HP2 (KnowWonder 2002). Keep this copy untouched as the vanilla reference (the `Bingo\` role above).
 2. Make a second copy of the install folder for modding (the `Modded\` role above), or let the M212 installer write into its own copy.

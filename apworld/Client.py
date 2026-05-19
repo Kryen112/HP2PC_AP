@@ -28,7 +28,7 @@ Mod-side protocol (newline-delimited text):
 Durable-grant ledger: the set of applied AP indices is persisted in AP server
 Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
 APPLIED, wiped on NEWGAME. The mod's .usa cannot persist mod data (M212), so AP
-storage is the source of truth (the Stick Ranger model).
+storage is the source of truth.
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -63,10 +63,10 @@ from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 # Trap item names, from ITEM_GROUPS so it can never drift from
-# data/items.yaml. Used by the #3 marker-appearance classifier. Durability is
-# no longer name-based: every received item is gated by the AP-Data-Storage
-# consumed-index ledger (see _forward_one / consumed_indices), so filler and
-# traps are durable-but-once exactly like cards/spells — no special-casing.
+# data/items.yaml. Used by the #3 marker-appearance classifier. Every
+# received item is gated by the AP-Data-Storage consumed-index ledger (see
+# _forward_one / consumed_indices), so filler and traps are durable-but-once
+# exactly like cards/spells, with no special-casing.
 TRAP_ITEM_NAMES = frozenset(ITEM_GROUPS.get("Traps", []))
 
 # Build UScript class → game-side card Id by composing the two maps:
@@ -104,24 +104,21 @@ SPELL_TO_LOCATION_NAME = {
     "Spongify":    "Learned Spongify",
 }
 
-# plans/09 spell-cast chat flavor. The mod fires a bare ASCII spell name over
-# SAY on a rate-limited ~1/100 roll; the client builds the chat line. Two
-# forms, picked 50/50 per cast: "<Spell>!" or "casts <Spell> on <other>",
-# where <other> is a random *other* real player. AP already prefixes the line
-# with our own slot name, so it never appears in the body. Solo / AP-offline
-# (no resolvable other player) always uses "<Spell>!". See _build_spell_flavor.
+# Spell-cast chat flavor: the mod fires a bare ASCII spell name over SAY on a
+# rate-limited ~1/100 roll; the client builds the chat line (see
+# _build_spell_flavor).
 
-# Map UScript special progression name to its AP check. v1: empty — Boomslang,
+# Map UScript special progression name to its AP check. Empty: Boomslang,
 # Bicorn, and BitOGoyle are not randomized, they flow through vanilla story.
 # The watcher still fires CHECK_KEYITEM when it sees a vanilla pickup; the
 # client's _send_named_location_check then logs "no AP location mapping" and
-# silently skips. Add entries back when these become AP checks again.
+# silently skips. Add entries when these become AP checks.
 KEYITEM_TO_LOCATION_NAME: dict[str, str] = {}
 
-# #3 marker appearance. The client scouts every HP2 location, resolves what
-# item each holds, and pushes a per-location appearance code the mod uses to
-# morph the marker into that item's vanilla art. Codes mirror
-# APCardWatcher.AppearanceCode[] / plans/03-marker-appearance-by-owner.md.
+# Marker appearance. The client scouts every HP2 location, resolves what item
+# each holds, and pushes a per-location appearance code the mod uses to morph
+# the marker into that item's vanilla art. Codes mirror
+# APCardWatcher.AppearanceCode[].
 
 # Spell appearance index — MUST match APCardWatcher.SpellNames[] order
 # (0 Alohomora … 6 Spongify). Appearance code = 1000 + index.
@@ -156,10 +153,10 @@ logger = logging.getLogger("HP2Client")
 
 def _log_safe(text: str, limit: int = 180) -> str:
     """Truncate a payload for logging only. The AP Kivy client renders every
-    INFO line into an on-screen log widget; a single multi-KB line (the #3
+    INFO line into an on-screen log widget; a single multi-KB line (the
     APPEARANCE table is ~6.5 KB) stalls Kivy's text layout and hangs the
     asyncio event loop for over a minute. The full text is still sent to the
-    game unchanged — this shortens what is written to the log."""
+    game unchanged; this shortens only what is written to the log."""
     if len(text) <= limit:
         return text
     return f"{text[:limit]}… [+{len(text) - limit} more chars]"
@@ -194,7 +191,7 @@ class HP2Context(CommonContext):
         # on every successful Connected. In-memory only — a client crash
         # during an AP outage loses these.
         self.pending_ap_outbound: list[dict] = []
-        # --- Durable-grant ledger (Stick Ranger model) ---------------------
+        # --- Durable-grant ledger ------------------------------------------
         # The single source of truth for "which AP items has this slot's
         # playthrough already had applied" is an Archipelago server-side Data
         # Storage record (NOT the M212 .usa, which cannot persist mod data).
@@ -205,8 +202,7 @@ class HP2Context(CommonContext):
         # the set; an item already in the set is never re-sent → no double
         # bean / re-fired trap / phantom inventory. ledger_key is
         # HP2PC_AP:{team}:{slot} (the store is per-seed by virtue of being on
-        # that seed's server, so seed need not be in the key — mirrors Stick
-        # Ranger's StickRangerSaveData:{team}:{slot}).
+        # that seed's server, so seed need not be in the key).
         self.ledger_key: Optional[str] = None
         self.consumed_indices: set[int] = set()
         # Held until the AP-storage Get resolves so replay can't run against an
@@ -509,7 +505,7 @@ class HP2Context(CommonContext):
         # delivery; we filter to ones where item.player == self.slot (we're
         # the sender). Skip if receiving == self.slot — that's our own item
         # and ReceivedItems already triggers a "Received X from Y" toast,
-        # so a SENT toast on top would be a duplicate per Stefan's spec.
+        # so a SENT toast on top would be a duplicate.
         try:
             if args.get("type") == "ItemSend":
                 item = args.get("item")
@@ -886,9 +882,7 @@ class HP2Context(CommonContext):
     async def _send_or_queue_ap_msg(self, msg: dict, label: str) -> None:
         """Send an outbound AP message, or queue it for replay on next Connected.
 
-        Replaces the previous "drop if AP offline" pattern that silently lost
-        checks made during a server inactivity timeout or network blip. The
-        mod's markers self-destroy on Touch so the location cannot be
+        The mod's markers self-destroy on Touch so the location cannot be
         re-checked by re-walking-over; without this queue, every check made
         during an AP outage would be permanently lost on the AP side and the
         other player(s) waiting on that item would wait forever.

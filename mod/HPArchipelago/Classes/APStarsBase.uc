@@ -1,11 +1,13 @@
-// Base class for the 6 AP-themed pickup star bursts. Hand-authored.
+// Base class for the 6 AP-themed pickup star bursts.
 //
-// Modeled on HPParticle.BronzePickup / SilverPickup / GoldPickup defaults — same
-// emission/motion/shape so the burst feels native — but with a smaller particle
-// count (6 of these spawn at once on each AP card pickup; vanilla spawns only 1).
+// Modeled on HPParticle.BronzePickup / SilverPickup / GoldPickup defaults
+// (same emission/motion/shape so the burst feels native) but with a smaller
+// particle count (6 of these spawn at once on each AP card pickup; vanilla
+// spawns only 1).
 //
-// Subclasses override only ColorStart/ColorEnd to one of the 6 Archipelago logo
-// colors. Spawned by APCardMarker.Touch when the player picks up an AP marker.
+// Subclasses override only ColorStart/ColorEnd to one of the 6 Archipelago
+// logo colors. Spawned by APCardMarker.Touch when the player picks up an AP
+// marker.
 class APStarsBase extends WizardPickups;
 
 defaultproperties
