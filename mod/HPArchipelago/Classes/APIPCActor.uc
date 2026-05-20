@@ -718,7 +718,7 @@ function TryDrainPendingGrants()
     // accounted for in this slot's playthrough. Ack so the client records it
     // durably and never re-grants it.
     SendApplied(apIdx);
-    NextGrantDrainTime = Level.TimeSeconds + 0.75;
+    NextGrantDrainTime = Level.TimeSeconds + 0.5;
 }
 
 defaultproperties
