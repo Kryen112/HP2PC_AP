@@ -107,7 +107,7 @@ If you're playing solo (just you, no other AP slots):
    | `enable_wizard_cards`       | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
    | `enable_secrets`            | on      | 109 secret-area pickups across all levels.                                                                 |
    | `enable_challenge_stars`    | on      | 44 challenge stars across the 4 spell-challenge levels.                                                    |
-   | `enable_duelling`           | off     | 10 Dueling Club ranked-duel wins.                                                                          |
+   | `enable_duelling`           | off     | 10 Duelling Club ranked-duel wins.                                                                          |
    | `enable_quidditch_matches`  | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
    | `enable_spell_challenge_times` | off  | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.               |
    | `enable_quidditch_upgrades` | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |

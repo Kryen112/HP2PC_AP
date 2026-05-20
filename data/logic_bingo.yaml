@@ -32,7 +32,7 @@
 # gate (e.g. Spongify to traverse the Whomping Willow). The full per-location
 # spell combo lives in each location's `requires`. Locations whose only
 # requirement is region entry are omitted (implicitly "true") — Quidditch
-# matches, Dueling ranks, and a handful of secrets/cards/vendors are in that
+# matches, Duelling ranks, and a handful of secrets/cards/vendors are in that
 # bucket.
 
 # Regions — entry rules. Locations inherit region access; their own `requires`
@@ -66,7 +66,7 @@ regions:
   BicornLevel:
     entry: "'Bicorn Level Key' & Skurge"
 
-  DuelingClub:
+  DuellingClub:
     entry: "'Duelling Key'"
 
   DiffindoChallenge:

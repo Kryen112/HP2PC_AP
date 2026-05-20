@@ -60,7 +60,7 @@ regions:
   BicornLevel:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & 'Bicorn Level Key'"
 
-  DuelingClub:
+  DuellingClub:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & 'Bicorn Level Key' & 'Duelling Key'"
 
   DiffindoChallenge:
@@ -591,17 +591,17 @@ locations:
   "Gold Card Room - Card Potter":
     { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
 
-  # Dueling Club duels
-  "Dueling Club - Duel Rank 1": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 2": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 3": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 4": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 5": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 6": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 7": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 8": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 9": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Dueling Club - Duel Rank 10":
+  # Duelling Club duels
+  "Duelling Club - Duel Rank 1": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 2": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 3": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 4": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 5": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 6": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 7": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 8": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 9": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 10":
     { requires: "Rictusempra & Skurge & Alohomora" }
 
   # Quidditch matches

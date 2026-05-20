@@ -1947,7 +1947,7 @@ static function harry TryGetViewportHarry(harry SourceHarry)
 // Authoritative "Harry is actually playing right now" check. Layered on top
 // of the Level.Pauser / FindGrantReadyHarry / watcher.bSnapshotted gates in
 // APIPCActor.TryDrainPendingGrants. Only PlayerWalking grants; every other
-// state (cutscene, spell learning, frozen, dead, quidditch, dueling, pickup,
+// state (cutscene, spell learning, frozen, dead, quidditch, duelling, pickup,
 // potion mixing, etc.) defers, and the grant queue drains the moment Harry
 // returns to PlayerWalking. The HUD cutscene/popup check covers the
 // tick-window between cutscene start and stateCutIdle transition (and the

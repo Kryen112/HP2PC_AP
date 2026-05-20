@@ -199,7 +199,7 @@ class EnableChallengeStars(DefaultOnToggle):
 
 
 class EnableDuelling(Toggle):
-    """If true, each of the 10 duels at the Dueling Club become a location.
+    """If true, each of the 10 duels at the Duelling Club become a location.
     """
     display_name = "Enable Duelling"
 
@@ -262,7 +262,7 @@ class BingoGoalLevels(NamedRange):
 
 
 class BingoGoalDuels(Toggle):
-    """Bingo only. If true, all 10 Dueling Club duels must be won to open the
+    """Bingo only. If true, all 10 Duelling Club duels must be won to open the
     Great Hall."""
     display_name = "Bingo goal: all duels"
 

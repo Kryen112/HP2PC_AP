@@ -20,13 +20,13 @@ base_id: 5760000
 # placed as start-inventory by the seed (see DESIGN.md open question 7).
 #
 # v1 story-order in vanilla play: Lockhart#1 → Quidditch → Potions (Snape,
-# brews Wiggenweld but no spell) → Flitwick → Bicorn level → Dueling Club →
+# brews Wiggenweld but no spell) → Flitwick → Bicorn level → Duelling Club →
 # Sprout → Boomslang level → Dumbledore's study → Goyle level → Slytherin
 # Common → Lockhart#2 → Forbidden Forest → Chamber → Basilisk. Sphere-0 in
 # the open-hub model is "everything reachable from spawn"; the story-mode
 # variant (entrance-locked) is parked for v2. Snape's Potions class doesn't
 # teach a spell so it isn't a check in v1; the brew-Wiggenweld unlock and
-# other story beats (Quidditch practice, Dueling Club, Dumbledore's study)
+# other story beats (Quidditch practice, Duelling Club, Dumbledore's study)
 # are deferred to v2's Tier-3 check expansion.
 #
 # The mod fires `CHECK_SPELL <name>` when Harry first learns a spell; the
@@ -83,7 +83,7 @@ quidditch_purchases:
   - { id_offset: 5, name: "Castle Exterior - Nimbus 2001",      vendor_class: FredWeasley,   vanilla_sells: Sells_Nimbus2001, region: CastleExterior, group: QuidditchPurchases, notes: "Fred Weasley sells the Nimbus broom for ~700 beans on the Castle Exterior grounds. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned VendorNimbusBroom actor and swaps to APCardMarker_PHCard." }
   - { id_offset: 6, name: "Castle Exterior - Quidditch Armour", vendor_class: GeorgeWeasley, vanilla_sells: Sells_QArmor,     region: CastleExterior, group: QuidditchPurchases, notes: "George Weasley sells the Quidditch armour. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned QArmor actor and swaps to APCardMarker_PHCard." }
 
-# 10 duel-win locations at the Dueling Club, one per ranked duel. Each check
+# 10 duel-win locations at the Duelling Club, one per ranked duel. Each check
 # fires when Harry wins the corresponding Duel0N standalone level. `duel_rank`
 # (1..10) is the stable handle used by the win-detection watcher to resolve
 # which AP location maps to a given TriggerEvent('HarryWonDuel') firing —
@@ -96,9 +96,9 @@ quidditch_purchases:
 # whatever AP places at them, like cards or secrets do).
 #
 # Vanilla gate: duels unlock at `iGameState >= 80` (post-Bicorn), with a
-# blacklist of mid-story states `[120, 150, 160, 170]` where the dueling
+# blacklist of mid-story states `[120, 150, 160, 170]` where the duelling
 # room is taken over by story beats. AP logic encodes the post-Bicorn floor
-# via the DuelingClub region entry; intra-system rank ordering is left to
+# via the DuellingClub region entry; intra-system rank ordering is left to
 # vanilla gameplay (per the "spell/item requires only" decision — AP doesn't
 # enforce 'must win Rank N-1 before Rank N').
 #
@@ -115,16 +115,16 @@ quidditch_purchases:
 #     Duel0N level after AP check doesn't refire (duels are replayable in
 #     vanilla once won, but the AP check only counts the first win).
 duels:
-  - { id_offset: 600, name: "Dueling Club - Duel Rank 1",  duel_rank: 1,  duel_level: Duel01, region: DuelingClub, group: Duels, notes: "Lowest-tier duel. ~10 beans reward in vanilla." }
-  - { id_offset: 601, name: "Dueling Club - Duel Rank 2",  duel_rank: 2,  duel_level: Duel02, region: DuelingClub, group: Duels }
-  - { id_offset: 602, name: "Dueling Club - Duel Rank 3",  duel_rank: 3,  duel_level: Duel03, region: DuelingClub, group: Duels }
-  - { id_offset: 603, name: "Dueling Club - Duel Rank 4",  duel_rank: 4,  duel_level: Duel04, region: DuelingClub, group: Duels }
-  - { id_offset: 604, name: "Dueling Club - Duel Rank 5",  duel_rank: 5,  duel_level: Duel05, region: DuelingClub, group: Duels }
-  - { id_offset: 605, name: "Dueling Club - Duel Rank 6",  duel_rank: 6,  duel_level: Duel06, region: DuelingClub, group: Duels }
-  - { id_offset: 606, name: "Dueling Club - Duel Rank 7",  duel_rank: 7,  duel_level: Duel07, region: DuelingClub, group: Duels }
-  - { id_offset: 607, name: "Dueling Club - Duel Rank 8",  duel_rank: 8,  duel_level: Duel08, region: DuelingClub, group: Duels }
-  - { id_offset: 608, name: "Dueling Club - Duel Rank 9",  duel_rank: 9,  duel_level: Duel09, region: DuelingClub, group: Duels }
-  - { id_offset: 609, name: "Dueling Club - Duel Rank 10", duel_rank: 10, duel_level: Duel10, region: DuelingClub, group: Duels, notes: "Highest-tier duel. ~200 beans reward in vanilla." }
+  - { id_offset: 600, name: "Duelling Club - Duel Rank 1",  duel_rank: 1,  duel_level: Duel01, region: DuellingClub, group: Duels, notes: "Lowest-tier duel. ~10 beans reward in vanilla." }
+  - { id_offset: 601, name: "Duelling Club - Duel Rank 2",  duel_rank: 2,  duel_level: Duel02, region: DuellingClub, group: Duels }
+  - { id_offset: 602, name: "Duelling Club - Duel Rank 3",  duel_rank: 3,  duel_level: Duel03, region: DuellingClub, group: Duels }
+  - { id_offset: 603, name: "Duelling Club - Duel Rank 4",  duel_rank: 4,  duel_level: Duel04, region: DuellingClub, group: Duels }
+  - { id_offset: 604, name: "Duelling Club - Duel Rank 5",  duel_rank: 5,  duel_level: Duel05, region: DuellingClub, group: Duels }
+  - { id_offset: 605, name: "Duelling Club - Duel Rank 6",  duel_rank: 6,  duel_level: Duel06, region: DuellingClub, group: Duels }
+  - { id_offset: 606, name: "Duelling Club - Duel Rank 7",  duel_rank: 7,  duel_level: Duel07, region: DuellingClub, group: Duels }
+  - { id_offset: 607, name: "Duelling Club - Duel Rank 8",  duel_rank: 8,  duel_level: Duel08, region: DuellingClub, group: Duels }
+  - { id_offset: 608, name: "Duelling Club - Duel Rank 9",  duel_rank: 9,  duel_level: Duel09, region: DuellingClub, group: Duels }
+  - { id_offset: 609, name: "Duelling Club - Duel Rank 10", duel_rank: 10, duel_level: Duel10, region: DuellingClub, group: Duels, notes: "Highest-tier duel. ~200 beans reward in vanilla." }
 
 # 6 Quidditch match win locations. Vanilla `harry.curQuidMatchNum` tracks
 # match index 0..5 and `harry.quidGameResults[match_index].bWon` is set True
