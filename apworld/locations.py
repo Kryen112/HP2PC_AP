@@ -1259,8 +1259,8 @@ MISSABLE_SECRETS: frozenset = frozenset({
 
 # Item names appearing in (region entry AND location requires)
 # for each missable secret. Vanilla-only: the missable system is
-# a vanilla concept (bingo's open castle replays every level), so
-# there is no bingo dependency table. A subset of the precollected
+# a vanilla concept (open castle replays every level), so there is
+# no open castle dependency table. A subset of the precollected
 # starting inventory means the secret is reachable from the start.
 MISSABLE_SECRET_DEPS_VANILLA: dict[str, list[str]] = {
     'Bicorn Level - Secret 2': ['Alohomora', 'Bicorn Level Key', 'Flipendo', 'Lumos', 'Rictusempra', 'Skurge'],

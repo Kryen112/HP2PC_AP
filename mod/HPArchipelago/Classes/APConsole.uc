@@ -79,7 +79,7 @@ exec function LogPos()
 //   DumpActors BASILISK   — substring match on the class name
 // Per-actor lines go to Game.log only (could be hundreds); the header/footer
 // echo to the chat overlay so the player sees it ran. Level name is the Caps'd
-// map name BingoLevelIs() compares against.
+// map name OpenCastleLevelIs() compares against.
 exec function DumpActors(optional string Filter)
 {
     local Actor a;

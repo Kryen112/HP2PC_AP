@@ -136,10 +136,10 @@ FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
 # vanilla mesh, same as cards/spells/filler (mod codes 3001..3002).
 EQUIPMENT_CODE = {'Nimbus 2001': 3001, 'Quidditch Armour': 3002}
 
-# Bingo key appearance code — the 13 level/challenge bookcase keys all share
-# the vanilla "silver key" FX sprite (mod code 3003). Sourced from the
+# Open castle key appearance code — the 13 level/challenge bookcase keys all
+# share the vanilla "silver key" FX sprite (mod code 3003). Sourced from the
 # canonical ITEM_GROUPS entry so the set never drifts from items.yaml.
-KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Bingo Keys']}
+KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Open Castle Keys']}
 
 # Foreign (non-HP2) item codes — the only surviving #1 contribution: the
 # AP-logo plate, arrow variant when the foreign item is progression or trap
@@ -170,7 +170,7 @@ class HP2Context(CommonContext):
     game = GAME_NAME
     command_processor = HP2CommandProcessor
     items_handling = 0b111  # receive starting inventory + own items + remote items
-    want_slot_data = True  # bingo Great Hall key thresholds ride slot_data
+    want_slot_data = True  # open castle Great Hall key thresholds ride slot_data
 
     def __init__(self, server_address: Optional[str], password: Optional[str]):
         super().__init__(server_address, password)
@@ -225,22 +225,22 @@ class HP2Context(CommonContext):
         # every disconnect, including transient AP blips, which the durable
         # ledger must survive.
         self._last_seed_name: Optional[str] = None
-        # Bingo Great Hall key config as the "GOALCFG c,s,l,d,q,mask" payload,
-        # or None for vanilla / not-yet-received. Parsed from slot_data on
-        # Connected; pushed to the mod on every game HELLO (sticky + idempotent
-        # mod-side, so a fresh game launch / reconnect re-arms it).
-        self.bingo_goalcfg: Optional[str] = None
+        # Open castle Great Hall key config as the "GOALCFG c,s,l,d,q,mask"
+        # payload, or None for vanilla / not-yet-received. Parsed from slot_data
+        # on Connected; pushed to the mod on every game HELLO (sticky +
+        # idempotent mod-side, so a fresh game launch / reconnect re-arms it).
+        self.open_castle_goalcfg: Optional[str] = None
         # Tradersanity price mode as the "TRADECFG <int>" payload (0 off /
         # 1 vanilla / 2 random / 3 low), or None if not yet received. Parsed
         # from slot_data on Connected; pushed every game HELLO (sticky +
-        # idempotent mod-side), same lifecycle as bingo_goalcfg.
+        # idempotent mod-side), same lifecycle as open_castle_goalcfg.
         self.tradersanity_cfg: Optional[str] = None
-        # True when slot_data game_mode == "bingo". Drives the one-way
-        # "MODE bingo" IPC line (sticky + idempotent mod-side; resent every
-        # game HELLO) — a durable, authoritative bingo signal that survives a
-        # cold load into a sentinel-less level. Vanilla never sends MODE
-        # (bBingoMode is one-way sticky and never cleared).
-        self.bingo_is_bingo: bool = False
+        # True when slot_data game_mode == "open_castle". Drives the one-way
+        # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
+        # every game HELLO) — a durable, authoritative open castle signal that
+        # survives a cold load into a sentinel-less level. Vanilla never sends
+        # MODE (bOpenCastleMode is one-way sticky and never cleared).
+        self.is_open_castle: bool = False
         # #3: last "apId:code,…" appearance payload pushed to the mod, or None
         # if not yet built. Resent on every game HELLO (sticky + idempotent
         # mod-side). Rebuilt from self.locations_info on each LocationInfo.
@@ -266,8 +266,8 @@ class HP2Context(CommonContext):
         # Connected from self.server_address — which server_loop has by then
         # normalised to ws://host[:port]. Pushed as the sticky CONNECTED IPC
         # line now if the game is up, else on the next game HELLO. Sticky +
-        # idempotent mod-side (same lifecycle as bingo_goalcfg); the mod owns
-        # the once-per-launch / once-per-save-load fire latch, so resending
+        # idempotent mod-side (same lifecycle as open_castle_goalcfg); the mod
+        # owns the once-per-launch / once-per-save-load fire latch, so resending
         # the same address on a reconnect / HELLO never re-toasts.
         self.connected_address: Optional[str] = None
 
@@ -331,29 +331,30 @@ class HP2Context(CommonContext):
             if self.connected_address and self.game_writer is not None:
                 self._send_to_game("CONNECTED " + self.connected_address)
             sd = args.get("slot_data") or {}
-            self.bingo_is_bingo = sd.get("game_mode") == "bingo"
-            if self.bingo_is_bingo and self.game_writer is not None:
-                self._send_to_game("MODE bingo")
-            if sd.get("game_mode") == "bingo":
-                self.bingo_goalcfg = "{},{},{},{},{},{}".format(
-                    sd.get("bingo_goal_cards", 0),
-                    sd.get("bingo_goal_spells", 0),
-                    sd.get("bingo_goal_levels", 0),
-                    sd.get("bingo_goal_duels", 0),
-                    sd.get("bingo_goal_quidditch", 0),
-                    sd.get("bingo_level_mask", 0),
+            self.is_open_castle = sd.get("game_mode") == "open_castle"
+            if self.is_open_castle and self.game_writer is not None:
+                self._send_to_game("MODE open_castle")
+            if sd.get("game_mode") == "open_castle":
+                self.open_castle_goalcfg = "{},{},{},{},{},{}".format(
+                    sd.get("open_castle_goal_cards", 0),
+                    sd.get("open_castle_goal_spells", 0),
+                    sd.get("open_castle_goal_levels", 0),
+                    sd.get("open_castle_goal_duels", 0),
+                    sd.get("open_castle_goal_quidditch", 0),
+                    sd.get("open_castle_level_mask", 0),
                 )
-                logger.info(f"Bingo goal config from slot_data: {self.bingo_goalcfg}")
+                logger.info(f"Open castle goal config from slot_data: {self.open_castle_goalcfg}")
                 # If the game is already connected, push now; otherwise it goes
                 # out on the next game HELLO.
                 if self.game_writer is not None:
-                    self._send_to_game("GOALCFG " + self.bingo_goalcfg)
+                    self._send_to_game("GOALCFG " + self.open_castle_goalcfg)
             else:
-                self.bingo_goalcfg = None
+                self.open_castle_goalcfg = None
 
             # Tradersanity price mode (both game modes; slot_data carries it
-            # for vanilla and bingo). Sticky like bingo_goalcfg: push now if
-            # the game is up, else it rides the next HELLO. Default 0 (off).
+            # for vanilla and open castle). Sticky like open_castle_goalcfg:
+            # push now if the game is up, else it rides the next HELLO.
+            # Default 0 (off).
             self.tradersanity_cfg = str(int(sd.get("tradersanity", 0)))
             logger.info(f"Tradersanity mode from slot_data: {self.tradersanity_cfg}")
             if self.game_writer is not None:
@@ -383,8 +384,8 @@ class HP2Context(CommonContext):
             # only, no hint broadcast (no spoiler-policy issue).
             #
             # MUST intersect with server_locations: LOCATION_NAME_TO_ID is the
-            # full cross-mode/all-options universe, but a bingo / option-
-            # trimmed seed only instantiates a subset for this slot. Scouting a
+            # full cross-mode/all-options universe, but an open castle /
+            # option-trimmed seed only instantiates a subset for this slot. Scouting a
             # location id the slot doesn't have raises a server-side KeyError
             # that drops the connection — and CommonClient auto-resends
             # locations_scouted on every reconnect, so a bad entry would wedge
@@ -675,16 +676,18 @@ class HP2Context(CommonContext):
             # consumed (the sent_this_session guard, reset on this connect,
             # stops the pending-grants drain + this from double-sending).
             self._forward_all_received()
-            # Re-arm the durable bingo signal. One-way + sticky + idempotent
-            # mod-side, so every HELLO (fresh launch / reconnect / cold load
-            # into a sentinel-less level) re-asserts it. Vanilla never sends.
-            if self.bingo_is_bingo:
-                self._send_to_game("MODE bingo")
-            # Re-arm the bingo Great Hall key thresholds. Sticky + idempotent
-            # mod-side, so resending every HELLO covers fresh game launches and
-            # reconnects without harm. No-op for vanilla / pre-Connected.
-            if self.bingo_goalcfg:
-                self._send_to_game("GOALCFG " + self.bingo_goalcfg)
+            # Re-arm the durable open castle signal. One-way + sticky +
+            # idempotent mod-side, so every HELLO (fresh launch / reconnect /
+            # cold load into a sentinel-less level) re-asserts it. Vanilla
+            # never sends.
+            if self.is_open_castle:
+                self._send_to_game("MODE open_castle")
+            # Re-arm the open castle Great Hall key thresholds. Sticky +
+            # idempotent mod-side, so resending every HELLO covers fresh game
+            # launches and reconnects without harm. No-op for vanilla /
+            # pre-Connected.
+            if self.open_castle_goalcfg:
+                self._send_to_game("GOALCFG " + self.open_castle_goalcfg)
             # Re-arm the Tradersanity price mode. Sticky + idempotent mod-side;
             # is not None (not truthiness) so mode 0 (off) still re-arms and a
             # later seed that turns Tradersanity off is honoured.
@@ -971,7 +974,7 @@ class HP2Context(CommonContext):
         non-HP2 owner (incl. group / item-link slots) → AP-logo plate, arrow
         if the foreign item is progression or trap. An HP2 owner → that HP2
         item's own art (card 1..101 / spell 1000+idx / filler 2001..2008 /
-        equipment 3001..3002 / bingo key 3003), or 0 (native) for an HP2 item
+        equipment 3001..3002 / open castle key 3003), or 0 (native) for an HP2 item
         with no mapped look.
         """
         owner = ni.player

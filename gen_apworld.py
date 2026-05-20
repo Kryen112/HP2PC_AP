@@ -211,8 +211,8 @@ def load_data() -> tuple[dict, dict, dict, dict]:
     items = yaml.safe_load((DATA_DIR / "items.yaml").read_text(encoding="utf-8"))
     locations = yaml.safe_load((DATA_DIR / "locations.yaml").read_text(encoding="utf-8"))
     logic_vanilla = yaml.safe_load((DATA_DIR / "logic_vanilla.yaml").read_text(encoding="utf-8"))
-    logic_bingo = yaml.safe_load((DATA_DIR / "logic_bingo.yaml").read_text(encoding="utf-8"))
-    return items, locations, logic_vanilla, logic_bingo
+    logic_open_castle = yaml.safe_load((DATA_DIR / "logic_open_castle.yaml").read_text(encoding="utf-8"))
+    return items, locations, logic_vanilla, logic_open_castle
 
 
 SILVER_CARDS_MACRO = "@all_silver_cards"
@@ -238,7 +238,7 @@ def expand_macros(logic: dict, items: dict, context: str) -> None:
     cards_silver item name in items.yaml. The GoldCardRoom 40-silver gate
     is then a single source of truth — the items.yaml card tier
     classification — instead of a hand-maintained name chain duplicated
-    across logic_vanilla.yaml and logic_bingo.yaml. Expanding before
+    across logic_vanilla.yaml and logic_open_castle.yaml. Expanding before
     validation means parse_rule still checks every expanded name, so a
     silver-tier typo in items.yaml is caught here too.
     """
@@ -335,7 +335,7 @@ def rule_idents(rule_str: str) -> set[str]:
 
 def collect_known_items(items: dict) -> set[str]:
     names: set[str] = set()
-    for category in ("spells", "key_items", "bingo_keys", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
+    for category in ("spells", "key_items", "open_castle_keys", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
         for entry in items.get(category, []):
             names.add(entry["name"])
     return names
@@ -409,7 +409,7 @@ def validate(items: dict, locations: dict) -> None:
     item_ids: set[int] = set()
     item_names: set[str] = set()
     item_base = items["base_id"]
-    for category in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
+    for category in ("spells", "key_items", "open_castle_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
         for entry in items.get(category, []):
             iid = item_base + entry["id_offset"]
             if iid in item_ids:
@@ -478,7 +478,7 @@ def emit_items(items: dict) -> str:
     rows: list[tuple[str, int, str, str]] = []
     spells_names: list[str] = []
     keys_names: list[str] = []
-    bingo_keys_names: list[str] = []
+    open_castle_keys_names: list[str] = []
     equipment_names: list[str] = []
     bronze_names: list[str] = []
     silver_names: list[str] = []
@@ -500,8 +500,8 @@ def emit_items(items: dict) -> str:
         add(entry, None, spells_names)
     for entry in items.get("key_items", []):
         add(entry, None, keys_names)
-    for entry in items.get("bingo_keys", []):
-        add(entry, None, bingo_keys_names)
+    for entry in items.get("open_castle_keys", []):
+        add(entry, None, open_castle_keys_names)
     for entry in items.get("equipment", []):
         # Fred/George vendor items. Paired with `enable_quidditch_upgrades`:
         # gen_apworld emits them into ITEM_NAME_TO_ID unconditionally (stable
@@ -527,10 +527,11 @@ def emit_items(items: dict) -> str:
     for entry in items.get("cards_gold", []):
         # Gold cards default to filler: they unlock nothing in vanilla (no
         # game-side reward — only silvers feed StatusItemLock1..4 / the Gold
-        # Card Room — and no logic_*.yaml rule references a gold card). Bingo
-        # still guarantees them reachable: HP2World.create_item promotes every
-        # card to progression_skip_balancing in bingo mode regardless of this
-        # default, since bingo_goal_cards counts all 101 cards.
+        # Card Room — and no logic_*.yaml rule references a gold card). Open
+        # castle still guarantees them reachable: HP2World.create_item promotes
+        # every card to progression_skip_balancing in open castle mode
+        # regardless of this default, since open_castle_goal_cards counts all
+        # 101 cards.
         e2 = {**entry, "classification": entry.get("classification", "filler")}
         add(e2, None, gold_names)
         card_class_to_item_name.append((entry["class"], entry["name"]))
@@ -555,7 +556,7 @@ def emit_items(items: dict) -> str:
     lines.append("ITEM_GROUPS: dict[str, list[str]] = {")
     lines.append(f"    'Spells': {spells_names!r},")
     lines.append(f"    'Key Items': {keys_names!r},")
-    lines.append(f"    'Bingo Keys': {bingo_keys_names!r},")
+    lines.append(f"    'Open Castle Keys': {open_castle_keys_names!r},")
     lines.append(f"    'Equipment': {equipment_names!r},")
     lines.append(f"    'Cards (Bronze)': {bronze_names!r},")
     lines.append(f"    'Cards (Silver)': {silver_names!r},")
@@ -644,7 +645,7 @@ def emit_locations(locations: dict, items: dict) -> str:
     # classification (cards_gold) via the card_class -> location map. Single
     # source of truth for the GoldCardRoom placement exclusions in
     # HP2World.set_rules (no silver may be placed here in any mode; no key or
-    # spell may be placed here in bingo). validate() already enforces
+    # spell may be placed here in open castle). validate() already enforces
     # items-vs-locations card-class parity, so every gold class resolves.
     gold_loc_names: list[str] = []
     for entry in items.get("cards_gold", []):
@@ -672,8 +673,8 @@ def emit_locations(locations: dict, items: dict) -> str:
     lines.append("")
     lines.append("# Item names appearing in (region entry AND location requires)")
     lines.append("# for each missable secret. Vanilla-only: the missable system is")
-    lines.append("# a vanilla concept (bingo's open castle replays every level), so")
-    lines.append("# there is no bingo dependency table. A subset of the precollected")
+    lines.append("# a vanilla concept (open castle replays every level), so there is")
+    lines.append("# no open castle dependency table. A subset of the precollected")
     lines.append("# starting inventory means the secret is reachable from the start.")
     lines.append("MISSABLE_SECRET_DEPS_VANILLA: dict[str, list[str]] = {")
     for n, deps in locations.get("missable_secret_deps_vanilla", {}).items():
@@ -701,13 +702,13 @@ def _emit_region_table(table_name: str, regions: dict, start_region: str) -> lis
 
 def _emit_regions_dual(
     regions_vanilla: dict,
-    regions_bingo: dict,
+    regions_open_castle: dict,
     start_region: str,
     all_regions: list[str],
 ) -> str:
-    """Emit apworld/regions.py with both vanilla and bingo entry-rule tables."""
+    """Emit apworld/regions.py with both vanilla and open castle entry-rule tables."""
     lines: list[str] = [
-        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_bingo.yaml."""',
+        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_open_castle.yaml."""',
         "",
         "from typing import Callable",
         "",
@@ -718,10 +719,10 @@ def _emit_regions_dual(
         f"REGION_NAMES: list[str] = {all_regions!r}",
         "",
         "# region_name -> rule(state, player) -> bool. Mode-dependent: HP2World",
-        "# selects vanilla or bingo at gen time via self.options.game_mode.",
+        "# selects vanilla or open castle at gen time via self.options.game_mode.",
     ]
     lines += _emit_region_table("REGION_ENTRY_RULES_VANILLA", regions_vanilla, start_region)
-    lines += _emit_region_table("REGION_ENTRY_RULES_BINGO", regions_bingo, start_region)
+    lines += _emit_region_table("REGION_ENTRY_RULES_OPEN_CASTLE", regions_open_castle, start_region)
     return "\n".join(lines)
 
 
@@ -785,31 +786,31 @@ def _emit_goal_locations_table(table_name: str, goal: dict) -> list[str]:
     return out
 
 
-def emit_rules_dual(logic_vanilla: dict, logic_bingo: dict, locations: dict) -> str:
-    """Emit apworld/rules.py with both vanilla and bingo rule tables."""
+def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dict) -> str:
+    """Emit apworld/rules.py with both vanilla and open castle rule tables."""
     lines: list[str] = [
-        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_bingo.yaml."""',
+        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_open_castle.yaml."""',
         "",
         "from typing import Callable",
         "",
         "from BaseClasses import CollectionState",
         "",
         "# Per-location additional rules (on top of region entry).",
-        "# Mode-dependent: HP2World selects vanilla or bingo at gen time.",
+        "# Mode-dependent: HP2World selects vanilla or open castle at gen time.",
     ]
     lines += _emit_location_table("LOCATION_RULES_VANILLA", logic_vanilla.get("locations") or {})
-    lines += _emit_location_table("LOCATION_RULES_BINGO", logic_bingo.get("locations") or {})
+    lines += _emit_location_table("LOCATION_RULES_OPEN_CASTLE", logic_open_castle.get("locations") or {})
 
     lines.append("# goal_name -> direct item/logic rule for victory generation.")
-    lines.append("# Vanilla only: bingo sets completion_condition from _bingo_complete")
-    lines.append("# (cards/spells has-counts + level-completion reachability), so it")
-    lines.append("# needs no goal-rule table. Runtime completion still comes from the")
-    lines.append("# game-side GOAL_COMPLETE signal.")
+    lines.append("# Vanilla only: open castle sets completion_condition from")
+    lines.append("# _open_castle_complete (cards/spells has-counts + level-completion")
+    lines.append("# reachability), so it needs no goal-rule table. Runtime completion")
+    lines.append("# still comes from the game-side GOAL_COMPLETE signal.")
     lines += _emit_goal_rule_table("GOAL_RULES_VANILLA", logic_vanilla.get("goal") or {})
 
     lines.append("# Optional goal_name -> location names that must be reachable")
     lines.append("# for victory. Vanilla only, for the same reason as the goal-rule")
-    lines.append("# table above (bingo uses _bingo_complete).")
+    lines.append("# table above (open castle uses _open_castle_complete).")
     lines += _emit_goal_locations_table("GOAL_LOCATION_REQUIREMENTS_VANILLA", logic_vanilla.get("goal") or {})
     return "\n".join(lines)
 
@@ -847,7 +848,7 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
             star_entries.append((lvl.upper(), row["marker"], ap_id))
 
     # Tradersanity: keyed on the vendor actor's stable Name (Phase 0 census
-    # confirmed Names survive re-entry / save-load and match vanilla↔bingo),
+    # confirmed Names survive re-entry / save-load and match vanilla↔open castle),
     # so this is the exact same (level, key) → id shape as secrets.
     vendor_entries: list[tuple[str, str, int]] = []
     for row in locations.get("tradersanity", []):
@@ -1066,10 +1067,10 @@ def emit_card_markers(items: dict) -> int:
 
 
 def main() -> int:
-    items, locations, logic_vanilla, logic_bingo = load_data()
+    items, locations, logic_vanilla, logic_open_castle = load_data()
     try:
         expand_macros(logic_vanilla, items, "logic_vanilla.yaml")
-        expand_macros(logic_bingo, items, "logic_bingo.yaml")
+        expand_macros(logic_open_castle, items, "logic_open_castle.yaml")
     except ValueError as e:
         print(f"MACRO ERROR: {e}", file=sys.stderr)
         return 1
@@ -1080,17 +1081,17 @@ def main() -> int:
     try:
         validate(items, locations)
         start_v, all_v = validate_logic(logic_vanilla, locations, known_items)
-        start_b, all_b = validate_logic(logic_bingo, locations, known_items)
+        start_oc, all_oc = validate_logic(logic_open_castle, locations, known_items)
     except ValueError as e:
         print(f"VALIDATION ERROR: {e}", file=sys.stderr)
         return 1
-    if start_v != start_b:
-        print(f"VALIDATION ERROR: vanilla start region {start_v!r} != bingo {start_b!r}", file=sys.stderr)
+    if start_v != start_oc:
+        print(f"VALIDATION ERROR: vanilla start region {start_v!r} != open castle {start_oc!r}", file=sys.stderr)
         return 1
-    if all_v != all_b:
+    if all_v != all_oc:
         print(
-            f"VALIDATION ERROR: vanilla and bingo region sets differ. "
-            f"vanilla-only={sorted(set(all_v) - set(all_b))}, bingo-only={sorted(set(all_b) - set(all_v))}",
+            f"VALIDATION ERROR: vanilla and open castle region sets differ. "
+            f"vanilla-only={sorted(set(all_v) - set(all_oc))}, open-castle-only={sorted(set(all_oc) - set(all_v))}",
             file=sys.stderr,
         )
         return 1
@@ -1101,7 +1102,7 @@ def main() -> int:
     # AND its own requires) is precollected. Compute that item set so HP2World
     # can keep un-satisfiable missable secrets filler-only and never gate a
     # seed on a location the one-way level makes permanently unreachable.
-    # Bingo skips this entirely (every level is infinitely replayable).
+    # Open castle skips this entirely (every level is infinitely replayable).
     secrets_rows = locations.get("secrets", [])
 
     def _missable_deps(logic: dict) -> dict[str, list[str]]:
@@ -1131,27 +1132,27 @@ def main() -> int:
     regions_py.write_text(
         _emit_regions_dual(
             logic_vanilla.get("regions") or {},
-            logic_bingo.get("regions") or {},
+            logic_open_castle.get("regions") or {},
             start_region,
             all_regions,
         ),
         encoding="utf-8",
     )
-    rules_py.write_text(emit_rules_dual(logic_vanilla, logic_bingo, locations), encoding="utf-8")
+    rules_py.write_text(emit_rules_dual(logic_vanilla, logic_open_castle, locations), encoding="utf-8")
 
     n_markers = emit_card_markers(items)
     n_registry = emit_location_registry(locations, locations["base_id"])
     n_appearance = emit_card_appearance_registry(locations, locations["base_id"])
 
-    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "bingo_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"))
+    n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "open_castle_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
     n_regions = len(all_regions)
     n_loc_rules_v = sum(1 for m in (logic_vanilla.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
-    n_loc_rules_b = sum(1 for m in (logic_bingo.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
+    n_loc_rules_oc = sum(1 for m in (logic_open_castle.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")
     print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars + {n_tradersanity} tradersanity)")
     print(f"Wrote {regions_py} ({n_regions} regions, start={start_region!r})")
-    print(f"Wrote {rules_py} (vanilla: {n_loc_rules_v} per-loc rules, {len(logic_vanilla.get('goal') or {})} goal(s); bingo: {n_loc_rules_b}, {len(logic_bingo.get('goal') or {})})")
+    print(f"Wrote {rules_py} (vanilla: {n_loc_rules_v} per-loc rules, {len(logic_vanilla.get('goal') or {})} goal(s); open castle: {n_loc_rules_oc}, {len(logic_open_castle.get('goal') or {})})")
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
     print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star+vendor registrations)")
     print(f"Wrote APCardAppearance.uc ({n_appearance} card id registrations)")

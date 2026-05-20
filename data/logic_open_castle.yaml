@@ -1,7 +1,7 @@
-# HP2PC_AP per-location access rules — BINGO mode source of truth.
+# HP2PC_AP per-location access rules — OPEN CASTLE mode source of truth.
 #
 # Each rule is the spell/item combo needed to physically reach that location
-# in bingo mode. data/bingo_playthrough_notes.yaml is the human-readable
+# in open castle mode. data/open_castle_playthrough_notes.yaml is the human-readable
 # scratch pad these are derived from.
 #
 # Schema:
@@ -28,7 +28,7 @@
 #   - true                             always reachable from region
 #   - false                            never reachable (scaffolding placeholder)
 #
-# Region `entry` carries only the bingo key plus any unavoidable physical
+# Region `entry` carries only the open castle key plus any unavoidable physical
 # gate (e.g. Spongify to traverse the Whomping Willow). The full per-location
 # spell combo lives in each location's `requires`. Locations whose only
 # requirement is region entry are omitted (implicitly "true") — Quidditch

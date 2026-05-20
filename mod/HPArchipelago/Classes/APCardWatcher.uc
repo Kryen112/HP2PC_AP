@@ -3,11 +3,11 @@ class APCardWatcher extends Actor;
 const MAX_CARD_ID = 101;
 const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
-const NUM_BINGO_KEYS = 14;
+const NUM_OPEN_CASTLE_KEYS = 14;
 
 // Story state when the player first gains control in the Great Hall after
 // the opening sequence — the checkpoint where vanilla assigns silver wizard
-// cards to vendors, reached in both vanilla and bingo. The one-time startup
+// cards to vendors, reached in both vanilla and open castle. The one-time startup
 // safety save fires at the first playable tick at or after this state.
 const STARTUP_SAFETY_SAVE_GAMESTATE = 180;
 
@@ -37,7 +37,7 @@ var byte NonCardLocationChecked[1024];
 // arrives); 1..101 = HP2 card (value is the game card id); 1000+spellIdx =
 // HP2 spell (wand-target gesture art on the card mesh); 2001..2011 = HP2
 // filler; 3001..3002 = HP2 equipment (Nimbus / Quidditch Armour); 3003 = HP2
-// bingo level/challenge key (the vanilla silver-key FX sprite); 9000 = foreign
+// open castle level/challenge key (the vanilla silver-key FX sprite); 9000 = foreign
 // filler/useful (AP-logo plain); 9001 = foreign progression/trap (AP-logo
 // arrow). Dimension literal MUST equal NONCARD_LOC_WINDOW (M212 array dims
 // take an integer literal, not a const — see NonCardLocationChecked[] above).
@@ -77,7 +77,7 @@ var int   MorphApId[256];
 
 // --- Tradersanity (plans/06-tradersanity.md) --------------------------------
 // Price mode from the apworld slot_data, pushed via the TRADECFG IPC line
-// (mirrors GOALCFG / bBingoMode). Class-default so it survives level
+// (mirrors GOALCFG / bOpenCastleMode). Class-default so it survives level
 // transitions in a session; resent every HELLO so it is sticky. Values mirror
 // the apworld Tradersanity Choice.
 const TRADER_OFF           = 0;
@@ -192,20 +192,20 @@ var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
 var byte APGrantedKeyItem[3];
 
-// Bingo-only level-entry keys. 13 new progression items the apworld puts in
-// the pool when game_mode==bingo, each gating one or more bookcases spawned
+// Open-castle-only level-entry keys. 13 new progression items the apworld puts in
+// the pool when game_mode==open castle, each gating one or more bookcases spawned
 // in the hub levels (Entryhall_hub / Grandstaircase_hub / Grounds_hub +
-// Grounds_Night). APGrantedBingoKey[i]==1 means the matching key has been
-// delivered by AP this session — the BlockBingo<X>EntryIfMissing helpers
-// early-return when their flag is set, and RemoveBingo<X>Blocker tag-scans
+// Grounds_Night). APGrantedOpenCastleKey[i]==1 means the matching key has been
+// delivered by AP this session — the BlockOpenCastle<X>EntryIfMissing helpers
+// early-return when their flag is set, and RemoveOpenCastle<X>Blocker tag-scans
 // the level to destroy any still-present bookcase. Class-default writes via
-// MarkBingoKeyAsGrantedDefault keep the flag sticky across save/load and
+// MarkOpenCastleKeyAsAPGrantedDefault keep the flag sticky across save/load and
 // across the per-level watcher instance lifecycle. Index → name mapping in
-// BingoKeyNames[] below; new entries here must mirror items.yaml bingo_keys.
-// Dimension literal MUST be the integer 14, not NUM_BINGO_KEYS (M212 array
+// OpenCastleKeyNames[] below; new entries here must mirror items.yaml open_castle_keys.
+// Dimension literal MUST be the integer 14, not NUM_OPEN_CASTLE_KEYS (M212 array
 // dims take an integer literal, not a const) — keep in sync with the const.
-var string BingoKeyNames[14];
-var byte APGrantedBingoKey[14];
+var string OpenCastleKeyNames[14];
+var byte APGrantedOpenCastleKey[14];
 
 // M7 goal detection: 1 once GOAL_COMPLETE has fired this session. Class-default
 // so it survives level transitions (the credits flow stays in the same level
@@ -230,21 +230,21 @@ var byte LocationChecked[102];
 // once before stabilising — a known edge case.
 var byte WCnFiredThisSession[12];
 
-// Sticky bingo-mode flag. Set once Snapshot finds an MGBingoLearnAllSpells
+// Sticky open-castle-mode flag. Set once Snapshot finds an MGBingoLearnAllSpells
 // actor in any level; persists for the rest of the session via class-default
-// write. In bingo mode, Snapshot skips the APGrantedSpell baseline so the
+// write. In open castle mode, Snapshot skips the APGrantedSpell baseline so the
 // revert loop wipes MGBingo's R/Sk/D/Sp grants (and any other spell Harry
 // owns at snapshot time) — AP must deliver every spell. Vanilla mode is
 // unchanged: cutscene starters get baselined and survive.
-var byte bBingoMode;
+var byte bOpenCastleMode;
 
-// Bingo Great Hall key config. Delivered once per process by the client as
+// Open castle Great Hall key config. Delivered once per process by the client as
 // "GOALCFG c,s,l,d,q,mask" (from apworld slot_data) → SetGoalConfigCSV writes
 // these class-defaults; sticky across level transitions / save-load like
-// bBingoMode and APGrantedBingoKey. GoalSatisfied() (Phase 2) reads them; the
+// bOpenCastleMode and APGrantedOpenCastleKey. GoalSatisfied() (Phase 2) reads them; the
 // Great Hall bookcase (Phase 3) clears when every enabled clause passes. A
 // clause of 0 / off drops out of the AND (apworld already applied the
-// all-off → all-spells fallback, so this is never a no-gate config in bingo).
+// all-off → all-spells fallback, so this is never a no-gate config in open castle).
 var byte bGoalConfigured;
 var int  GoalCards;
 var int  GoalSpells;
@@ -258,7 +258,7 @@ var int  GoalLevelMask;
 // Phase-4 detectors. Class-default sticky.
 var byte GoalLevelDone[16];
 // One-shot: set when the clauses are first all satisfied. Gates the Great
-// Hall bookcase removal AND the bInEndGame GOAL_COMPLETE fire in bingo.
+// Hall bookcase removal AND the bInEndGame GOAL_COMPLETE fire in open castle.
 var byte WasGoalUnlocked;
 // Caps'd name of the adventure level abandoned via the Return-to-Hub menu
 // (stamped by APFEInGamePage.TeleportToHub). CheckExitedLevelObjective uses
@@ -315,7 +315,7 @@ var byte bConnToastScheduled;
 var int ConnToastTicksLeft;
 
 // --- Archipelago trap lifetime state (05-trap-items.md §8) ---------------
-// All class-default + sticky like bBingoMode / APGrantedSpell: the backup
+// All class-default + sticky like bOpenCastleMode / APGrantedSpell: the backup
 // and flags MUST survive the per-level watcher respawn and save-load, or a
 // cleared spellbook would travel to the next level with no way to restore
 // it. APGameInfo.TryApplyTrap sets these via the static helpers below;
@@ -337,7 +337,7 @@ var byte bGoyleTrapActive;
 // Level the watcher last observed (Level.Outer.Name). A trap helper stamps
 // the apply-level here; TrapTick compares each tick and treats any change as
 // the "left the level" boundary that ends the Goyle/spell traps. Level NAME
-// (not watcher instance) is the discriminator so bingo's streamed-sublevel
+// (not watcher instance) is the discriminator so open castle's streamed-sublevel
 // watcher churn never false-triggers.
 var name TrapLastLevelName;
 
@@ -483,7 +483,7 @@ function SweepVendorAssignments()
     }
 }
 
-// Bingo only: every wizard card is an AP location reachable by replaying its
+// Open castle only: every wizard card is an AP location reachable by replaying its
 // (infinitely repeatable) level, so no card should ever sit in vendor stock.
 // Vanilla `AssignVendorCards` / `AssignAllSilverToVendors` still stamp
 // CardOwner_Vendor on level transition / iGameState >= 180; undo it for every
@@ -513,7 +513,7 @@ function ClearAllVendorOwnership()
     }
     if (cleared > 0)
     {
-        Log("[Archipelago] APCardWatcher.ClearAllVendorOwnership: cleared " $ cleared $ " card(s) from vendor stock (bingo: every card is a replayable AP location)");
+        Log("[Archipelago] APCardWatcher.ClearAllVendorOwnership: cleared " $ cleared $ " card(s) from vendor stock (open castle: every card is a replayable AP location)");
     }
 }
 
@@ -548,11 +548,11 @@ event PreBeginPlay()
     default.LatestInstance = self;
     SetTimer(0.25, true);
 
-    // Durable bingo detection BEFORE the default->instance copy loops below,
-    // so on the bingo install they see the wiped default.APGrantedSpell[].
+    // Durable open castle detection BEFORE the default->instance copy loops below,
+    // so on the HP2 Bingo install they see the wiped default.APGrantedSpell[].
     // Works on the save-load path (ProcessServerTravel skips InitGame) since
     // it needs no instance/level/IPC.
-    class'APCardWatcher'.static.EnsureBingoModeDetected();
+    class'APCardWatcher'.static.EnsureOpenCastleModeDetected();
 
     SpellClasses[0] = class'spellAlohomora';   SpellNames[0] = "Alohomora";
     SpellClasses[1] = class'spellDiffindo';    SpellNames[1] = "Diffindo";
@@ -566,23 +566,23 @@ event PreBeginPlay()
     KeyItemNames[1] = "Bicorn";
     KeyItemNames[2] = "BitOGoyle";
 
-    // Bingo-only level-entry keys. Order matters — APGrantedBingoKey[] is
-    // indexed by this. Keep in sync with items.yaml bingo_keys section and
-    // with TryApplyBingoKey / RemoveBingo<X>Blocker dispatch in APGameInfo.
-    BingoKeyNames[0]  = "Chamber of Secrets Key";
-    BingoKeyNames[1]  = "Spongify Challenge Key";
-    BingoKeyNames[2]  = "Skurge Challenge Key";
-    BingoKeyNames[3]  = "Rictusempra Challenge Key";
-    BingoKeyNames[4]  = "Diffindo Challenge Key";
-    BingoKeyNames[5]  = "Boomslang Level Key";
-    BingoKeyNames[6]  = "Whomping Willow Key";
-    BingoKeyNames[7]  = "Forbidden Forest Key";
-    BingoKeyNames[8]  = "Slytherin Common Room Key";
-    BingoKeyNames[9]  = "Goyle Level Key";
-    BingoKeyNames[10] = "Bicorn Level Key";
-    BingoKeyNames[11] = "Duelling Key";
-    BingoKeyNames[12] = "Quidditch Key";
-    BingoKeyNames[13] = "Gryffindor Challenge Key";
+    // Open-castle-only level-entry keys. Order matters — APGrantedOpenCastleKey[] is
+    // indexed by this. Keep in sync with items.yaml open_castle_keys section and
+    // with TryApplyOpenCastleKey / RemoveOpenCastle<X>Blocker dispatch in APGameInfo.
+    OpenCastleKeyNames[0]  = "Chamber of Secrets Key";
+    OpenCastleKeyNames[1]  = "Spongify Challenge Key";
+    OpenCastleKeyNames[2]  = "Skurge Challenge Key";
+    OpenCastleKeyNames[3]  = "Rictusempra Challenge Key";
+    OpenCastleKeyNames[4]  = "Diffindo Challenge Key";
+    OpenCastleKeyNames[5]  = "Boomslang Level Key";
+    OpenCastleKeyNames[6]  = "Whomping Willow Key";
+    OpenCastleKeyNames[7]  = "Forbidden Forest Key";
+    OpenCastleKeyNames[8]  = "Slytherin Common Room Key";
+    OpenCastleKeyNames[9]  = "Goyle Level Key";
+    OpenCastleKeyNames[10] = "Bicorn Level Key";
+    OpenCastleKeyNames[11] = "Duelling Key";
+    OpenCastleKeyNames[12] = "Quidditch Key";
+    OpenCastleKeyNames[13] = "Gryffindor Challenge Key";
 
     // Inherit cross-session AP-grant flags from class default so a freshly
     // spawned watcher (e.g. after a save-load while AP grants arrived
@@ -603,11 +603,11 @@ event PreBeginPlay()
             WasKeyItemOwned[i] = 1;
         }
     }
-    for (i = 0; i < NUM_BINGO_KEYS; i++)
+    for (i = 0; i < NUM_OPEN_CASTLE_KEYS; i++)
     {
-        if (default.APGrantedBingoKey[i] == 1)
+        if (default.APGrantedOpenCastleKey[i] == 1)
         {
-            APGrantedBingoKey[i] = 1;
+            APGrantedOpenCastleKey[i] = 1;
         }
     }
 
@@ -615,7 +615,7 @@ event PreBeginPlay()
     // skips APGameInfo.InitGame (so its DestroyGryffindorSpellGiver never
     // runs), but this per-level watcher's PreBeginPlay still fires pre-Harry,
     // before the level begin-dispatcher triggers Givespells. No-op outside
-    // CH7GRYFFINDOR / non-bingo (guarded inside).
+    // CH7GRYFFINDOR / non-open castle (guarded inside).
     NeutralizeGryffindorSpellGiver();
 }
 
@@ -645,11 +645,11 @@ static function MarkKeyItemAsAPGrantedDefault(string KeyItemName)
     Log("[Archipelago] APCardWatcher.MarkKeyItemAsAPGrantedDefault: " $ KeyItemName $ " (class default set)");
 }
 
-// Bingo key dispatch. Returns the BingoKeyNames[] index, or -1 if the string
-// doesn't match a known bingo key. APGameInfo.TryApplyBingoKey uses this both
+// Open castle key dispatch. Returns the OpenCastleKeyNames[] index, or -1 if the string
+// doesn't match a known open castle key. APGameInfo.TryApplyOpenCastleKey uses this both
 // to stamp the class-default flag and to dispatch to the right
-// RemoveBingo<X>Blocker helper.
-static function int BingoKeyIndexFromName(string KeyName)
+// RemoveOpenCastle<X>Blocker helper.
+static function int OpenCastleKeyIndexFromName(string KeyName)
 {
     if (KeyName == "Chamber of Secrets Key")    return 0;
     if (KeyName == "Spongify Challenge Key")    return 1;
@@ -668,16 +668,16 @@ static function int BingoKeyIndexFromName(string KeyName)
     return -1;
 }
 
-static function MarkBingoKeyAsAPGrantedDefault(string KeyName)
+static function MarkOpenCastleKeyAsAPGrantedDefault(string KeyName)
 {
     local int idx;
-    idx = BingoKeyIndexFromName(KeyName);
+    idx = OpenCastleKeyIndexFromName(KeyName);
     if (idx < 0)
     {
         return;
     }
-    default.APGrantedBingoKey[idx] = 1;
-    Log("[Archipelago] APCardWatcher.MarkBingoKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
+    default.APGrantedOpenCastleKey[idx] = 1;
+    Log("[Archipelago] APCardWatcher.MarkOpenCastleKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
 }
 
 // Forgetfulness Trap entry point (called from APGameInfo.TryApplyTrap). Backs
@@ -736,7 +736,7 @@ static function MarkGoyleTrapActiveDefault(harry h)
 // already reverted); Forgetfulness restores the backed-up spellbook on the
 // SpellTrapExpiry timeout OR the level change, whichever comes first, so
 // spells are never permanently lost (a cleared SpellBook travels to the next
-// level). Level NAME is the change discriminator — robust against bingo's
+// level). Level NAME is the change discriminator — robust against open castle's
 // per-sublevel watcher respawn (Level.Outer.Name is stable across those).
 function TrapTick()
 {
@@ -802,10 +802,10 @@ static function int NextCsvInt(out string rest)
 }
 
 // Ingest "cards,spells,levels,duels,quidditch,mask" from the client (apworld
-// slot_data, sent every HELLO). Class-default + sticky like bBingoMode /
-// APGrantedBingoKey; idempotent (re-parsing the same csv re-asserts the same
+// slot_data, sent every HELLO). Class-default + sticky like bOpenCastleMode /
+// APGrantedOpenCastleKey; idempotent (re-parsing the same csv re-asserts the same
 // values). The apworld already applied the all-off → all-spells fallback, so
-// a bingo seed never delivers an all-zero (no-gate) config.
+// a open castle seed never delivers an all-zero (no-gate) config.
 static function SetGoalConfigCSV(string csv)
 {
     local string rest;
@@ -1144,7 +1144,7 @@ static function ApplyAppearanceTo(Actor a, int code)
     }
     else if (code == 3003)
     {
-        // Bingo level/challenge bookcase key — the vanilla "silver key" FX
+        // Open castle level/challenge bookcase key — the vanilla "silver key" FX
         // sprite (HPParticle.hp_fx.Particles.Key3, the texture SilverUnlock
         // spawns on every 10th silver card). It is a light-on-black additive
         // particle texture: the masked chroma-key (bLogoStyle) cannot key
@@ -1285,7 +1285,7 @@ static function NotifyLevelObjective(int idx)
     if (ipc != None) ipc.SendCheckLocationId(locId);
 }
 
-// True when every ENABLED bingo Great Hall key clause passes. A clause with a
+// True when every ENABLED open castle Great Hall key clause passes. A clause with a
 // 0 / off threshold drops out of the AND. Reads class-default thresholds vs
 // live state. Clause 3 (GoalLevelDone[]) is populated by the Phase-4
 // detectors; until those land a non-zero GoalLevels simply keeps the gate
@@ -1491,12 +1491,12 @@ event Timer()
     // actor before it can fire on the normal entry path; clearing the flag
     // here every tick also covers a save reloaded inside the room (save-load
     // skips InitGame) or any other re-set. Guarded so it only acts/logs when
-    // actually set. Bingo-only; vanilla never enters this level.
-    if (default.bBingoMode == 1 && HarryRef.bNoSpellBookCheck
+    // actually set. Open-castle-only; vanilla never enters this level.
+    if (default.bOpenCastleMode == 1 && HarryRef.bNoSpellBookCheck
         && Caps(string(Level.Outer.Name)) == "CH7GRYFFINDOR")
     {
         HarryRef.bNoSpellBookCheck = False;
-        Log("[Archipelago] APCardWatcher: cleared harry.bNoSpellBookCheck in CH7GRYFFINDOR (bingo)");
+        Log("[Archipelago] APCardWatcher: cleared harry.bNoSpellBookCheck in CH7GRYFFINDOR (open castle)");
     }
 
     for (i = 0; i < NUM_SPELLS; i++)
@@ -1582,17 +1582,17 @@ event Timer()
         }
     }
 
-    // Bingo Great Hall key: the first tick every enabled clause passes, open
+    // Open castle Great Hall key: the first tick every enabled clause passes, open
     // the bookcase and arm the goal. WasGoalUnlocked is sticky class-default
     // so it survives level transitions / save-load and never re-locks; the
     // spawn helper early-returns on it so the bookcase never respawns.
-    if (default.bBingoMode == 1 && default.bGoalConfigured == 1
+    if (default.bOpenCastleMode == 1 && default.bGoalConfigured == 1
         && default.WasGoalUnlocked == 0 && GoalSatisfied())
     {
         default.WasGoalUnlocked = 1;
-        Log("[Archipelago] APCardWatcher: bingo goal clauses satisfied - opening Great Hall");
+        Log("[Archipelago] APCardWatcher: open castle goal clauses satisfied - opening Great Hall");
         gi = APGameInfo(Level.Game);
-        if (gi != None) gi.RemoveBingoGreatHallBlocker();
+        if (gi != None) gi.RemoveOpenCastleGreatHallBlocker();
     }
 
     // M7 goal detection: poll FEBook.bInEndGame, set True by ShowCredits()
@@ -1601,11 +1601,11 @@ event Timer()
     // gameplay UWorld's HPConsole to reach the active menuBook (HarryRef's
     // own .menuBook field can be stale; the explicit lookup is known-good).
     // One-shot: WasInEndGame guards re-fire. Null-check Player/Console/menuBook
-    // because they can briefly be None during level loads. In bingo the fire
+    // because they can briefly be None during level loads. In open castle the fire
     // is gated on WasGoalUnlocked so the open-castle Great Hall can't complete
     // the seed before the 5-clause goal is met (vanilla: unchanged).
     if (WasInEndGame == 0 && HarryRef.Player != None
-        && (default.bBingoMode == 0 || default.WasGoalUnlocked == 1))
+        && (default.bOpenCastleMode == 0 || default.WasGoalUnlocked == 1))
     {
         console = HPConsole(HarryRef.Player.Console);
         if (console != None)
@@ -1656,13 +1656,13 @@ event Timer()
         ipc.bSawStateBelowGreatHall = True;
     }
 
-    // Durable-ledger new-game signal. Both vanilla and bingo start a genuine
+    // Durable-ledger new-game signal. Both vanilla and open castle start a genuine
     // new game at iGameState 0 and climb; a loaded save resumes at its saved
     // gstate and never re-observes 0. So iGameState==0 ⇒ genuine new game →
     // tell the client to wipe its AP-Data-Storage consumed-index ledger so the
     // fresh playthrough re-receives every item. One-shot via the singleton
     // latch; re-armed once gstate climbs > 0 so a later new game in the same
-    // process signals again. NOT pinned to the bingo-only 180 threshold.
+    // process signals again. NOT pinned to the open-castle-only 180 threshold.
     if (ipc != None && HarryRef.iGameState == 0)
     {
         if (!ipc.bNewGameSignalled)
@@ -1716,7 +1716,7 @@ event Timer()
     // class-default); a save-load re-arms it in EnsureFreshToast when it
     // replaces the deserialized toast. Mode-agnostic and NOT gated on the
     // safety-save's STARTUP_SAFETY_SAVE_GAMESTATE — first IsPlayerInPlayableState is
-    // Whomping Willow (vanilla) / Entry Hall (bingo). If the client isn't
+    // Whomping Willow (vanilla) / Entry Hall (open castle). If the client isn't
     // AP-connected yet ConnectedAddress is "" and this stays a no-op until it
     // arrives. Same alive/playable guard shape as the safety save above gates
     // only the SCHEDULE; the countdown then fires regardless of state (the
@@ -1798,12 +1798,12 @@ function AssignMarkersToVendors()
     local int i;
     local int assigned;
 
-    // Phase C is vanilla-only missed-card recovery. In bingo every level is
+    // Phase C is vanilla-only missed-card recovery. In open castle every level is
     // infinitely replayable, so a card left behind is never lost — assigning
     // it to a vendor instead lets the player buy cards for levels they have
     // not even reached. Flip the pass into a cleanup so vendors never stock
-    // cards in bingo. Covers every caller (iGameState transition + snapshot).
-    if (default.bBingoMode == 1)
+    // cards in open castle. Covers every caller (iGameState transition + snapshot).
+    if (default.bOpenCastleMode == 1)
     {
         ClearAllVendorOwnership();
         return;
@@ -2172,7 +2172,7 @@ function TrySpawnClassroomBlockers()
     gi.BlockSkurgeClassroomIfMissing();
     gi.BlockDiffindoClassroomIfMissing();
     gi.BlockSpongifyClassroomIfMissing();
-    gi.SpawnAllBingoBlockers();
+    gi.SpawnAllOpenCastleBlockers();
     // Re-apply per-level so save-load (which skips APGameInfo.InitGame)
     // still gets cutscene skip policy enforced for the freshly-loaded level.
     gi.ForceCutScenesSkippable();
@@ -2218,24 +2218,24 @@ function EnsureLatestRegistration()
     }
 }
 
-// One-way-sticky bingo-mode transition, shared by every entry path (durable
-// DLO probe, in-level MGBingo actor scan, IPC `MODE bingo`). Static so the
+// One-way-sticky open-castle-mode transition, shared by every entry path (durable
+// DLO probe, in-level MGBingo actor scan, IPC `MODE open_castle`). Static so the
 // pre-Harry / pre-IPC callers (APGameInfo.InitGame, APCardWatcher.
-// PreBeginPlay, APIPCActor) can enter bingo mode without a live instance;
+// PreBeginPlay, APIPCActor) can enter open castle mode without a live instance;
 // only touches class-defaults (each watcher mirrors them from its
 // PreBeginPlay). On the FIRST transition it wipes stale default.APGrantedSpell
-// so the bingo revert loop can't keep a prior vanilla-seed's precollected
+// so the open castle revert loop can't keep a prior vanilla-seed's precollected
 // Lumos/Flipendo/Alohomora — the AP client's durable resync re-sets the flag
 // over IPC for spells THIS seed grants. Idempotent: a second call (already
-// bingo) is a no-op, so reconnect / save-load that already has AP-granted
-// spells does NOT re-wipe them. bBingoMode is never cleared (one-way).
-static function EnterBingoMode(string reason)
+// open castle) is a no-op, so reconnect / save-load that already has AP-granted
+// spells does NOT re-wipe them. bOpenCastleMode is never cleared (one-way).
+static function EnterOpenCastleMode(string reason)
 {
     local int i;
 
-    if (default.bBingoMode == 1) return;
-    default.bBingoMode = 1;
-    Log("[Archipelago] APCardWatcher: entering bingo mode (sticky) - " $ reason);
+    if (default.bOpenCastleMode == 1) return;
+    default.bOpenCastleMode = 1;
+    Log("[Archipelago] APCardWatcher: entering open castle mode (sticky) - " $ reason);
     for (i = 0; i < NUM_SPELLS; i++)
     {
         default.APGrantedSpell[i] = 0;
@@ -2243,37 +2243,37 @@ static function EnterBingoMode(string reason)
     Log("[Archipelago] APCardWatcher: reset APGrantedSpell[] (AP grants this session will re-set as they arrive)");
 }
 
-// Durable, level-independent bingo probe. The bingo install is the only one
+// Durable, level-independent open castle probe. The HP2 Bingo install is the only one
 // that ships the MGBingo package; a soft DynamicLoadObject of its class
 // returns non-None there and None on the vanilla/Modded install (MayFail=true
 // → no error, no hard reference that would block HPArchipelago.u loading on
 // vanilla). Works pre-Harry / pre-IPC and on a cold load into a sentinel-less
 // level (e.g. Ch7Gryffindor) where the in-level actor scan misses. Callable
 // from APGameInfo.InitGame / APCardWatcher.PreBeginPlay / APIPCActor.
-static function EnsureBingoModeDetected()
+static function EnsureOpenCastleModeDetected()
 {
-    if (default.bBingoMode == 1) return;
+    if (default.bOpenCastleMode == 1) return;
     if (DynamicLoadObject("MGBingo.MGBingoLearnAllSpells", class'Class', true) != None)
     {
-        EnterBingoMode("DLO MGBingo package present");
+        EnterOpenCastleMode("DLO MGBingo package present");
     }
 }
 
 // Per-level call from Snapshot. Durable probe first (covers cold-load into
 // sentinel-less levels), then the legacy in-level MGBingoLearnAllSpells actor
-// scan as a secondary fallback. IPC `MODE bingo` is the late authoritative
+// scan as a secondary fallback. IPC `MODE open_castle` is the late authoritative
 // belt (APIPCActor). Mirrors the class-default flag/wipe onto this instance.
-function DetectBingoMode()
+function DetectOpenCastleMode()
 {
     local Actor a;
     local int i;
 
-    if (default.bBingoMode == 1) return;
+    if (default.bOpenCastleMode == 1) return;
 
-    class'APCardWatcher'.static.EnsureBingoModeDetected();
-    if (default.bBingoMode == 1)
+    class'APCardWatcher'.static.EnsureOpenCastleModeDetected();
+    if (default.bOpenCastleMode == 1)
     {
-        bBingoMode = 1;
+        bOpenCastleMode = 1;
         for (i = 0; i < NUM_SPELLS; i++) APGrantedSpell[i] = 0;
         return;
     }
@@ -2282,8 +2282,8 @@ function DetectBingoMode()
     {
         if (string(a.Class.Name) == "MGBingoLearnAllSpells")
         {
-            class'APCardWatcher'.static.EnterBingoMode("found MGBingoLearnAllSpells actor in level");
-            bBingoMode = 1;
+            class'APCardWatcher'.static.EnterOpenCastleMode("found MGBingoLearnAllSpells actor in level");
+            bOpenCastleMode = 1;
             for (i = 0; i < NUM_SPELLS; i++) APGrantedSpell[i] = 0;
             return;
         }
@@ -2305,7 +2305,7 @@ function Snapshot()
     }
     Log("[Archipelago] APCardWatcher: initial snapshot - Harry already owns " $ ownedCardCount $ " cards");
 
-    DetectBingoMode();
+    DetectOpenCastleMode();
 
     ownedSpellCount = 0;
     for (i = 0; i < NUM_SPELLS; i++)
@@ -2313,13 +2313,13 @@ function Snapshot()
         if (HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
         {
             // WasSpellOwned suppresses the "new vanilla spell learned"
-            // CHECK_SPELL transition in the revert loop. In bingo mode we
+            // CHECK_SPELL transition in the revert loop. In open castle mode we
             // still want that suppression (MGBingo's PostBeginPlay grants
             // are not a player action) — we just skip APGrantedSpell so the
             // revert loop wipes the spell on its next pass. In vanilla mode
             // both flags get set, which preserves the spell as if AP granted it.
             WasSpellOwned[i] = 1;
-            if (default.bBingoMode == 0)
+            if (default.bOpenCastleMode == 0)
             {
                 APGrantedSpell[i] = 1;
                 default.APGrantedSpell[i] = 1;
@@ -2327,9 +2327,9 @@ function Snapshot()
             ownedSpellCount++;
         }
     }
-    if (default.bBingoMode == 1)
+    if (default.bOpenCastleMode == 1)
     {
-        Log("[Archipelago] APCardWatcher: initial snapshot - Harry knows " $ ownedSpellCount $ " spells (bingo mode: will revert non-AP spells next tick)");
+        Log("[Archipelago] APCardWatcher: initial snapshot - Harry knows " $ ownedSpellCount $ " spells (open castle mode: will revert non-AP spells next tick)");
     }
     else
     {
@@ -2358,9 +2358,9 @@ function Snapshot()
     // chest/loose markers in this level become vendor-available (vanilla's
     // pass can't see our markers because of the Default.Id=200 sentinel).
     AssignMarkersToVendors();
-    // Bingo-only: destroy Ch7Gryffindor's give-all-spells actor at the source
+    // Open-castle-only: destroy Ch7Gryffindor's give-all-spells actor at the source
     // so Harry has only AP-granted spells inside the room (no-op elsewhere).
-    // After DetectBingoMode (bBingoMode stuck) and the spell baseline above,
+    // After DetectOpenCastleMode (bOpenCastleMode stuck) and the spell baseline above,
     // before the stars are replaced.
     NeutralizeGryffindorSpellGiver();
     // Subclass-replace each unchecked vanilla challenge star with an
@@ -2617,7 +2617,7 @@ function ScanChallengeMastery(APIPCActor ipc)
 // application via a dedicated terminal path that never routes through
 // Died/KillHarry — KillHarry's boss-victory branch (harry.uc:1576) would send
 // SendVictoriousTrigger instead of dying when Harry has a boss target with
-// TrigEventWhenVictor, gifting a bingo player an Aragog/Basilisk goal.
+// TrigEventWhenVictor, gifting a open castle player an Aragog/Basilisk goal.
 // StopBossEncounter clears that target; bClubDeath bypasses the Wiggenweld
 // auto-quaff; GotoState('stateDead') is the same engine terminal state a
 // natural death uses (→ LoadGame 0, which discards boss state anyway).
@@ -3166,7 +3166,7 @@ function TradersanityPass()
 // adds the CHECK_LOCID fire. Already-checked locations are left as vanilla
 // stars so level replay still grants vanilla score but never re-fires AP.
 // Skips actors already of our subclass so re-running is idempotent.
-// Bingo-only Snapshot-path safety net for the Gryffindor spell giver. The
+// Open-castle-only Snapshot-path safety net for the Gryffindor spell giver. The
 // PRIMARY kill is APGameInfo.DestroyGryffindorSpellGiver (InitGame, pre-Harry)
 // — by Snapshot the level-start dispatcher has usually already fired the
 // TriggerTurnOnAllSpells and set harry.bNoSpellBookCheck=True. This still
@@ -3182,7 +3182,7 @@ function NeutralizeGryffindorSpellGiver()
     local int n;
 
     if (Caps(string(Level.Outer.Name)) != "CH7GRYFFINDOR") return;
-    if (default.bBingoMode != 1) return;
+    if (default.bOpenCastleMode != 1) return;
 
     foreach AllActors(class'Actor', a)
     {
@@ -3197,7 +3197,7 @@ function NeutralizeGryffindorSpellGiver()
         HarryRef.bNoSpellBookCheck = False;
     }
     Log("[Archipelago] NeutralizeGryffindorSpellGiver: destroyed " $ n
-        $ " TriggerTurnOnAllSpells actor(s) + cleared bNoSpellBookCheck (CH7GRYFFINDOR bingo)");
+        $ " TriggerTurnOnAllSpells actor(s) + cleared bNoSpellBookCheck (CH7GRYFFINDOR open castle)");
 }
 
 function ReplaceChallengeStars()

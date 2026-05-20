@@ -100,17 +100,17 @@ event InitGame(string Options, out string Error)
 
     ReplaceCardChests();
     DestroyUnobtainableSecretMarkers();
-    // Durable bingo detection runs pre-Harry so DestroyGryffindorSpellGiver's
-    // bBingoMode gate is reliable even on a cold load into a sentinel-less
+    // Durable open castle detection runs pre-Harry so DestroyGryffindorSpellGiver's
+    // bOpenCastleMode gate is reliable even on a cold load into a sentinel-less
     // level (no MGBingo actor in Ch7Gryffindor).
-    class'APCardWatcher'.static.EnsureBingoModeDetected();
+    class'APCardWatcher'.static.EnsureOpenCastleModeDetected();
     DestroyGryffindorSpellGiver();
     ForceCutScenesSkippable();
     BlockRictaClassroomIfMissing();
     BlockSkurgeClassroomIfMissing();
     BlockDiffindoClassroomIfMissing();
     BlockSpongifyClassroomIfMissing();
-    SpawnAllBingoBlockers();
+    SpawnAllOpenCastleBlockers();
 }
 
 // Spawn an APHUDToast in the current level if one isn't already here. Called
@@ -143,7 +143,7 @@ function SpawnAPHUDToastIfMissing()
 
 // Minimal-touch cutscene skip policy:
 //   1. WHITELIST (force bSkipAllowed=True): a handful of intro cutscenes
-//      that the bingo distribution ships as non-skippable but we want
+//      that the HP2 Bingo distribution ships as non-skippable but we want
 //      skippable (Privet/Dobby opening etc.). Matched by FileName substring
 //      via IsCutSceneAllowedToSkip.
 //   2. BLACKLIST (force bSkipAllowed=False): specific cutscenes that
@@ -194,7 +194,7 @@ function ForceCutScenesSkippable()
     }
 }
 
-// FileName-substring whitelist for cutscenes that bingo ships as non-skippable
+// FileName-substring whitelist for cutscenes that open castle ships as non-skippable
 // but we want skippable. Substring-match so all parts of a multi-part intro
 // (00001PrivetIntro / 00001PrivetIntroPart2 / 00001PrivetIntroPart3) flip
 // together. Add patterns here as we identify more safe-to-skip cutscenes.
@@ -207,12 +207,12 @@ function bool IsCutSceneAllowedToSkip(string FileName)
 // Per-(level, cutscene-name) blacklist of cutscenes that softlock the game
 // when their fastforward path runs. Names are stable per map-save. Level
 // name comparison is uppercase (caller already Caps()'d it) so casing drift
-// between bingo versions doesn't matter. Add entries as more
+// between HP2 Bingo versions doesn't matter. Add entries as more
 // softlock-prone cutscenes are identified from gameplay.
 function bool IsCutSceneBlocked(string LevelNameUpper, string CutSceneName)
 {
     // Grand Staircase secret-opening cutscenes with empty FileName — confirmed
-    // softlocks on skip during bingo playtest.
+    // softlocks on skip during open castle playtest.
     if (LevelNameUpper == "GRANDSTAIRCASE_HUB")
     {
         if (CutSceneName == "CutScene12") return True;
@@ -249,7 +249,7 @@ function DestroyUnobtainableSecretMarkers()
     }
 }
 
-// Ch7Gryffindor (bingo-only challenge level) ships a vanilla
+// Ch7Gryffindor (open-castle-only challenge level) ships a vanilla
 // TriggerTurnOnAllSpells (tag Givespells) that, on its first Touch/Trigger,
 // sets harry.bNoSpellBookCheck=True — making harry.IsInSpellBook return True
 // for EVERY spell (harry.uc:568), so the player can cast everything and the
@@ -257,7 +257,7 @@ function DestroyUnobtainableSecretMarkers()
 // fires it almost immediately, before the per-level watcher's Snapshot runs,
 // so the actor must die HERE in InitGame (pre-Harry, pre-level-scripts), not
 // in Snapshot. The watcher also clears the flag every tick to cover a save
-// reloaded inside the room (ProcessServerTravel skips InitGame). Bingo-only;
+// reloaded inside the room (ProcessServerTravel skips InitGame). Open-castle-only;
 // vanilla never enters this level so the giver is left intact there.
 function DestroyGryffindorSpellGiver()
 {
@@ -265,7 +265,7 @@ function DestroyGryffindorSpellGiver()
     local int n;
 
     if (Caps(string(Level.Outer.Name)) != "CH7GRYFFINDOR") return;
-    if (class'APCardWatcher'.default.bBingoMode != 1) return;
+    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
 
     foreach AllActors(class'Actor', a)
     {
@@ -279,7 +279,7 @@ function DestroyGryffindorSpellGiver()
     if (n > 0)
     {
         Log("[Archipelago] DestroyGryffindorSpellGiver: destroyed " $ n
-            $ " TriggerTurnOnAllSpells actor(s) at InitGame (CH7GRYFFINDOR bingo)");
+            $ " TriggerTurnOnAllSpells actor(s) at InitGame (CH7GRYFFINDOR open castle)");
     }
 }
 
@@ -298,11 +298,11 @@ function BlockRictaClassroomIfMissing()
     local Rotator spawnRot;
     local bool found;
 
-    // Bingo mode supersedes this helper with BlockBingoRictusempraEntryIfMissing
+    // Open castle mode supersedes this helper with BlockOpenCastleRictusempraEntryIfMissing
     // (level-transition bookcase in Entryhall_hub, gated on the Rictusempra
     // Challenge Key item rather than on the spell). Skip the cutscene-anchored
     // blocker so we don't double up in Entryhall_hub.
-    if (class'APCardWatcher'.default.bBingoMode == 1)
+    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -442,8 +442,8 @@ function BlockSkurgeClassroomIfMissing()
     local string fn;
     local int nameLen;
 
-    // Bingo mode: superseded by BlockBingoSkurgeEntryIfMissing.
-    if (class'APCardWatcher'.default.bBingoMode == 1)
+    // Open castle mode: superseded by BlockOpenCastleSkurgeEntryIfMissing.
+    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -587,8 +587,8 @@ function BlockDiffindoClassroomIfMissing()
     local Rotator spawnRot;
     local int i, spawned;
 
-    // Bingo mode: superseded by BlockBingoDiffindoEntryIfMissing.
-    if (class'APCardWatcher'.default.bBingoMode == 1)
+    // Open castle mode: superseded by BlockOpenCastleDiffindoEntryIfMissing.
+    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -729,8 +729,8 @@ function BlockSpongifyClassroomIfMissing()
     local Rotator spawnRot;
     local harry h;
 
-    // Bingo mode: superseded by BlockBingoSpongifyEntryIfMissing.
-    if (class'APCardWatcher'.default.bBingoMode == 1)
+    // Open castle mode: superseded by BlockOpenCastleSpongifyEntryIfMissing.
+    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -854,39 +854,39 @@ function RemoveSpongifyBlocker()
 }
 
 //=============================================================================
-// Bingo-mode level-entry bookcases.
+// Open-castle-mode level-entry bookcases.
 //
 // 14 keyed regions, 18 bookcases. Each helper is level-scoped (early-returns
 // when Level.Outer.Name doesn't match) so InitGame can call them all
-// unconditionally and let each one decide. APGrantedBingoKey[i] on
+// unconditionally and let each one decide. APGrantedOpenCastleKey[i] on
 // APCardWatcher tracks which keys the player has received this session —
 // Block helpers early-return on granted, Remove helpers tag-scan + Destroy.
 // Idempotent on re-entry via the tag check.
 //
 // Shared utilities below dedupe the per-helper boilerplate. The actual
 // Location/Rotation literals were captured via the dev console PlaceBookcase
-// exec (APConsole.uc) in the bingo install and transcribed here.
+// exec (APConsole.uc) in the HP2 Bingo install and transcribed here.
 //=============================================================================
 
-function bool BingoLevelIs(string CapsName)
+function bool OpenCastleLevelIs(string CapsName)
 {
     return Caps(string(Level.Outer.Name)) == CapsName;
 }
 
-function bool BingoLevelIsAnyOf(string CapsA, string CapsB)
+function bool OpenCastleLevelIsAnyOf(string CapsA, string CapsB)
 {
     local string lvl;
     lvl = Caps(string(Level.Outer.Name));
     return lvl == CapsA || lvl == CapsB;
 }
 
-function bool BingoKeyGranted(int idx)
+function bool OpenCastleKeyGranted(int idx)
 {
-    return class'APCardWatcher'.default.APGrantedBingoKey[idx] == 1;
+    return class'APCardWatcher'.default.APGrantedOpenCastleKey[idx] == 1;
 }
 
 // Vanilla gates 7 regions behind a bookcase (same actor + coords + level as
-// bingo, since the levels are identical between distributions). The 5 level
+// open castle, since the levels are identical between distributions). The 5 level
 // regions form a cumulative chain in linear story order — a region's bookcase
 // clears only once its own key AND every earlier level key are granted;
 // Duelling and Quidditch are standalone (own key only). Returns True while the
@@ -897,27 +897,27 @@ function bool BingoKeyGranted(int idx)
 function bool VanillaBlockerShouldBlock(int OwnKeyIdx)
 {
     if (OwnKeyIdx == 10)        // Bicorn
-        return !BingoKeyGranted(10);
+        return !OpenCastleKeyGranted(10);
     if (OwnKeyIdx == 5)         // Boomslang
-        return !(BingoKeyGranted(10) && BingoKeyGranted(5));
+        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5));
     if (OwnKeyIdx == 9)         // Goyle
-        return !(BingoKeyGranted(10) && BingoKeyGranted(5) && BingoKeyGranted(9));
+        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5) && OpenCastleKeyGranted(9));
     if (OwnKeyIdx == 8)         // Slytherin Common Room
-        return !(BingoKeyGranted(10) && BingoKeyGranted(5) && BingoKeyGranted(9) && BingoKeyGranted(8));
+        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5) && OpenCastleKeyGranted(9) && OpenCastleKeyGranted(8));
     if (OwnKeyIdx == 7)         // Forbidden Forest
-        return !(BingoKeyGranted(10) && BingoKeyGranted(5) && BingoKeyGranted(9) && BingoKeyGranted(8) && BingoKeyGranted(7));
+        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5) && OpenCastleKeyGranted(9) && OpenCastleKeyGranted(8) && OpenCastleKeyGranted(7));
     if (OwnKeyIdx == 11)        // Duelling (standalone)
-        return !BingoKeyGranted(11);
+        return !OpenCastleKeyGranted(11);
     if (OwnKeyIdx == 12)        // Quidditch (standalone)
-        return !BingoKeyGranted(12);
+        return !OpenCastleKeyGranted(12);
     return false;               // not a vanilla-blocked region
 }
 
 // Returns True if a bookcase with this tag should be spawned in the current
-// level. Idempotent (skips if a tagged actor already exists). Bingo: spawn
+// level. Idempotent (skips if a tagged actor already exists). Open castle: spawn
 // while the single key is ungranted. Vanilla: spawn while the cumulative key
 // requirement for this region is unmet (and only for the 7 vanilla regions).
-function bool ShouldSpawnBingoBlocker(name Tag, int KeyIdx)
+function bool ShouldSpawnOpenCastleBlocker(name Tag, int KeyIdx)
 {
     local Actor existing;
 
@@ -928,14 +928,14 @@ function bool ShouldSpawnBingoBlocker(name Tag, int KeyIdx)
             return False;
         }
     }
-    if (class'APCardWatcher'.default.bBingoMode == 1)
+    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
-        return !BingoKeyGranted(KeyIdx);
+        return !OpenCastleKeyGranted(KeyIdx);
     }
     return VanillaBlockerShouldBlock(KeyIdx);
 }
 
-function Actor SpawnBingoBookcase(name Tag, Vector Loc, Rotator Rot)
+function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot)
 {
     local Actor blocker;
 
@@ -961,7 +961,7 @@ function Actor SpawnBingoBookcase(name Tag, Vector Loc, Rotator Rot)
     return blocker;
 }
 
-function DestroyTaggedBingoBlockers(name Tag)
+function DestroyTaggedOpenCastleBlockers(name Tag)
 {
     local Actor a, scanActor;
     local APCardWatcher w;
@@ -994,190 +994,190 @@ function DestroyTaggedBingoBlockers(name Tag)
 }
 
 // ----- 1. Chamber of Secrets (Grandstaircase_hub) -----
-function BlockBingoChamberEntryIfMissing()
+function BlockOpenCastleChamberEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("GRANDSTAIRCASE_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoChamberBlocker', 0)) return;
+    if (!OpenCastleLevelIs("GRANDSTAIRCASE_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleChamberBlocker', 0)) return;
     loc.X = 1598.02;  loc.Y = -7624.80; loc.Z = 1196.50;
     rot.Yaw = 93;
-    SpawnBingoBookcase('APBingoChamberBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleChamberBlocker', loc, rot);
 }
-function RemoveBingoChamberBlocker()       { DestroyTaggedBingoBlockers('APBingoChamberBlocker'); }
+function RemoveOpenCastleChamberBlocker()       { DestroyTaggedOpenCastleBlockers('APOpenCastleChamberBlocker'); }
 
 // ----- 2. Spongify classroom entry (Entryhall_hub) -----
-function BlockBingoSpongifyEntryIfMissing()
+function BlockOpenCastleSpongifyEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoSpongifyBlocker', 1)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleSpongifyBlocker', 1)) return;
     loc.X = -1985.10; loc.Y = -2817.36; loc.Z = 108.50;
     rot.Yaw = 49144;  rot.Roll = 65532;
-    SpawnBingoBookcase('APBingoSpongifyBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleSpongifyBlocker', loc, rot);
 }
-function RemoveBingoSpongifyBlocker()      { DestroyTaggedBingoBlockers('APBingoSpongifyBlocker'); }
+function RemoveOpenCastleSpongifyBlocker()      { DestroyTaggedOpenCastleBlockers('APOpenCastleSpongifyBlocker'); }
 
 // ----- 3. Skurge classroom entry (Entryhall_hub) -----
-function BlockBingoSkurgeEntryIfMissing()
+function BlockOpenCastleSkurgeEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoSkurgeBlocker', 2)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleSkurgeBlocker', 2)) return;
     loc.X = 575.69;   loc.Y = -2818.14; loc.Z = 108.50;
     rot.Yaw = 16384;
-    SpawnBingoBookcase('APBingoSkurgeBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleSkurgeBlocker', loc, rot);
 }
-function RemoveBingoSkurgeBlocker()        { DestroyTaggedBingoBlockers('APBingoSkurgeBlocker'); }
+function RemoveOpenCastleSkurgeBlocker()        { DestroyTaggedOpenCastleBlockers('APOpenCastleSkurgeBlocker'); }
 
 // ----- 4. Rictusempra classroom entry (Entryhall_hub) -----
-function BlockBingoRictusempraEntryIfMissing()
+function BlockOpenCastleRictusempraEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoRictusempraBlocker', 3)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleRictusempraBlocker', 3)) return;
     loc.X = 255.65;   loc.Y = -1407.09; loc.Z = -19.50;
     rot.Yaw = 16468;  rot.Roll = 65535;
-    SpawnBingoBookcase('APBingoRictusempraBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleRictusempraBlocker', loc, rot);
 }
-function RemoveBingoRictusempraBlocker()   { DestroyTaggedBingoBlockers('APBingoRictusempraBlocker'); }
+function RemoveOpenCastleRictusempraBlocker()   { DestroyTaggedOpenCastleBlockers('APOpenCastleRictusempraBlocker'); }
 
 // ----- 5. Diffindo classroom entry (Grounds_hub + Grounds_Night) -----
-function BlockBingoDiffindoEntryIfMissing()
+function BlockOpenCastleDiffindoEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoDiffindoBlocker', 4)) return;
+    if (!OpenCastleLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleDiffindoBlocker', 4)) return;
     loc.X = -1335.32; loc.Y = -771.42;  loc.Z = -211.50;
     rot.Yaw = 41494;
-    SpawnBingoBookcase('APBingoDiffindoBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleDiffindoBlocker', loc, rot);
 }
-function RemoveBingoDiffindoBlocker()      { DestroyTaggedBingoBlockers('APBingoDiffindoBlocker'); }
+function RemoveOpenCastleDiffindoBlocker()      { DestroyTaggedOpenCastleBlockers('APOpenCastleDiffindoBlocker'); }
 
 // ----- 6. Boomslang level entry (Grounds_hub + Grounds_Night) -----
-function BlockBingoBoomslangEntryIfMissing()
+function BlockOpenCastleBoomslangEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoBoomslangBlocker', 5)) return;
+    if (!OpenCastleLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleBoomslangBlocker', 5)) return;
     loc.X = -4421.24; loc.Y = 1100.93;  loc.Z = 44.50;
     rot.Yaw = 49153;
-    SpawnBingoBookcase('APBingoBoomslangBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleBoomslangBlocker', loc, rot);
 }
-function RemoveBingoBoomslangBlocker()     { DestroyTaggedBingoBlockers('APBingoBoomslangBlocker'); }
+function RemoveOpenCastleBoomslangBlocker()     { DestroyTaggedOpenCastleBlockers('APOpenCastleBoomslangBlocker'); }
 
 // ----- 7. Whomping Willow entry (Grounds_hub + Grounds_Night) -----
-function BlockBingoWillowEntryIfMissing()
+function BlockOpenCastleWillowEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoWillowBlocker', 6)) return;
+    if (!OpenCastleLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleWillowBlocker', 6)) return;
     loc.X = -0.42;    loc.Y = 1579.53;  loc.Z = 300.50;
     rot.Yaw = 32687;
-    SpawnBingoBookcase('APBingoWillowBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleWillowBlocker', loc, rot);
 }
-function RemoveBingoWillowBlocker()        { DestroyTaggedBingoBlockers('APBingoWillowBlocker'); }
+function RemoveOpenCastleWillowBlocker()        { DestroyTaggedOpenCastleBlockers('APOpenCastleWillowBlocker'); }
 
 // ----- 8. Forbidden Forest entry (Grounds_hub + Grounds_Night). 2 stacked bookcases. -----
-function BlockBingoForbiddenForestEntryIfMissing()
+function BlockOpenCastleForbiddenForestEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoForbiddenForestBlocker', 7)) return;
+    if (!OpenCastleLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleForbiddenForestBlocker', 7)) return;
     // FF1 at ground level.
     loc.X = 3928.45;  loc.Y = 3438.30;  loc.Z = -211.31;
     rot.Yaw = 17288;  rot.Roll = 65532;
-    SpawnBingoBookcase('APBingoForbiddenForestBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleForbiddenForestBlocker', loc, rot);
     loc.Z = -35.31;
-    SpawnBingoBookcase('APBingoForbiddenForestBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleForbiddenForestBlocker', loc, rot);
 }
-function RemoveBingoForbiddenForestBlocker() { DestroyTaggedBingoBlockers('APBingoForbiddenForestBlocker'); }
+function RemoveOpenCastleForbiddenForestBlocker() { DestroyTaggedOpenCastleBlockers('APOpenCastleForbiddenForestBlocker'); }
 
 // ----- 9. Slytherin Common Room entry (Entryhall_hub) -----
-function BlockBingoSlytherinEntryIfMissing()
+function BlockOpenCastleSlytherinEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoSlytherinBlocker', 8)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleSlytherinBlocker', 8)) return;
     loc.X = -2526.16; loc.Y = -3019.69; loc.Z = -595.50;
     rot.Yaw = 65333;  rot.Roll = 65535;
-    SpawnBingoBookcase('APBingoSlytherinBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleSlytherinBlocker', loc, rot);
 }
-function RemoveBingoSlytherinBlocker()     { DestroyTaggedBingoBlockers('APBingoSlytherinBlocker'); }
+function RemoveOpenCastleSlytherinBlocker()     { DestroyTaggedOpenCastleBlockers('APOpenCastleSlytherinBlocker'); }
 
 // ----- 10. Goyle level entry (Entryhall_hub) -----
-function BlockBingoGoyleEntryIfMissing()
+function BlockOpenCastleGoyleEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoGoyleBlocker', 9)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleGoyleBlocker', 9)) return;
     loc.X = -5192.51; loc.Y = -2368.72; loc.Z = -227.50;
     rot.Yaw = 49578;
-    SpawnBingoBookcase('APBingoGoyleBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGoyleBlocker', loc, rot);
 }
-function RemoveBingoGoyleBlocker()         { DestroyTaggedBingoBlockers('APBingoGoyleBlocker'); }
+function RemoveOpenCastleGoyleBlocker()         { DestroyTaggedOpenCastleBlockers('APOpenCastleGoyleBlocker'); }
 
 // ----- 11. Bicorn level entry (Entryhall_hub) -----
-function BlockBingoBicornEntryIfMissing()
+function BlockOpenCastleBicornEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoBicornBlocker', 10)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleBicornBlocker', 10)) return;
     loc.X = -5194.33; loc.Y = -958.79;  loc.Z = -467.50;
     rot.Yaw = 48862;
-    SpawnBingoBookcase('APBingoBicornBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleBicornBlocker', loc, rot);
 }
-function RemoveBingoBicornBlocker()        { DestroyTaggedBingoBlockers('APBingoBicornBlocker'); }
+function RemoveOpenCastleBicornBlocker()        { DestroyTaggedOpenCastleBlockers('APOpenCastleBicornBlocker'); }
 
 // ----- 12. Duelling Club entry (Entryhall_hub). 2 bookcases side by side. -----
-function BlockBingoDuellingEntryIfMissing()
+function BlockOpenCastleDuellingEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoDuellingBlocker', 11)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleDuellingBlocker', 11)) return;
     rot.Yaw = 138;
     loc.X = 486.01;   loc.Y = -1345.50; loc.Z = -371.50;
-    SpawnBingoBookcase('APBingoDuellingBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleDuellingBlocker', loc, rot);
     loc.X = 665.40;
-    SpawnBingoBookcase('APBingoDuellingBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleDuellingBlocker', loc, rot);
 }
-function RemoveBingoDuellingBlocker()      { DestroyTaggedBingoBlockers('APBingoDuellingBlocker'); }
+function RemoveOpenCastleDuellingBlocker()      { DestroyTaggedOpenCastleBlockers('APOpenCastleDuellingBlocker'); }
 
 // ----- 13. Quidditch Pitch entry (Grounds_hub + Grounds_Night). 2 bookcases. -----
-function BlockBingoQuidditchEntryIfMissing()
+function BlockOpenCastleQuidditchEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoQuidditchBlocker', 12)) return;
+    if (!OpenCastleLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleQuidditchBlocker', 12)) return;
     loc.X = 1506.36;  loc.Y = 165.71;   loc.Z = 44.50;
     rot.Yaw = 33272;  rot.Roll = 0;
-    SpawnBingoBookcase('APBingoQuidditchBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleQuidditchBlocker', loc, rot);
     loc.X = 1382.72;  loc.Y = 234.64;
     rot.Yaw = 16564;  rot.Roll = 65535;
-    SpawnBingoBookcase('APBingoQuidditchBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleQuidditchBlocker', loc, rot);
 }
-function RemoveBingoQuidditchBlocker()     { DestroyTaggedBingoBlockers('APBingoQuidditchBlocker'); }
+function RemoveOpenCastleQuidditchBlocker()     { DestroyTaggedOpenCastleBlockers('APOpenCastleQuidditchBlocker'); }
 
 // A hub ambient NPC (Percy in particular, sometimes a student) can idle
 // exactly where a bookcase spawns; a Pawn in the footprint makes Spawn return
-// None (encroachment), leaving the doorway/corridor open. SpawnBingoBookcase
+// None (encroachment), leaving the doorway/corridor open. SpawnOpenCastleBookcase
 // calls this on a failed spawn to destroy any non-Harry Pawn within Radius of
-// Loc, then retries. Hub NPCs are ambient in bingo and restored fresh from
+// Loc, then retries. Hub NPCs are ambient in open castle and restored fresh from
 // the persistent-actor cache on every level entry, so removing the one in the
 // way each load is cosmetically harmless and reliably keeps the seal. Used by
-// every bookcase blocker (all spawn through SpawnBingoBookcase).
+// every bookcase blocker (all spawn through SpawnOpenCastleBookcase).
 function ClearBookcaseEncroachers(Vector Loc, float Radius)
 {
     local Pawn p;
@@ -1209,86 +1209,86 @@ function ClearBookcaseEncroachers(Vector Loc, float Radius)
 }
 
 // ----- 14. Gryffindor challenge entry (Entryhall_hub). 2 bookcases. -----
-function BlockBingoGryffindorEntryIfMissing()
+function BlockOpenCastleGryffindorEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
-    if (!ShouldSpawnBingoBlocker('APBingoGryffindorBlocker', 13)) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
+    if (!ShouldSpawnOpenCastleBlocker('APOpenCastleGryffindorBlocker', 13)) return;
     loc.X = 2641.93;  loc.Y = -1884.27; loc.Z = 620.50;
     rot.Yaw = 302;    rot.Roll = 65535;
-    SpawnBingoBookcase('APBingoGryffindorBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGryffindorBlocker', loc, rot);
     loc.X = 2636.15;  loc.Y = -1838.34; loc.Z = 620.50;
     rot.Yaw = 375;    rot.Roll = 0;
-    SpawnBingoBookcase('APBingoGryffindorBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGryffindorBlocker', loc, rot);
 }
-function RemoveBingoGryffindorBlocker()    { DestroyTaggedBingoBlockers('APBingoGryffindorBlocker'); }
+function RemoveOpenCastleGryffindorBlocker()    { DestroyTaggedOpenCastleBlockers('APOpenCastleGryffindorBlocker'); }
 
 // ----- Great Hall goal gate (EntryHall_Hub; 1 bookcase — goal_plan.md §3) -----
-// NOT keyed by an APGrantedBingoKey: this one is gated by the 5-clause goal
-// evaluator, so it does not use ShouldSpawnBingoBlocker (which checks
-// BingoKeyGranted). Spawn while the goal is unmet; APCardWatcher.Timer calls
-// RemoveBingoGreatHallBlocker the tick GoalSatisfied() first passes and sets
+// NOT keyed by an APGrantedOpenCastleKey: this one is gated by the 5-clause goal
+// evaluator, so it does not use ShouldSpawnOpenCastleBlocker (which checks
+// OpenCastleKeyGranted). Spawn while the goal is unmet; APCardWatcher.Timer calls
+// RemoveOpenCastleGreatHallBlocker the tick GoalSatisfied() first passes and sets
 // the sticky WasGoalUnlocked, after which this early-returns so it never
 // respawns. There is exactly one concrete way into the Great Hall; these
 // corridor bookcases are the sole route to the bInEndGame credits cutscene.
-function BlockBingoGreatHallEntryIfMissing()
+function BlockOpenCastleGreatHallEntryIfMissing()
 {
     local Vector loc;
     local Rotator rot;
     local Actor existing;
 
-    if (class'APCardWatcher'.default.bBingoMode == 0) return;
-    if (!BingoLevelIs("ENTRYHALL_HUB")) return;
+    if (class'APCardWatcher'.default.bOpenCastleMode == 0) return;
+    if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
     if (class'APCardWatcher'.default.WasGoalUnlocked == 1) return;  // already opened
     foreach AllActors(class'Actor', existing)
-        if (existing.Tag == 'APBingoGreatHallBlocker' && !existing.bDeleteMe) return;
+        if (existing.Tag == 'APOpenCastleGreatHallBlocker' && !existing.bDeleteMe) return;
 
     // Five hand-tuned bookcase positions spanning the Great Hall corridor at
     // Z=-273. A single spawn point can be occupied by an idling NPC at
     // level-load (Spawn returns None on encroachment), which would leave the
     // corridor open, so the spread keeps it sealed when one slot is blocked.
-    // All share the tag, so RemoveBingoGreatHallBlocker clears every one at
+    // All share the tag, so RemoveOpenCastleGreatHallBlocker clears every one at
     // goal unlock. First coord is the §3 Phase-0 PlaceBookcase capture.
     loc.X = 1061.760376; loc.Y = -831.163818; loc.Z = -273;
     rot.Yaw = 16321;  rot.Roll = 0;
-    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGreatHallBlocker', loc, rot);
     loc.X = 913.5; loc.y = -835.;
-    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGreatHallBlocker', loc, rot);
     loc.X = 946.71; loc.y = -838.7;
-    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGreatHallBlocker', loc, rot);
     loc.X = 1035.612; loc.y = -838.383;
-    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGreatHallBlocker', loc, rot);
     loc.X = 853.645; loc.y = -837.000;
-    SpawnBingoBookcase('APBingoGreatHallBlocker', loc, rot);
+    SpawnOpenCastleBookcase('APOpenCastleGreatHallBlocker', loc, rot);
 }
-function RemoveBingoGreatHallBlocker()     { DestroyTaggedBingoBlockers('APBingoGreatHallBlocker'); }
+function RemoveOpenCastleGreatHallBlocker()     { DestroyTaggedOpenCastleBlockers('APOpenCastleGreatHallBlocker'); }
 
 // Convenience aggregator called from InitGame and from
 // APCardWatcher.TrySpawnClassroomBlockers (post-save-load path that bypasses
 // InitGame). Each helper is level-scoped and key-gated, so unconditional
 // iteration is safe in both modes — a Grounds bookcase in Entryhall_hub just
-// early-returns, and the per-region gate decides spawn/skip per mode. Bingo
-// may spawn all 14 keyed regions (each behind its own key); vanilla spawns
+// early-returns, and the per-region gate decides spawn/skip per mode. Open
+// castle may spawn all 14 keyed regions (each behind its own key); vanilla spawns
 // only the 7 chain/standalone level regions (the rest are gated by
 // spells/story).
-function SpawnAllBingoBlockers()
+function SpawnAllOpenCastleBlockers()
 {
-    BlockBingoChamberEntryIfMissing();
-    BlockBingoSpongifyEntryIfMissing();
-    BlockBingoSkurgeEntryIfMissing();
-    BlockBingoRictusempraEntryIfMissing();
-    BlockBingoDiffindoEntryIfMissing();
-    BlockBingoBoomslangEntryIfMissing();
-    BlockBingoWillowEntryIfMissing();
-    BlockBingoForbiddenForestEntryIfMissing();
-    BlockBingoSlytherinEntryIfMissing();
-    BlockBingoGoyleEntryIfMissing();
-    BlockBingoBicornEntryIfMissing();
-    BlockBingoDuellingEntryIfMissing();
-    BlockBingoQuidditchEntryIfMissing();
-    BlockBingoGryffindorEntryIfMissing();
-    BlockBingoGreatHallEntryIfMissing();
+    BlockOpenCastleChamberEntryIfMissing();
+    BlockOpenCastleSpongifyEntryIfMissing();
+    BlockOpenCastleSkurgeEntryIfMissing();
+    BlockOpenCastleRictusempraEntryIfMissing();
+    BlockOpenCastleDiffindoEntryIfMissing();
+    BlockOpenCastleBoomslangEntryIfMissing();
+    BlockOpenCastleWillowEntryIfMissing();
+    BlockOpenCastleForbiddenForestEntryIfMissing();
+    BlockOpenCastleSlytherinEntryIfMissing();
+    BlockOpenCastleGoyleEntryIfMissing();
+    BlockOpenCastleBicornEntryIfMissing();
+    BlockOpenCastleDuellingEntryIfMissing();
+    BlockOpenCastleQuidditchEntryIfMissing();
+    BlockOpenCastleGryffindorEntryIfMissing();
+    BlockOpenCastleGreatHallEntryIfMissing();
 }
 
 // Spawn the visible end star in the Slytherin Common Room so the level's
@@ -1810,46 +1810,46 @@ function bool TryApplyKeyItem(string Name, harry h)
     return False;
 }
 
-// Bingo-only level-entry key. Stamps the class-default APGrantedBingoKey flag
-// (so future BlockBingo<X>EntryIfMissing helpers early-return for this key) and
-// dispatches to the matching RemoveBingo<X>Blocker to destroy any bookcase
-// already in the level. Returns True if the item name matched a known bingo
+// Open-castle-only level-entry key. Stamps the class-default APGrantedOpenCastleKey flag
+// (so future BlockOpenCastle<X>EntryIfMissing helpers early-return for this key) and
+// dispatches to the matching RemoveOpenCastle<X>Blocker to destroy any bookcase
+// already in the level. Returns True if the item name matched a known open castle
 // key, regardless of whether a blocker was actually present.
-function bool TryApplyBingoKey(string Name)
+function bool TryApplyOpenCastleKey(string Name)
 {
     local int idx;
 
-    idx = class'APCardWatcher'.static.BingoKeyIndexFromName(Name);
+    idx = class'APCardWatcher'.static.OpenCastleKeyIndexFromName(Name);
     if (idx < 0)
     {
         return False;
     }
 
-    class'APCardWatcher'.static.MarkBingoKeyAsAPGrantedDefault(Name);
+    class'APCardWatcher'.static.MarkOpenCastleKeyAsAPGrantedDefault(Name);
 
-    if (class'APCardWatcher'.default.bBingoMode == 1)
+    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
-        if (idx == 0)       RemoveBingoChamberBlocker();
-        else if (idx == 1)  RemoveBingoSpongifyBlocker();
-        else if (idx == 2)  RemoveBingoSkurgeBlocker();
-        else if (idx == 3)  RemoveBingoRictusempraBlocker();
-        else if (idx == 4)  RemoveBingoDiffindoBlocker();
-        else if (idx == 5)  RemoveBingoBoomslangBlocker();
-        else if (idx == 6)  RemoveBingoWillowBlocker();
-        else if (idx == 7)  RemoveBingoForbiddenForestBlocker();
-        else if (idx == 8)  RemoveBingoSlytherinBlocker();
-        else if (idx == 9)  RemoveBingoGoyleBlocker();
-        else if (idx == 10) RemoveBingoBicornBlocker();
-        else if (idx == 11) RemoveBingoDuellingBlocker();
-        else if (idx == 12) RemoveBingoQuidditchBlocker();
-        else if (idx == 13) RemoveBingoGryffindorBlocker();
+        if (idx == 0)       RemoveOpenCastleChamberBlocker();
+        else if (idx == 1)  RemoveOpenCastleSpongifyBlocker();
+        else if (idx == 2)  RemoveOpenCastleSkurgeBlocker();
+        else if (idx == 3)  RemoveOpenCastleRictusempraBlocker();
+        else if (idx == 4)  RemoveOpenCastleDiffindoBlocker();
+        else if (idx == 5)  RemoveOpenCastleBoomslangBlocker();
+        else if (idx == 6)  RemoveOpenCastleWillowBlocker();
+        else if (idx == 7)  RemoveOpenCastleForbiddenForestBlocker();
+        else if (idx == 8)  RemoveOpenCastleSlytherinBlocker();
+        else if (idx == 9)  RemoveOpenCastleGoyleBlocker();
+        else if (idx == 10) RemoveOpenCastleBicornBlocker();
+        else if (idx == 11) RemoveOpenCastleDuellingBlocker();
+        else if (idx == 12) RemoveOpenCastleQuidditchBlocker();
+        else if (idx == 13) RemoveOpenCastleGryffindorBlocker();
     }
     else
     {
         RefreshVanillaBlockers();
     }
 
-    Log("[Archipelago] ApplyGrant: granted bingo key " $ Name $ " (idx=" $ idx $ ")");
+    Log("[Archipelago] ApplyGrant: granted open castle key " $ Name $ " (idx=" $ idx $ ")");
     return True;
 }
 
@@ -1861,13 +1861,13 @@ function bool TryApplyBingoKey(string Name)
 // call from any level on every grant.
 function RefreshVanillaBlockers()
 {
-    if (!VanillaBlockerShouldBlock(10)) RemoveBingoBicornBlocker();
-    if (!VanillaBlockerShouldBlock(5))  RemoveBingoBoomslangBlocker();
-    if (!VanillaBlockerShouldBlock(9))  RemoveBingoGoyleBlocker();
-    if (!VanillaBlockerShouldBlock(8))  RemoveBingoSlytherinBlocker();
-    if (!VanillaBlockerShouldBlock(7))  RemoveBingoForbiddenForestBlocker();
-    if (!VanillaBlockerShouldBlock(11)) RemoveBingoDuellingBlocker();
-    if (!VanillaBlockerShouldBlock(12)) RemoveBingoQuidditchBlocker();
+    if (!VanillaBlockerShouldBlock(10)) RemoveOpenCastleBicornBlocker();
+    if (!VanillaBlockerShouldBlock(5))  RemoveOpenCastleBoomslangBlocker();
+    if (!VanillaBlockerShouldBlock(9))  RemoveOpenCastleGoyleBlocker();
+    if (!VanillaBlockerShouldBlock(8))  RemoveOpenCastleSlytherinBlocker();
+    if (!VanillaBlockerShouldBlock(7))  RemoveOpenCastleForbiddenForestBlocker();
+    if (!VanillaBlockerShouldBlock(11)) RemoveOpenCastleDuellingBlocker();
+    if (!VanillaBlockerShouldBlock(12)) RemoveOpenCastleQuidditchBlocker();
 }
 
 static function harry FindActiveHarry(Actor caller)
@@ -2159,7 +2159,7 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //                   next level transition, whichever comes first.
 //
 // Spider Swarm and Peeves are not implemented: they require an ad-hoc visible
-// world actor spawned mid-level, and this bingo build does not render actors
+// world actor spawned mid-level, and this open castle build does not render actors
 // Spawn()'d at runtime (only those built during level bring-up).
 function bool TryApplyTrap(string Name, harry h)
 {
@@ -2304,7 +2304,7 @@ function ApplyGrant(string Body)
         return;
     }
 
-    if (TryApplyBingoKey(ItemName))
+    if (TryApplyOpenCastleKey(ItemName))
     {
         return;
     }

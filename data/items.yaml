@@ -163,33 +163,33 @@ cards_gold:
   - { id_offset: 199, class: WCRavenclaw,     name: "Gold Card - Ravenclaw" }
   - { id_offset: 200, class: WCSlytherin,     name: "Gold Card - Slytherin" }
 
-# Bingo-only level-entry keys. 13 progression items, one per bookcase group
-# the mod spawns in the hub levels (Entryhall_hub / Grandstaircase_hub /
-# Grounds_hub+Grounds_Night) when the player runs a bingo-mode seed.
+# Open-castle-only level-entry keys. 13 progression items, one per bookcase
+# group the mod spawns in the hub levels (Entryhall_hub / Grandstaircase_hub /
+# Grounds_hub+Grounds_Night) when the player runs an open-castle-mode seed.
 #
 # In vanilla mode HP2World.create_items push_precollects these so they're
 # invisible (the matching bookcases never spawn in vanilla, but logic.yaml
 # can still reference them unconditionally — auto-passes).
-# In bingo mode they enter the AP pool; AP places them at random checks and
-# the player has to find each key to clear the matching bookcase(s).
+# In open castle mode they enter the AP pool; AP places them at random checks
+# and the player has to find each key to clear the matching bookcase(s).
 #
 # Grant handlers in APGameInfo.ApplyGrant dispatch by name → call
-# APCardWatcher.MarkBingoKeyAsGrantedDefault(name) + RemoveBingo<X>Blocker.
-bingo_keys:
-  - { id_offset: 250, name: "Chamber of Secrets Key",    classification: progression, group: "Bingo Keys" }
-  - { id_offset: 251, name: "Spongify Challenge Key",    classification: progression, group: "Bingo Keys" }
-  - { id_offset: 252, name: "Skurge Challenge Key",      classification: progression, group: "Bingo Keys" }
-  - { id_offset: 253, name: "Rictusempra Challenge Key", classification: progression, group: "Bingo Keys" }
-  - { id_offset: 254, name: "Diffindo Challenge Key",    classification: progression, group: "Bingo Keys" }
-  - { id_offset: 255, name: "Boomslang Level Key",       classification: progression, group: "Bingo Keys" }
-  - { id_offset: 256, name: "Whomping Willow Key",       classification: progression, group: "Bingo Keys" }
-  - { id_offset: 257, name: "Forbidden Forest Key",      classification: progression, group: "Bingo Keys" }
-  - { id_offset: 258, name: "Slytherin Common Room Key", classification: progression, group: "Bingo Keys" }
-  - { id_offset: 259, name: "Goyle Level Key",           classification: progression, group: "Bingo Keys" }
-  - { id_offset: 260, name: "Bicorn Level Key",          classification: progression, group: "Bingo Keys" }
-  - { id_offset: 261, name: "Duelling Key",              classification: progression, group: "Bingo Keys" }
-  - { id_offset: 262, name: "Quidditch Key",             classification: progression, group: "Bingo Keys" }
-  - { id_offset: 263, name: "Gryffindor Challenge Key",  classification: progression, group: "Bingo Keys" }
+# APCardWatcher.MarkOpenCastleKeyAsGrantedDefault(name) + RemoveOpenCastle<X>Blocker.
+open_castle_keys:
+  - { id_offset: 250, name: "Chamber of Secrets Key",    classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 251, name: "Spongify Challenge Key",    classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 252, name: "Skurge Challenge Key",      classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 253, name: "Rictusempra Challenge Key", classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 254, name: "Diffindo Challenge Key",    classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 255, name: "Boomslang Level Key",       classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 256, name: "Whomping Willow Key",       classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 257, name: "Forbidden Forest Key",      classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 258, name: "Slytherin Common Room Key", classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 259, name: "Goyle Level Key",           classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 260, name: "Bicorn Level Key",          classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 261, name: "Duelling Key",              classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 262, name: "Quidditch Key",             classification: progression, group: "Open Castle Keys" }
+  - { id_offset: 263, name: "Gryffindor Challenge Key",  classification: progression, group: "Open Castle Keys" }
 
 # Filler. Stacks — multiple copies allowed, count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).
@@ -220,7 +220,7 @@ filler:
 # save-load — only a genuine new game replays it); self-terminating
 # (instant / level-load revert / timer). id band
 # 400-404 — see plans/ID_BAND_LEDGER.md. 401 (Peeves) and 402 (Spider Swarm)
-# are retired: cut from v1 because this M212 bingo build does not render an
+# are retired: cut from v1 because this M212 open castle build does not render an
 # ad-hoc visible world actor spawned mid-level. Those ids are never reused.
 traps:
   - { id_offset: 400, name: "Bean Thief Trap",            classification: trap, group: Traps, notes: "Steals up to 200 beans (clamped at 0); routed through RingLink's no-broadcast bean helper so it stays local. Permanent by design." }

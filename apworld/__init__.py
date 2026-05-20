@@ -31,10 +31,10 @@ from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                         MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS)
-from .regions import (REGION_ENTRY_RULES_BINGO, REGION_ENTRY_RULES_VANILLA,
+from .regions import (REGION_ENTRY_RULES_OPEN_CASTLE, REGION_ENTRY_RULES_VANILLA,
                       REGION_NAMES, START_REGION)
 from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_VANILLA,
-                    LOCATION_RULES_BINGO, LOCATION_RULES_VANILLA)
+                    LOCATION_RULES_OPEN_CASTLE, LOCATION_RULES_VANILLA)
 
 PROGRESSION_ITEM_NAMES: list[str] = [
     name for name, c in ITEM_CLASSIFICATIONS.items() if c == ItemClassification.progression
@@ -42,7 +42,7 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 
 DEFAULT_GOAL = "basilisk"
 SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
-# All 101 wizard-card item names. In bingo these are upgraded to
+# All 101 wizard-card item names. In open castle these are upgraded to
 # progression_skip_balancing at create_item time so AP guarantees them
 # reachable (a card-count Great Hall goal needs that); vanilla keeps the
 # generated classification so vanilla seeds are unchanged.
@@ -51,14 +51,14 @@ CARD_ITEM_NAMES: frozenset[str] = frozenset(
     + ITEM_GROUPS.get("Cards (Silver)", [])
     + ITEM_GROUPS.get("Cards (Gold)", [])
 )
-# Level-entry keys. In bingo, all 14 are AP items gating every level
+# Level-entry keys. In open castle, all 14 are AP items gating every level
 # transition. In vanilla with vanilla_gate_levels on, the 7 in
 # VANILLA_BLOCKED_KEY_NAMES are also AP items (the mod spawns a bookcase
 # blocking each region until the key arrives) and the other 7 are
 # precollected so their logic.yaml terms pass trivially without entering the
 # pool. With vanilla_gate_levels off, all 14 are precollected and no bookcase
 # spawns.
-BINGO_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Bingo Keys", []))
+OPEN_CASTLE_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Open Castle Keys", []))
 # Keys that gate a region behind a bookcase in vanilla when
 # vanilla_gate_levels is on (linear story order).
 # Bicorn/Boomslang/Goyle/Slytherin/Forbidden Forest are a cumulative chain (a
@@ -71,14 +71,14 @@ VANILLA_BLOCKED_KEY_NAMES: set[str] = {
     "Duelling Key", "Quidditch Key",
 }
 
-# Regions that exist only in a bingo seed. Their level is never entered in a
-# vanilla playthrough, so every location in them must not be created as a
+# Regions that exist only in an open castle seed. Their level is never entered
+# in a vanilla playthrough, so every location in them must not be created as a
 # vanilla check at all — not merely made unreachable. _location_enabled
-# enforces this (the mirror image of the Classrooms+bingo exclusion). The
-# region name itself still appears in BOTH logic files because gen_apworld
-# requires the vanilla and bingo region SETS to be identical; in vanilla the
-# region is inert (entry false, zero locations attached).
-BINGO_ONLY_REGIONS: set[str] = {"GryffindorChallenge"}
+# enforces this (the mirror image of the Classrooms+open-castle exclusion).
+# The region name itself still appears in BOTH logic files because gen_apworld
+# requires the vanilla and open-castle region SETS to be identical; in vanilla
+# the region is inert (entry false, zero locations attached).
+OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge"}
 
 
 def launch_client(*args: str) -> None:
@@ -115,8 +115,9 @@ class GameMode(Choice):
     precollected is governed by `vanilla_gate_levels`; the other 7 keys are
     always precollected here.
 
-    `bingo`: the bingo-distribution maps (open castle, every door unlocked).
-    The 14 bingo keys are AP items gating each level transition.
+    `open_castle`: the HP2 Bingo community pack's distribution maps (every
+    door unlocked from spawn). The 14 open castle keys are AP items gating
+    each level transition.
 
     Which spells Harry starts with is governed by `starting_spells`;
     `vanilla_gate_levels` governs the 7 region keys. Neither is set by this
@@ -124,7 +125,7 @@ class GameMode(Choice):
     """
     display_name = "Game Mode"
     option_vanilla = 0
-    option_bingo = 1
+    option_open_castle = 1
     default = 0
 
 
@@ -137,8 +138,8 @@ class VanillaGateLevels(DefaultOnToggle):
 
     If false, those 7 keys are precollected instead, so the regions open
     immediately and no bookcases spawn — the classic precollect-everything
-    vanilla flow. Has no effect in bingo mode (all 14 keys are always AP items
-    there).
+    vanilla flow. Has no effect in open castle mode (all 14 keys are always AP
+    items there).
     """
     display_name = "Vanilla gate levels"
 
@@ -167,14 +168,14 @@ class EnableSecrets(DefaultOnToggle):
     """If true, the 109 Secrets become AP locations (both game modes).
 
     The `allow_secrets_progression` missable-vs-replayable split is
-    vanilla-only; in bingo every level is infinitely replayable, so all
+    vanilla-only; in open castle every level is infinitely replayable, so all
     enabled secrets follow normal region-entry logic.
     """
     display_name = "Enable Secrets"
 
 
 class AllowSecretsProgression(Toggle):
-    """Vanilla-only (ignored in bingo). If true (and `enable_secrets` is
+    """Vanilla-only (ignored in open castle). If true (and `enable_secrets` is
     true), missable secrets in un-replayable vanilla levels (Willow, Bicorn,
     Boomslang, Goyle, Slytherin Common, Forest, Chamber) are allowed to hold
     progression items.
@@ -185,8 +186,8 @@ class AllowSecretsProgression(Toggle):
     progression regardless of this setting; this flag only gates the
     un-replayable subset.
 
-    Bingo's open castle makes every level infinitely replayable, so nothing
-    is missable there and this option has no effect.
+    Open castle makes every level infinitely replayable, so nothing is
+    missable there and this option has no effect.
     """
     display_name = "Allow Secrets progression"
 
@@ -225,52 +226,53 @@ class EnableQuidditchUpgrades(Toggle):
     display_name = "Enable Quidditch upgrades"
 
 
-# --- BINGO section: the Great Hall key. The 5 clauses below are AND'd; a
-# clause set to 0 / off drops out. Bingo only (ignored in vanilla). If a yaml
-# resolves all five to 0/off, _bingo_goal_config falls back to "all 7 spells"
-# so there is always a gate. NamedRange gives named anchors plus a free
-# integer, and supports yaml `random` / `random-low` / `random-high`.
-class BingoGoalCards(NamedRange):
-    """Bingo only. Wizard cards needed to open the Great Hall. 0 disables this
-    clause. Counts cards Harry actually owns (incl. AP-granted)."""
-    display_name = "Bingo goal: cards"
+# --- OPEN CASTLE section: the Great Hall key. The 5 clauses below are AND'd;
+# a clause set to 0 / off drops out. Open castle only (ignored in vanilla). If
+# a yaml resolves all five to 0/off, _open_castle_goal_config falls back to
+# "all 7 spells" so there is always a gate. NamedRange gives named anchors
+# plus a free integer, and supports yaml `random` / `random-low` / `random-high`.
+class OpenCastleGoalCards(NamedRange):
+    """Open castle only. Wizard cards needed to open the Great Hall. 0
+    disables this clause. Counts cards Harry actually owns (incl. AP-granted)."""
+    display_name = "Open castle goal: cards"
     range_start = 0
     range_end = 101
     default = 50
     special_range_names = {"none": 0, "few": 25, "half": 50, "most": 80, "all": 101}
 
 
-class BingoGoalSpells(NamedRange):
-    """Bingo only. Spells needed to open the Great Hall. 0 disables this
-    clause. (If every bingo goal clause is 0/off, this is forced to 7.)"""
-    display_name = "Bingo goal: spells"
+class OpenCastleGoalSpells(NamedRange):
+    """Open castle only. Spells needed to open the Great Hall. 0 disables
+    this clause. (If every open castle goal clause is 0/off, this is forced
+    to 7.)"""
+    display_name = "Open castle goal: spells"
     range_start = 0
     range_end = 7
     default = 7
     special_range_names = {"none": 0, "all": 7}
 
 
-class BingoGoalLevels(NamedRange):
-    """Bingo only. Level objectives finished to open the Great Hall. 0
+class OpenCastleGoalLevels(NamedRange):
+    """Open castle only. Level objectives finished to open the Great Hall. 0
     disables. 12 objectives, fixed: 3 key-item levels + 2 bosses + 2 story
     levels + 5 challenges."""
-    display_name = "Bingo goal: level objectives"
+    display_name = "Open castle goal: level objectives"
     range_start = 0
     range_end = 12
     default = 12
     special_range_names = {"none": 0, "all": 12}
 
 
-class BingoGoalDuels(Toggle):
-    """Bingo only. If true, all 10 Duelling Club duels must be won to open the
-    Great Hall."""
-    display_name = "Bingo goal: all duels"
+class OpenCastleGoalDuels(Toggle):
+    """Open castle only. If true, all 10 Duelling Club duels must be won to
+    open the Great Hall."""
+    display_name = "Open castle goal: all duels"
 
 
-class BingoGoalQuidditch(Toggle):
-    """Bingo only. If true, all 6 Quidditch matches must be won to open the
-    Great Hall."""
-    display_name = "Bingo goal: all Quidditch matches"
+class OpenCastleGoalQuidditch(Toggle):
+    """Open castle only. If true, all 6 Quidditch matches must be won to open
+    the Great Hall."""
+    display_name = "Open castle goal: all Quidditch matches"
 
 
 class RingLink(Toggle):
@@ -351,27 +353,27 @@ class HP2Options(PerGameCommonOptions):
     # HP2WebWorld.option_groups), so the dataclass position here does not
     # affect template ordering.
     vanilla_gate_levels: VanillaGateLevels
-    bingo_goal_cards: BingoGoalCards
-    bingo_goal_spells: BingoGoalSpells
-    bingo_goal_levels: BingoGoalLevels
-    bingo_goal_duels: BingoGoalDuels
-    bingo_goal_quidditch: BingoGoalQuidditch
+    open_castle_goal_cards: OpenCastleGoalCards
+    open_castle_goal_spells: OpenCastleGoalSpells
+    open_castle_goal_levels: OpenCastleGoalLevels
+    open_castle_goal_duels: OpenCastleGoalDuels
+    open_castle_goal_quidditch: OpenCastleGoalQuidditch
 
 
 class HP2WebWorld(WebWorld):
     """Web frontend metadata for archipelago.gg.
 
-    The VANILLA / BINGO option groups split the template: shared options stay
-    in the auto "Game Options" block above; mode-specific options sit under
-    their own banner. Padded names render as a wide ``#`` box header.
+    The VANILLA / OPEN CASTLE option groups split the template: shared options
+    stay in the auto "Game Options" block above; mode-specific options sit
+    under their own banner. Padded names render as a wide ``#`` box header.
     """
     option_groups = [
         OptionGroup("           VANILLA           ", [
             VanillaGateLevels, AllowSecretsProgression,
         ]),
-        OptionGroup("            BINGO            ", [
-            BingoGoalCards, BingoGoalSpells, BingoGoalLevels,
-            BingoGoalDuels, BingoGoalQuidditch,
+        OptionGroup("         OPEN CASTLE         ", [
+            OpenCastleGoalCards, OpenCastleGoalSpells, OpenCastleGoalLevels,
+            OpenCastleGoalDuels, OpenCastleGoalQuidditch,
         ]),
     ]
 
@@ -388,27 +390,27 @@ class HP2World(World):
     item_name_groups = ITEM_GROUPS
 
     def generate_early(self) -> None:
-        # Reject contradictory bingo yaml combos before fill, with a message
-        # that names the fix (rather than silently degrading the goal). Bingo
-        # only — vanilla ignores the bingo_goal_* options entirely.
-        if not self._is_bingo():
+        # Reject contradictory open castle yaml combos before fill, with a
+        # message that names the fix (rather than silently degrading the goal).
+        # Open castle only — vanilla ignores the open_castle_goal_* options entirely.
+        if not self._is_open_castle():
             return
-        if int(self.options.bingo_goal_cards.value) > 0 and not self.options.enable_wizard_cards:
+        if int(self.options.open_castle_goal_cards.value) > 0 and not self.options.enable_wizard_cards:
             raise OptionError(
-                "Harry Potter 2 PC: bingo_goal_cards > 0 requires "
+                "Harry Potter 2 PC: open_castle_goal_cards > 0 requires "
                 "enable_wizard_cards: true (the Great Hall cards clause would "
-                "gate on cards the seed never places). Set bingo_goal_cards: 0 "
+                "gate on cards the seed never places). Set open_castle_goal_cards: 0 "
                 "or enable_wizard_cards: true."
             )
 
     def create_item(self, name: str) -> HP2Item:
         classification = ITEM_CLASSIFICATIONS[name]
-        # Bingo's configurable Great Hall key can require a card count, so AP
-        # must guarantee cards reachable — promote every card to
+        # Open castle's configurable Great Hall key can require a card count,
+        # so AP must guarantee cards reachable — promote every card to
         # progression_skip_balancing (reachable-guaranteed, but excluded from
         # the heavy progression-balancing pass, like the silvers already are).
-        # Bingo only: vanilla keeps the generated classification untouched.
-        if name in CARD_ITEM_NAMES and self._is_bingo():
+        # Open castle only: vanilla keeps the generated classification untouched.
+        if name in CARD_ITEM_NAMES and self._is_open_castle():
             classification = ItemClassification.progression_skip_balancing
         return HP2Item(name, classification, self.item_name_to_id[name], self.player)
 
@@ -420,10 +422,11 @@ class HP2World(World):
 
     # Location-group → option-attr map. Locations whose group is in this map
     # and whose corresponding option is False are filtered out of the seed.
-    # The Classrooms group has a bingo-mode special case in _location_enabled:
-    # the spell-teaching cutscenes are tied to the vanilla story flow that
-    # bingo's open castle skips, so those 4 checks are unreachable in bingo
-    # and get dropped entirely (their spells stay in the pool, placed elsewhere).
+    # The Classrooms group has an open-castle-mode special case in
+    # _location_enabled: the spell-teaching cutscenes are tied to the vanilla
+    # story flow that open castle's everything-unlocked layout skips, so those
+    # 4 checks are unreachable in open castle and get dropped entirely (their
+    # spells stay in the pool, placed elsewhere).
     _LOC_GROUP_TO_OPT: dict[str, str] = {
         "CardLocations":      "enable_wizard_cards",
         "Secrets":            "enable_secrets",
@@ -436,9 +439,9 @@ class HP2World(World):
         # non-off value (price_vanilla/random/low) as enabled via .value.
         "Tradersanity":       "tradersanity",
         # LevelCompletions has no opt: the 12 "X Level - Complete" spots are
-        # always real checks. The bingo levels clause gates on their
-        # reachability, so they must always exist; bingo_goal_levels (0..12)
-        # is the only knob over how many count toward the Great Hall.
+        # always real checks. The open castle levels clause gates on their
+        # reachability, so they must always exist; open_castle_goal_levels
+        # (0..12) is the only knob over how many count toward the Great Hall.
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
     # Spells / Key Items / Filler aren't listed — always in the pool. Traps
@@ -453,36 +456,36 @@ class HP2World(World):
         "Traps":          "enable_traps",
     }
 
-    def _is_bingo(self) -> bool:
-        return self.options.game_mode.current_key == "bingo"
+    def _is_open_castle(self) -> bool:
+        return self.options.game_mode.current_key == "open_castle"
 
     def _region_rules(self) -> dict:
-        return REGION_ENTRY_RULES_BINGO if self._is_bingo() else REGION_ENTRY_RULES_VANILLA
+        return REGION_ENTRY_RULES_OPEN_CASTLE if self._is_open_castle() else REGION_ENTRY_RULES_VANILLA
 
     def _location_rules(self) -> dict:
-        return LOCATION_RULES_BINGO if self._is_bingo() else LOCATION_RULES_VANILLA
+        return LOCATION_RULES_OPEN_CASTLE if self._is_open_castle() else LOCATION_RULES_VANILLA
 
     def _goal_rules(self) -> dict:
-        # Vanilla-only: the bingo path sets completion_condition from
-        # _bingo_complete and returns before this is consulted, so there is
-        # no bingo goal-rule table.
+        # Vanilla-only: the open castle path sets completion_condition from
+        # _open_castle_complete and returns before this is consulted, so there
+        # is no open castle goal-rule table.
         return GOAL_RULES_VANILLA
 
     def _goal_location_requirements(self) -> dict:
-        # Vanilla-only: the bingo path sets completion_condition from
-        # _bingo_complete and returns before this is consulted, so there is
-        # no bingo goal-location table.
+        # Vanilla-only: the open castle path sets completion_condition from
+        # _open_castle_complete and returns before this is consulted, so there
+        # is no open castle goal-location table.
         return GOAL_LOCATION_REQUIREMENTS_VANILLA
 
     def _location_enabled(self, loc_name: str) -> bool:
         group = LOCATION_GROUPS.get(loc_name)
-        if group == "Classrooms" and self._is_bingo():
+        if group == "Classrooms" and self._is_open_castle():
             return False
-        # Bingo-only regions (e.g. the Gryffindor challenge level): the room is
-        # physically unreachable in vanilla, so its stars + completion never
-        # exist as vanilla checks.
-        if (not self._is_bingo()
-                and LOCATION_REGIONS.get(loc_name) in BINGO_ONLY_REGIONS):
+        # Open-castle-only regions (e.g. the Gryffindor challenge level): the
+        # room is physically unreachable in vanilla, so its stars + completion
+        # never exist as vanilla checks.
+        if (not self._is_open_castle()
+                and LOCATION_REGIONS.get(loc_name) in OPEN_CASTLE_ONLY_REGIONS):
             return False
         opt_attr = self._LOC_GROUP_TO_OPT.get(group or "")
         if opt_attr is None:
@@ -534,26 +537,26 @@ class HP2World(World):
 
     def _starter_names(self) -> set[str]:
         # Precollected = the spells the player chose via `starting_spells`,
-        # plus (vanilla only) all 14 bingo level-entry keys so logic.yaml
+        # plus (vanilla only) all 14 open castle level-entry keys so logic.yaml
         # references to them auto-pass without entering the vanilla pool.
-        # Bingo keeps the keys in the pool — the mod-side bookcases gate each
-        # level transition until the matching key arrives via the AP grant.
+        # Open castle keeps the keys in the pool — the mod-side bookcases gate
+        # each level transition until the matching key arrives via the AP grant.
         spells = set(self.options.starting_spells.value) & set(ITEM_GROUPS.get("Spells", []))
-        if not self._is_bingo():
+        if not self._is_open_castle():
             # Vanilla physically needs Lumos+Flipendo to clear Whomping Willow,
             # so force them precollected — a vanilla seed is always playable
             # regardless of what (if anything) starting_spells lists.
             spells |= {"Lumos", "Flipendo"}
-        # Bingo: no keys precollected (all 14 are AP items). Vanilla with
+        # Open castle: no keys precollected (all 14 are AP items). Vanilla with
         # vanilla_gate_levels on: precollect every key except the 7 that gate a
         # region behind a bookcase. Vanilla with it off: precollect all 14 so
         # every region opens immediately and no bookcase spawns.
-        if self._is_bingo():
+        if self._is_open_castle():
             keys: set[str] = set()
         elif self.options.vanilla_gate_levels:
-            keys = BINGO_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES
+            keys = OPEN_CASTLE_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES
         else:
-            keys = set(BINGO_KEY_NAMES)
+            keys = set(OPEN_CASTLE_KEY_NAMES)
         return spells | keys
 
     def _apply_missable_exclusions(self) -> None:
@@ -565,11 +568,11 @@ class HP2World(World):
         # it filler-only so AP fill never gates the seed on a location the
         # level makes permanently unreachable.
         #
-        # Bingo has no missable secrets: the open castle makes every level
-        # infinitely replayable, so nothing is ever truly missed. The whole
-        # system is a vanilla concept; allow_secrets_progression is ignored in
-        # bingo and normal region-entry logic governs these secrets.
-        if self._is_bingo():
+        # Open castle has no missable secrets: every level is infinitely
+        # replayable, so nothing is ever truly missed. The whole system is a
+        # vanilla concept; allow_secrets_progression is ignored in open castle
+        # and normal region-entry logic governs these secrets.
+        if self._is_open_castle():
             return
         precollected = self._starter_names()
         deps_map = MISSABLE_SECRET_DEPS_VANILLA
@@ -664,17 +667,17 @@ class HP2World(World):
             add_item_rule(loc, lambda item, silvers=silver_items: item.name not in silvers)
         # Gold Card Room *reachability* — the 40-silver gate itself — lives in
         # the GoldCardRoom region `entry` of logic_vanilla.yaml and
-        # logic_bingo.yaml as the `@all_silver_cards` macro, expanded by
+        # logic_open_castle.yaml as the `@all_silver_cards` macro, expanded by
         # gen_apworld.py from the same cards_silver classification.
 
         # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a
         # lot of beans the player can't have collected early; gate them behind
-        # owning at least 3 spells AND at least 3 bingo keys (any of them — a
-        # count threshold the logic grammar can't express). ANDs onto the
-        # existing rule. Only the QuidditchPurchases locations that exist this
-        # seed are touched, so this is a no-op when the vendors are disabled.
+        # owning at least 3 spells AND at least 3 open castle keys (any of
+        # them — a count threshold the logic grammar can't express). ANDs onto
+        # the existing rule. Only the QuidditchPurchases locations that exist
+        # this seed are touched, so this is a no-op when the vendors are disabled.
         spell_names = ITEM_GROUPS.get("Spells", [])
-        key_names = ITEM_GROUPS.get("Bingo Keys", [])
+        key_names = ITEM_GROUPS.get("Open Castle Keys", [])
         for loc_name, group in LOCATION_GROUPS.items():
             if group != "QuidditchPurchases":
                 continue
@@ -686,20 +689,20 @@ class HP2World(World):
                 sum(state.has(s, player) for s in sp) >= 3
                 and sum(state.has(k, player) for k in kp) >= 3)
 
-        # Bingo: AP's completion_condition mirrors the mod's GoalSatisfied().
+        # Open castle: AP's completion_condition mirrors the mod's GoalSatisfied().
         # cards/spells are has-counts (the same items the mod counts; cards
-        # are promoted to progression_skip_balancing in create_item for bingo
-        # so AP guarantees them reachable). The levels clause gates on the
-        # reachability of the 11 "X Level - Complete" locations — completing a
-        # level, not merely owning its key (owning 'Boomslang Level Key' is
+        # are promoted to progression_skip_balancing in create_item for open
+        # castle so AP guarantees them reachable). The levels clause gates on
+        # the reachability of the 11 "X Level - Complete" locations — completing
+        # a level, not merely owning its key (owning 'Boomslang Level Key' is
         # not the same as finishing Boomslang, which also needs Diffindo).
         # duels/quidditch gate on the key that opens that bookcase. Same
-        # _bingo_goal_config the mod gets via fill_slot_data. The GoldCardRoom
-        # key/spell placement exclusion below stops AP shoving a goal-required
-        # key behind the 40-silver wall.
-        if self._is_bingo():
+        # _open_castle_goal_config the mod gets via fill_slot_data. The
+        # GoldCardRoom key/spell placement exclusion below stops AP shoving a
+        # goal-required key behind the 40-silver wall.
+        if self._is_open_castle():
             keys_and_spells = frozenset(
-                ITEM_GROUPS.get("Bingo Keys", []) + ITEM_GROUPS.get("Spells", []))
+                ITEM_GROUPS.get("Open Castle Keys", []) + ITEM_GROUPS.get("Spells", []))
             for loc_name in GOLD_CARD_ROOM_LOCATIONS:
                 try:
                     loc = self.multiworld.get_location(loc_name, self.player)
@@ -707,12 +710,12 @@ class HP2World(World):
                     continue
                 add_item_rule(loc, lambda item, bad=keys_and_spells: item.name not in bad)
 
-            cfg = self._bingo_goal_config()
-            need_cards = cfg["bingo_goal_cards"]
-            need_spells = cfg["bingo_goal_spells"]
-            need_levels = cfg["bingo_goal_levels"]
-            need_duels = cfg["bingo_goal_duels"]
-            need_quidditch = cfg["bingo_goal_quidditch"]
+            cfg = self._open_castle_goal_config()
+            need_cards = cfg["open_castle_goal_cards"]
+            need_spells = cfg["open_castle_goal_spells"]
+            need_levels = cfg["open_castle_goal_levels"]
+            need_duels = cfg["open_castle_goal_duels"]
+            need_quidditch = cfg["open_castle_goal_quidditch"]
             card_items = sorted(CARD_ITEM_NAMES)
             spell_items = ITEM_GROUPS.get("Spells", [])
             duel_key = "Duelling Key"
@@ -725,7 +728,7 @@ class HP2World(World):
             completion_locs = [n for n, g in LOCATION_GROUPS.items()
                                if g == "LevelCompletions"]
 
-            def _bingo_complete(state, p=self.player):
+            def _open_castle_complete(state, p=self.player):
                 if need_cards and sum(state.has(c, p) for c in card_items) < need_cards:
                     return False
                 if need_spells and sum(state.has(s, p) for s in spell_items) < need_spells:
@@ -741,7 +744,7 @@ class HP2World(World):
                 return True
 
             self.multiworld.completion_condition[self.player] = (
-                lambda state, fn=_bingo_complete: fn(state)
+                lambda state, fn=_open_castle_complete: fn(state)
             )
             return
 
@@ -762,40 +765,41 @@ class HP2World(World):
                 and all(state.can_reach_location(loc, player) for loc in locs)
         )
 
-    def _bingo_goal_config(self) -> dict:
-        # Single source of truth for the resolved bingo Great Hall key config.
-        # fill_slot_data (the game's gate) and the set_rules bingo gate both
-        # call this, so AP's solvability model and the game agree exactly.
-        # Applies the never-zero-gate fallback: if a yaml resolves every clause
-        # to 0/off there would be no gate at all, so fall back to "all spells".
+    def _open_castle_goal_config(self) -> dict:
+        # Single source of truth for the resolved open castle Great Hall key
+        # config. fill_slot_data (the game's gate) and the set_rules open castle
+        # gate both call this, so AP's solvability model and the game agree
+        # exactly. Applies the never-zero-gate fallback: if a yaml resolves
+        # every clause to 0/off there would be no gate at all, so fall back to
+        # "all spells".
         o = self.options
-        cards     = int(o.bingo_goal_cards.value)
-        spells    = int(o.bingo_goal_spells.value)
-        levels    = int(o.bingo_goal_levels.value)
-        duels     = int(bool(o.bingo_goal_duels.value))
-        quidditch = int(bool(o.bingo_goal_quidditch.value))
-        # The contradictory combo (bingo_goal_cards>0 while enable_wizard_cards
-        # is off) is rejected up front in generate_early with a clear message,
-        # so it can't reach here — no silent zeroing needed.
+        cards     = int(o.open_castle_goal_cards.value)
+        spells    = int(o.open_castle_goal_spells.value)
+        levels    = int(o.open_castle_goal_levels.value)
+        duels     = int(bool(o.open_castle_goal_duels.value))
+        quidditch = int(bool(o.open_castle_goal_quidditch.value))
+        # The contradictory combo (open_castle_goal_cards>0 while
+        # enable_wizard_cards is off) is rejected up front in generate_early
+        # with a clear message, so it can't reach here — no silent zeroing needed.
         if not (cards or spells or levels or duels or quidditch):
             # SPELL_ITEM_NAMES is the 7 spells (defined at module top).
             spells = len(SPELL_ITEM_NAMES)
         return {
-            "bingo_goal_cards": cards,
-            "bingo_goal_spells": spells,
-            "bingo_goal_levels": levels,
-            "bingo_goal_duels": duels,
-            "bingo_goal_quidditch": quidditch,
+            "open_castle_goal_cards": cards,
+            "open_castle_goal_spells": spells,
+            "open_castle_goal_levels": levels,
+            "open_castle_goal_duels": duels,
+            "open_castle_goal_quidditch": quidditch,
             # Bit i set => level objective i (goal_plan.md §6.4) counts toward
-            # bingo_goal_levels. All 12 in scope. Field exists so a future
+            # open_castle_goal_levels. All 12 in scope. Field exists so a future
             # "which objectives" option needs no slot_data schema bump.
-            "bingo_level_mask": (1 << 12) - 1,
+            "open_castle_level_mask": (1 << 12) - 1,
         }
 
     def fill_slot_data(self) -> dict:
         # The client only learns the RingLink / DeathLink toggles through
         # slot_data; it has no other view of the YAML. Must be in both paths.
-        if not self._is_bingo():
+        if not self._is_open_castle():
             return {
                 "game_mode": "vanilla",
                 "ring_link": bool(self.options.ring_link),
@@ -803,10 +807,10 @@ class HP2World(World):
                 "tradersanity": self.options.tradersanity.value,
             }
         sd = {
-            "game_mode": "bingo",
+            "game_mode": "open_castle",
             "ring_link": bool(self.options.ring_link),
             "death_link": bool(self.options.death_link.value),
             "tradersanity": self.options.tradersanity.value,
         }
-        sd.update(self._bingo_goal_config())
+        sd.update(self._open_castle_goal_config())
         return sd

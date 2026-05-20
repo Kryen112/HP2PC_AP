@@ -1,11 +1,11 @@
-"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_bingo.yaml."""
+"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_open_castle.yaml."""
 
 from typing import Callable
 
 from BaseClasses import CollectionState
 
 # Per-location additional rules (on top of region entry).
-# Mode-dependent: HP2World selects vanilla or bingo at gen time.
+# Mode-dependent: HP2World selects vanilla or open castle at gen time.
 LOCATION_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = {
     'Bicorn Level - Card Agrippa': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Alohomora', player),
     'Bicorn Level - Card Cronk': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Alohomora', player),
@@ -300,7 +300,7 @@ LOCATION_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = {
     'Whomping Willow - Secret 2': lambda state, player: state.has('Alohomora', player)  and  state.has('Lumos', player)  and  state.has('Flipendo', player),
 }
 
-LOCATION_RULES_BINGO: dict[str, Callable[[CollectionState, int], bool]] = {
+LOCATION_RULES_OPEN_CASTLE: dict[str, Callable[[CollectionState, int], bool]] = {
     'Bicorn Level - Card Agrippa': lambda state, player: state.has('Alohomora', player)  and  state.has('Flipendo', player)  and  state.has('Skurge', player),
     'Bicorn Level - Card Cronk': lambda state, player: state.has('Alohomora', player)  and  state.has('Flipendo', player)  and  state.has('Skurge', player),
     'Bicorn Level - Card Goshawk': lambda state, player: state.has('Alohomora', player)  and  state.has('Flipendo', player)  and  state.has('Skurge', player),
@@ -590,16 +590,16 @@ LOCATION_RULES_BINGO: dict[str, Callable[[CollectionState, int], bool]] = {
 }
 
 # goal_name -> direct item/logic rule for victory generation.
-# Vanilla only: bingo sets completion_condition from _bingo_complete
-# (cards/spells has-counts + level-completion reachability), so it
-# needs no goal-rule table. Runtime completion still comes from the
-# game-side GOAL_COMPLETE signal.
+# Vanilla only: open castle sets completion_condition from
+# _open_castle_complete (cards/spells has-counts + level-completion
+# reachability), so it needs no goal-rule table. Runtime completion
+# still comes from the game-side GOAL_COMPLETE signal.
 GOAL_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = {
     'basilisk': lambda state, player: state.has('Flipendo', player)  and  state.has('Lumos', player)  and  state.has('Alohomora', player)  and  state.has('Diffindo', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Spongify', player)  and  state.has('Bicorn Level Key', player)  and  state.has('Boomslang Level Key', player)  and  state.has('Goyle Level Key', player)  and  state.has('Slytherin Common Room Key', player)  and  state.has('Forbidden Forest Key', player)  and  state.has('Chamber of Secrets Key', player),
 }
 
 # Optional goal_name -> location names that must be reachable
 # for victory. Vanilla only, for the same reason as the goal-rule
-# table above (bingo uses _bingo_complete).
+# table above (open castle uses _open_castle_complete).
 GOAL_LOCATION_REQUIREMENTS_VANILLA: dict[str, list[str]] = {
 }

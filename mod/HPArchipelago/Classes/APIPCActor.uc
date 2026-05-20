@@ -238,9 +238,9 @@ function HandleLine(string line)
     }
     else if (Left(line, 8) == "GOALCFG ")
     {
-        // Bingo Great Hall key thresholds from the apworld slot_data, as
+        // Open castle Great Hall key thresholds from the apworld slot_data, as
         // "cards,spells,levels,duels,quidditch,mask". Sticky class-default on
-        // the watcher (mirrors bBingoMode); resent every HELLO so a fresh
+        // the watcher (mirrors bOpenCastleMode); resent every HELLO so a fresh
         // launch / reconnect re-arms it. Idempotent.
         class'APCardWatcher'.static.SetGoalConfigCSV(Mid(line, 8));
     }
@@ -262,14 +262,14 @@ function HandleLine(string line)
     }
     else if (Left(line, 5) == "MODE ")
     {
-        // Authoritative bingo signal from the apworld slot_data game_mode
+        // Authoritative open castle signal from the apworld slot_data game_mode
         // (sticky class-default on the watcher; resent every HELLO). A late
         // belt alongside the durable DLO probe. One-way by design: only
-        // "MODE bingo" acts; "MODE vanilla" is ignored (bBingoMode is never
-        // cleared — the whole mod relies on that invariant).
-        if (Mid(line, 5) == "bingo")
+        // "MODE open_castle" acts; "MODE vanilla" is ignored (bOpenCastleMode
+        // is never cleared — the whole mod relies on that invariant).
+        if (Mid(line, 5) == "open_castle")
         {
-            class'APCardWatcher'.static.EnterBingoMode("IPC MODE bingo");
+            class'APCardWatcher'.static.EnterOpenCastleMode("IPC MODE open_castle");
         }
     }
     else if (Left(line, 11) == "APPEARANCE ")
@@ -592,7 +592,7 @@ function SendApplied(int idx)
 }
 
 // One-shot-per-new-game NEWGAME signal. Called by APCardWatcher when it
-// observes iGameState 0 (a genuine new game, both vanilla and bingo). The
+// observes iGameState 0 (a genuine new game, both vanilla and open castle). The
 // client wipes its durable ledger so the fresh playthrough re-receives every
 // item. Latch lives on this persistent singleton; the watcher re-arms it once
 // iGameState climbs > 0.

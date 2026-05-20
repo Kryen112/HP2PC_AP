@@ -177,7 +177,7 @@ quidditch_matches:
 # the pool (these checks hold whatever AP places at them, like cards do).
 #
 # Per-challenge requires live in data/logic_vanilla.yaml /
-# data/logic_bingo.yaml. The 4 challenge regions already exist
+# data/logic_open_castle.yaml. The 4 challenge regions already exist
 # (RictusempraChallenge / SkurgeChallenge / DiffindoChallenge /
 # SpongifyChallenge), so rules attach per-location.
 #
@@ -489,12 +489,12 @@ challenge_stars:
 #   idx 7-10 Mechanism D  left the terminal challenge level (CheckExitedLevelObjective); FinalStar NOT replaced (§12 #18)
 # `level`/`idx` are documentation only — the generator uses name/id_offset/
 # region/group (emit_locations generic loop). Region = the level's existing
-# logic region (must exist in BOTH logic_vanilla.yaml and logic_bingo.yaml).
-# Always real AP checks (no enable toggle): the bingo Great Hall levels
+# logic region (must exist in BOTH logic_vanilla.yaml and logic_open_castle.yaml).
+# Always real AP checks (no enable toggle): the open castle Great Hall levels
 # clause gates on the reachability of these locations, so they must always
-# exist. bingo_goal_levels (0..12) is the only knob over how many count.
-# These are NOT bingo-only: in vanilla they are ordinary progress checks; the
-# Great Hall clause-3 gate uses the same detector but only in bingo mode.
+# exist. open_castle_goal_levels (0..12) is the only knob over how many count.
+# These are NOT open-castle-only: in vanilla they are ordinary progress checks;
+# the Great Hall clause-3 gate uses the same detector but only in open castle mode.
 level_completions:
   - { id_offset: 700, idx: 0,  level: BoomslangLevel,  name: "Boomslang Level - Complete",        region: BoomslangLevel,    group: LevelCompletions }
   - { id_offset: 701, idx: 1,  level: BicornLevel,     name: "Bicorn Level - Complete",           region: BicornLevel,       group: LevelCompletions }
@@ -513,9 +513,9 @@ level_completions:
 # non-Weasley card vendor (Sells_BronzeCards/SilverCards) and ingredient
 # vendor (Sells_WBark/FMucus) sells one AP check on its first sale, then
 # reverts to its normal item once that check is collected. Sourced from the
-# runtime vendor census (vanilla + bingo walk). Vendor
+# runtime vendor census (vanilla + open castle walk). Vendor
 # `actor.Name` is stable across level re-entry / save-load and identical
-# between the vanilla and bingo installs, so the mod keys each location on
+# between the vanilla and HP2 Bingo installs, so the mod keys each location on
 # (level, vendor_name) exactly like secrets — APLocationRegistry gains
 # GetVendorLocationId(LevelName, VendorKey). `sells` IS consumed by the
 # generator (GetVendorSells): a card vendor (BronzeCards/SilverCards) is
@@ -537,10 +537,10 @@ level_completions:
 # these hold whatever the multiworld places (filler pads the delta).
 #
 # Region must exist in BOTH logic graphs: Entryhall_hub/Grandstaircase_hub
-# map to Hogwarts, Grounds_hub to CastleExterior (both Sphere-0 in bingo,
+# map to Hogwarts, Grounds_hub to CastleExterior (both Sphere-0 in open castle,
 # both already used by secrets/classrooms). Not all vendors are story-
 # accessible in vanilla but all spawn; per-location `requires:` is authored
-# in logic_vanilla.yaml / logic_bingo.yaml.
+# in logic_vanilla.yaml / logic_open_castle.yaml.
 tradersanity:
   - { id_offset: 800, name: "Hogwarts Entrance Hall - Card Vendor 1",       level: Entryhall_hub,       vendor_name: GOldMaleGry0, vendor_class: GOldMaleGry1, sells: BronzeCards, loc: "(-1751.78, -3153.07, 108.50)", region: Hogwarts,       group: Tradersanity }
   - { id_offset: 801, name: "Hogwarts Entrance Hall - Card Vendor 2",       level: Entryhall_hub,       vendor_name: GOldMaleSly2, vendor_class: GOldMaleSly2, sells: SilverCards, loc: "(-242.83, -986.37, -20.00)",   region: Hogwarts,       group: Tradersanity }

@@ -70,18 +70,18 @@ Your `Save\` folder is fine to keep. If `Harry - Coding Evolved\` doesn't exist 
 
 > The shipped `Default.ini` is already patched with `EditPackages=IpDrv`, `EditPackages=HPArchipelago`, and `DefaultGame=HPArchipelago.APGameInfo`. No hand-editing required.
 
-### Optional: install the bingo distribution too
+### Optional: install the HP2 Bingo distribution too
 
-The randomizer also supports the **HP2 Bingo** community pack — open castle from spawn. You can keep your vanilla install AND a separate bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
+The randomizer also supports the **HP2 Bingo** community pack — open castle from spawn. You can keep your vanilla install AND a separate HP2 Bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
 
-If you only want vanilla story play, skip to step 4. If you want bingo:
+If you only want vanilla story play, skip to step 4. If you want open castle:
 
 1. **Install HP2 retail to a separate folder** (e.g. `C:\Program Files (x86)\EA Games\Bingo`) so it doesn't collide with the vanilla install.
 2. **Get the Bingo Client** from the HP2 speedrunning community (https://www.speedrun.com/hpcc/resources) (the **[2PC] Bingo Client V4.5** download). Copy its `Harry Potter and the Chamber of Secrets\` contents over the install from the previous step.
-3. **Run the M212 installer again**, pointing at your bingo folder. M212 layers cleanly over bingo's map edits.
-4. **Copy `HPArchipelago.u` and `Default.ini`** into `<Bingo install>\Modded\system\`, same as step 3 above. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files), so no separate INI cleanup is needed.
+3. **Run the M212 installer again**, pointing at your HP2 Bingo folder. M212 layers cleanly over the HP2 Bingo map edits.
+4. **Copy `HPArchipelago.u` and `Default.ini`** into `<HP2 Bingo install>\Modded\system\`, same as step 3 above. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files), so no separate INI cleanup is needed.
 
-That's the install side. The yaml side is one line — see "Configure your slot" below for the `game_mode: bingo` option.
+That's the install side. The yaml side is one line — see "Configure your slot" below for the `game_mode: open_castle` option.
 
 ### 4. Install Archipelago and the apworld
 
@@ -119,10 +119,10 @@ If you're playing solo (just you, no other AP slots):
    ```yaml
    Harry Potter 2 PC:
      game_mode: vanilla # default — retail + M212; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
-     # game_mode: bingo   # bingo install — NO spells precollected, all 7 land as AP items
+     # game_mode: open_castle   # HP2 Bingo install — NO spells precollected, all 7 land as AP items
    ```
 
-   The mod side handles the runtime difference itself (auto-detects bingo via the `MGBingoLearnAllSpells` actor and reverts the bingo client's PostBeginPlay spell grants). You can confirm it kicked in by checking `Game.log` for `DetectBingoMode - found MGBingoLearnAllSpells - entering bingo mode (sticky)` shortly after launching.
+   The mod side handles the runtime difference itself (auto-detects the HP2 Bingo install via the `MGBingoLearnAllSpells` actor and reverts the HP2 Bingo client's PostBeginPlay spell grants). You can confirm it kicked in by checking `Game.log` for `DetectOpenCastleMode - found MGBingoLearnAllSpells - entering open castle mode (sticky)` shortly after launching.
 
 3. **Generate.** ArchipelagoLauncher → **Generate**, pick your YAML when prompted. The generator drops a seed zip in `<Archipelago install>\output\`.
 
