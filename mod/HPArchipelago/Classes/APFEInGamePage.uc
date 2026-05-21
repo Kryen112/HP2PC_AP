@@ -13,6 +13,16 @@
 //
 // Visuals: reuses HP2_Menu.Icons.HP2MenuBackToGame so the button shape
 // matches the "Resume Game" (BackPageButton) aesthetic.
+//
+// Spell-challenge suppression: in vanilla mode (APCardWatcher.bOpenCastleMode
+// == 0), the button is hidden on the four spell-challenge levels
+// (Ch1Rictusempra, Ch2Skurge, Ch3Diffindo, Ch4Spongify) so the player cannot
+// bail out of a mandatory story-progression challenge for free. Those levels
+// are documented as terminal (APCardWatcher.uc CheckExitedLevelObjective) -
+// a failed run restarts in place via EventTimeUpRestart, so the soft-lock-
+// recovery purpose of the button does not apply there. Open-castle mode
+// keeps the button available everywhere. PreSwitchPage runs each time the
+// pause menu opens, so the hide/show re-evaluates across level transitions.
 //=============================================================================
 
 class APFEInGamePage extends FEInGamePage;
@@ -40,6 +50,32 @@ function Created()
     HomeButton.OverTexture   = textureHomeNorm;
     HomeButton.DownTexture   = textureHomeNorm;
     HomeButton.DownSound     = soundBottomClick;
+}
+
+function PreSwitchPage()
+{
+    local Actor playerActor;
+    local string curLevelCaps;
+
+    Super.PreSwitchPage();
+
+    if (HomeButton == None) return;
+    if (book == None || book.Root == None || book.Root.Console == None) return;
+    if (book.Root.Console.Viewport == None || book.Root.Console.Viewport.Actor == None) return;
+
+    playerActor = book.Root.Console.Viewport.Actor;
+    curLevelCaps = Caps(string(playerActor.Level.Outer.Name));
+
+    if (class'APCardWatcher'.default.bOpenCastleMode == 0
+        && (curLevelCaps == "CH1RICTUSEMPRA" || curLevelCaps == "CH2SKURGE"
+            || curLevelCaps == "CH3DIFFINDO"  || curLevelCaps == "CH4SPONGIFY"))
+    {
+        HomeButton.HideWindow();
+    }
+    else
+    {
+        HomeButton.ShowWindow();
+    }
 }
 
 function Notify(UWindowDialogControl C, byte E)
