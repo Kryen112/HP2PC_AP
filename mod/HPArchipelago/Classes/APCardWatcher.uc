@@ -856,6 +856,53 @@ static function SetConnectedAddress(string addr)
     Log("[Archipelago] APCardWatcher.SetConnectedAddress: '" $ default.ConnectedAddress $ "'");
 }
 
+// Ingest the client's CHECKED resync (comma-separated AP location ids the
+// server already has as checked for this slot). Stamps card apIds into
+// default.LocationChecked[cardId] and everything else into
+// default.NonCardLocationChecked[apId - LOC_BASE], so the mod's
+// process-lifetime dedupe arrays match the AP server's source of truth across
+// game close+reload (class-defaults are compiled, never read from the .usa).
+// Class-default + sticky like the other setters; idempotent (a check can
+// never be "uncollected"). Resent every HELLO. The follow-up convergence
+// sweep that bean-swaps already-checked chest slots is owned by
+// ReSweepCheckedChests, called from APIPCActor's CHECKED handler.
+static function SetCheckedLocationsCSV(string csv)
+{
+    local string rest;
+    local int apId, slot, cardId, nCard, nNonCard;
+
+    rest = csv;
+    while (rest != "")
+    {
+        apId = NextCsvInt(rest);
+        slot = apId - LOC_BASE;
+        // Card location band is id_offset 100-200 (plans/ID_BAND_LEDGER.md).
+        // Within the band the cardId -> apId mapping is scrambled (see
+        // APCardAppearance.CardIdToApId), so a 101-iteration linear reverse
+        // scan resolves it. Cheap: <= ~10k ops per HELLO worst case
+        // (101 cards * 101 scan).
+        if (slot >= 100 && slot <= 200)
+        {
+            for (cardId = 1; cardId <= 101; cardId++)
+            {
+                if (class'APCardAppearance'.static.CardIdToApId(cardId) == apId)
+                {
+                    default.LocationChecked[cardId] = 1;
+                    nCard++;
+                    break;
+                }
+            }
+        }
+        else if (slot >= 0 && slot < NONCARD_LOC_WINDOW)
+        {
+            default.NonCardLocationChecked[slot] = 1;
+            nNonCard++;
+        }
+    }
+    Log("[Archipelago] APCardWatcher.SetCheckedLocationsCSV: stamped "
+        $ nCard $ " card check(s) + " $ nNonCard $ " non-card check(s)");
+}
+
 // ---------------------------------------------------------------------------
 // #3 marker-appearance subsystem
 // ---------------------------------------------------------------------------
@@ -1209,6 +1256,110 @@ function RegisterMorphMarker(Actor a, int apId)
     if (free < 0) return;
     MorphActor[free] = a;
     MorphApId[free]  = apId;
+}
+
+// Convergence sweep after a CHECKED resync. Walks the current level's
+// chest / cauldron slots and live APCardMarker actors and bean-swaps /
+// destroys the ones whose location is now (post-stamp) in
+// default.LocationChecked[].
+//
+// Why this exists: ReplaceCardChests only runs in InitGame, but the CHECKED
+// IPC line arrives asynchronously some hundreds of ms after the game's HELLO
+// — by then InitGame has long finished. Without this sweep the chests stay
+// in their save-restored "APCardMarker in slot" state until the next level
+// transition. Idempotent: a slot already Jellybean (or one whose location
+// is still unchecked) is left alone. Mirrors the
+// APPEARANCE → RestampMarkerAppearance pattern.
+//
+// Scope: cards only. chest.bOpened is deliberately NOT restored to True
+// here: same-session ReplaceCardChests' bean-swap path doesn't touch
+// bOpened either (it only resets when hasUnchecked is true), so leaving it
+// matches that behaviour — a chest re-Alohomora'd post-sweep dispenses a
+// Jellybean from the swapped slot, which is the same outcome as a
+// co-op-pre-collected chest the player opens for the first time.
+function ReSweepCheckedChests()
+{
+    local Actor scanActor;
+    local chestbronze chest;
+    local bronzecauldron cauldron;
+    local APCardMarker marker;
+    local class<APCardMarker> slotMarkerCls;
+    local int i, nBean, nDestroy;
+
+    // Watcher's HarryRef is the gameplay UWorld anchor (matches the pattern
+    // RemoveRictaBlocker / DestroyTaggedOpenCastleBlockers use). Falls back
+    // to self when no Harry is bound yet (pre-Snapshot tick); the early HELLO
+    // window is rare but the fallback keeps the sweep useful even then.
+    if (HarryRef != None && !HarryRef.bDeleteMe)
+    {
+        scanActor = HarryRef;
+    }
+    else
+    {
+        scanActor = self;
+    }
+
+    foreach scanActor.AllActors(class'chestbronze', chest)
+    {
+        if (chest == None || chest.bDeleteMe) continue;
+        for (i = 0; i < ArrayCount(chest.EjectedObjects); i++)
+        {
+            if (chest.EjectedObjects[i] == None) continue;
+            if (!ClassIsChildOf(chest.EjectedObjects[i], class'APCardMarker')) continue;
+            slotMarkerCls = class<APCardMarker>(chest.EjectedObjects[i]);
+            if (slotMarkerCls.default.CardLocationId <= 0
+                || slotMarkerCls.default.CardLocationId > 101) continue;
+            if (default.LocationChecked[slotMarkerCls.default.CardLocationId] != 1) continue;
+            Log("[Archipelago] ReSweepCheckedChests: chest=" $ string(chest)
+                $ " slot=" $ i $ " was=" $ string(chest.EjectedObjects[i])
+                $ " location " $ slotMarkerCls.default.CardLocationId
+                $ " checked - bean-swapping to Jellybean");
+            chest.EjectedObjects[i] = class'Jellybean';
+            nBean++;
+        }
+    }
+
+    foreach scanActor.AllActors(class'bronzecauldron', cauldron)
+    {
+        if (cauldron == None || cauldron.bDeleteMe) continue;
+        for (i = 0; i < ArrayCount(cauldron.EjectedObjects); i++)
+        {
+            if (cauldron.EjectedObjects[i] == None) continue;
+            if (!ClassIsChildOf(cauldron.EjectedObjects[i], class'APCardMarker')) continue;
+            slotMarkerCls = class<APCardMarker>(cauldron.EjectedObjects[i]);
+            if (slotMarkerCls.default.CardLocationId <= 0
+                || slotMarkerCls.default.CardLocationId > 101) continue;
+            if (default.LocationChecked[slotMarkerCls.default.CardLocationId] != 1) continue;
+            Log("[Archipelago] ReSweepCheckedChests: cauldron=" $ string(cauldron)
+                $ " slot=" $ i $ " was=" $ string(cauldron.EjectedObjects[i])
+                $ " location " $ slotMarkerCls.default.CardLocationId
+                $ " checked - bean-swapping to Jellybean");
+            cauldron.EjectedObjects[i] = class'Jellybean';
+            nBean++;
+        }
+    }
+
+    // Live in-level APCardMarker actors (loose-spawn placements; or a marker
+    // spawned by a chest's generateobject before the resync landed). Their
+    // PostBeginPlay self-destroy guard already covers fresh spawns; this
+    // covers the ones that exist right now, post-RCC and pre-CHECKED.
+    foreach scanActor.AllActors(class'APCardMarker', marker)
+    {
+        if (marker == None || marker.bDeleteMe) continue;
+        if (marker.CardLocationId <= 0 || marker.CardLocationId > 101) continue;
+        if (default.LocationChecked[marker.CardLocationId] != 1) continue;
+        Log("[Archipelago] ReSweepCheckedChests: marker=" $ string(marker)
+            $ " location " $ marker.CardLocationId $ " checked - destroying");
+        marker.Destroy();
+        nDestroy++;
+    }
+
+    if (nBean > 0 || nDestroy > 0)
+    {
+        Log("[Archipelago] ReSweepCheckedChests: bean-swapped " $ nBean
+            $ " slot(s), destroyed " $ nDestroy $ " live marker(s) in "
+            $ string(Level.Outer.Name));
+    }
 }
 
 // Convergence sweep: re-stamp every registered marker from the live table.

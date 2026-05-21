@@ -272,6 +272,24 @@ function HandleLine(string line)
             class'APCardWatcher'.static.EnterOpenCastleMode("IPC MODE open_castle");
         }
     }
+    else if (Left(line, 8) == "CHECKED ")
+    {
+        // Per-slot checked-locations resync from the client, as a
+        // comma-separated list of AP location ids the server already has as
+        // checked. Sticky class-default on the watcher (mirrors GOALCFG /
+        // APPEARANCE); resent every HELLO so a fresh game launch / reconnect
+        // re-stamps LocationChecked[] / NonCardLocationChecked[] (the mod's
+        // arrays are class-default = process-lifetime, never restored from
+        // the .usa). After stamping, the watcher re-sweeps the live level so
+        // chests/markers whose location is already checked bean-swap /
+        // destroy immediately instead of waiting for another level transition.
+        class'APCardWatcher'.static.SetCheckedLocationsCSV(Mid(line, 8));
+        w = class'APCardWatcher'.static.GetLatest();
+        if (w != None)
+        {
+            w.ReSweepCheckedChests();
+        }
+    }
     else if (Left(line, 11) == "APPEARANCE ")
     {
         // #3 per-location appearance table from the client, as

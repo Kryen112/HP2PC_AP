@@ -24,6 +24,7 @@ Mod-side protocol (newline-delimited text):
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
     DEATHLINK                   (client → game, a linked player died — kill Harry)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
+    CHECKED <id_csv>            (client → game, comma-separated AP location ids the server already has as checked; sticky, every HELLO)
 
 Durable-grant ledger: the set of applied AP indices is persisted in AP server
 Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
@@ -272,6 +273,16 @@ class HP2Context(CommonContext):
         # owns the once-per-launch / once-per-save-load fire latch, so resending
         # the same address on a reconnect / HELLO never re-toasts.
         self.connected_address: Optional[str] = None
+        # CHECKED resync. AP server's per-slot checked_locations rebuilt into
+        # a comma-separated AP-location-id string, pushed every game HELLO so
+        # the mod can stamp class-default LocationChecked[] /
+        # NonCardLocationChecked[] arrays on a fresh process. The mod's arrays
+        # are process-lifetime only (class-defaults are compiled, never read
+        # from the .usa), so the AP server is the source of truth across game
+        # close+reload. None until the first rebuild from Connected /
+        # RoomUpdate; empty string is a valid payload (no checks yet, still
+        # resent every HELLO to overwrite any stale stamp on a reconnect).
+        self.checked_csv: Optional[str] = None
 
     @staticmethod
     def _format_ap_address(raw: Optional[str]) -> Optional[str]:
@@ -406,6 +417,21 @@ class HP2Context(CommonContext):
                     label=f"LocationScouts ({len(scout_ids)} HP2 locations, "
                           f"#3 appearance, no hint)",
                 ))
+
+            # CHECKED resync. server_locations + checked_locations are
+            # populated by CommonContext before on_package runs for Connected,
+            # so the first rebuild here gives us a full payload. RoomUpdate
+            # below rebuilds incrementally as co-op partners collect.
+            self._rebuild_checked_csv()
+        elif cmd == "RoomUpdate":
+            # The server pushes a checked_locations delta whenever any client
+            # (including ours via a different process) collects one of our
+            # locations. CommonContext has already merged the delta into
+            # self.checked_locations by the time on_package runs, so just
+            # rebuild from scratch — the diff against self.checked_csv
+            # suppresses no-op pushes.
+            if "checked_locations" in args:
+                self._rebuild_checked_csv()
         elif cmd == "ReceivedItems":
             base = args.get("index") or 0
             for offset, item in enumerate(args.get("items", [])):
@@ -706,6 +732,12 @@ class HP2Context(CommonContext):
             # the address without re-toasting. None until AP-connected.
             if self.connected_address:
                 self._send_to_game("CONNECTED " + self.connected_address)
+            # Re-arm the checked-locations resync. Sticky + idempotent mod-side
+            # (stamps are 0→1 only, no clears). `is not None` (not truthiness)
+            # so the empty-string "no checks yet" payload still re-arms — the
+            # mod overwrites any stale state from a prior session that way.
+            if self.checked_csv is not None:
+                self._send_to_game("CHECKED " + self.checked_csv)
             return
         if line == "GOAL_COMPLETE":
             if self.goal_sent:
@@ -1008,6 +1040,27 @@ class HP2Context(CommonContext):
             return KEY_CODE[name]
         return 0
 
+    def _rebuild_checked_csv(self) -> None:
+        """Recompute the CHECKED resync payload from this slot's
+        checked_locations, intersected with the slot's HP2 location universe.
+        Pushed every game HELLO so the mod can stamp class-default
+        LocationChecked[] / NonCardLocationChecked[] on a fresh process —
+        those arrays are process-lifetime only. The intersect mirrors the
+        appearance scout: server_locations is the authoritative per-slot
+        universe (missing | checked), so an apId outside it is not ours and
+        would only be noise to the mod. Diff against the cached payload to
+        suppress no-op resends from RoomUpdates that didn't touch our slot."""
+        if not self.server_locations:
+            return
+        valid = set(LOCATION_NAME_TO_ID.values()) & set(self.server_locations)
+        ids = sorted(set(self.checked_locations) & valid)
+        csv = ",".join(str(i) for i in ids)
+        if csv == self.checked_csv:
+            return
+        self.checked_csv = csv
+        logger.info(f"Checked-locations resync rebuilt: {len(ids)} location(s)")
+        self._send_to_game("CHECKED " + csv)
+
     def _rebuild_appearance_table(self) -> None:
         """Recompute the per-location appearance payload from locations_info
         and push it to the mod if it changed. Only HP2 location ids appear in
@@ -1053,6 +1106,9 @@ class HP2Context(CommonContext):
         # #3: drop the prior seed's appearance table so the next Connected's
         # scout rebuilds it from scratch (item placement differs per seed).
         self.appearance_csv = None
+        # Drop the prior seed's checked-locations resync; the new seed has its
+        # own checked_locations universe (different ids, different progress).
+        self.checked_csv = None
 
     async def run_tcp_server(self) -> None:
         server = await asyncio.start_server(
