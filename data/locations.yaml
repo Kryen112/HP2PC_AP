@@ -15,9 +15,11 @@
 base_id: 5760000
 
 # 4 spell-teaching classrooms. Each grants one of the 4 non-starter spells
-# (Rictusempra, Skurge, Diffindo, Spongify). Lumos/Flipendo/Alohomora are
-# starter cutscene spells and have no classroom location — they must be
-# placed as start-inventory by the seed (see DESIGN.md open question 7).
+# (Rictusempra, Skurge, Diffindo, Spongify). Lumos/Flipendo/Alohomora have no
+# classroom location: harry.uc:335-337 adds them to every fresh Harry, so the
+# only way to keep them away from the player is via the mod's Snapshot+revert
+# (which wipes any spell AP hasn't granted). Whether they're starters depends
+# on the `starting_spells` yaml option.
 #
 # v1 story-order in vanilla play: Lockhart#1 → Quidditch → Potions (Snape,
 # brews Wiggenweld but no spell) → Flitwick → Bicorn level → Duelling Club →

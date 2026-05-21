@@ -232,10 +232,10 @@ var byte WCnFiredThisSession[12];
 
 // Sticky open-castle-mode flag. Set once Snapshot finds an MGBingoLearnAllSpells
 // actor in any level; persists for the rest of the session via class-default
-// write. In open castle mode, Snapshot skips the APGrantedSpell baseline so the
-// revert loop wipes MGBingo's R/Sk/D/Sp grants (and any other spell Harry
-// owns at snapshot time) — AP must deliver every spell. Vanilla mode is
-// unchanged: cutscene starters get baselined and survive.
+// write. Snapshot never baselines vanilla-engine grants (harry.uc:335-337
+// Flipendo/Lumos/Alohomora; MGBingo's open castle R/Sk/D/Sp) as AP-granted in
+// either mode — AP must deliver every spell the user marked in starting_spells.
+// The flag still drives mode-specific bookcase / blocker logic in APGameInfo.
 var byte bOpenCastleMode;
 
 // Open castle Great Hall key config. Delivered once per process by the client as
@@ -2312,29 +2312,19 @@ function Snapshot()
     {
         if (HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
         {
-            // WasSpellOwned suppresses the "new vanilla spell learned"
-            // CHECK_SPELL transition in the revert loop. In open castle mode we
-            // still want that suppression (MGBingo's PostBeginPlay grants
-            // are not a player action) — we just skip APGrantedSpell so the
-            // revert loop wipes the spell on its next pass. In vanilla mode
-            // both flags get set, which preserves the spell as if AP granted it.
+            // harry.PreBeginPlay (harry.uc:335-337) unconditionally adds
+            // Flipendo/Lumos/Alohomora to every fresh Harry actor, and
+            // open castle's MGBingo grants all 7. Neither is a player action,
+            // so set WasSpellOwned[i] to suppress the "new vanilla spell learned"
+            // CHECK_SPELL transition in the revert loop. APGrantedSpell stays
+            // 0 — only true AP grants (ApplyGrant via IPC) set it. Spells the
+            // user marked in starting_spells flow back over the durable resync;
+            // anything else gets reverted on the next tick.
             WasSpellOwned[i] = 1;
-            if (default.bOpenCastleMode == 0)
-            {
-                APGrantedSpell[i] = 1;
-                default.APGrantedSpell[i] = 1;
-            }
             ownedSpellCount++;
         }
     }
-    if (default.bOpenCastleMode == 1)
-    {
-        Log("[Archipelago] APCardWatcher: initial snapshot - Harry knows " $ ownedSpellCount $ " spells (open castle mode: will revert non-AP spells next tick)");
-    }
-    else
-    {
-        Log("[Archipelago] APCardWatcher: initial snapshot - Harry already knows " $ ownedSpellCount $ " spells (baselined as AP-granted, no revert)");
-    }
+    Log("[Archipelago] APCardWatcher: initial snapshot - Harry knows " $ ownedSpellCount $ " spells (will revert non-AP spells next tick)");
 
     for (i = 0; i < NUM_KEY_ITEMS; i++)
     {

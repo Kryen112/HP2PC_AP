@@ -91,12 +91,14 @@ GAME_TCP_PORT = 38281
 DEATHLINK_AMNESTY_S = 2.0
 
 # Map UScript spell name (as fired by APCardWatcher's CHECK_SPELL) to the
-# AP location it represents. Lumos/Flipendo/Alohomora are starter cutscene
-# spells with no classroom — they get placed as start-inventory by the seed
-# and never fire CHECK_SPELL after the initial-snapshot baseline. The 4
-# below are the non-starter spells, each taught after its classroom's spell
-# challenge. Story order: Rictusempra (Lockhart#1) → Skurge (Flitwick) →
-# Diffindo (Sprout) → Spongify (Lockhart#2). See data/locations.yaml.
+# AP location it represents. Only the 4 non-starter spells have classroom
+# locations and so live in this map — each is taught after its classroom's
+# spell challenge. Story order: Rictusempra (Lockhart#1) → Skurge (Flitwick)
+# → Diffindo (Sprout) → Spongify (Lockhart#2). Lumos/Flipendo/Alohomora have
+# no classroom location; harry.uc:335-337 adds them to every fresh Harry, the
+# mod's Snapshot+revert wipes them unless AP has granted them, and the AP
+# grant restores them. Whether they're starters depends on `starting_spells`.
+# See data/locations.yaml.
 SPELL_TO_LOCATION_NAME = {
     "Rictusempra": "Learned Rictusempra",
     "Skurge":      "Learned Skurge",

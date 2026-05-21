@@ -45,7 +45,7 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 
 - **Item shuffle** (no entrance shuffle).
 - **Open hub** start; all level doors unlocked from spawn; player can enter any level.
-- **Non-filler items:** 7 spells + 101 wizard cards + (optional) 2 equipment items (Nimbus 2001 / Quidditch Armour). Lumos/Flipendo/Alohomora are mandatory precollected starters; cards are AP item names prefixed by tier (e.g. `Silver Card - Duke`).
+- **Non-filler items:** 7 spells + 101 wizard cards + (optional) 2 equipment items (Nimbus 2001 / Quidditch Armour). The `starting_spells` yaml option (default Flipendo/Lumos/Alohomora) picks which spells are precollected starters; any spell not listed enters the AP item pool. Cards are AP item names prefixed by tier (e.g. `Silver Card - Duke`).
 - **Locations** (280 max with all toggles on): 4 spell-tutorial classrooms + 101 wizard cards + 109 secret areas + 44 challenge stars + 10 ranked duels (Duelling Club) + 6 Quidditch matches + 4 spell-challenge par times + 2 Weasley-twin vendor purchases.
 - **Per-category yaml toggles:** `enable_wizard_cards` (default on), `enable_secrets` (on), `enable_challenge_stars` (on), `enable_duelling` (off), `enable_quidditch_matches` (off), `enable_spell_challenge_times` (off), `enable_quidditch_upgrades` (off). The 4 spell-tutorial classrooms are always on, spells aren't optional. With every toggle off the seed has only the 4 classrooms + 4 non-starter spells.
 - **Boomslang / Bicorn / BitOGoyle** are NOT AP items; they're delivered by vanilla story progression.

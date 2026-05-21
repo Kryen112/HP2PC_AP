@@ -148,8 +148,9 @@ class StartingSpells(OptionSet):
     """Spells Harry starts with. Any spell not listed is an AP item instead.
 
     `vanilla` game_mode physically requires Lumos and Flipendo to finish the
-    Whomping Willow level. If left blank for `vanilla`, Lumos and Flipendo are
-    granted anyways.
+    Whomping Willow level. Leaving them out of `starting_spells` means the
+    player cannot progress until AP delivers them, so unless the world fill
+    places them very early, you should keep both listed for vanilla.
 
     Valid spells: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo & Spongify.
     """
@@ -322,7 +323,8 @@ class Tradersanity(Choice):
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
     # StartInventoryPool (add-and-remove-from-pool). Keep it available for
-    # playtest YAMLs; v1's three starter spells are precollected by the world.
+    # playtest YAMLs; the `starting_spells` set drives which spells the world
+    # precollects.
     start_inventory_from_pool: StartInventoryPool
     game_mode: GameMode
     starting_spells: StartingSpells
@@ -541,12 +543,13 @@ class HP2World(World):
         # references to them auto-pass without entering the vanilla pool.
         # Open castle keeps the keys in the pool — the mod-side bookcases gate
         # each level transition until the matching key arrives via the AP grant.
+        #
+        # Spells: honor `starting_spells` exactly in both modes. The mod's
+        # Snapshot reverts every spell harry.PreBeginPlay grants (Flipendo /
+        # Lumos / Alohomora — see harry.uc:335-337) unless AP has granted it
+        # over IPC, so a spell that isn't precollected here cannot be kept
+        # by riding the vanilla engine grant.
         spells = set(self.options.starting_spells.value) & set(ITEM_GROUPS.get("Spells", []))
-        if not self._is_open_castle():
-            # Vanilla physically needs Lumos+Flipendo to clear Whomping Willow,
-            # so force them precollected — a vanilla seed is always playable
-            # regardless of what (if anything) starting_spells lists.
-            spells |= {"Lumos", "Flipendo"}
         # Open castle: no keys precollected (all 14 are AP items). Vanilla with
         # vanilla_gate_levels on: precollect every key except the 7 that gate a
         # region behind a bookcase. Vanilla with it off: precollect all 14 so

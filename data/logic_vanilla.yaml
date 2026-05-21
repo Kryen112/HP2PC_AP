@@ -25,12 +25,13 @@
 #   4. Generate a normal (non-unlock-all) seed; verify it's solvable.
 #   5. Iterate.
 #
-# Items Lumos / Flipendo / Alohomora are precollected starters. Lumos and
-# Flipendo are encoded in every downstream region's entry rule because every
-# location needs Lumos and Flipendo, otherwise the Willow is impassable.
-# Alohomora is also a starter but listed explicitly per-location/region
-# wherever it is actually required, so the logic stays honest about which
-# locations depend on it if Alohomora is not a starter.
+# Spells default to precollected starters via the `starting_spells` yaml option
+# (default Flipendo/Lumos/Alohomora). Lumos and Flipendo are encoded in every
+# downstream region's entry rule because the Willow is impassable without them,
+# so if a user opts them out of starting_spells the AP solver must place them
+# early enough to remain reachable. Alohomora is listed explicitly per-location/
+# region wherever it is actually required, so the logic stays honest about
+# which locations depend on it when Alohomora isn't a starter.
 
 # Regions — entry rules. Locations inherit region access; their own `requires`
 # adds extra requirements on top.
