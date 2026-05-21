@@ -272,6 +272,23 @@ function HandleLine(string line)
             class'APCardWatcher'.static.EnterOpenCastleMode("IPC MODE open_castle");
         }
     }
+    else if (Left(line, 14) == "RESYNC_SPELLS ")
+    {
+        // Durable spell-grant resync from the apworld client, as a comma-
+        // separated list of AP item names this slot has ever received (sourced
+        // from the AP-Data-Storage `HP2PC_AP:granted_spells:{team}:{slot}` key).
+        // Re-asserts default.APGrantedSpell[] AND re-adds each spell to the live
+        // spellbook so a save-load that dropped the spell class ref recovers.
+        // Sticky + idempotent mod-side; resent every HELLO and every Connected.
+        class'APCardWatcher'.static.ApplyResyncSpells(Mid(line, 14));
+    }
+    else if (line == "RESYNC_SPELLS")
+    {
+        // Empty-list form (no spells received yet). Still opens the revert
+        // wipe gate so vanilla-engine F/L/A get correctly reverted for a slot
+        // that hasn't yet been granted any starters.
+        class'APCardWatcher'.static.ApplyResyncSpells("");
+    }
     else if (Left(line, 8) == "CHECKED ")
     {
         // Per-slot checked-locations resync from the client, as a

@@ -130,6 +130,11 @@ SPELL_NAME_TO_INDEX = {
     "Rictusempra": 4, "Skurge": 5, "Spongify": 6,
 }
 
+# The 7 AP item names treated as spells — for the durable spell-grant ledger
+# (RESYNC_SPELLS) and `_forward_one`'s "is this item a spell" classifier. Same
+# set as ITEM_GROUPS['Spells'] but reads as a frozenset for membership tests.
+SPELL_ITEM_NAMES_SET = frozenset(SPELL_NAME_TO_INDEX)
+
 # Filler appearance code — FILLER_NAMES order maps 1:1 to the mod's 2001..2008
 # (Small/Medium/Large/Massive Beans, Wiggenweld, Wiggentree Bark, Flobberworm,
 # Chocolate Frog).
@@ -221,6 +226,21 @@ class HP2Context(CommonContext):
         # the pending-grants drain from double-sending the same index before
         # its APPLIED ack lands.
         self.sent_this_session: set[int] = set()
+        # --- Durable spell-grant ledger ------------------------------------
+        # A *second* AP-storage record, distinct from consumed_indices: every
+        # AP item name in ITEM_GROUPS['Spells'] this slot has ever received,
+        # persisted at HP2PC_AP:granted_spells:{team}:{slot}. On each Connected
+        # the mod gets a `RESYNC_SPELLS <csv>` line that re-asserts the AP-grant
+        # flag (default.APGrantedSpell[]) AND re-adds the spell to the live
+        # spellbook — necessary because M212's .usa per-level package does not
+        # reliably preserve a SpellBook[] class ref for spells the level's
+        # native import table didn't need. consumed_indices alone can't fix
+        # this (an already-consumed spell index is never re-forwarded as a
+        # GRANT), so the spell-grant set lives separately and is *always*
+        # re-asserted on every connect/HELLO.
+        self.granted_spells_key: Optional[str] = None
+        self.granted_spell_names: set[str] = set()
+        self.granted_spells_loaded: bool = False
         # Last seed_name observed via RoomInfo. On change, wipe seed-specific
         # state in _handle_seed_change so a long-running client targeting the
         # same host:port across seeds doesn't replay seed A's items to seed B.
@@ -332,6 +352,18 @@ class HP2Context(CommonContext):
             asyncio.create_task(self._send_or_queue_ap_msg(
                 {"cmd": "Get", "keys": [self.ledger_key]},
                 label=f"Get durable ledger {self.ledger_key}",
+            ))
+
+            # Durable spell-grant ledger: (re)fetch this slot's ever-received
+            # spell-name set. Independent of consumed_indices so an already-
+            # consumed spell index (never re-forwarded) still re-asserts as
+            # `RESYNC_SPELLS` on every Connected, covering an .usa save-load
+            # that dropped the spell class ref.
+            self.granted_spells_key = f"HP2PC_AP:granted_spells:{self.team}:{self.slot}"
+            self.granted_spells_loaded = False
+            asyncio.create_task(self._send_or_queue_ap_msg(
+                {"cmd": "Get", "keys": [self.granted_spells_key]},
+                label=f"Get durable spell ledger {self.granted_spells_key}",
             ))
 
             # Startup connection toast. server_loop has set self.server_address
@@ -457,6 +489,24 @@ class HP2Context(CommonContext):
                     f"consumed index(es) for {self.ledger_key}"
                 )
                 self._forward_all_received()
+            if self.granted_spells_key is not None and self.granted_spells_key in keys:
+                val = keys.get(self.granted_spells_key)
+                self.granted_spell_names = set(val) if val else set()
+                self.granted_spells_loaded = True
+                logger.info(
+                    f"Durable spell ledger loaded: {len(self.granted_spell_names)} "
+                    f"granted spell(s) for {self.granted_spells_key}"
+                )
+            # Only push RESYNC_SPELLS once BOTH ledgers are loaded AND the GRANT
+            # drain has had its first pass. RESYNC opens the mod's wipe gate; if
+            # it lands before the GRANTs for this session's spells, the revert
+            # loop would wipe a vanilla-engine F/L/A the very next tick (the
+            # GRANT for it from start_inventory hasn't set APGrantedSpell yet),
+            # leaving the player briefly spell-less. _forward_all_received above
+            # (or no-op if granted_spells finished first) ensures GRANTs are
+            # queued before RESYNC.
+            if self.ledger_loaded and self.granted_spells_loaded:
+                self._send_resync_spells()
         elif cmd == "LocationInfo":
             # CommonContext's built-in handler has already populated
             # self.locations_info[loc] = NetworkItem for every scouted
@@ -693,10 +743,15 @@ class HP2Context(CommonContext):
             # re-sent (that would double-queue → double-apply). Items skipped
             # pre-NEWGAME because they were in the stale prior-playthrough
             # ledger are now forwarded (consumed is empty); each index ends up
-            # sent exactly once.
+            # sent exactly once. Also wipe the durable spell ledger and resend
+            # RESYNC_SPELLS so the mod's bResyncReceived gate opens on the
+            # fresh playthrough with the now-empty AP-granted set.
             logger.info("NEWGAME: wiping durable ledger and re-forwarding all received items")
             self.consumed_indices = set()
             self._persist_ledger()
+            self.granted_spell_names = set()
+            self._persist_granted_spells()
+            self._send_resync_spells()
             self._forward_all_received()
             return
         if line == "HELLO":
@@ -738,6 +793,14 @@ class HP2Context(CommonContext):
             # mod overwrites any stale state from a prior session that way.
             if self.checked_csv is not None:
                 self._send_to_game("CHECKED " + self.checked_csv)
+            # Re-arm the durable spell-grant resync. Mirrors CHECKED's lifecycle:
+            # sticky + idempotent mod-side, resent every HELLO so a fresh game
+            # launch (mid-session reconnect / save-load) re-asserts the AP-grant
+            # flags and re-adds spells the .usa dropped. Gated on
+            # granted_spells_loaded so a HELLO before AP-Retrieved doesn't ship
+            # a stale empty list and wipe legit spells via the mod's now-open gate.
+            if self.granted_spells_loaded:
+                self._send_resync_spells()
             return
         if line == "GOAL_COMPLETE":
             if self.goal_sent:
@@ -971,6 +1034,38 @@ class HP2Context(CommonContext):
             label=f"persist durable ledger ({len(self.consumed_indices)} index(es))",
         ))
 
+    def _persist_granted_spells(self) -> None:
+        """Write the AP-granted spell-name set back to AP server Data Storage.
+        Separate ledger from consumed_indices because spell grants need to be
+        re-asserted on every Connected (the mod's APGrantedSpell flag is
+        process-local and the .usa drops spell class refs); consumed_indices
+        only fires on first-grant ack and is never re-sent."""
+        if self.granted_spells_key is None:
+            return
+        asyncio.create_task(self._send_or_queue_ap_msg(
+            {"cmd": "Set", "key": self.granted_spells_key, "default": [],
+             "want_reply": False,
+             "operations": [{"operation": "replace",
+                             "value": sorted(self.granted_spell_names)}]},
+            label=f"persist spell ledger ({len(self.granted_spell_names)} spell(s))",
+        ))
+
+    def _send_resync_spells(self) -> None:
+        """Push the durable spell ledger to the mod as a single RESYNC_SPELLS
+        line. Sticky + idempotent mod-side; sent on every Connected (Retrieved)
+        and every game HELLO. Empty payload still opens the mod's wipe gate, so
+        a slot with no spells received yet correctly reverts vanilla-engine
+        F/L/A on the very first tick of post-resync revert."""
+        if not self.granted_spells_loaded:
+            return
+        csv = ",".join(sorted(self.granted_spell_names))
+        # Bare "RESYNC_SPELLS" (no trailing space) is the empty-list form the
+        # mod expects (APIPCActor.HandleLine has a separate exact-match branch).
+        if csv:
+            self._send_to_game(f"RESYNC_SPELLS {csv}")
+        else:
+            self._send_to_game("RESYNC_SPELLS")
+
     def _forward_one(self, idx: int, item) -> None:
         """Forward one received item to the game as `GRANT <idx> <payload>`,
         unless its index is already durably consumed (applied in a prior
@@ -991,6 +1086,12 @@ class HP2Context(CommonContext):
             f"from {sender_name} → GRANT {idx} {payload}|{sender_name}"
         )
         self._send_to_game(f"GRANT {idx} {payload}|{sender_name}")
+        # Durable spell-grant ledger: record every spell item the slot has ever
+        # received, so RESYNC_SPELLS on the next Connected re-asserts it
+        # mod-side even though consumed_indices blocks a re-GRANT.
+        if item_name in SPELL_ITEM_NAMES_SET and item_name not in self.granted_spell_names:
+            self.granted_spell_names.add(item_name)
+            self._persist_granted_spells()
 
     def _forward_all_received(self) -> None:
         """Re-evaluate every received item and forward the ones not yet
@@ -1103,6 +1204,11 @@ class HP2Context(CommonContext):
         self.ledger_loaded = False
         self.received_by_index = {}
         self.sent_this_session = set()
+        # Same lifecycle for the durable spell ledger — the next Connected
+        # rebuilds granted_spells_key and Gets the per-seed spell set fresh.
+        self.granted_spells_key = None
+        self.granted_spell_names = set()
+        self.granted_spells_loaded = False
         # #3: drop the prior seed's appearance table so the next Connected's
         # scout rebuilds it from scratch (item placement differs per seed).
         self.appearance_csv = None

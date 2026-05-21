@@ -238,6 +238,15 @@ var byte WCnFiredThisSession[12];
 // The flag still drives mode-specific bookcase / blocker logic in APGameInfo.
 var byte bOpenCastleMode;
 
+// Durable resync handshake. Set by ApplyResyncSpells the first time the client
+// delivers the AP-Data-Storage spell ledger ("RESYNC_SPELLS <csv>") — at which
+// point default.APGrantedSpell[] reflects every spell this slot has ever
+// received from AP. The revert loop gates its wipe branch on this flag so a
+// fresh process / save-load can never wipe AP-granted spells before the client
+// has had a chance to re-assert them. Sticky for the lifetime of the process
+// (never cleared); a reconnect / late client launch re-arms it on arrival.
+var byte bResyncReceived;
+
 // Open castle Great Hall key config. Delivered once per process by the client as
 // "GOALCFG c,s,l,d,q,mask" (from apworld slot_data) → SetGoalConfigCSV writes
 // these class-defaults; sticky across level transitions / save-load like
@@ -643,6 +652,63 @@ static function MarkKeyItemAsAPGrantedDefault(string KeyItemName)
     else if (KeyItemName == "BitOGoyle") default.APGrantedKeyItem[2] = 1;
     else return;
     Log("[Archipelago] APCardWatcher.MarkKeyItemAsAPGrantedDefault: " $ KeyItemName $ " (class default set)");
+}
+
+// Durable resync entry point. The client's AP-Data-Storage spell ledger arrives
+// as a comma-separated list of AP item names this slot has ever received
+// (RESYNC_SPELLS line in APIPCActor.HandleLine, sent on every Connected and on
+// every game HELLO). Re-asserts each spell as AP-granted so the revert loop's
+// wipe branch never wipes a legitimate prior-session grant, AND re-adds it to
+// Harry's spellbook so an .usa save-load that dropped the class reference
+// recovers. Always sets default.bResyncReceived so the wipe gate opens even
+// when the resync list is empty (a slot that has not yet received any spells
+// still gets the gate, so vanilla-engine F/L/A get correctly reverted).
+// Idempotent: AddToSpellBook early-outs when the slot is non-None, and the
+// MarkSpellAs* helpers are flag writes.
+static function ApplyResyncSpells(string CsvNames)
+{
+    local int p;
+    local string rest, name;
+    local APCardWatcher w;
+    local harry h;
+
+    default.bResyncReceived = 1;
+    Log("[Archipelago] APCardWatcher.ApplyResyncSpells: csv='" $ CsvNames $ "'");
+
+    w = class'APCardWatcher'.static.GetLatest();
+    h = None;
+    if (w != None)
+    {
+        h = w.HarryRef;
+        if (h == None) h = harry(w.Level.PlayerHarryActor);
+    }
+
+    rest = CsvNames;
+    while (rest != "")
+    {
+        p = InStr(rest, ",");
+        if (p < 0)
+        {
+            name = rest;
+            rest = "";
+        }
+        else
+        {
+            name = Left(rest, p);
+            rest = Mid(rest, p + 1);
+        }
+        if (name == "") continue;
+
+        MarkSpellAsAPGrantedDefault(name);
+        if (w != None)
+        {
+            w.MarkSpellAsGranted(name);
+        }
+        if (h != None)
+        {
+            h.AddToSpellBookByString(name);
+        }
+    }
 }
 
 // Open castle key dispatch. Returns the OpenCastleKeyNames[] index, or -1 if the string
@@ -1677,8 +1743,19 @@ event Timer()
                     ipc.SendCheckSpell(SpellNames[i]);
                 }
             }
-            HarryRef.SpellBook[SpellClasses[i].default.SpellType] = None;
-            Log("[Archipelago] APCardWatcher: reverted vanilla " $ SpellNames[i]);
+            // Gate the wipe on the durable resync. Until the client has had a
+            // chance to re-assert this slot's AP-granted spells (RESYNC_SPELLS,
+            // sent on every Connected), assume an in-spellbook spell is one we
+            // can't yet classify — a late client connect / save-load that
+            // dropped APGrantedSpell would otherwise wipe legitimate AP grants
+            // and never recover (the client's consumed_indices ledger blocks
+            // re-forwarding). Once resync arrives, APGrantedSpell is the source
+            // of truth and the wipe runs as before.
+            if (default.bResyncReceived == 1)
+            {
+                HarryRef.SpellBook[SpellClasses[i].default.SpellType] = None;
+                Log("[Archipelago] APCardWatcher: reverted vanilla " $ SpellNames[i]);
+            }
         }
     }
 
@@ -2457,6 +2534,37 @@ function Snapshot()
     Log("[Archipelago] APCardWatcher: initial snapshot - Harry already owns " $ ownedCardCount $ " cards");
 
     DetectOpenCastleMode();
+
+    // Re-pull AP-grant flags from the class default in case ApplyResyncSpells
+    // (or an ApplyGrant) fired between this watcher's PreBeginPlay copy and
+    // Snapshot — that one-shot copy would otherwise leave instance stale and
+    // the revert loop would wipe a spell the durable resync already covered.
+    for (i = 0; i < NUM_SPELLS; i++)
+    {
+        if (default.APGrantedSpell[i] == 1)
+        {
+            APGrantedSpell[i] = 1;
+        }
+    }
+
+    // Restore AP-granted spells the .usa save dropped (M212's per-level package
+    // does not always preserve travel class refs for spells the level's import
+    // table didn't natively need — exactly the spell-loss reload bug). The
+    // durable resync ledger is the source of truth; re-add anything it marked.
+    // AddToSpellBook is idempotent (slot-empty guard, harry.uc:556).
+    if (default.bResyncReceived == 1)
+    {
+        for (i = 0; i < NUM_SPELLS; i++)
+        {
+            if (default.APGrantedSpell[i] == 1
+                && !HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
+            {
+                HarryRef.AddToSpellBookByString(SpellNames[i]);
+                Log("[Archipelago] APCardWatcher.Snapshot: re-added AP-granted "
+                    $ SpellNames[i] $ " from durable resync (was missing from spellbook)");
+            }
+        }
+    }
 
     ownedSpellCount = 0;
     for (i = 0; i < NUM_SPELLS; i++)
