@@ -129,10 +129,10 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     'Gold Card - Potter': 5750198,
     'Gold Card - Ravenclaw': 5750199,
     'Gold Card - Slytherin': 5750200,
-    'Small Pile of Beans': 5750300,
-    'Medium Pile of Beans': 5750301,
-    'Large Pile of Beans': 5750302,
-    'Massive Pile of Beans': 5750303,
+    'Small Jar of Beans': 5750300,
+    'Medium Jar of Beans': 5750301,
+    'Large Jar of Beans': 5750302,
+    'Massive Jar of Beans': 5750303,
     'Wiggenweld Potion': 5750304,
     'Wiggentree Bark': 5750305,
     'Flobberworm Mucous': 5750306,
@@ -270,10 +270,10 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     'Gold Card - Potter': ItemClassification.filler,
     'Gold Card - Ravenclaw': ItemClassification.filler,
     'Gold Card - Slytherin': ItemClassification.filler,
-    'Small Pile of Beans': ItemClassification.filler,
-    'Medium Pile of Beans': ItemClassification.filler,
-    'Large Pile of Beans': ItemClassification.filler,
-    'Massive Pile of Beans': ItemClassification.filler,
+    'Small Jar of Beans': ItemClassification.filler,
+    'Medium Jar of Beans': ItemClassification.filler,
+    'Large Jar of Beans': ItemClassification.filler,
+    'Massive Jar of Beans': ItemClassification.filler,
     'Wiggenweld Potion': ItemClassification.filler,
     'Wiggentree Bark': ItemClassification.filler,
     'Flobberworm Mucous': ItemClassification.filler,
@@ -294,11 +294,11 @@ ITEM_GROUPS: dict[str, list[str]] = {
     'Cards (Bronze)': ['Bronze Card - Agrippa', 'Bronze Card - Alderton', 'Bronze Card - Barbary', 'Bronze Card - Barkwith', 'Bronze Card - Belby', 'Bronze Card - Blane', 'Bronze Card - Bloxam', 'Bronze Card - Bonham', 'Bronze Card - Catchlove', 'Bronze Card - Elphick', 'Bronze Card - Ethelred', 'Bronze Card - Fancourt', 'Bronze Card - Goshawk', 'Bronze Card - Graves', 'Bronze Card - Gunhilda', 'Bronze Card - Hipworth', 'Bronze Card - Kegg', 'Bronze Card - Ketteridge', 'Bronze Card - Marjoribanks', 'Bronze Card - Merlin', 'Bronze Card - Merwyn', 'Bronze Card - Muldoon', 'Bronze Card - Ollerton', 'Bronze Card - Peakes', 'Bronze Card - Pilliwickle', 'Bronze Card - Platt', 'Bronze Card - Plumpton', 'Bronze Card - Po', 'Bronze Card - Pokeby', 'Bronze Card - Sawbridge', 'Bronze Card - Scamander', 'Bronze Card - Starkey', 'Bronze Card - Stroulger', 'Bronze Card - Stump', 'Bronze Card - Sweeting', 'Bronze Card - Sykes', 'Bronze Card - Thruston', 'Bronze Card - Toke', 'Bronze Card - Twonk', 'Bronze Card - Ulric', 'Bronze Card - Vablatsky', 'Bronze Card - Waffling', 'Bronze Card - Wagtail', 'Bronze Card - Warbeck', 'Bronze Card - Wellbeloved', 'Bronze Card - Wenlock', 'Bronze Card - Whitehorn', 'Bronze Card - Wintringham', 'Bronze Card - Withers', 'Bronze Card - Woodcroft'],
     'Cards (Silver)': ['Silver Card - Andros', 'Silver Card - Beamish', 'Silver Card - Chittock', 'Silver Card - Circe', 'Silver Card - Clagg', 'Silver Card - Cliodne', 'Silver Card - Cronk', 'Silver Card - Crumb', 'Silver Card - Dodderidge', 'Silver Card - Duke', 'Silver Card - Fay', 'Silver Card - Fulbert', 'Silver Card - Furmage', 'Silver Card - Gregory', 'Silver Card - Grunnion', 'Silver Card - Jones', 'Silver Card - Lufkin', 'Silver Card - Maeve', 'Silver Card - Montmorency', 'Silver Card - Mopsus', 'Silver Card - Nutcombe', 'Silver Card - Oglethorpe', 'Silver Card - Oldridge', 'Silver Card - Oliphant', 'Silver Card - Plunkett', 'Silver Card - Rastrick', 'Silver Card - Shimpling', 'Silver Card - Shingleton', 'Silver Card - Smethwyck', 'Silver Card - Stalk', 'Silver Card - Summerbee', 'Silver Card - Thurkell', 'Silver Card - Toothill', 'Silver Card - Tremlett', 'Silver Card - Tugwood', 'Silver Card - Wadcock', 'Silver Card - Wendelin', 'Silver Card - Wildsmith', 'Silver Card - Wright', 'Silver Card - Youdle'],
     'Cards (Gold)': ['Gold Card - Bott', 'Gold Card - Dumbledore', 'Gold Card - Gryffindor', 'Gold Card - Herpo', 'Gold Card - Hufflepuff', 'Gold Card - Knightley', 'Gold Card - Paracelsus', 'Gold Card - Pinkstone', 'Gold Card - Potter', 'Gold Card - Ravenclaw', 'Gold Card - Slytherin'],
-    'Filler': ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans', 'Massive Pile of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog', '1 Bean', '5 Beans', '10 Beans'],
+    'Filler': ['Small Jar of Beans', 'Medium Jar of Beans', 'Large Jar of Beans', 'Massive Jar of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog', '1 Bean', '5 Beans', '10 Beans'],
     'Traps': ['Bean Thief Trap', 'Goyle Transformation Trap', 'Forgetfulness Trap'],
 }
 
-FILLER_NAMES: list[str] = ['Small Pile of Beans', 'Medium Pile of Beans', 'Large Pile of Beans', 'Massive Pile of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog', '1 Bean', '5 Beans', '10 Beans']
+FILLER_NAMES: list[str] = ['Small Jar of Beans', 'Medium Jar of Beans', 'Large Jar of Beans', 'Massive Jar of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog', '1 Bean', '5 Beans', '10 Beans']
 TRAP_NAMES: list[str] = ['Bean Thief Trap', 'Goyle Transformation Trap', 'Forgetfulness Trap']
 
 # Map UScript card class name → AP item display name. Used by the client

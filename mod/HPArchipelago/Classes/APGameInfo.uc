@@ -2314,28 +2314,28 @@ function ApplyGrant(string Body)
         return;
     }
 
-    if (ItemName == "Small Pile of Beans")
+    if (ItemName == "Small Jar of Beans")
     {
         GrantBeansNoBroadcast(h, 25);
-        Log("[Archipelago] ApplyGrant: granted Small Pile of Beans (+25)");
+        Log("[Archipelago] ApplyGrant: granted Small Jar of Beans (+25)");
         return;
     }
-    if (ItemName == "Medium Pile of Beans")
+    if (ItemName == "Medium Jar of Beans")
     {
         GrantBeansNoBroadcast(h, 50);
-        Log("[Archipelago] ApplyGrant: granted Medium Pile of Beans (+50)");
+        Log("[Archipelago] ApplyGrant: granted Medium Jar of Beans (+50)");
         return;
     }
-    if (ItemName == "Large Pile of Beans")
+    if (ItemName == "Large Jar of Beans")
     {
         GrantBeansNoBroadcast(h, 100);
-        Log("[Archipelago] ApplyGrant: granted Large Pile of Beans (+100)");
+        Log("[Archipelago] ApplyGrant: granted Large Jar of Beans (+100)");
         return;
     }
-    if (ItemName == "Massive Pile of Beans")
+    if (ItemName == "Massive Jar of Beans")
     {
         GrantBeansNoBroadcast(h, 250);
-        Log("[Archipelago] ApplyGrant: granted Massive Pile of Beans (+250)");
+        Log("[Archipelago] ApplyGrant: granted Massive Jar of Beans (+250)");
         return;
     }
     // Small bean denominations — same no-broadcast bean path as the Piles,

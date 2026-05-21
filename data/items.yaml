@@ -199,10 +199,10 @@ filler:
   # big ones stay sparse premiums. APPEND new filler at the END only — the
   # mod's appearance codes are 2001 + index in this list (Client.py
   # FILLER_CODE), so inserting mid-list would renumber 2001..2008.
-  - { id_offset: 300, name: "Small Pile of Beans",   classification: filler, group: Filler, weight: 7,  notes: "Grants ~25 beans" }
-  - { id_offset: 301, name: "Medium Pile of Beans",  classification: filler, group: Filler, weight: 4,  notes: "Grants ~50 beans" }
-  - { id_offset: 302, name: "Large Pile of Beans",   classification: filler, group: Filler, weight: 2,  notes: "Grants ~100 beans" }
-  - { id_offset: 303, name: "Massive Pile of Beans", classification: filler, group: Filler, weight: 1,  notes: "Sparse premium. Grants ~250 beans" }
+  - { id_offset: 300, name: "Small Jar of Beans",   classification: filler, group: Filler, weight: 7,  notes: "Grants ~25 beans" }
+  - { id_offset: 301, name: "Medium Jar of Beans",  classification: filler, group: Filler, weight: 4,  notes: "Grants ~50 beans" }
+  - { id_offset: 302, name: "Large Jar of Beans",   classification: filler, group: Filler, weight: 2,  notes: "Grants ~100 beans" }
+  - { id_offset: 303, name: "Massive Jar of Beans", classification: filler, group: Filler, weight: 1,  notes: "Sparse premium. Grants ~250 beans" }
   - { id_offset: 304, name: "Wiggenweld Potion",     classification: filler, group: Filler, weight: 1,  notes: "Sparse premium. Full health refill on grant" }
   - { id_offset: 305, name: "Wiggentree Bark",       classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }
   - { id_offset: 306, name: "Flobberworm Mucous",    classification: filler, group: Filler, weight: 3,  notes: "Wiggenweld brewing ingredient (+1 in inventory)" }

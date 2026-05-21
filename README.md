@@ -51,6 +51,6 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 - **Boomslang / Bicorn / BitOGoyle** are NOT AP items; they're delivered by vanilla story progression.
 - **Goal:** defeat Basilisk. Detected via `FEBook.bInEndGame` flipping when the post-Basilisk credits cutscene starts.
 - **Sphere 0:** 4 spell-teaching classrooms (no items required to reach in the open-hub model).
-- **Filler:** 8 types: Small/Medium/Large/Massive Pile of Beans, Wiggenweld Potion, Wiggentree Bark, Flobberworm Mucous, Chocolate Frog.
+- **Filler:** 8 types: Small/Medium/Large/Massive Jar of Beans, Wiggenweld Potion, Wiggentree Bark, Flobberworm Mucous, Chocolate Frog.
 - **Gold Card Room:** the 11 gold cards live in their own region behind the 4-silver-key door. Logic gates each gold-card location on "have all 40 silvers" plus the per-card spell requirements; silver-card items cannot land in gold-card locations.
 - **Distribution:** single `harry_potter_2_pc.apworld` (client bundled) + the UScript mod. The launcher shows "HP2 PC Client" once the apworld is dropped into the user's `custom_worlds/` folder.
