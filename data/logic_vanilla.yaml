@@ -620,11 +620,9 @@ locations:
   "Hogwarts Entrance Hall - Card Vendor 1": { requires: "true" }
   "Hogwarts Entrance Hall - Card Vendor 2": { requires: "true" }
   "Hogwarts Entrance Hall - Card Vendor 3": { requires: "true" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 1": { requires: "true" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 2":
-    { requires: "Rictusempra | (Alohomora & Skurge & Diffindo)" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 3":
-    { requires: "Rictusempra | (Alohomora & Skurge & Diffindo)" }
+  "Hogwarts Entrance Hall - Ingredient Vendor 1": { requires: "Rictusempra" }
+  "Hogwarts Entrance Hall - Ingredient Vendor 2": { requires: "Rictusempra" }
+  "Hogwarts Entrance Hall - Ingredient Vendor 3": { requires: "Rictusempra" }
   "Hogwarts Staircase - Card Vendor 1": { requires: "true" }
   "Hogwarts Staircase - Card Vendor 2": { requires: "true" }
   "Hogwarts Staircase - Ingredient Vendor 1": { requires: "true" }
