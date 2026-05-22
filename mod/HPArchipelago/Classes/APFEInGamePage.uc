@@ -66,16 +66,17 @@ function PreSwitchPage()
     playerActor = book.Root.Console.Viewport.Actor;
     curLevelCaps = Caps(string(playerActor.Level.Outer.Name));
 
-    if (class'APCardWatcher'.default.bOpenCastleMode == 0
-        && (curLevelCaps == "CH1RICTUSEMPRA" || curLevelCaps == "CH2SKURGE"
-            || curLevelCaps == "CH3DIFFINDO"  || curLevelCaps == "CH4SPONGIFY"))
-    {
-        HomeButton.HideWindow();
-    }
-    else
-    {
-        HomeButton.ShowWindow();
-    }
+    // Commented because softlocks could still happen due to bugs, might be reimplemented later
+    // if (class'APCardWatcher'.default.bOpenCastleMode == 0
+    //     && (curLevelCaps == "CH1RICTUSEMPRA" || curLevelCaps == "CH2SKURGE"
+    //         || curLevelCaps == "CH3DIFFINDO"  || curLevelCaps == "CH4SPONGIFY"))
+    // {
+    //     HomeButton.HideWindow();
+    // }
+    // else
+    // {
+    //     HomeButton.ShowWindow();
+    // }
 }
 
 function Notify(UWindowDialogControl C, byte E)
