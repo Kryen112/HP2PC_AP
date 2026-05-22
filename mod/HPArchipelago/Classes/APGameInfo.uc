@@ -1884,7 +1884,7 @@ static function harry FindActiveHarry(Actor caller)
             return h;
         }
         h = harry(watcher.Level.PlayerHarryActor);
-        if (h != None && !h.bDeleteMe)
+        if (h != None && !h.bDeleteMe && h.Player != None)
         {
             return h;
         }
@@ -1901,16 +1901,25 @@ static function harry FindActiveHarry(Actor caller)
     }
 
     h = harry(caller.Level.PlayerHarryActor);
-    if (h != None && !h.bDeleteMe)
+    if (h != None && !h.bDeleteMe && h.Player != None)
     {
         return h;
     }
 
+    // A live possessed pawn always beats a dispossessed one. On a cold load
+    // (LOAD GAME from the menu) the boot maps' Harry actors are still alive but
+    // no longer possessed, and AllActors can still enumerate them; binding one
+    // would send the spell-resync re-add to the wrong Harry. Only fall back to a
+    // Player-less Harry when there is no live one at all.
     foreach caller.AllActors(class'harry', h)
     {
         if (h.bDeleteMe)
         {
             continue;
+        }
+        if (h.Player != None)
+        {
+            return h;
         }
         if (fallback == None)
         {

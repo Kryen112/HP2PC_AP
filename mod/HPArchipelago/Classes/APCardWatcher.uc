@@ -2442,7 +2442,14 @@ function EnsureLatestRegistration()
     if (HasLivePlayerHarry() && !current.HasLivePlayerHarry())
     {
         default.LatestInstance = self;
-        Log("[Archipelago] APCardWatcher: promoted self to LatestInstance (self has live Player, current does not)");
+        // Force a fresh Bind+Snapshot onto the live Harry. A watcher restored
+        // from a .usa comes back with bSnapshotted=True bound to a stale/None
+        // HarryRef; without this reset it would skip Bind+Snapshot and never
+        // re-add the resync spells to the now-possessed pawn until the next
+        // level load (the spell-loss-on-reload bug). Mirrors the empty/stale
+        // branch above.
+        bSnapshotted = False;
+        Log("[Archipelago] APCardWatcher: promoted self to LatestInstance (self has live Player, current does not) - re-snapshotting");
     }
 }
 
