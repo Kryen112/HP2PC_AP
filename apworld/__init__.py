@@ -42,6 +42,17 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 
 DEFAULT_GOAL = "basilisk"
 SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
+# Vanilla-only: the Whomping Willow is the one-way opening level. Both of its
+# secrets require Alohomora, which the level never teaches and which no earlier
+# check can deliver. The player only ever passes through once, so without
+# Alohomora precollected these secrets are permanently impossible — not merely
+# missable — and are dropped as locations entirely rather than excluded. This
+# is a fixed game-knowledge fact, so it lives here in the hand-authored world
+# module rather than the generated locations.py.
+WHOMPING_WILLOW_ALOHOMORA_SECRETS: frozenset[str] = frozenset({
+    'Whomping Willow - Secret 1',
+    'Whomping Willow - Secret 2',
+})
 # All 101 wizard-card item names. In open castle these are upgraded to
 # progression_skip_balancing at create_item time so AP guarantees them
 # reachable (a card-count Great Hall goal needs that); vanilla keeps the
@@ -488,6 +499,14 @@ class HP2World(World):
         # never exist as vanilla checks.
         if (not self._is_open_castle()
                 and LOCATION_REGIONS.get(loc_name) in OPEN_CASTLE_ONLY_REGIONS):
+            return False
+        # Vanilla-only: the Whomping Willow secrets need Alohomora during the
+        # single pass through the one-way opening level. With Alohomora not
+        # precollected there is no way to ever reach them, so the locations must
+        # not exist at all rather than survive as excluded filler.
+        if (not self._is_open_castle()
+                and loc_name in WHOMPING_WILLOW_ALOHOMORA_SECRETS
+                and 'Alohomora' not in self._starter_names()):
             return False
         opt_attr = self._LOC_GROUP_TO_OPT.get(group or "")
         if opt_attr is None:
