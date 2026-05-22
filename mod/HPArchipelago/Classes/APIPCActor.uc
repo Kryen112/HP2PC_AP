@@ -262,11 +262,14 @@ function HandleLine(string line)
     }
     else if (Left(line, 5) == "MODE ")
     {
-        // Authoritative open castle signal from the apworld slot_data game_mode
-        // (sticky class-default on the watcher; resent every HELLO). A late
-        // belt alongside the durable DLO probe. One-way by design: only
-        // "MODE open_castle" acts; "MODE vanilla" is ignored (bOpenCastleMode
-        // is never cleared — the whole mod relies on that invariant).
+        // The seed's declared game_mode from apworld slot_data (sticky
+        // class-default on the watcher; resent every HELLO). Recorded in BOTH
+        // modes as a positive signal so the watcher can compare it against its
+        // own install probe (the MGBingo package) and warn on a mismatch.
+        // "open_castle" additionally latches bOpenCastleMode (a late belt
+        // alongside the durable DLO probe); "MODE vanilla" only records the
+        // declared mode — it never clears bOpenCastleMode (one-way invariant).
+        class'APCardWatcher'.static.SetSeedDeclaredMode(Mid(line, 5));
         if (Mid(line, 5) == "open_castle")
         {
             class'APCardWatcher'.static.EnterOpenCastleMode("IPC MODE open_castle");

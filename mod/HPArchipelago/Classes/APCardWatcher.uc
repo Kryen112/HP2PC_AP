@@ -238,6 +238,29 @@ var byte WCnFiredThisSession[12];
 // The flag still drives mode-specific bookcase / blocker logic in APGameInfo.
 var byte bOpenCastleMode;
 
+// Seed/install mismatch detection. bOpenCastleMode is a sticky OR of two
+// sources (the install's MGBingo probe AND the seed's "MODE open_castle" IPC
+// line), so it can't tell you what the INSTALL physically is once the IPC line
+// has set it. These three record the two sources separately so a mismatch is
+// detectable:
+//   bInstallProbed       — 1 once ProbeInstall has run the MGBingo DLO (so a
+//                          0 result positively means "vanilla install", not
+//                          "not yet checked"). Class-default sticky.
+//   bInstallIsOpenCastle — 1 iff the MGBingo package is present (the Bingo
+//                          open-castle maps). Set only by the DLO probe, never
+//                          by the IPC line. Class-default sticky.
+//   SeedDeclaredMode     — the seed's declared game_mode from the client's
+//                          "MODE <mode>" line: 0 unknown / 1 vanilla / 2 open
+//                          castle. Class-default sticky.
+// Timer() compares them and toasts on a mismatch. The shown-latch
+// (bModeMismatchToastShown) is a plain INSTANCE var, NOT a class default, so it
+// re-arms on each per-level watcher respawn — the warning re-shows every level
+// until the player fixes the install.
+var byte bInstallProbed;
+var byte bInstallIsOpenCastle;
+var byte SeedDeclaredMode;
+var byte bModeMismatchToastShown;
+
 // Durable resync handshake. Set by ApplyResyncSpells the first time the client
 // delivers the AP-Data-Storage spell ledger ("RESYNC_SPELLS <csv>") — at which
 // point default.APGrantedSpell[] reflects every spell this slot has ever
@@ -1573,6 +1596,7 @@ event Timer()
     local baseSpell cur;
     local int idx;
     local APHUDToast connToast;
+    local bool seedIsOpenCastle;
 
     EnsureLatestRegistration();
     if (default.LatestInstance != self)
@@ -1975,6 +1999,47 @@ event Timer()
                     default.bConnToastScheduled = 0;
                     Log("[Archipelago] APCardWatcher: connection toast shown ('"
                         $ default.ConnectedAddress $ "')");
+                }
+            }
+        }
+    }
+
+    // Seed/install mismatch warning. Fires when the seed's declared mode
+    // (SeedDeclaredMode, from the client's MODE line) disagrees with what the
+    // install physically is (bInstallIsOpenCastle, from the MGBingo probe).
+    // Both are sticky class-defaults so they survive the per-level respawn;
+    // bModeMismatchToastShown is a plain INSTANCE var (compiled-0 on each fresh
+    // per-level watcher), so the warning re-shows once per level until the
+    // player runs the matching install. Same delayed/playable guard shape as
+    // the connection toast so it doesn't pop mid-cutscene or before control
+    // returns. A mismatched seed is at best un-completable (see the analysis in
+    // the design notes), hence the loud, repeating warning rather than a silent
+    // failure.
+    if (default.bInstallProbed == 1 && default.SeedDeclaredMode != 0
+        && bModeMismatchToastShown == 0)
+    {
+        seedIsOpenCastle = (default.SeedDeclaredMode == 2);
+        if (seedIsOpenCastle != (default.bInstallIsOpenCastle == 1))
+        {
+            saveHarry = harry(Level.PlayerHarryActor);
+            if (saveHarry != None && saveHarry.GetHealthCount() > 0
+                && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+            {
+                connToast = class'APHUDToast'.static.GetInstance();
+                if (connToast != None)
+                {
+                    if (seedIsOpenCastle)
+                    {
+                        connToast.EnqueueToast("AP: WRONG INSTALL - open castle seed on vanilla maps!");
+                    }
+                    else
+                    {
+                        connToast.EnqueueToast("AP: WRONG INSTALL - vanilla seed on open castle maps!");
+                    }
+                    bModeMismatchToastShown = 1;
+                    Log("[Archipelago] APCardWatcher: mode mismatch toast shown (seed="
+                        $ default.SeedDeclaredMode $ " installOpenCastle="
+                        $ default.bInstallIsOpenCastle $ ")");
                 }
             }
         }
@@ -2485,10 +2550,46 @@ static function EnterOpenCastleMode(string reason)
 // vanilla). Works pre-Harry / pre-IPC and on a cold load into a sentinel-less
 // level (e.g. Ch7Gryffindor) where the in-level actor scan misses. Callable
 // from APGameInfo.InitGame / APCardWatcher.PreBeginPlay / APIPCActor.
+// Probe what the INSTALL physically is, independent of the seed. The HP2 Bingo
+// open-castle install is the only one shipping the MGBingo package; a soft
+// DynamicLoadObject (MayFail=true → no error, no hard ref) returns non-None
+// there and None on the vanilla/Modded install. Self-latching: runs the DLO
+// once, then records the result in class-defaults that survive every level.
+// Distinct from EnterOpenCastleMode so the install signal stays separable from
+// the seed's "MODE open_castle" IPC line (which also sets bOpenCastleMode).
+static function ProbeInstall()
+{
+    if (default.bInstallProbed == 1) return;
+    default.bInstallProbed = 1;
+    if (DynamicLoadObject("MGBingo.MGBingoLearnAllSpells", class'Class', true) != None)
+    {
+        default.bInstallIsOpenCastle = 1;
+        Log("[Archipelago] APCardWatcher.ProbeInstall: install is open castle (MGBingo present)");
+    }
+    else
+    {
+        Log("[Archipelago] APCardWatcher.ProbeInstall: install is vanilla (MGBingo absent)");
+    }
+}
+
+// Record the seed's declared game_mode from the client's "MODE <mode>" line.
+// Positive in both modes (1 vanilla / 2 open castle) so Timer can compare it
+// against ProbeInstall's result. Does NOT touch bOpenCastleMode — the caller
+// latches that separately for "open_castle" only.
+static function SetSeedDeclaredMode(string mode)
+{
+    if (mode == "open_castle") default.SeedDeclaredMode = 2;
+    else if (mode == "vanilla") default.SeedDeclaredMode = 1;
+}
+
 static function EnsureOpenCastleModeDetected()
 {
+    // Always probe the install first — even when bOpenCastleMode is already 1
+    // (e.g. the seed's IPC line set it on a vanilla install), the mismatch
+    // check still needs the separate install signal recorded.
+    ProbeInstall();
     if (default.bOpenCastleMode == 1) return;
-    if (DynamicLoadObject("MGBingo.MGBingoLearnAllSpells", class'Class', true) != None)
+    if (default.bInstallIsOpenCastle == 1)
     {
         EnterOpenCastleMode("DLO MGBingo package present");
     }

@@ -261,9 +261,18 @@ class HP2Context(CommonContext):
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
-        # survives a cold load into a sentinel-less level. Vanilla never sends
-        # MODE (bOpenCastleMode is one-way sticky and never cleared).
+        # survives a cold load into a sentinel-less level. The open-castle flag
+        # itself (bOpenCastleMode) is one-way sticky and never cleared.
         self.is_open_castle: bool = False
+        # The seed's declared game_mode ("vanilla" / "open_castle"), or None
+        # until Connected. Sent verbatim as the "MODE <mode>" IPC line on
+        # Connected and re-armed every game HELLO. Unlike is_open_castle this is
+        # a POSITIVE signal in both modes: the mod compares it against its own
+        # install probe (the MGBingo package) to warn when a seed is played on
+        # the wrong maps. "MODE open_castle" additionally latches bOpenCastleMode
+        # mod-side; "MODE vanilla" only records the declared mode (never clears
+        # bOpenCastleMode — that invariant is preserved).
+        self.seed_mode: Optional[str] = None
         # #3: last "apId:code,…" appearance payload pushed to the mod, or None
         # if not yet built. Resent on every game HELLO (sticky + idempotent
         # mod-side). Rebuilt from self.locations_info on each LocationInfo.
@@ -377,8 +386,9 @@ class HP2Context(CommonContext):
                 self._send_to_game("CONNECTED " + self.connected_address)
             sd = args.get("slot_data") or {}
             self.is_open_castle = sd.get("game_mode") == "open_castle"
-            if self.is_open_castle and self.game_writer is not None:
-                self._send_to_game("MODE open_castle")
+            self.seed_mode = "open_castle" if self.is_open_castle else "vanilla"
+            if self.game_writer is not None:
+                self._send_to_game("MODE " + self.seed_mode)
             if sd.get("game_mode") == "open_castle":
                 self.open_castle_goalcfg = "{},{},{},{},{},{}".format(
                     sd.get("open_castle_goal_cards", 0),
@@ -759,12 +769,13 @@ class HP2Context(CommonContext):
             # consumed (the sent_this_session guard, reset on this connect,
             # stops the pending-grants drain + this from double-sending).
             self._forward_all_received()
-            # Re-arm the durable open castle signal. One-way + sticky +
-            # idempotent mod-side, so every HELLO (fresh launch / reconnect /
-            # cold load into a sentinel-less level) re-asserts it. Vanilla
-            # never sends.
-            if self.is_open_castle:
-                self._send_to_game("MODE open_castle")
+            # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
+            # every HELLO (fresh launch / reconnect / cold load into a
+            # sentinel-less level) re-asserts it. Sent in BOTH modes so the mod
+            # can flag a seed/install mismatch; "open_castle" also re-latches
+            # bOpenCastleMode.
+            if self.seed_mode is not None:
+                self._send_to_game("MODE " + self.seed_mode)
             # Re-arm the open castle Great Hall key thresholds. Sticky +
             # idempotent mod-side, so resending every HELLO covers fresh game
             # launches and reconnects without harm. No-op for vanilla /
