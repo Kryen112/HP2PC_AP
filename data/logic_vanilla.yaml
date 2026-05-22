@@ -309,31 +309,28 @@ locations:
   "Diffindo Challenge - Card Ketteridge":
     { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
   "Diffindo Challenge - Card Merwyn":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Card Ulric":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Card Withers":
     { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
   "Diffindo Challenge - Card Shimpling":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Smethwyck":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
+  "Diffindo Challenge - Card Smethwyck": { requires: "Diffindo & Alohomora" }
   "Diffindo Challenge - Card Stalk":
     { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
   "Diffindo Challenge - Card Thurkell":
     { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 1": { requires: "Diffindo & Alohomora" }
+  "Diffindo Challenge - Secret 2": { requires: "Diffindo & Alohomora" }
   "Diffindo Challenge - Secret 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Secret 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Secret 5":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Secret 6":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Secret 7":
     { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
   "Diffindo Challenge - Secret 8":
@@ -345,19 +342,19 @@ locations:
   "Diffindo Challenge - Secret 11":
     { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 5":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 6":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 7":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 8":
     { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
   "Diffindo Challenge - Challenge Star 9":
@@ -593,15 +590,24 @@ locations:
     { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
 
   # Duelling Club duels
-  "Duelling Club - Duel Rank 1": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 2": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 3": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 4": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 5": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 6": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 7": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 8": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 9": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 1":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 2":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 3":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 4":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 5":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 6":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 7":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 8":
+    { requires: "Rictusempra & Skurge & Alohomora" }
+  "Duelling Club - Duel Rank 9":
+    { requires: "Rictusempra & Skurge & Alohomora" }
   "Duelling Club - Duel Rank 10":
     { requires: "Rictusempra & Skurge & Alohomora" }
 
