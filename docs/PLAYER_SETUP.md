@@ -9,8 +9,8 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 ## What you're getting
 
 - An Archipelago multiworld randomizer for HP2 (PC, KnowWonder 2002 release).
-- Up to 280 checks across 8 categories — 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, and 2 Fred & George vendor purchases. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
-- Goal: defeat the Basilisk.
+- Up to 280 checks across 8 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, and 2 Fred & George vendor purchases. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
+- Goal: in vanilla, defeat the Basilisk; in open castle, satisfy your configured goal clauses to unlock the Great Hall (see "Game mode" below).
 - Plays solo or as a slot in a larger AP multiworld.
 
 ## Prerequisites
@@ -20,7 +20,7 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 | **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                             |
 | **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                                                                         |
 | **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                       |
-| **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, and this `PLAYER_SETUP.md`. The Python client is bundled inside the apworld — no separate exe. |
+| **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, and this `PLAYER_SETUP.md`. The Python client is bundled inside the apworld; no separate exe. |
 
 OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
 
@@ -40,7 +40,7 @@ Run M212's installer. Point it at your HP2 install.
 You should have downloaded these four files from the GitHub release:
 
 - `HPArchipelago.u` (the compiled mod)
-- `Default.ini` (pre-patched engine config — replaces the one shipped with M212)
+- `Default.ini` (pre-patched engine config, replaces the one shipped with M212)
 - `harry_potter_2_pc.apworld` (the AP world + bundled client)
 - `PLAYER_SETUP.md` (this file)
 
@@ -64,7 +64,7 @@ If Windows blocks saving in Program Files, copy the files via Windows Explorer a
 
   (replacing any existing `DefaultGame=` line). The edit path preserves your per-user settings like resolution and audio volume; the delete path is simpler if you don't care.
 
-Your `Save\` folder is fine to keep. If `Harry - Coding Evolved\` doesn't exist yet (fresh M212 install, never launched), skip this — `Default.ini` is all you need; the engine will generate any per-user files on first launch.
+Your `Save\` folder is fine to keep. If `Harry - Coding Evolved\` doesn't exist yet (fresh M212 install, never launched), skip this; `Default.ini` is all you need; the engine will generate any per-user files on first launch.
 
 > Why this matters: `HP.ini` and `Game.ini` are user-data overrides. If they exist from a prior launch, they take precedence over `Default.ini` and will silently override the mod's settings back to vanilla.
 
@@ -72,7 +72,7 @@ Your `Save\` folder is fine to keep. If `Harry - Coding Evolved\` doesn't exist 
 
 ### Optional: install the HP2 Bingo distribution too
 
-The randomizer also supports the **HP2 Bingo** community pack — open castle from spawn. You can keep your vanilla install AND a separate HP2 Bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
+The randomizer also supports the **HP2 Bingo** community pack (open castle from spawn). You can keep your vanilla install AND a separate HP2 Bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
 
 If you only want vanilla story play, skip to step 4. If you want open castle:
 
@@ -81,7 +81,7 @@ If you only want vanilla story play, skip to step 4. If you want open castle:
 3. **Run the M212 installer again**, pointing at your HP2 Bingo folder. M212 layers cleanly over the HP2 Bingo map edits.
 4. **Copy `HPArchipelago.u` and `Default.ini`** into `<HP2 Bingo install>\Modded\system\`, same as step 3 above. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files), so no separate INI cleanup is needed.
 
-That's the install side. The yaml side is one line — see "Configure your slot" below for the `game_mode: open_castle` option.
+That's the install side. The yaml side is one line; see "Configure your slot" below for the `game_mode: open_castle` option.
 
 ### 4. Install Archipelago and the apworld
 
@@ -93,14 +93,14 @@ Drop `harry_potter_2_pc.apworld` into Archipelago's custom worlds folder:
 <Archipelago install>\custom_worlds\harry_potter_2_pc.apworld
 ```
 
-That's it. Archipelago discovers it automatically next time you launch — `HP2 PC Client` will appear as a button in the Archipelago Launcher.
+That's it. Archipelago discovers it automatically next time you launch, and `HP2 PC Client` will appear as a button in the Archipelago Launcher.
 
 ## Generate a seed (solo play)
 
 If you're playing solo (just you, no other AP slots):
 
 1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`. (If you don't see the yaml, make sure you have the apworld installed and close and re-open the launcher.)
-2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 6 category toggles control what becomes an AP check:
+2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 7 category toggles control what becomes an AP check:
 
    | Toggle                      | Default | What it enables                                                                                            |
    | --------------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
@@ -112,17 +112,38 @@ If you're playing solo (just you, no other AP slots):
    | `enable_spell_challenge_times` | off  | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.               |
    | `enable_quidditch_upgrades` | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
 
-   The 4 spell-tutorial classrooms are always on — randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.
+   The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.
 
-   **Game mode** — one extra setting selects the install layout your seed targets:
+   **Game mode**: one extra setting selects the install layout your seed targets:
 
    ```yaml
    Harry Potter 2 PC:
-     game_mode: vanilla # default — retail + M212; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
-     # game_mode: open_castle   # HP2 Bingo install — NO spells precollected, all 7 land as AP items
+     game_mode: vanilla # default, retail + M212; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
+     # game_mode: open_castle   # HP2 Bingo install, NO spells precollected, all 7 land as AP items
    ```
 
-   The mod side handles the runtime difference itself (auto-detects the HP2 Bingo install via the `MGBingoLearnAllSpells` actor and reverts the HP2 Bingo client's PostBeginPlay spell grants). You can confirm it kicked in by checking `Game.log` for `DetectOpenCastleMode - found MGBingoLearnAllSpells - entering open castle mode (sticky)` shortly after launching.
+   The mod side handles the runtime difference itself (auto-detects the HP2 Bingo install via the `MGBingoLearnAllSpells` actor and reverts the HP2 Bingo client's PostBeginPlay spell grants). You can confirm it kicked in by checking `Game.log` for `DetectOpenCastleMode - found MGBingoLearnAllSpells - entering open castle mode (sticky)` shortly after launching. Match this setting to the install you launch; if they disagree the game pops a "WRONG INSTALL" warning toast every level (see Troubleshooting), because a mismatched seed can't be completed.
+
+   **Open castle goal**: in `open_castle` mode the slot completes by opening the Great Hall, not by the Basilisk fight. Five options set the unlock requirement; they're AND'd together, and any clause left at `0`/off drops out. If all five resolve to `0`/off it falls back to "all 7 spells" so there's always a gate. All five are ignored in vanilla.
+
+   | Option                       | Range  | Default | Great Hall opens once you have…                                              |
+   | ---------------------------- | ------ | ------- | --------------------------------------------------------------------------- |
+   | `open_castle_goal_cards`     | 0-101  | 50      | that many wizard cards (named anchors: `none`/`few`/`half`/`most`/`all`)    |
+   | `open_castle_goal_spells`    | 0-7    | 7       | that many spells                                                            |
+   | `open_castle_goal_levels`    | 0-12   | 12      | that many of the 12 level objectives finished                              |
+   | `open_castle_goal_duels`     | off/on | off     | won all 10 Duelling Club duels                                              |
+   | `open_castle_goal_quidditch` | off/on | off     | won all 6 Quidditch matches                                                 |
+
+   **Other options (optional)**: sensible defaults; leave them unless you specifically want the behavior. Both game modes unless noted.
+
+   | Option                | Default                     | What it does                                                                                                                                                                                                                                  |
+   | --------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | `starting_spells`     | Flipendo, Lumos, Alohomora  | Spells Harry starts with; any spell left off this list becomes an AP item. Vanilla physically needs Lumos + Flipendo to clear the Whomping Willow, so keep both unless your fill places them very early. Valid: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo, Spongify. |
+   | `vanilla_gate_levels` | on                          | **Vanilla only.** On: the 7 story-region keys are AP items and a bookcase blocks each region until its key arrives (linear story order). Off: all keys precollected, every region open from the start. No effect in open castle (keys are always AP items there). |
+   | `tradersanity`        | off                         | Turns each non-Weasley card/ingredient vendor's first sale into an AP check, after which it reverts to selling normally. `price_vanilla` / `price_random` / `price_low` only change what that check costs.                                       |
+   | `enable_traps`        | off                         | Adds trap items (Bean Thief, Goyle Transformation, Forgetfulness) to the pool, replacing some filler. `trap_fill_percent` (5-50, default 5) sets how much filler is replaced.                                                                   |
+   | `ring_link`           | off                         | Mirrors organic Bertie Bott's bean changes (in-game pickups + vendor spending) to and from other RingLink slots in the room. AP-granted bean filler and the Bean Thief trap are not mirrored. Compatible with Sonic-style RingLink games.       |
+   | `death_link`          | off                         | Standard Archipelago DeathLink: dying sends a death to every other DeathLink slot, and their deaths kill you.                                                                                                                                  |
 
 3. **Generate.** ArchipelagoLauncher → **Generate**, pick your YAML when prompted. The generator drops a seed zip in `<Archipelago install>\output\`.
 
@@ -178,25 +199,32 @@ You're playing.
 
 Quick checklist after first launch:
 
-- **Toasts appear top-right** when items arrive. If not, the mod isn't loaded — see Troubleshooting below.
+- **Toasts appear top-right** when items arrive. If not, the mod isn't loaded; see Troubleshooting below.
 - **Bookcases block the spell classrooms** you haven't been granted yet. If you can walk straight into Lockhart's DADA classroom and the spell-tutorial cutscene fires immediately, the mod isn't running.
 - **Picking up a wizard card** should fire a `CHECK <id>` line in the client log and (if you have any items waiting) hand you something back.
-- **Goal:** the seed completes when you defeat the Basilisk and the post-Basilisk Great Hall walk-in fires the credits.
+- **Goal (vanilla):** the seed completes when you defeat the Basilisk and the post-Basilisk Great Hall walk-in fires the credits.
+- **Goal (open castle):** the Great Hall stays locked until you meet your configured goal clauses (`open_castle_goal_*`); once you do, walking into the Great Hall completes the slot.
 
 ## Troubleshooting
 
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
 - Check `<HP2 install>\Modded\system\HPArchipelago.u` exists.
-- Check `<HP2 install>\Modded\system\Default.ini` is the shipped one — open it and confirm `EditPackages=HPArchipelago` is present (search for it).
+- Check `<HP2 install>\Modded\system\Default.ini` is the shipped one; open it and confirm `EditPackages=HPArchipelago` is present (search for it).
 - If `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` exists, it overrides `Default.ini`, delete it.
 - If `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.ini` exists, it overrides both. Either delete it, or open it and make sure `[Engine.Engine]` has `DefaultGame=HPArchipelago.APGameInfo` (not `DefaultGame=Engine.GameInfo`).
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
 
+**Toast says "AP: WRONG INSTALL …"**:
+
+- This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning re-shows on every level until you fix it.
+- Fix it by launching the matching install: `game_mode: vanilla` → your retail/Modded install; `game_mode: open_castle` → your HP2 Bingo install (see "Optional: install the HP2 Bingo distribution too"). The seed itself is fine; you don't need to regenerate, just connect from the right `Game.exe`.
+- The warning is informational; the game won't stop you from continuing into a broken seed, so don't ignore it.
+
 **"HP2 PC Client" button missing from Archipelago Launcher**:
 
 - The apworld isn't installed where the launcher can see it. Confirm `harry_potter_2_pc.apworld` exists in `<Archipelago install>\custom_worlds\`.
-- Close and reopen ArchipelagoLauncher fully — launcher components are discovered on startup, not refreshed live.
+- Close and reopen ArchipelagoLauncher fully; launcher components are discovered on startup, not refreshed live.
 
 **Seed generation can't find the apworld**:
 
@@ -205,7 +233,7 @@ Quick checklist after first launch:
 **Client disconnects mid-session**:
 
 - The mod auto-reconnects with exponential backoff (1s up to a 16s cap). Just restart the client; the game will reconnect on the next try.
-- Items the AP server delivered while the client was down get replayed on reconnect. Every item type — cards, spells, equipment, all bean tiers, every other filler, and traps — is durable across a client crash, reconnect, or game save-load: the client keeps a per-slot consumed-item ledger in Archipelago server storage, so an item already applied is never re-granted (no double beans) and one you haven't received yet still arrives. The only way to lose an item: receive it in-game, then quit **without saving** and reload that older save — the ledger correctly considers it already delivered, so it won't be handed out again. Save after receiving items, or start a new game on the slot (which re-grants everything).
+- Items the AP server delivered while the client was down get replayed on reconnect. Every item type (cards, spells, equipment, all bean tiers, every other filler, and traps) is durable across a client crash, reconnect, or game save-load: the client keeps a per-slot consumed-item ledger in Archipelago server storage, so an item already applied is never re-granted (no double beans) and one you haven't received yet still arrives. The only way to lose an item: receive it in-game, then quit **without saving** and reload that older save, where the ledger correctly considers it already delivered, so it won't be handed out again. Save after receiving items, or start a new game on the slot (which re-grants everything).
 
 **Game crashes at level transition**:
 
