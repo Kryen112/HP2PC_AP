@@ -278,6 +278,12 @@ class HP2Context(CommonContext):
         # from slot_data on Connected; pushed every game HELLO (sticky +
         # idempotent mod-side), same lifecycle as open_castle_goalcfg.
         self.tradersanity_cfg: Optional[str] = None
+        # Tradersanity per-vendor rolled price factors as the
+        # "TRADERPRICES locId:factor,..." payload, or None if not received /
+        # tradersanity is off. Parsed from slot_data on Connected (apworld
+        # pre-rolled the factors from its seeded RNG); pushed every HELLO so
+        # the per-seed prices survive game launches and reconnects.
+        self.tradersanity_prices_csv: Optional[str] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
@@ -422,6 +428,28 @@ class HP2Context(CommonContext):
             logger.info(f"Tradersanity mode from slot_data: {self.tradersanity_cfg}")
             if self.game_writer is not None:
                 self._send_to_game("TRADECFG " + self.tradersanity_cfg)
+
+            # Tradersanity per-vendor price factors (byte 0..255 per
+            # Tradersanity location id), pre-rolled in the apworld from the
+            # seeded RNG. Mod blends each factor into [LO,HI] for
+            # price_random, or the vendor's own [min,max] for price_vanilla
+            # on a card vendor, so a vendor's AP-check price is fixed for
+            # the seed across level transitions AND save/exit. Same sticky
+            # lifecycle as tradersanity_cfg. Empty / missing → suppress the
+            # IPC line; mod side falls back to its built-in RandRange.
+            factors = sd.get("tradersanity_prices") or []
+            if factors:
+                self.tradersanity_prices_csv = ",".join(
+                    f"{int(loc_id)}:{int(factor)}" for loc_id, factor in factors
+                )
+                logger.info(
+                    f"Tradersanity per-vendor price factors from slot_data: "
+                    f"{len(factors)} entries"
+                )
+                if self.game_writer is not None:
+                    self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
+            else:
+                self.tradersanity_prices_csv = None
 
             # RingLink (#5). Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
@@ -789,6 +817,12 @@ class HP2Context(CommonContext):
             # later seed that turns Tradersanity off is honoured.
             if self.tradersanity_cfg is not None:
                 self._send_to_game("TRADECFG " + self.tradersanity_cfg)
+            # Re-arm the Tradersanity per-vendor price factors. Sticky +
+            # idempotent mod-side (writes a class-default byte table). Only
+            # sent when Tradersanity is on — when off the mod never reads the
+            # table, and an off seed should not be carrying stale factors.
+            if self.tradersanity_prices_csv:
+                self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
             # #3: re-push the appearance table. Sticky + idempotent mod-side,
             # so resending every HELLO re-arms a fresh game launch / reconnect.
             # is not None (not truthiness) so an all-native "" still re-arms.

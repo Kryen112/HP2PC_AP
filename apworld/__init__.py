@@ -818,6 +818,26 @@ class HP2World(World):
             "open_castle_level_mask": (1 << 12) - 1,
         }
 
+    def _tradersanity_rolled_factors(self) -> list[list[int]]:
+        # One byte 0..255 per Tradersanity location, rolled from self.random
+        # so the same AP seed always produces the same per-vendor prices.
+        # Mod side blends the factor into [LO,HI] (price_random) or the
+        # vendor's own [min,max] (price_vanilla on a card vendor), so one
+        # roll per vendor sticks for the whole seed — across level transitions
+        # AND save/exit — instead of re-rolling RandRange on every level
+        # entry. Empty list when tradersanity is off; the client treats absent
+        # / empty identically (the IPC line is suppressed).
+        # list[list[int]] (not dict[int,int]) so the JSON wire shape doesn't
+        # silently stringify the location-id keys.
+        if not int(self.options.tradersanity.value):
+            return []
+        ids = sorted(
+            LOCATION_NAME_TO_ID[name]
+            for name, group in LOCATION_GROUPS.items()
+            if group == "Tradersanity"
+        )
+        return [[loc_id, self.random.randint(0, 255)] for loc_id in ids]
+
     def fill_slot_data(self) -> dict:
         # The client only learns the RingLink / DeathLink toggles through
         # slot_data; it has no other view of the YAML. Must be in both paths.
@@ -827,12 +847,14 @@ class HP2World(World):
                 "ring_link": bool(self.options.ring_link),
                 "death_link": bool(self.options.death_link.value),
                 "tradersanity": self.options.tradersanity.value,
+                "tradersanity_prices": self._tradersanity_rolled_factors(),
             }
         sd = {
             "game_mode": "open_castle",
             "ring_link": bool(self.options.ring_link),
             "death_link": bool(self.options.death_link.value),
             "tradersanity": self.options.tradersanity.value,
+            "tradersanity_prices": self._tradersanity_rolled_factors(),
         }
         sd.update(self._open_castle_goal_config())
         return sd

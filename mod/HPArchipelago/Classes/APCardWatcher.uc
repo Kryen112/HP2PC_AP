@@ -86,12 +86,24 @@ const TRADER_PRICE_RANDOM  = 2;
 const TRADER_PRICE_LOW     = 3;
 var int TradersanityMode;
 // Price constants for the non-vanilla modes (retune freely). price_low clamps
-// to a flat value; price_random rolls within [LO, HI] (LO == HI floor is
-// intentional). price_vanilla restores the snapshotted price (a card vendor
-// rolls within its original card [min,max]).
+// to a flat value; price_random blends a per-vendor factor (TraderRolledFactor
+// below) across [LO, HI]; price_vanilla on a card vendor blends the SAME
+// factor across the vendor's own [min,max], so an ingredient vendor in
+// price_vanilla mode keeps its single snapshotted price.
 const TRADER_PRICE_LOW_BEANS  = 10;
 const TRADER_PRICE_RAND_LO    = 10;
 const TRADER_PRICE_RAND_HI    = 250;
+// Per-Tradersanity-location price factor (byte 0..255) pre-rolled in the
+// apworld from the seeded RNG and shipped via the "TRADERPRICES" IPC line.
+// Class-default class-array keyed by `apId - LOC_BASE` (parallels
+// NonCardLocationChecked[] / AppearanceCode[] — same dedupe-window math).
+// Sticky for the seed: resent every HELLO, so the rolled price for a vendor
+// survives both level transitions (class-default carries cross-level in
+// session) and save/exit (re-armed from slot_data on the next HELLO).
+// Replaces a per-level RandRange that re-rolled on every hub re-entry.
+// Dimension MUST be the integer literal 1024 (== NONCARD_LOC_WINDOW); M212
+// array dims take an integer literal, not a const.
+var byte TraderRolledFactor[1024];
 // A freshly-sold item spawns within ~CollisionRadius+10 of its vendor and is
 // caught within ≤0.25s, so it is always far nearer its own vendor than the
 // closest neighbouring vendor (census min separation ≈ 210uu). Match the
@@ -1028,6 +1040,42 @@ static function SetTradersanityMode(int m)
 {
     default.TradersanityMode = m;
     Log("[Archipelago] APCardWatcher.SetTradersanityMode: mode=" $ default.TradersanityMode);
+}
+
+// Per-vendor Tradersanity price factors from the apworld slot_data
+// (TRADERPRICES IPC line), as `locId:factor,locId:factor,...` (factor =
+// byte 0..255). Pre-rolled in the apworld with self.random so the same AP
+// seed always yields the same per-vendor prices; the mod blends each
+// factor into the active price range in ApplyVendorPrice. Class-default +
+// sticky, mirroring SetAppearanceCSV; idempotent. Wipes the table first so
+// a later seed without Tradersanity (or with fewer entries) can't leak
+// stale factors from a prior session.
+static function SetTraderRolledFactors(string csv)
+{
+    local string rest;
+    local int apId, factor, slot, n;
+
+    for (slot = 0; slot < NONCARD_LOC_WINDOW; slot++)
+    {
+        default.TraderRolledFactor[slot] = 0;
+    }
+
+    rest = csv;
+    n = 0;
+    while (rest != "")
+    {
+        apId   = NextCsvIntUpTo(rest, ":");
+        factor = NextCsvIntUpTo(rest, ",");
+        slot = apId - LOC_BASE;
+        if (slot >= 0 && slot < NONCARD_LOC_WINDOW)
+        {
+            if (factor < 0)   factor = 0;
+            if (factor > 255) factor = 255;
+            default.TraderRolledFactor[slot] = byte(factor);
+            n++;
+        }
+    }
+    Log("[Archipelago] APCardWatcher.SetTraderRolledFactors: ingested " $ n $ " factor entry(ies)");
 }
 
 // Inbound DeathLink arm (DEATHLINK IPC line). Class-default + sticky like the
@@ -3385,29 +3433,36 @@ function SetVendorActivePrice(Characters c, int p)
 }
 
 // Apply the slot_data price mode to the vendor's active (ingredient) price,
-// once per visit. price_low: flat. price_random: one roll in [LO,HI] (the
-// ingredient field has no built-in RandRange, so re-rolling per tick would
-// flicker — applied once). price_vanilla: a genuine ingredient vendor keeps
-// its true price; a converted card vendor rolls within its original card
-// [min,max] so the AP sale still costs a card-like price.
-function ApplyVendorPrice(Characters c, int idx)
+// once per visit. price_low: flat. price_random: blend the per-vendor
+// pre-rolled factor across [LO,HI]. price_vanilla: a genuine ingredient
+// vendor keeps its true price; a converted card vendor blends the SAME
+// factor across its original card [min,max] so the AP sale costs a card-like
+// price. The factor is rolled in the apworld from the seed and shipped via
+// TRADERPRICES, so a vendor's AP-check price is fixed for the seed across
+// level transitions AND save/exit instead of re-rolling on every re-entry.
+function ApplyVendorPrice(Characters c, int idx, int slot)
 {
+    local int factor, lo, hi;
+
     if (default.TradersanityMode == TRADER_PRICE_LOW)
     {
         SetVendorActivePrice(c, TRADER_PRICE_LOW_BEANS);
         return;
     }
+    factor = default.TraderRolledFactor[slot];
     if (default.TradersanityMode == TRADER_PRICE_RANDOM)
     {
-        SetVendorActivePrice(c,
-            int(RandRange(TRADER_PRICE_RAND_LO, TRADER_PRICE_RAND_HI)));
+        lo = TRADER_PRICE_RAND_LO;
+        hi = TRADER_PRICE_RAND_HI;
+        SetVendorActivePrice(c, lo + ((hi - lo) * factor) / 255);
         return;
     }
     // price_vanilla
     if (IsTraderCardVendor(idx))
     {
-        SetVendorActivePrice(c,
-            int(RandRange(TraderSavedLo[idx], TraderSavedHi[idx])));
+        lo = TraderSavedLo[idx];
+        hi = TraderSavedHi[idx];
+        SetVendorActivePrice(c, lo + ((hi - lo) * factor) / 255);
     }
     else
     {
@@ -3550,7 +3605,7 @@ function TradersanityPass()
         {
             // Arm: AP price + a single purchasable unit, together (same tick,
             // so it can't be misread as a sale).
-            ApplyVendorPrice(c, idx);
+            ApplyVendorPrice(c, idx, slot);
             c.nCurrIngrCount = 1;
             TraderApplied[idx] = 1;
             TraderWait[idx] = 0;

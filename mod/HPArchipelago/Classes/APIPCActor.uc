@@ -251,6 +251,17 @@ function HandleLine(string line)
         // on the watcher (mirrors GOALCFG); resent every HELLO. Idempotent.
         class'APCardWatcher'.static.SetTradersanityMode(int(Mid(line, 9)));
     }
+    else if (Left(line, 13) == "TRADERPRICES ")
+    {
+        // Per-vendor Tradersanity price factors pre-rolled in the apworld
+        // from the seed, as `locId:factor,locId:factor,...` (factor = byte
+        // 0..255). Sticky class-default on the watcher (mirrors TRADECFG);
+        // resent every HELLO. The mod blends the factor into the active
+        // price range so a vendor's AP-check price is fixed for the seed
+        // across level transitions AND save/exit, instead of re-rolling on
+        // every level entry.
+        class'APCardWatcher'.static.SetTraderRolledFactors(Mid(line, 13));
+    }
     else if (Left(line, 10) == "CONNECTED ")
     {
         // AP server address for the startup "Connected to host:port" toast,
