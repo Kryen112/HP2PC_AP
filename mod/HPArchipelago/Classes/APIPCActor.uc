@@ -292,6 +292,34 @@ function HandleLine(string line)
         // that hasn't yet been granted any starters.
         class'APCardWatcher'.static.ApplyResyncSpells("");
     }
+    else if (Left(line, 19) == "RESYNC_BLOCKERKEYS ")
+    {
+        // Durable bookcase-blocker-key resync. Re-asserts
+        // default.APGrantedBlockerKey[] AND destroys any matching live bookcase
+        // blocker in the current level, so a cold load that wiped the compiled
+        // class-defaults is not soft-locked (the client's consumed-indices
+        // ledger would otherwise block GRANT replay for already-applied keys).
+        // Sent every Connected + HELLO. Covers both modes (open castle: per-key
+        // blocker; vanilla: cumulative chain + standalone Duelling/Quidditch).
+        class'APCardWatcher'.static.ApplyResyncBlockerKeys(Mid(line, 19));
+    }
+    else if (line == "RESYNC_BLOCKERKEYS")
+    {
+        // Empty-list form (no blocker keys received yet). No state change;
+        // mirrors RESYNC_SPELLS's bare form so the wire is symmetric.
+        class'APCardWatcher'.static.ApplyResyncBlockerKeys("");
+    }
+    else if (Left(line, 16) == "RESYNC_KEYITEMS ")
+    {
+        // Potion-key-item resync (Boomslang/Bicorn/BitOGoyle). Always empty
+        // today; the three are not AP items. Wired so future randomization of
+        // any of them inherits save-load survivability without further mod work.
+        class'APCardWatcher'.static.ApplyResyncKeyItems(Mid(line, 16));
+    }
+    else if (line == "RESYNC_KEYITEMS")
+    {
+        class'APCardWatcher'.static.ApplyResyncKeyItems("");
+    }
     else if (Left(line, 8) == "CHECKED ")
     {
         // Per-slot checked-locations resync from the client, as a

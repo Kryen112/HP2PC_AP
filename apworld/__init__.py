@@ -62,14 +62,13 @@ CARD_ITEM_NAMES: frozenset[str] = frozenset(
     + ITEM_GROUPS.get("Cards (Silver)", [])
     + ITEM_GROUPS.get("Cards (Gold)", [])
 )
-# Level-entry keys. In open castle, all 14 are AP items gating every level
-# transition. In vanilla with vanilla_gate_levels on, the 7 in
+# Bookcase-blocker keys. In open castle, all 14 are AP items gating every
+# level transition. In vanilla with vanilla_gate_levels on, the 7 in
 # VANILLA_BLOCKED_KEY_NAMES are also AP items (the mod spawns a bookcase
-# blocking each region until the key arrives) and the other 7 are
-# precollected so their logic.yaml terms pass trivially without entering the
-# pool. With vanilla_gate_levels off, all 14 are precollected and no bookcase
-# spawns.
-OPEN_CASTLE_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Open Castle Keys", []))
+# blocking each region until the key arrives) and the other 7 are precollected
+# so their logic.yaml terms pass trivially without entering the pool. With
+# vanilla_gate_levels off, all 14 are precollected and no bookcase spawns.
+BLOCKER_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Blocker Keys", []))
 # Keys that gate a region behind a bookcase in vanilla when
 # vanilla_gate_levels is on (linear story order).
 # Bicorn/Boomslang/Goyle/Slytherin/Forbidden Forest are a cumulative chain (a
@@ -127,8 +126,8 @@ class GameMode(Choice):
     always precollected here.
 
     `open_castle`: the HP2 Bingo community pack's distribution maps (every
-    door unlocked from spawn). The 14 open castle keys are AP items gating
-    each level transition.
+    door unlocked from spawn). All 14 bookcase-blocker keys are AP items
+    gating each level transition.
 
     Which spells Harry starts with is governed by `starting_spells`;
     `vanilla_gate_levels` governs the 7 region keys. Neither is set by this
@@ -558,10 +557,11 @@ class HP2World(World):
 
     def _starter_names(self) -> set[str]:
         # Precollected = the spells the player chose via `starting_spells`,
-        # plus (vanilla only) all 14 open castle level-entry keys so logic.yaml
-        # references to them auto-pass without entering the vanilla pool.
-        # Open castle keeps the keys in the pool — the mod-side bookcases gate
-        # each level transition until the matching key arrives via the AP grant.
+        # plus the bookcase-blocker keys not entering the pool this seed (see
+        # `keys` selection below) so logic.yaml references to them auto-pass.
+        # Open castle keeps all 14 keys in the pool; vanilla precollects the
+        # subset that isn't gating a vanilla bookcase, since the mod-side
+        # bookcases gate each region until the matching key arrives via AP.
         #
         # Spells: honor `starting_spells` exactly in both modes. The mod's
         # Snapshot reverts every spell harry.PreBeginPlay grants (Flipendo /
@@ -576,9 +576,9 @@ class HP2World(World):
         if self._is_open_castle():
             keys: set[str] = set()
         elif self.options.vanilla_gate_levels:
-            keys = OPEN_CASTLE_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES
+            keys = BLOCKER_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES
         else:
-            keys = set(OPEN_CASTLE_KEY_NAMES)
+            keys = set(BLOCKER_KEY_NAMES)
         return spells | keys
 
     def _apply_missable_exclusions(self) -> None:
@@ -694,12 +694,12 @@ class HP2World(World):
 
         # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a
         # lot of beans the player can't have collected early; gate them behind
-        # owning at least 3 spells AND at least 3 open castle keys (any of
+        # owning at least 3 spells AND at least 3 bookcase-blocker keys (any of
         # them — a count threshold the logic grammar can't express). ANDs onto
         # the existing rule. Only the QuidditchPurchases locations that exist
         # this seed are touched, so this is a no-op when the vendors are disabled.
         spell_names = ITEM_GROUPS.get("Spells", [])
-        key_names = ITEM_GROUPS.get("Open Castle Keys", [])
+        key_names = ITEM_GROUPS.get("Blocker Keys", [])
         for loc_name, group in LOCATION_GROUPS.items():
             if group != "QuidditchPurchases":
                 continue
@@ -724,7 +724,7 @@ class HP2World(World):
         # goal-required key behind the 40-silver wall.
         if self._is_open_castle():
             keys_and_spells = frozenset(
-                ITEM_GROUPS.get("Open Castle Keys", []) + ITEM_GROUPS.get("Spells", []))
+                ITEM_GROUPS.get("Blocker Keys", []) + ITEM_GROUPS.get("Spells", []))
             for loc_name in GOLD_CARD_ROOM_LOCATIONS:
                 try:
                     loc = self.multiworld.get_location(loc_name, self.player)

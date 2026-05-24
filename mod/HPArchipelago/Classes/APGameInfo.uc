@@ -854,14 +854,17 @@ function RemoveSpongifyBlocker()
 }
 
 //=============================================================================
-// Open-castle-mode level-entry bookcases.
+// Level-entry bookcase blockers (open castle: every region; vanilla: the 7
+// VanillaBlockerShouldBlock regions).
 //
 // 14 keyed regions, 18 bookcases. Each helper is level-scoped (early-returns
 // when Level.Outer.Name doesn't match) so InitGame can call them all
-// unconditionally and let each one decide. APGrantedOpenCastleKey[i] on
+// unconditionally and let each one decide. APGrantedBlockerKey[i] on
 // APCardWatcher tracks which keys the player has received this session —
 // Block helpers early-return on granted, Remove helpers tag-scan + Destroy.
-// Idempotent on re-entry via the tag check.
+// Idempotent on re-entry via the tag check. OpenCastle* function naming is
+// legacy: these handle vanilla too (ShouldSpawnOpenCastleBlocker dispatches on
+// bOpenCastleMode internally).
 //
 // Shared utilities below dedupe the per-helper boilerplate. The actual
 // Location/Rotation literals were captured via the dev console PlaceBookcase
@@ -880,9 +883,9 @@ function bool OpenCastleLevelIsAnyOf(string CapsA, string CapsB)
     return lvl == CapsA || lvl == CapsB;
 }
 
-function bool OpenCastleKeyGranted(int idx)
+function bool BlockerKeyGranted(int idx)
 {
-    return class'APCardWatcher'.default.APGrantedOpenCastleKey[idx] == 1;
+    return class'APCardWatcher'.default.APGrantedBlockerKey[idx] == 1;
 }
 
 // Vanilla gates 7 regions behind a bookcase (same actor + coords + level as
@@ -897,19 +900,19 @@ function bool OpenCastleKeyGranted(int idx)
 function bool VanillaBlockerShouldBlock(int OwnKeyIdx)
 {
     if (OwnKeyIdx == 10)        // Bicorn
-        return !OpenCastleKeyGranted(10);
+        return !BlockerKeyGranted(10);
     if (OwnKeyIdx == 5)         // Boomslang
-        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5));
+        return !(BlockerKeyGranted(10) && BlockerKeyGranted(5));
     if (OwnKeyIdx == 9)         // Goyle
-        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5) && OpenCastleKeyGranted(9));
+        return !(BlockerKeyGranted(10) && BlockerKeyGranted(5) && BlockerKeyGranted(9));
     if (OwnKeyIdx == 8)         // Slytherin Common Room
-        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5) && OpenCastleKeyGranted(9) && OpenCastleKeyGranted(8));
+        return !(BlockerKeyGranted(10) && BlockerKeyGranted(5) && BlockerKeyGranted(9) && BlockerKeyGranted(8));
     if (OwnKeyIdx == 7)         // Forbidden Forest
-        return !(OpenCastleKeyGranted(10) && OpenCastleKeyGranted(5) && OpenCastleKeyGranted(9) && OpenCastleKeyGranted(8) && OpenCastleKeyGranted(7));
+        return !(BlockerKeyGranted(10) && BlockerKeyGranted(5) && BlockerKeyGranted(9) && BlockerKeyGranted(8) && BlockerKeyGranted(7));
     if (OwnKeyIdx == 11)        // Duelling (standalone)
-        return !OpenCastleKeyGranted(11);
+        return !BlockerKeyGranted(11);
     if (OwnKeyIdx == 12)        // Quidditch (standalone)
-        return !OpenCastleKeyGranted(12);
+        return !BlockerKeyGranted(12);
     return false;               // not a vanilla-blocked region
 }
 
@@ -930,7 +933,7 @@ function bool ShouldSpawnOpenCastleBlocker(name Tag, int KeyIdx)
     }
     if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
-        return !OpenCastleKeyGranted(KeyIdx);
+        return !BlockerKeyGranted(KeyIdx);
     }
     return VanillaBlockerShouldBlock(KeyIdx);
 }
@@ -1225,9 +1228,9 @@ function BlockOpenCastleGryffindorEntryIfMissing()
 function RemoveOpenCastleGryffindorBlocker()    { DestroyTaggedOpenCastleBlockers('APOpenCastleGryffindorBlocker'); }
 
 // ----- Great Hall goal gate (EntryHall_Hub; 1 bookcase — goal_plan.md §3) -----
-// NOT keyed by an APGrantedOpenCastleKey: this one is gated by the 5-clause goal
+// NOT keyed by an APGrantedBlockerKey: this one is gated by the 5-clause goal
 // evaluator, so it does not use ShouldSpawnOpenCastleBlocker (which checks
-// OpenCastleKeyGranted). Spawn while the goal is unmet; APCardWatcher.Timer calls
+// BlockerKeyGranted). Spawn while the goal is unmet; APCardWatcher.Timer calls
 // RemoveOpenCastleGreatHallBlocker the tick GoalSatisfied() first passes and sets
 // the sticky WasGoalUnlocked, after which this early-returns so it never
 // respawns. There is exactly one concrete way into the Great Hall; these
@@ -1810,22 +1813,24 @@ function bool TryApplyKeyItem(string Name, harry h)
     return False;
 }
 
-// Open-castle-only level-entry key. Stamps the class-default APGrantedOpenCastleKey flag
-// (so future BlockOpenCastle<X>EntryIfMissing helpers early-return for this key) and
-// dispatches to the matching RemoveOpenCastle<X>Blocker to destroy any bookcase
-// already in the level. Returns True if the item name matched a known open castle
-// key, regardless of whether a blocker was actually present.
-function bool TryApplyOpenCastleKey(string Name)
+// Bookcase-blocker key (shared by both modes). Stamps the class-default
+// APGrantedBlockerKey flag (so future BlockOpenCastle<X>EntryIfMissing helpers
+// early-return for this key) and, in open castle, dispatches to the matching
+// RemoveOpenCastle<X>Blocker to destroy any bookcase already in the level; in
+// vanilla, RefreshVanillaBlockers re-evaluates the cumulative chain + standalone
+// pair. Returns True if the item name matched a known blocker key, regardless of
+// whether a blocker was actually present.
+function bool TryApplyBlockerKey(string Name)
 {
     local int idx;
 
-    idx = class'APCardWatcher'.static.OpenCastleKeyIndexFromName(Name);
+    idx = class'APCardWatcher'.static.BlockerKeyIndexFromName(Name);
     if (idx < 0)
     {
         return False;
     }
 
-    class'APCardWatcher'.static.MarkOpenCastleKeyAsAPGrantedDefault(Name);
+    class'APCardWatcher'.static.MarkBlockerKeyAsAPGrantedDefault(Name);
 
     if (class'APCardWatcher'.default.bOpenCastleMode == 1)
     {
@@ -1849,7 +1854,7 @@ function bool TryApplyOpenCastleKey(string Name)
         RefreshVanillaBlockers();
     }
 
-    Log("[Archipelago] ApplyGrant: granted open castle key " $ Name $ " (idx=" $ idx $ ")");
+    Log("[Archipelago] ApplyGrant: granted blocker key " $ Name $ " (idx=" $ idx $ ")");
     return True;
 }
 
@@ -2313,7 +2318,7 @@ function ApplyGrant(string Body)
         return;
     }
 
-    if (TryApplyOpenCastleKey(ItemName))
+    if (TryApplyBlockerKey(ItemName))
     {
         return;
     }

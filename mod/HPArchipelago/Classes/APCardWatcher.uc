@@ -3,7 +3,7 @@ class APCardWatcher extends Actor;
 const MAX_CARD_ID = 101;
 const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
-const NUM_OPEN_CASTLE_KEYS = 14;
+const NUM_BLOCKER_KEYS = 14;
 
 // Story state when the player first gains control in the Great Hall after
 // the opening sequence — the checkpoint where vanilla assigns silver wizard
@@ -192,20 +192,22 @@ var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
 var byte APGrantedKeyItem[3];
 
-// Open-castle-only level-entry keys. 13 new progression items the apworld puts in
-// the pool when game_mode==open castle, each gating one or more bookcases spawned
-// in the hub levels (Entryhall_hub / Grandstaircase_hub / Grounds_hub +
-// Grounds_Night). APGrantedOpenCastleKey[i]==1 means the matching key has been
-// delivered by AP this session — the BlockOpenCastle<X>EntryIfMissing helpers
-// early-return when their flag is set, and RemoveOpenCastle<X>Blocker tag-scans
-// the level to destroy any still-present bookcase. Class-default writes via
-// MarkOpenCastleKeyAsAPGrantedDefault keep the flag sticky across save/load and
-// across the per-level watcher instance lifecycle. Index → name mapping in
-// OpenCastleKeyNames[] below; new entries here must mirror items.yaml open_castle_keys.
-// Dimension literal MUST be the integer 14, not NUM_OPEN_CASTLE_KEYS (M212 array
+// Bookcase-blocker keys. 14 progression items, each gating one or more
+// bookcases the mod spawns in the hub levels (Entryhall_hub / Grandstaircase_hub
+// / Grounds_hub + Grounds_Night). Used in BOTH game modes: open castle puts all
+// 14 in the AP pool, vanilla puts the 7 in VANILLA_BLOCKED_KEY_NAMES in the
+// pool (cumulative chain + Duelling/Quidditch standalone) and precollects the
+// rest. APGrantedBlockerKey[i]==1 means the matching key has been delivered by
+// AP — the BlockOpenCastle<X>EntryIfMissing helpers early-return when their
+// flag is set, and RemoveOpenCastle<X>Blocker tag-scans the level to destroy
+// any still-present bookcase. Class-default writes via MarkBlockerKeyAsAPGranted-
+// Default keep the flag sticky across save/load and across the per-level watcher
+// instance lifecycle. Index → name mapping in BlockerKeyNames[] below; new
+// entries here must mirror items.yaml blocker_keys.
+// Dimension literal MUST be the integer 14, not NUM_BLOCKER_KEYS (M212 array
 // dims take an integer literal, not a const) — keep in sync with the const.
-var string OpenCastleKeyNames[14];
-var byte APGrantedOpenCastleKey[14];
+var string BlockerKeyNames[14];
+var byte APGrantedBlockerKey[14];
 
 // M7 goal detection: 1 once GOAL_COMPLETE has fired this session. Class-default
 // so it survives level transitions (the credits flow stays in the same level
@@ -273,7 +275,7 @@ var byte bResyncReceived;
 // Open castle Great Hall key config. Delivered once per process by the client as
 // "GOALCFG c,s,l,d,q,mask" (from apworld slot_data) → SetGoalConfigCSV writes
 // these class-defaults; sticky across level transitions / save-load like
-// bOpenCastleMode and APGrantedOpenCastleKey. GoalSatisfied() (Phase 2) reads them; the
+// bOpenCastleMode and APGrantedBlockerKey. GoalSatisfied() (Phase 2) reads them; the
 // Great Hall bookcase (Phase 3) clears when every enabled clause passes. A
 // clause of 0 / off drops out of the AND (apworld already applied the
 // all-off → all-spells fallback, so this is never a no-gate config in open castle).
@@ -598,23 +600,24 @@ event PreBeginPlay()
     KeyItemNames[1] = "Bicorn";
     KeyItemNames[2] = "BitOGoyle";
 
-    // Open-castle-only level-entry keys. Order matters — APGrantedOpenCastleKey[] is
-    // indexed by this. Keep in sync with items.yaml open_castle_keys section and
-    // with TryApplyOpenCastleKey / RemoveOpenCastle<X>Blocker dispatch in APGameInfo.
-    OpenCastleKeyNames[0]  = "Chamber of Secrets Key";
-    OpenCastleKeyNames[1]  = "Spongify Challenge Key";
-    OpenCastleKeyNames[2]  = "Skurge Challenge Key";
-    OpenCastleKeyNames[3]  = "Rictusempra Challenge Key";
-    OpenCastleKeyNames[4]  = "Diffindo Challenge Key";
-    OpenCastleKeyNames[5]  = "Boomslang Level Key";
-    OpenCastleKeyNames[6]  = "Whomping Willow Key";
-    OpenCastleKeyNames[7]  = "Forbidden Forest Key";
-    OpenCastleKeyNames[8]  = "Slytherin Common Room Key";
-    OpenCastleKeyNames[9]  = "Goyle Level Key";
-    OpenCastleKeyNames[10] = "Bicorn Level Key";
-    OpenCastleKeyNames[11] = "Duelling Key";
-    OpenCastleKeyNames[12] = "Quidditch Key";
-    OpenCastleKeyNames[13] = "Gryffindor Challenge Key";
+    // Bookcase-blocker keys (shared by open castle and vanilla). Order matters
+    // — APGrantedBlockerKey[] is indexed by this. Keep in sync with items.yaml
+    // blocker_keys section and with TryApplyBlockerKey / RemoveOpenCastle<X>Blocker
+    // dispatch in APGameInfo.
+    BlockerKeyNames[0]  = "Chamber of Secrets Key";
+    BlockerKeyNames[1]  = "Spongify Challenge Key";
+    BlockerKeyNames[2]  = "Skurge Challenge Key";
+    BlockerKeyNames[3]  = "Rictusempra Challenge Key";
+    BlockerKeyNames[4]  = "Diffindo Challenge Key";
+    BlockerKeyNames[5]  = "Boomslang Level Key";
+    BlockerKeyNames[6]  = "Whomping Willow Key";
+    BlockerKeyNames[7]  = "Forbidden Forest Key";
+    BlockerKeyNames[8]  = "Slytherin Common Room Key";
+    BlockerKeyNames[9]  = "Goyle Level Key";
+    BlockerKeyNames[10] = "Bicorn Level Key";
+    BlockerKeyNames[11] = "Duelling Key";
+    BlockerKeyNames[12] = "Quidditch Key";
+    BlockerKeyNames[13] = "Gryffindor Challenge Key";
 
     // Inherit cross-session AP-grant flags from class default so a freshly
     // spawned watcher (e.g. after a save-load while AP grants arrived
@@ -635,11 +638,11 @@ event PreBeginPlay()
             WasKeyItemOwned[i] = 1;
         }
     }
-    for (i = 0; i < NUM_OPEN_CASTLE_KEYS; i++)
+    for (i = 0; i < NUM_BLOCKER_KEYS; i++)
     {
-        if (default.APGrantedOpenCastleKey[i] == 1)
+        if (default.APGrantedBlockerKey[i] == 1)
         {
-            APGrantedOpenCastleKey[i] = 1;
+            APGrantedBlockerKey[i] = 1;
         }
     }
 
@@ -734,11 +737,116 @@ static function ApplyResyncSpells(string CsvNames)
     }
 }
 
-// Open castle key dispatch. Returns the OpenCastleKeyNames[] index, or -1 if the string
-// doesn't match a known open castle key. APGameInfo.TryApplyOpenCastleKey uses this both
-// to stamp the class-default flag and to dispatch to the right
+// Bookcase-blocker-key resync entry point. Mirrors ApplyResyncSpells for the
+// 14 region keys: the client's `RESYNC_BLOCKERKEYS <csv>` (sent on every
+// Connected and every game HELLO) carries every key name this slot has ever
+// received from AP. For each one we route through APGameInfo.TryApplyBlockerKey
+// so the class-default flag is stamped AND any live bookcase blocker in the
+// current level is destroyed — the consumed-indices ledger blocks GRANT replay,
+// so without this a cold load with wiped class-defaults strands the slot.
+// Falls back to the class-default-only marker when no GameInfo is reachable
+// (resync arrived before any level Game exists).
+static function ApplyResyncBlockerKeys(string CsvNames)
+{
+    local int p;
+    local string rest, name;
+    local APCardWatcher w;
+    local APGameInfo gi;
+
+    Log("[Archipelago] APCardWatcher.ApplyResyncBlockerKeys: csv='" $ CsvNames $ "'");
+
+    w = class'APCardWatcher'.static.GetLatest();
+    gi = None;
+    if (w != None && w.Level != None)
+    {
+        gi = APGameInfo(w.Level.Game);
+    }
+
+    rest = CsvNames;
+    while (rest != "")
+    {
+        p = InStr(rest, ",");
+        if (p < 0)
+        {
+            name = rest;
+            rest = "";
+        }
+        else
+        {
+            name = Left(rest, p);
+            rest = Mid(rest, p + 1);
+        }
+        if (name == "") continue;
+
+        if (gi != None)
+        {
+            gi.TryApplyBlockerKey(name);
+        }
+        else
+        {
+            MarkBlockerKeyAsAPGrantedDefault(name);
+        }
+    }
+}
+
+// Potion-key-item resync entry point. Mirrors ApplyResyncBlockerKeys for
+// Boomslang/Bicorn/BitOGoyle. Today the csv is always empty (none of the three
+// are AP items in items.yaml); kept in lockstep so a future randomization gets
+// the same save-load survivability without further wiring. Routes through
+// APGameInfo.TryApplyKeyItem so flag + watcher instance + harry inventory are
+// all restored when the .usa never saw the AP grant.
+static function ApplyResyncKeyItems(string CsvNames)
+{
+    local int p;
+    local string rest, name;
+    local APCardWatcher w;
+    local APGameInfo gi;
+    local harry h;
+
+    Log("[Archipelago] APCardWatcher.ApplyResyncKeyItems: csv='" $ CsvNames $ "'");
+
+    w = class'APCardWatcher'.static.GetLatest();
+    h = None;
+    gi = None;
+    if (w != None)
+    {
+        h = w.HarryRef;
+        if (h == None && w.Level != None) h = harry(w.Level.PlayerHarryActor);
+        if (w.Level != None) gi = APGameInfo(w.Level.Game);
+    }
+
+    rest = CsvNames;
+    while (rest != "")
+    {
+        p = InStr(rest, ",");
+        if (p < 0)
+        {
+            name = rest;
+            rest = "";
+        }
+        else
+        {
+            name = Left(rest, p);
+            rest = Mid(rest, p + 1);
+        }
+        if (name == "") continue;
+
+        if (gi != None && h != None)
+        {
+            gi.TryApplyKeyItem(name, h);
+        }
+        else
+        {
+            MarkKeyItemAsAPGrantedDefault(name);
+        }
+    }
+}
+
+// Bookcase-blocker-key dispatch. Returns the BlockerKeyNames[] index, or -1 if
+// the string doesn't match a known key. APGameInfo.TryApplyBlockerKey uses this
+// both to stamp the class-default flag and to dispatch to the right
 // RemoveOpenCastle<X>Blocker helper.
-static function int OpenCastleKeyIndexFromName(string KeyName)
+static function int BlockerKeyIndexFromName(string KeyName)
 {
     if (KeyName == "Chamber of Secrets Key")    return 0;
     if (KeyName == "Spongify Challenge Key")    return 1;
@@ -757,16 +865,16 @@ static function int OpenCastleKeyIndexFromName(string KeyName)
     return -1;
 }
 
-static function MarkOpenCastleKeyAsAPGrantedDefault(string KeyName)
+static function MarkBlockerKeyAsAPGrantedDefault(string KeyName)
 {
     local int idx;
-    idx = OpenCastleKeyIndexFromName(KeyName);
+    idx = BlockerKeyIndexFromName(KeyName);
     if (idx < 0)
     {
         return;
     }
-    default.APGrantedOpenCastleKey[idx] = 1;
-    Log("[Archipelago] APCardWatcher.MarkOpenCastleKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
+    default.APGrantedBlockerKey[idx] = 1;
+    Log("[Archipelago] APCardWatcher.MarkBlockerKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
 }
 
 // Forgetfulness Trap entry point (called from APGameInfo.TryApplyTrap). Backs
@@ -892,7 +1000,7 @@ static function int NextCsvInt(out string rest)
 
 // Ingest "cards,spells,levels,duels,quidditch,mask" from the client (apworld
 // slot_data, sent every HELLO). Class-default + sticky like bOpenCastleMode /
-// APGrantedOpenCastleKey; idempotent (re-parsing the same csv re-asserts the same
+// APGrantedBlockerKey; idempotent (re-parsing the same csv re-asserts the same
 // values). The apworld already applied the all-off → all-spells fallback, so
 // a open castle seed never delivers an all-zero (no-gate) config.
 static function SetGoalConfigCSV(string csv)
@@ -951,14 +1059,19 @@ static function SetConnectedAddress(string addr)
 // default.NonCardLocationChecked[apId - LOC_BASE], so the mod's
 // process-lifetime dedupe arrays match the AP server's source of truth across
 // game close+reload (class-defaults are compiled, never read from the .usa).
-// Class-default + sticky like the other setters; idempotent (a check can
-// never be "uncollected"). Resent every HELLO. The follow-up convergence
-// sweep that bean-swaps already-checked chest slots is owned by
-// ReSweepCheckedChests, called from APIPCActor's CHECKED handler.
+// Level-completion apIds (5760700..5760711 → slot 700..711) additionally
+// re-stamp default.GoalLevelDone[idx], so a cold load can't leave the
+// open-castle goal evaluator stranded — the bookcase / hub Timer re-evaluates
+// GoalSatisfied() on the next tick and self-opens the Great Hall via the
+// existing WasGoalUnlocked path. Class-default + sticky like the other
+// setters; idempotent (a check can never be "uncollected"). Resent every
+// HELLO. The follow-up convergence sweep that bean-swaps already-checked
+// chest slots is owned by ReSweepCheckedChests, called from APIPCActor's
+// CHECKED handler.
 static function SetCheckedLocationsCSV(string csv)
 {
     local string rest;
-    local int apId, slot, cardId, nCard, nNonCard;
+    local int apId, slot, cardId, nCard, nNonCard, nGoalLevel;
 
     rest = csv;
     while (rest != "")
@@ -986,10 +1099,21 @@ static function SetCheckedLocationsCSV(string csv)
         {
             default.NonCardLocationChecked[slot] = 1;
             nNonCard++;
+            // Level completions double-stamp the clause-3 goal bitset
+            // (mirrors NotifyLevelObjective which sets both alongside each
+            // CHECK_LOCID fire). Slot 700..(700+15) maps to GoalLevelDone
+            // index 0..15; the array dim allows 16 objectives, 12 are wired
+            // today (see LevelObjectiveIndexFor).
+            if (slot >= 700 && (slot - 700) < 16)
+            {
+                default.GoalLevelDone[slot - 700] = 1;
+                nGoalLevel++;
+            }
         }
     }
     Log("[Archipelago] APCardWatcher.SetCheckedLocationsCSV: stamped "
-        $ nCard $ " card check(s) + " $ nNonCard $ " non-card check(s)");
+        $ nCard $ " card check(s) + " $ nNonCard $ " non-card check(s) ("
+        $ nGoalLevel $ " level completion(s) → GoalLevelDone[])");
 }
 
 // ---------------------------------------------------------------------------

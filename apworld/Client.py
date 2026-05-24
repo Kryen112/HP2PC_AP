@@ -31,11 +31,16 @@ Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
 APPLIED, wiped on NEWGAME. The mod's .usa cannot persist mod data (M212), so AP
 storage is the source of truth for which indices have already been forwarded.
 
-Durable spell ledger: the set of spell names the slot has ever received from AP
-is derived live from AP's cumulative ReceivedItems list (which the server
-replays in full on every Connected). The mod gets it as RESYNC_SPELLS on every
-Connected and every game HELLO, so the mod's APGrantedSpell flag plus spellbook
-contents stay in sync without an extra Data Storage record.
+Durable AP-grant resyncs (spells, bookcase-blocker keys, potion key items): each
+set of granted item names is derived live from AP's cumulative ReceivedItems
+list (which the server replays in full on every Connected) and pushed to the
+mod as RESYNC_SPELLS / RESYNC_BLOCKERKEYS / RESYNC_KEYITEMS on every Connected
+and every game HELLO. The mod re-stamps the matching class-default flag arrays
+(APGrantedSpell / APGrantedBlockerKey / APGrantedKeyItem) and restores any live
+game state the .usa save dropped (spellbook entries, bookcase blocker actors,
+Harry's ingredient StatusItems), so a process restart that wiped the compiled
+class-defaults can never strand the slot — the consumed-indices ledger would
+otherwise block any GRANT replay for these items.
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -142,6 +147,19 @@ SPELL_NAME_TO_INDEX = {
 # frozenset for membership tests.
 SPELL_ITEM_NAMES_SET = frozenset(SPELL_NAME_TO_INDEX)
 
+# AP item names treated as bookcase-blocker keys (the 14 region keys, used in
+# both modes); same set as ITEM_GROUPS['Blocker Keys']. Used by
+# `granted_blocker_key_names` to filter received_by_index for the
+# RESYNC_BLOCKERKEYS payload.
+BLOCKER_KEY_NAMES_SET = frozenset(ITEM_GROUPS['Blocker Keys'])
+
+# AP item names treated as potion-ingredient key items. Not in items.yaml today
+# (KEYITEM_TO_LOCATION_NAME is empty too), but the mod's TryApplyKeyItem already
+# accepts these exact strings as GRANT payloads, so the resync is wired up in
+# lockstep with spells / blocker keys: future randomization of any of these
+# three inherits save-load survivability with zero extra wiring.
+KEY_ITEM_NAMES_SET = frozenset(['Boomslang', 'Bicorn', 'BitOGoyle'])
+
 # Filler appearance code — FILLER_NAMES order maps 1:1 to the mod's 2001..2008
 # (Small/Medium/Large/Massive Beans, Wiggenweld, Wiggentree Bark, Flobberworm,
 # Chocolate Frog).
@@ -151,10 +169,10 @@ FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
 # vanilla mesh, same as cards/spells/filler (mod codes 3001..3002).
 EQUIPMENT_CODE = {'Nimbus 2001': 3001, 'Quidditch Armour': 3002}
 
-# Open castle key appearance code — the 13 level/challenge bookcase keys all
-# share the vanilla "silver key" FX sprite (mod code 3003). Sourced from the
-# canonical ITEM_GROUPS entry so the set never drifts from items.yaml.
-KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Open Castle Keys']}
+# Bookcase-blocker key appearance code — the 14 region keys all share the
+# vanilla "silver key" FX sprite (mod code 3003). Sourced from the canonical
+# ITEM_GROUPS entry so the set never drifts from items.yaml.
+KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Blocker Keys']}
 
 # Foreign (non-HP2) item codes — the only surviving #1 contribution: the
 # AP-logo plate, arrow variant when the foreign item is progression or trap
@@ -499,6 +517,8 @@ class HP2Context(CommonContext):
                 # never received from AP.
                 self._forward_all_received()
                 self._send_resync_spells()
+                self._send_resync_blocker_keys()
+                self._send_resync_key_items()
         elif cmd == "LocationInfo":
             # CommonContext's built-in handler has already populated
             # self.locations_info[loc] = NetworkItem for every scouted
@@ -796,6 +816,8 @@ class HP2Context(CommonContext):
             # now-open gate.
             if self.ledger_loaded:
                 self._send_resync_spells()
+                self._send_resync_blocker_keys()
+                self._send_resync_key_items()
             return
         if line == "GOAL_COMPLETE":
             if self.goal_sent:
@@ -1043,6 +1065,32 @@ class HP2Context(CommonContext):
             if name in SPELL_ITEM_NAMES_SET
         }
 
+    @property
+    def granted_blocker_key_names(self) -> set[str]:
+        """Bookcase-blocker keys this slot has received from AP, derived the
+        same way as `granted_spell_names`. Read by `_send_resync_blocker_keys`
+        on every Connected + game HELLO."""
+        return {
+            name
+            for item in self.received_by_index.values()
+            for name in (self.item_names.lookup_in_game(item.item, GAME_NAME),)
+            if name in BLOCKER_KEY_NAMES_SET
+        }
+
+    @property
+    def granted_key_item_names(self) -> set[str]:
+        """Potion-ingredient key items (Boomslang / Bicorn / BitOGoyle) this
+        slot has received from AP. Always empty today — these names are not in
+        items.yaml — but the membership test mirrors the spell / blocker-key
+        pattern so a future randomization picks up save-load survivability
+        without further wiring."""
+        return {
+            name
+            for item in self.received_by_index.values()
+            for name in (self.item_names.lookup_in_game(item.item, GAME_NAME),)
+            if name in KEY_ITEM_NAMES_SET
+        }
+
     def _send_resync_spells(self) -> None:
         """Push the derived spell ledger to the mod as a single RESYNC_SPELLS
         line. Sticky + idempotent mod-side; sent on every Connected (Retrieved)
@@ -1056,6 +1104,32 @@ class HP2Context(CommonContext):
             self._send_to_game(f"RESYNC_SPELLS {csv}")
         else:
             self._send_to_game("RESYNC_SPELLS")
+
+    def _send_resync_blocker_keys(self) -> None:
+        """Push the derived bookcase-blocker-key ledger to the mod as a single
+        RESYNC_BLOCKERKEYS line. Sticky + idempotent mod-side; sent on every
+        Connected (Retrieved) and every game HELLO. The mod re-stamps
+        default.APGrantedBlockerKey[] AND destroys any matching live bookcase
+        blocker, so a cold load that wiped the class-defaults isn't soft-locked
+        by the consumed-indices ledger blocking GRANT replay. Covers both
+        modes — open castle (per-key blocker) and vanilla (cumulative chain
+        plus standalone Duelling/Quidditch)."""
+        csv = ",".join(sorted(self.granted_blocker_key_names))
+        if csv:
+            self._send_to_game(f"RESYNC_BLOCKERKEYS {csv}")
+        else:
+            self._send_to_game("RESYNC_BLOCKERKEYS")
+
+    def _send_resync_key_items(self) -> None:
+        """Push the derived potion-key-item ledger to the mod as a single
+        RESYNC_KEYITEMS line. Always empty today (none of the three names are
+        in items.yaml); wired up so future randomization of any of them
+        inherits the spell / blocker-key save-load survivability."""
+        csv = ",".join(sorted(self.granted_key_item_names))
+        if csv:
+            self._send_to_game(f"RESYNC_KEYITEMS {csv}")
+        else:
+            self._send_to_game("RESYNC_KEYITEMS")
 
     def _forward_one(self, idx: int, item) -> None:
         """Forward one received item to the game as `GRANT <idx> <payload>`,

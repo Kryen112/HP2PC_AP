@@ -163,33 +163,39 @@ cards_gold:
   - { id_offset: 199, class: WCRavenclaw,     name: "Gold Card - Ravenclaw" }
   - { id_offset: 200, class: WCSlytherin,     name: "Gold Card - Slytherin" }
 
-# Open-castle-only level-entry keys. 13 progression items, one per bookcase
-# group the mod spawns in the hub levels (Entryhall_hub / Grandstaircase_hub /
-# Grounds_hub+Grounds_Night) when the player runs an open-castle-mode seed.
+# Bookcase-blocker keys. 14 progression items, one per bookcase group the mod
+# spawns to gate a level/region (Entryhall_hub / Grandstaircase_hub /
+# Grounds_hub+Grounds_Night). Used in BOTH game modes; "OpenCastle" naming is
+# legacy.
 #
-# In vanilla mode HP2World.create_items push_precollects these so they're
-# invisible (the matching bookcases never spawn in vanilla, but logic.yaml
-# can still reference them unconditionally — auto-passes).
-# In open castle mode they enter the AP pool; AP places them at random checks
-# and the player has to find each key to clear the matching bookcase(s).
+# Open castle: all 14 enter the AP pool. AP places them at random checks and
+# the player has to find each key to clear the matching bookcase(s).
+# Vanilla with vanilla_gate_levels on (default): the 7 region keys in
+# VANILLA_BLOCKED_KEY_NAMES (Bicorn, Boomslang, Goyle, Slytherin, Forbidden
+# Forest, Duelling, Quidditch) enter the pool and gate a vanilla bookcase
+# (cumulative chain for the 5 level keys, standalone for the duels/quidditch
+# pair). The other 7 are precollected so their logic.yaml terms auto-pass.
+# Vanilla with vanilla_gate_levels off: all 14 are precollected; no bookcases
+# spawn at all.
 #
 # Grant handlers in APGameInfo.ApplyGrant dispatch by name → call
-# APCardWatcher.MarkOpenCastleKeyAsGrantedDefault(name) + RemoveOpenCastle<X>Blocker.
-open_castle_keys:
-  - { id_offset: 250, name: "Chamber of Secrets Key",    classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 251, name: "Spongify Challenge Key",    classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 252, name: "Skurge Challenge Key",      classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 253, name: "Rictusempra Challenge Key", classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 254, name: "Diffindo Challenge Key",    classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 255, name: "Boomslang Level Key",       classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 256, name: "Whomping Willow Key",       classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 257, name: "Forbidden Forest Key",      classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 258, name: "Slytherin Common Room Key", classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 259, name: "Goyle Level Key",           classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 260, name: "Bicorn Level Key",          classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 261, name: "Duelling Key",              classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 262, name: "Quidditch Key",             classification: progression, group: "Open Castle Keys" }
-  - { id_offset: 263, name: "Gryffindor Challenge Key",  classification: progression, group: "Open Castle Keys" }
+# APCardWatcher.MarkBlockerKeyAsAPGrantedDefault(name) + RemoveOpenCastle<X>Blocker
+# (open castle) or RefreshVanillaBlockers (vanilla cumulative re-evaluation).
+blocker_keys:
+  - { id_offset: 250, name: "Chamber of Secrets Key",    classification: progression, group: "Blocker Keys" }
+  - { id_offset: 251, name: "Spongify Challenge Key",    classification: progression, group: "Blocker Keys" }
+  - { id_offset: 252, name: "Skurge Challenge Key",      classification: progression, group: "Blocker Keys" }
+  - { id_offset: 253, name: "Rictusempra Challenge Key", classification: progression, group: "Blocker Keys" }
+  - { id_offset: 254, name: "Diffindo Challenge Key",    classification: progression, group: "Blocker Keys" }
+  - { id_offset: 255, name: "Boomslang Level Key",       classification: progression, group: "Blocker Keys" }
+  - { id_offset: 256, name: "Whomping Willow Key",       classification: progression, group: "Blocker Keys" }
+  - { id_offset: 257, name: "Forbidden Forest Key",      classification: progression, group: "Blocker Keys" }
+  - { id_offset: 258, name: "Slytherin Common Room Key", classification: progression, group: "Blocker Keys" }
+  - { id_offset: 259, name: "Goyle Level Key",           classification: progression, group: "Blocker Keys" }
+  - { id_offset: 260, name: "Bicorn Level Key",          classification: progression, group: "Blocker Keys" }
+  - { id_offset: 261, name: "Duelling Key",              classification: progression, group: "Blocker Keys" }
+  - { id_offset: 262, name: "Quidditch Key",             classification: progression, group: "Blocker Keys" }
+  - { id_offset: 263, name: "Gryffindor Challenge Key",  classification: progression, group: "Blocker Keys" }
 
 # Filler. Stacks — multiple copies allowed, count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).
