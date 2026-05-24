@@ -204,6 +204,15 @@ var string KeyItemNames[3];
 var byte WasKeyItemOwned[3];
 var byte APGrantedKeyItem[3];
 
+// Per-watcher latches for challenge-completion detection (LevelObjectiveIndexFor
+// idx 7-11 — Ch1Rictusempra / Ch2Skurge / Ch3Diffindo / Ch4Spongify /
+// Ch7Gryffindor). bSawFinalStarThisLevel rises once an alive FinalStar is
+// observed in-level; bAwardedFinalStarThisLevel latches the credit so a
+// same-tick disappearance can't double-fire. Reset implicitly per level
+// because the watcher is per-level. See ScanFinalStarCompletion.
+var byte bSawFinalStarThisLevel;
+var byte bAwardedFinalStarThisLevel;
+
 // Bookcase-blocker keys. 14 progression items, each gating one or more
 // bookcases the mod spawns in the hub levels (Entryhall_hub / Grandstaircase_hub
 // / Grounds_hub + Grounds_Night). Used in BOTH game modes: open castle puts all
@@ -1848,6 +1857,7 @@ event Timer()
     ScanChallengeMastery(ipc);
     ScanBossKills(ipc);
     ScanDeathLink(ipc);
+    ScanFinalStarCompletion();
 
     // Lesson-end hook for the four spell-tutorial location checks.
     // Fires CHECK_SPELL the tick after harry.CurrSpellLesson transitions from
@@ -2906,12 +2916,11 @@ function Snapshot()
     else
         Log("[Archipelago] APCardWatcher.Snapshot: Level.Game not APGameInfo - cannot spawn Slytherin end star");
     // Clause-3: credit terminal objective levels (ingredient levels 0-2,
-    // Willow 5, Slytherin 6, and the 4 challenges 7-10) from the watcher's
-    // own per-level bind history when we leave them. The challenge FinalStar
-    // is NOT subclass-replaced: destroy+respawn dropped its Event/CutName so
-    // the vanilla win cutscene/travel never fired (level stuck, §12 #18) -
-    // a failed challenge restarts in place, so only true completion travels
-    // out, exactly like the other terminal levels.
+    // Willow 5, Slytherin 6) from the watcher's own per-level bind history
+    // when we leave them. Challenges (7-11) are NOT exit-credited — see
+    // ScanFinalStarCompletion (per-tick FinalStar pickup observer), since the
+    // entrance door and pause-menu Return-to-Hub button both bypass the
+    // "leaving == completion" premise.
     CheckExitedLevelObjective();
     // Drop the per-card curtain in Ch6WizardCard for every gold card Harry
     // currently owns. Vanilla's RemoveHarryOwnedCardsFromLevel destroys
@@ -3138,6 +3147,51 @@ function ScanChallengeMastery(APIPCActor ipc)
             $ HarryRef.ChallengeScores[i].nHighScore $ " par="
             $ HarryRef.ChallengeScores[i].nMaxScore $ ") - firing CHECK_LOCID " $ locId);
         if (ipc != None) ipc.SendCheckLocationId(locId);
+    }
+}
+
+// Mechanism D (challenges 7-11): credit the LevelCompletion check on an
+// observed FinalStar pickup in-level, not on exit. Players can leave a
+// challenge without completing it — the entrance door of every challenge
+// returns to the hub, and the pause-menu Return-to-Hub button bails out the
+// same way — so the prior exit-credit path miscredited the location. Vanilla
+// FinalStar.PickupProp.EndState is the only path that Destroy()'s the actor
+// (HProp.uc:293), so observing AllActors transition from present → absent
+// in-level is an unambiguous pickup signal. Idempotent:
+// bAwardedFinalStarThisLevel prevents a re-fire within this watcher;
+// NotifyLevelObjective is sticky across watchers via NonCardLocationChecked.
+function ScanFinalStarCompletion()
+{
+    local FinalStar fs;
+    local int idx;
+    local bool found;
+
+    if (bAwardedFinalStarThisLevel == 1) return;
+    idx = class'APCardWatcher'.static.LevelObjectiveIndexFor(Caps(string(Level.Outer.Name)));
+    if (idx < 7 || idx > 11) return;
+
+    foreach AllActors(class'FinalStar', fs)
+    {
+        if (fs == None || fs.bDeleteMe) continue;
+        found = True;
+        break;
+    }
+
+    if (found)
+    {
+        if (bSawFinalStarThisLevel == 0)
+        {
+            bSawFinalStarThisLevel = 1;
+            Log("[Archipelago] APCardWatcher.ScanFinalStarCompletion: FinalStar observed in "
+                $ string(Level.Outer.Name) $ " (idx=" $ idx $ ")");
+        }
+    }
+    else if (bSawFinalStarThisLevel == 1)
+    {
+        bAwardedFinalStarThisLevel = 1;
+        Log("[Archipelago] APCardWatcher.ScanFinalStarCompletion: FinalStar consumed in "
+            $ string(Level.Outer.Name) $ " (idx=" $ idx $ ") - crediting completion");
+        class'APCardWatcher'.static.NotifyLevelObjective(idx);
     }
 }
 
@@ -3803,28 +3857,13 @@ function ReplaceChallengeStars()
     }
 }
 
-// Clause-3 Mechanism D (challenges 7-10) is NOT a FinalStar subclass-replace.
-// Vanilla FinalStar.PickupProp.EndState does PickedUpFinalStar() (EndChallenge)
-// AND TriggerEvent(Event,None,None) - that Event (plus the win cutscene's
-// FlyTo-by-CutName) is what tallies the challenge and travels back to the hub.
-// A destroy+respawn drops Event and CutName, so the level never ends (stuck,
-// §12 #18). Challenges are terminal like the other objective levels: a failed
-// run restarts in place (EventTimeUpRestart, ChallengeScoreManager.uc), so the
-// only way a challenge level travels out is true completion. Credited by
-// CheckExitedLevelObjective on exit, same as 0-2/5/6.
-
 // Clause-3 exit-credit for the levels whose ONLY forward progress is
 // completing their single objective: 0 Boomslang (Adv4Greenhouse), 1 Bicorn
-// (Adv3DungeonQuest), 2 BitOGoyle (Adv6Goyle), 5 Whomping Willow, 6 Slytherin
-// Common Room, and 7-10 the four challenges (Ch1Rictusempra/Ch2Skurge/
-// Ch3Diffindo/Ch4Spongify). "We left that level" == "we completed it": each is
-// terminal and a failed/abandoned attempt restarts in place rather than
-// travelling out (challenges: EventTimeUpRestart). We do NOT poll per-item
-// state: the ingredient StatusItem path is broken in this build (orphaned
-// StatusItemBitOGoyle; the Bicorn prop has null class refs so
-// StatusManager.PickupItem early-returns and nCount never rises - §12 #16/#17),
-// the FinalStar can't be subclass-replaced without losing its Event/CutName
-// and breaking the win cutscene (§12 #18), and harry.PreviousLevelName is
+// (Adv3DungeonQuest), 2 BitOGoyle (Adv6Goyle), 5 Whomping Willow, and 6
+// Slytherin Common Room. We do NOT poll per-item state: the ingredient
+// StatusItem path is broken in this build (orphaned StatusItemBitOGoyle; the
+// Bicorn prop has null class refs so StatusManager.PickupItem early-returns
+// and nCount never rises - §12 #16/#17), and harry.PreviousLevelName is
 // blanked by the return auto-save before Snapshot runs (§12 #15). Instead we
 // track OUR own per-level bind history: the watcher Snapshots in every level,
 // so when this bind's level differs from the last bind's and the last one was
@@ -3836,6 +3875,12 @@ function ReplaceChallengeStars()
 // leaving the level also means the polyjuice ingredient was obtained, so its
 // key-item AP location is checked too. NotifyLevelObjective dedupes via the
 // sticky GoalLevelDone bit.
+//
+// Challenges (idx 7-11) are NOT exit-credited: the entrance door of every
+// challenge level returns to the hub without completing the challenge, and
+// the pause-menu Return-to-Hub button does the same. Both bypasses miscredit
+// the LevelCompletion location. ScanFinalStarCompletion owns the credit for
+// challenges via direct FinalStar-pickup observation instead.
 function CheckExitedLevelObjective()
 {
     local string curCaps, prevCaps;
@@ -3849,9 +3894,7 @@ function CheckExitedLevelObjective()
     // death reloaded the same level and the marker would otherwise go stale).
     if (curCaps == "ADV1WILLOW" || curCaps == "ADV7SLYTHCOMROOM"
         || curCaps == "ADV4GREENHOUSE" || curCaps == "ADV3DUNGEONQUEST"
-        || curCaps == "ADV6GOYLE" || curCaps == "CH1RICTUSEMPRA"
-        || curCaps == "CH2SKURGE" || curCaps == "CH3DIFFINDO"
-        || curCaps == "CH4SPONGIFY" || curCaps == "CH7GRYFFINDOR")
+        || curCaps == "ADV6GOYLE")
     {
         default.MenuReturnFromLevelCaps = "";
         default.DeathExitFromLevelCaps = "";
@@ -3865,10 +3908,12 @@ function CheckExitedLevelObjective()
 
     if (prevCaps == "" || prevCaps == curCaps) return;
     idx = class'APCardWatcher'.static.LevelObjectiveIndexFor(prevCaps);
-    // 0-2 ingredient levels, 5 Willow, 6 Slytherin, 7-10 challenges. NOT 3/4
-    // (boss levels keep their poll detector - leavable without the kill).
-    if (idx < 0 || idx == 3 || idx == 4)
-        return;                                  // only the exit-driven levels
+    // 0-2 ingredient levels, 5 Willow, 6 Slytherin. NOT 3/4 (boss levels keep
+    // their poll detector - leavable without the kill) and NOT 7-11
+    // (challenges have an entrance-door / Return-to-Hub bypass that exit-credit
+    // miscredits - ScanFinalStarCompletion owns those via in-level pickup poll).
+    if (idx < 0 || idx == 3 || idx == 4 || (idx >= 7 && idx <= 11))
+        return;
     if (default.GoalLevelDone[idx] == 1) return; // already credited
 
     if (prevCaps == default.MenuReturnFromLevelCaps)
