@@ -15,11 +15,11 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 
 ## Prerequisites
 
-| Thing                                            | Where to get it                                                                                                                                                                                                |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                             |
-| **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                                                                         |
-| **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                       |
+| Thing                                            | Where to get it                                                                                                                                                                                               |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                            |
+| **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                                                                        |
+| **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                      |
 | **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, and this `PLAYER_SETUP.md`. The Python client is bundled inside the apworld; no separate exe. |
 
 OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
@@ -47,8 +47,8 @@ You should have downloaded these four files from the GitHub release:
 Copy `HPArchipelago.u` and `Default.ini` into your M212 install, overwriting the existing `Default.ini`:
 
 ```
-<HP2 install>\Modded\system\HPArchipelago.u
-<HP2 install>\Modded\system\Default.ini
+<HP2 install>\system\HPArchipelago.u
+<HP2 install>\system\Default.ini
 ```
 
 If Windows blocks saving in Program Files, copy the files via Windows Explorer and approve the admin prompt, or move your HP2 install out of Program Files entirely (e.g. to `C:\Games\HP2\`).
@@ -79,7 +79,7 @@ If you only want vanilla story play, skip to step 4. If you want open castle:
 1. **Install HP2 retail to a separate folder** (e.g. `C:\Program Files (x86)\EA Games\Bingo`) so it doesn't collide with the vanilla install.
 2. **Get the Bingo Client** from the HP2 speedrunning community (https://www.speedrun.com/hpcc/resources) (the **[2PC] Bingo Client V4.5** download). Copy its `Harry Potter and the Chamber of Secrets\` contents over the install from the previous step.
 3. **Run the M212 installer again**, pointing at your HP2 Bingo folder. M212 layers cleanly over the HP2 Bingo map edits.
-4. **Copy `HPArchipelago.u` and `Default.ini`** into `<HP2 Bingo install>\Modded\system\`, same as step 3 above. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files), so no separate INI cleanup is needed.
+4. **Copy `HPArchipelago.u` and `Default.ini`** into `<HP2 Bingo install>\system\`, same as step 3 above. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files), so no separate INI cleanup is needed.
 
 That's the install side. The yaml side is one line; see "Configure your slot" below for the `game_mode: open_castle` option.
 
@@ -102,15 +102,15 @@ If you're playing solo (just you, no other AP slots):
 1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`. (If you don't see the yaml, make sure you have the apworld installed and close and re-open the launcher.)
 2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 7 category toggles control what becomes an AP check:
 
-   | Toggle                      | Default | What it enables                                                                                            |
-   | --------------------------- | ------- | ---------------------------------------------------------------------------------------------------------- |
-   | `enable_wizard_cards`       | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
-   | `enable_secrets`            | on      | 109 secret-area pickups across all levels.                                                                 |
-   | `enable_challenge_stars`    | on      | 44 challenge stars across the 4 spell-challenge levels.                                                    |
-   | `enable_duelling`           | off     | 10 Duelling Club ranked-duel wins.                                                                          |
-   | `enable_quidditch_matches`  | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
-   | `enable_spell_challenge_times` | off  | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.               |
-   | `enable_quidditch_upgrades` | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
+   | Toggle                         | Default | What it enables                                                                                            |
+   | ------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------- |
+   | `enable_wizard_cards`          | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
+   | `enable_secrets`               | on      | 109 secret-area pickups across all levels.                                                                 |
+   | `enable_challenge_stars`       | on      | 44 challenge stars across the 4 spell-challenge levels.                                                    |
+   | `enable_duelling`              | off     | 10 Duelling Club ranked-duel wins.                                                                         |
+   | `enable_quidditch_matches`     | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
+   | `enable_spell_challenge_times` | off     | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.                |
+   | `enable_quidditch_upgrades`    | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
 
    The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.
 
@@ -126,24 +126,24 @@ If you're playing solo (just you, no other AP slots):
 
    **Open castle goal**: in `open_castle` mode the slot completes by opening the Great Hall, not by the Basilisk fight. Five options set the unlock requirement; they're AND'd together, and any clause left at `0`/off drops out. If all five resolve to `0`/off it falls back to "all 7 spells" so there's always a gate. All five are ignored in vanilla.
 
-   | Option                       | Range  | Default | Great Hall opens once you have…                                              |
-   | ---------------------------- | ------ | ------- | --------------------------------------------------------------------------- |
-   | `open_castle_goal_cards`     | 0-101  | 50      | that many wizard cards (named anchors: `none`/`few`/`half`/`most`/`all`)    |
-   | `open_castle_goal_spells`    | 0-7    | 7       | that many spells                                                            |
-   | `open_castle_goal_levels`    | 0-12   | 12      | that many of the 12 level objectives finished                              |
-   | `open_castle_goal_duels`     | off/on | off     | won all 10 Duelling Club duels                                              |
-   | `open_castle_goal_quidditch` | off/on | off     | won all 6 Quidditch matches                                                 |
+   | Option                       | Range  | Default | Great Hall opens once you have…                                          |
+   | ---------------------------- | ------ | ------- | ------------------------------------------------------------------------ |
+   | `open_castle_goal_cards`     | 0-101  | 50      | that many wizard cards (named anchors: `none`/`few`/`half`/`most`/`all`) |
+   | `open_castle_goal_spells`    | 0-7    | 7       | that many spells                                                         |
+   | `open_castle_goal_levels`    | 0-12   | 12      | that many of the 12 level objectives finished                            |
+   | `open_castle_goal_duels`     | off/on | off     | won all 10 Duelling Club duels                                           |
+   | `open_castle_goal_quidditch` | off/on | off     | won all 6 Quidditch matches                                              |
 
    **Other options (optional)**: sensible defaults; leave them unless you specifically want the behavior. Both game modes unless noted.
 
-   | Option                | Default                     | What it does                                                                                                                                                                                                                                  |
-   | --------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | `starting_spells`     | Flipendo, Lumos, Alohomora  | Spells Harry starts with; any spell left off this list becomes an AP item. Vanilla physically needs Lumos + Flipendo to clear the Whomping Willow, so keep both unless your fill places them very early. Valid: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo, Spongify. |
-   | `vanilla_gate_levels` | on                          | **Vanilla only.** On: the 7 story-region keys are AP items and a bookcase blocks each region until its key arrives (linear story order). Off: all keys precollected, every region open from the start. No effect in open castle (keys are always AP items there). |
-   | `tradersanity`        | off                         | Turns each non-Weasley card/ingredient vendor's first sale into an AP check, after which it reverts to selling normally. `price_vanilla` / `price_random` / `price_low` only change what that check costs.                                       |
-   | `enable_traps`        | off                         | Adds trap items (Bean Thief, Goyle Transformation, Forgetfulness) to the pool, replacing some filler. `trap_fill_percent` (5-50, default 5) sets how much filler is replaced.                                                                   |
-   | `ring_link`           | off                         | Mirrors organic Bertie Bott's bean changes (in-game pickups + vendor spending) to and from other RingLink slots in the room. AP-granted bean filler and the Bean Thief trap are not mirrored. Compatible with Sonic-style RingLink games.       |
-   | `death_link`          | off                         | Standard Archipelago DeathLink: dying sends a death to every other DeathLink slot, and their deaths kill you.                                                                                                                                  |
+   | Option                | Default                    | What it does                                                                                                                                                                                                                                                                         |
+   | --------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+   | `starting_spells`     | Flipendo, Lumos, Alohomora | Spells Harry starts with; any spell left off this list becomes an AP item. Vanilla physically needs Lumos + Flipendo to clear the Whomping Willow, so keep both unless your fill places them very early. Valid: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo, Spongify. |
+   | `vanilla_gate_levels` | on                         | **Vanilla only.** On: the 7 story-region keys are AP items and a bookcase blocks each region until its key arrives (linear story order). Off: all keys precollected, every region open from the start. No effect in open castle (keys are always AP items there).                    |
+   | `tradersanity`        | off                        | Turns each non-Weasley card/ingredient vendor's first sale into an AP check, after which it reverts to selling normally. `price_vanilla` / `price_random` / `price_low` only change what that check costs.                                                                           |
+   | `enable_traps`        | off                        | Adds trap items (Bean Thief, Goyle Transformation, Forgetfulness) to the pool, replacing some filler. `trap_fill_percent` (5-50, default 5) sets how much filler is replaced.                                                                                                        |
+   | `ring_link`           | off                        | Mirrors organic Bertie Bott's bean changes (in-game pickups + vendor spending) to and from other RingLink slots in the room. AP-granted bean filler and the Bean Thief trap are not mirrored. Compatible with Sonic-style RingLink games.                                            |
+   | `death_link`          | off                        | Standard Archipelago DeathLink: dying sends a death to every other DeathLink slot, and their deaths kill you.                                                                                                                                                                        |
 
 3. **Generate.** ArchipelagoLauncher → **Generate**, pick your YAML when prompted. The generator drops a seed zip in `<Archipelago install>\output\`.
 
@@ -209,8 +209,8 @@ Quick checklist after first launch:
 
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
-- Check `<HP2 install>\Modded\system\HPArchipelago.u` exists.
-- Check `<HP2 install>\Modded\system\Default.ini` is the shipped one; open it and confirm `EditPackages=HPArchipelago` is present (search for it).
+- Check `<HP2 install>\system\HPArchipelago.u` exists.
+- Check `<HP2 install>\system\Default.ini` is the shipped one; open it and confirm `EditPackages=HPArchipelago` is present (search for it).
 - If `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` exists, it overrides `Default.ini`, delete it.
 - If `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.ini` exists, it overrides both. Either delete it, or open it and make sure `[Engine.Engine]` has `DefaultGame=HPArchipelago.APGameInfo` (not `DefaultGame=Engine.GameInfo`).
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
@@ -218,7 +218,7 @@ Quick checklist after first launch:
 **Toast says "AP: WRONG INSTALL …"**:
 
 - This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning re-shows on every level until you fix it.
-- Fix it by launching the matching install: `game_mode: vanilla` → your retail/Modded install; `game_mode: open_castle` → your HP2 Bingo install (see "Optional: install the HP2 Bingo distribution too"). The seed itself is fine; you don't need to regenerate, just connect from the right `Game.exe`.
+- Fix it by launching the matching install: `game_mode: vanilla` → your retail/M212 install; `game_mode: open_castle` → your HP2 Bingo install (see "Optional: install the HP2 Bingo distribution too"). The seed itself is fine; you don't need to regenerate, just connect from the right `Game.exe`.
 - The warning is informational; the game won't stop you from continuing into a broken seed, so don't ignore it.
 
 **"HP2 PC Client" button missing from Archipelago Launcher**:
