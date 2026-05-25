@@ -9,7 +9,9 @@ Re-run after editing any data/*.yaml and commit the regenerated files.
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -20,6 +22,15 @@ REPO_ROOT = Path(__file__).resolve().parent
 DATA_DIR = REPO_ROOT / "data"
 APWORLD_DIR = REPO_ROOT / "apworld"
 MOD_CLASSES_DIR = REPO_ROOT / "mod" / "HPArchipelago" / "Classes"
+
+# AP framework checkout — required for the final `Build APWorlds` step that
+# zips the apworld for cross-platform distribution (Linux can't follow the
+# Windows-only junction the dev loop uses). Env var override for non-standard
+# layouts; default follows DEV_SETUP's sibling-of-HP2PC_AP convention.
+AP_FRAMEWORK_DIR = Path(
+    os.environ.get("HP2_AP_FRAMEWORK_DIR") or (REPO_ROOT / ".." / ".." / "Archipelago")
+).resolve()
+APWORLD_GAME_NAME = "Harry Potter 2 PC"
 
 LOCATION_CATEGORIES = (
     "classrooms",
@@ -1105,6 +1116,42 @@ def emit_card_markers(items: dict) -> int:
     return written
 
 
+def build_apworld_zip() -> Path | None:
+    """Invoke AP's native `Build APWorlds` Launcher component to package the
+    apworld dir into a cross-platform `.apworld` zip — the dev loop's junction
+    is Windows-only, so without this Linux players have nothing to install.
+    Output lands at `<AP_FRAMEWORK_DIR>/build/apworlds/harry_potter_2_pc.apworld`
+    (the Launcher writes it relative to its cwd). Returns the zip path on
+    success, None on any failure (so a missing-AP-checkout dev box still gets
+    a working .py regen)."""
+    launcher = AP_FRAMEWORK_DIR / "Launcher.py"
+    if not launcher.is_file():
+        print(
+            f"WARNING: AP framework not found at {AP_FRAMEWORK_DIR}; skipping "
+            f".apworld build. Set HP2_AP_FRAMEWORK_DIR or place the Archipelago "
+            f"checkout per DEV_SETUP.md.",
+            file=sys.stderr,
+        )
+        return None
+    cmd = [sys.executable, "Launcher.py", "Build APWorlds", APWORLD_GAME_NAME]
+    result = subprocess.run(cmd, cwd=AP_FRAMEWORK_DIR, check=False)
+    if result.returncode != 0:
+        print(
+            f"ERROR: 'Build APWorlds' exited {result.returncode}; "
+            f"`.apworld` not produced.",
+            file=sys.stderr,
+        )
+        return None
+    zip_path = AP_FRAMEWORK_DIR / "build" / "apworlds" / "harry_potter_2_pc.apworld"
+    if not zip_path.is_file():
+        print(
+            f"ERROR: Launcher reported success but {zip_path} is missing.",
+            file=sys.stderr,
+        )
+        return None
+    return zip_path
+
+
 def main() -> int:
     items, locations, logic_vanilla, logic_open_castle = load_data()
     try:
@@ -1196,6 +1243,10 @@ def main() -> int:
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
     print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star+vendor registrations)")
     print(f"Wrote APCardAppearance.uc ({n_appearance} card id registrations)")
+
+    zip_path = build_apworld_zip()
+    if zip_path is not None:
+        print(f"Built {zip_path} ({zip_path.stat().st_size // 1024} KB)")
     return 0
 
 
