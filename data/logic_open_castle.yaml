@@ -52,7 +52,7 @@ regions:
     entry: "true"
 
   GoldCardRoom:
-    entry: "@all_silver_cards"
+    entry: "@silver_cards_at_least_20"
 
   RictusempraChallenge:
     entry: "'Rictusempra Challenge Key'"

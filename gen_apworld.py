@@ -216,6 +216,17 @@ def load_data() -> tuple[dict, dict, dict, dict]:
 
 
 SILVER_CARDS_MACRO = "@all_silver_cards"
+# Open-castle Gold Card Room gate. The in-game door (CardLockTrigger in
+# Grandstaircase_hub.unr) only wires CardLock1 + CardLock2, so it fully opens
+# at 20 silvers (Lock1@10 + Lock2@20) — not 40. Open castle has no card-
+# collection arc forcing the player toward 40 silvers, so the AP logic must
+# match physical reachability or UT hides the room from players already
+# standing in it. Vanilla logic keeps @all_silver_cards (matches the "collect
+# them all" expectation of that mode). Expansion sentinel is a bare ident the
+# rule grammar accepts; _emit_rule_body special-cases it.
+SILVER_AT_LEAST_20_MACRO = "@silver_cards_at_least_20"
+SILVER_AT_LEAST_20_SENTINEL = "_HP2_silver_cards_at_least_20_"
+SILVER_AT_LEAST_20_THRESHOLD = 20
 
 
 def _rule_string_slots(logic: dict) -> list[tuple[dict, str]]:
@@ -234,13 +245,15 @@ def _rule_string_slots(logic: dict) -> list[tuple[dict, str]]:
 def expand_macros(logic: dict, items: dict, context: str) -> None:
     """Substitute rule-string macros in-place before validation.
 
-    `@all_silver_cards` expands to the parenthesised AND of every
-    cards_silver item name in items.yaml. The GoldCardRoom 40-silver gate
-    is then a single source of truth — the items.yaml card tier
-    classification — instead of a hand-maintained name chain duplicated
-    across logic_vanilla.yaml and logic_open_castle.yaml. Expanding before
-    validation means parse_rule still checks every expanded name, so a
-    silver-tier typo in items.yaml is caught here too.
+    `@all_silver_cards` expands to the parenthesised AND of every cards_silver
+    item name in items.yaml — single source of truth for the items.yaml card
+    tier classification, so a silver-tier typo gets caught here too.
+
+    `@silver_cards_at_least_20` expands to a bare-ident sentinel that
+    `_emit_rule_body` rewrites to `state.has_from_list_unique(SILVER_CARD_NAMES,
+    player, 20)`. Used only by the open-castle GoldCardRoom region (the
+    physical in-game door opens at 20 silvers, not 40 — see comment on
+    SILVER_AT_LEAST_20_MACRO).
     """
     silver_names = [e["name"] for e in items.get("cards_silver", [])]
     if not silver_names:
@@ -251,6 +264,7 @@ def expand_macros(logic: dict, items: dict, context: str) -> None:
     slots = _rule_string_slots(logic)
     for meta, key in slots:
         meta[key] = meta[key].replace(SILVER_CARDS_MACRO, chain)
+        meta[key] = meta[key].replace(SILVER_AT_LEAST_20_MACRO, SILVER_AT_LEAST_20_SENTINEL)
     leftover = sorted({
         m.group(0)
         for meta, key in slots
@@ -258,7 +272,8 @@ def expand_macros(logic: dict, items: dict, context: str) -> None:
     })
     if leftover:
         raise ValueError(
-            f"{context}: unknown rule macro(s) {leftover}; only {SILVER_CARDS_MACRO} is defined"
+            f"{context}: unknown rule macro(s) {leftover}; defined: "
+            f"{SILVER_CARDS_MACRO}, {SILVER_AT_LEAST_20_MACRO}"
         )
 
 
@@ -338,6 +353,10 @@ def collect_known_items(items: dict) -> set[str]:
     for category in ("spells", "key_items", "blocker_keys", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
         for entry in items.get(category, []):
             names.add(entry["name"])
+    # Bare-ident sentinels emitted by expand_macros. parse_rule must accept
+    # them (else validation fails on the legitimate use), and _emit_rule_body
+    # rewrites them to non-state.has() Python expressions.
+    names.add(SILVER_AT_LEAST_20_SENTINEL)
     return names
 
 
@@ -705,8 +724,10 @@ def _emit_regions_dual(
     regions_open_castle: dict,
     start_region: str,
     all_regions: list[str],
+    items: dict,
 ) -> str:
     """Emit apworld/regions.py with both vanilla and open castle entry-rule tables."""
+    silver_names = [e["name"] for e in items.get("cards_silver", [])]
     lines: list[str] = [
         '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_open_castle.yaml."""',
         "",
@@ -717,6 +738,12 @@ def _emit_regions_dual(
         f"START_REGION: str = {start_region!r}",
         "",
         f"REGION_NAMES: list[str] = {all_regions!r}",
+        "",
+        "# Silver card item names — referenced by lambdas that gate on the",
+        "# open-castle Gold Card Room (20-of-40 silvers, matching the in-game",
+        "# CardLockTrigger that only wires Lock1+Lock2). Sourced from",
+        "# items.yaml.cards_silver at gen time so it can never drift.",
+        f"_SILVER_CARD_NAMES: list[str] = {silver_names!r}",
         "",
         "# region_name -> rule(state, player) -> bool. Mode-dependent: HP2World",
         "# selects vanilla or open castle at gen time via self.options.game_mode.",
@@ -742,6 +769,11 @@ def _emit_rule_body(rule_str: str) -> str:
             return "True"
         if ident in ("false", "False"):
             return "False"
+        if ident == SILVER_AT_LEAST_20_SENTINEL:
+            return (
+                f"state.has_from_list_unique(_SILVER_CARD_NAMES, player, "
+                f"{SILVER_AT_LEAST_20_THRESHOLD})"
+            )
         return f"state.has({ident!r}, player)"
 
     body = re.sub(r"'[^']+'|[A-Za-z_][A-Za-z0-9_]*", replace_ident, s)
@@ -786,14 +818,21 @@ def _emit_goal_locations_table(table_name: str, goal: dict) -> list[str]:
     return out
 
 
-def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dict) -> str:
+def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dict, items: dict) -> str:
     """Emit apworld/rules.py with both vanilla and open castle rule tables."""
+    silver_names = [e["name"] for e in items.get("cards_silver", [])]
     lines: list[str] = [
         '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_open_castle.yaml."""',
         "",
         "from typing import Callable",
         "",
         "from BaseClasses import CollectionState",
+        "",
+        "# Silver card item names — referenced by per-location lambdas that gate",
+        "# on the open-castle Gold Card Room (20-of-40 silvers, matching the",
+        "# in-game CardLockTrigger that only wires Lock1+Lock2). Sourced from",
+        "# items.yaml.cards_silver at gen time so it can never drift.",
+        f"_SILVER_CARD_NAMES: list[str] = {silver_names!r}",
         "",
         "# Per-location additional rules (on top of region entry).",
         "# Mode-dependent: HP2World selects vanilla or open castle at gen time.",
@@ -1135,10 +1174,11 @@ def main() -> int:
             logic_open_castle.get("regions") or {},
             start_region,
             all_regions,
+            items,
         ),
         encoding="utf-8",
     )
-    rules_py.write_text(emit_rules_dual(logic_vanilla, logic_open_castle, locations), encoding="utf-8")
+    rules_py.write_text(emit_rules_dual(logic_vanilla, logic_open_castle, locations, items), encoding="utf-8")
 
     n_markers = emit_card_markers(items)
     n_registry = emit_location_registry(locations, locations["base_id"])

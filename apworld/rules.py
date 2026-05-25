@@ -4,6 +4,12 @@ from typing import Callable
 
 from BaseClasses import CollectionState
 
+# Silver card item names — referenced by per-location lambdas that gate
+# on the open-castle Gold Card Room (20-of-40 silvers, matching the
+# in-game CardLockTrigger that only wires Lock1+Lock2). Sourced from
+# items.yaml.cards_silver at gen time so it can never drift.
+_SILVER_CARD_NAMES: list[str] = ['Silver Card - Andros', 'Silver Card - Beamish', 'Silver Card - Chittock', 'Silver Card - Circe', 'Silver Card - Clagg', 'Silver Card - Cliodne', 'Silver Card - Cronk', 'Silver Card - Crumb', 'Silver Card - Dodderidge', 'Silver Card - Duke', 'Silver Card - Fay', 'Silver Card - Fulbert', 'Silver Card - Furmage', 'Silver Card - Gregory', 'Silver Card - Grunnion', 'Silver Card - Jones', 'Silver Card - Lufkin', 'Silver Card - Maeve', 'Silver Card - Montmorency', 'Silver Card - Mopsus', 'Silver Card - Nutcombe', 'Silver Card - Oglethorpe', 'Silver Card - Oldridge', 'Silver Card - Oliphant', 'Silver Card - Plunkett', 'Silver Card - Rastrick', 'Silver Card - Shimpling', 'Silver Card - Shingleton', 'Silver Card - Smethwyck', 'Silver Card - Stalk', 'Silver Card - Summerbee', 'Silver Card - Thurkell', 'Silver Card - Toothill', 'Silver Card - Tremlett', 'Silver Card - Tugwood', 'Silver Card - Wadcock', 'Silver Card - Wendelin', 'Silver Card - Wildsmith', 'Silver Card - Wright', 'Silver Card - Youdle']
+
 # Per-location additional rules (on top of region entry).
 # Mode-dependent: HP2World selects vanilla or open castle at gen time.
 LOCATION_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = {
@@ -56,36 +62,36 @@ LOCATION_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = {
     'Chamber of Secrets - Secret 6': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Beat Par Time': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Card Ketteridge': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Card Merwyn': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Card Shimpling': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Card Smethwyck': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Card Merwyn': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Card Shimpling': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Card Smethwyck': lambda state, player: state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Card Stalk': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Card Thurkell': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Card Ulric': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Card Ulric': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Card Withers': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Challenge Star 1': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Challenge Star 1': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Challenge Star 10': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Challenge Star 11': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Challenge Star 12': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Challenge Star 13': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Challenge Star 14': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Challenge Star 2': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Challenge Star 3': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Challenge Star 4': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Challenge Star 5': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Challenge Star 6': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Challenge Star 7': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Challenge Star 2': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Challenge Star 3': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Challenge Star 4': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Challenge Star 5': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Challenge Star 6': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Challenge Star 7': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Challenge Star 8': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Challenge Star 9': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Complete': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Secret 1': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Secret 1': lambda state, player: state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Secret 10': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Secret 11': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Secret 2': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Secret 3': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Secret 4': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Secret 5': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
-    'Diffindo Challenge - Secret 6': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Secret 2': lambda state, player: state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Secret 3': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Secret 4': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Secret 5': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
+    'Diffindo Challenge - Secret 6': lambda state, player: state.has('Rictusempra', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Secret 7': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Secret 8': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
     'Diffindo Challenge - Secret 9': lambda state, player: state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Alohomora', player),
