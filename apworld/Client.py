@@ -357,6 +357,13 @@ class HP2Context(CommonContext):
         # location publishes a broadcast hint (LocationScouts create_as_hint=2).
         # Parsed from slot_data on Connected.
         self.tradersanity_hint_on_open: bool = False
+        # When true, the mod silences every vendor's in-trade voice cues
+        # (sell / out-of-stock / transaction-done / decline / etc.) by zeroing
+        # their VendorDialog string ids so VendorManager.DoCutTalk hits its
+        # empty-dialog fast path. Parsed from slot_data on Connected, sent
+        # SKIP_VENDOR_VOICES <0|1> to the mod on every HELLO so a reconnect
+        # or fresh game launch re-asserts the state.
+        self.skip_vendor_voices: bool = False
         # Per-seed sticky set of Tradersanity location ids the client has
         # already published a broadcast hint for, loaded from AP server Data
         # Storage on Connected and written back on each new hint so a
@@ -535,6 +542,9 @@ class HP2Context(CommonContext):
             # the same hint. Disabled (and the set left empty) when off, so a
             # later VENDOR_OPENED is a cheap no-op.
             self.tradersanity_hint_on_open = bool(sd.get("tradersanity_hint_on_open"))
+            self.skip_vendor_voices = bool(sd.get("skip_vendor_voices"))
+            self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
+            logger.info(f"Skip vendor voices {'enabled' if self.skip_vendor_voices else 'disabled'}")
             self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
             self.hinted_vendor_locs = set()
             if self.tradersanity_hint_on_open:
@@ -935,6 +945,10 @@ class HP2Context(CommonContext):
             # later seed that turns Tradersanity off is honoured.
             if self.tradersanity_cfg is not None:
                 self._send_to_game("TRADECFG " + self.tradersanity_cfg)
+            # Re-arm the skip-vendor-voices flag. Sticky + idempotent mod-side;
+            # the mod re-applies the silence sweep on every level snapshot, so
+            # a fresh launch / level change picks up the right state.
+            self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
             # Re-arm the Tradersanity per-vendor price factors. Sticky +
             # idempotent mod-side (writes a class-default byte table). Only
             # sent when Tradersanity is on — when off the mod never reads the

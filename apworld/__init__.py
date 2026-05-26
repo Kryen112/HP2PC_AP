@@ -339,6 +339,18 @@ class TradersanityHintOnOpen(Toggle):
     default = 1
 
 
+class SkipVendorVoices(Toggle):
+    """If true, every vendor's in-trade voice cues (sell / out-of-stock /
+    transaction-done / decline / not-enough-beans / narrator instruction /
+    Harry's inquiry) are skipped — DoCutTalk takes its empty-dialog fast
+    path and fires the cue immediately, so trades resolve in a fraction of
+    a second instead of the multi-second vanilla pace. The proximity lure
+    line is left alone. Useful for Tradersanity runs where the same
+    dialogue is heard dozens of times."""
+    display_name = "Skip vendor voices"
+    default = 0
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -372,6 +384,7 @@ class HP2Options(PerGameCommonOptions):
     trap_fill_percent: TrapFillPercent
     tradersanity: Tradersanity
     tradersanity_hint_on_open: TradersanityHintOnOpen
+    skip_vendor_voices: SkipVendorVoices
     # Rendered under their own OptionGroup headers (see
     # HP2WebWorld.option_groups), so the dataclass position here does not
     # affect template ordering.
@@ -860,6 +873,7 @@ class HP2World(World):
                 "tradersanity": self.options.tradersanity.value,
                 "tradersanity_prices": self._tradersanity_rolled_factors(),
                 "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
+                "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
             }
         sd = {
             "game_mode": "open_castle",
@@ -868,6 +882,7 @@ class HP2World(World):
             "tradersanity": self.options.tradersanity.value,
             "tradersanity_prices": self._tradersanity_rolled_factors(),
             "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
+            "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
         }
         sd.update(self._open_castle_goal_config())
         return sd

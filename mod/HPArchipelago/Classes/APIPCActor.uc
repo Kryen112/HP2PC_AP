@@ -296,6 +296,15 @@ function HandleLine(string line)
         // every level entry.
         class'APCardWatcher'.static.SetTraderRolledFactors(Mid(line, 13));
     }
+    else if (Left(line, 19) == "SKIP_VENDOR_VOICES ")
+    {
+        // Silence all in-trade vendor voice cues by zeroing each vendor's
+        // VendorDialog string ids — DoCutTalk's empty-dialog branch fires the
+        // cue immediately so the trade flows without audio. Sticky byte on the
+        // watcher; resent every HELLO. The watcher re-applies the silence on
+        // every Snapshot so a level change picks up the right state.
+        class'APCardWatcher'.static.SetSkipVendorVoices(byte(int(Mid(line, 19))));
+    }
     else if (Left(line, 10) == "CONNECTED ")
     {
         // AP server address for the startup "Connected to host:port" toast,

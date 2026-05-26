@@ -84,6 +84,13 @@ const TRADER_PRICE_VANILLA = 1;
 const TRADER_PRICE_RANDOM  = 2;
 const TRADER_PRICE_LOW     = 3;
 var int TradersanityMode;
+// Skip-vendor-voices flag from the apworld slot_data (SKIP_VENDOR_VOICES IPC).
+// When 1, SilenceVendorDialog zeroes each vendor's VendorDialog string ids
+// so VendorManager.DoCutTalk's empty-dialog branch fires the cue immediately
+// without playing audio — the proximity lure line is untouched. Sticky byte;
+// resent every HELLO. The Snapshot pass re-applies the silence on every level
+// load so a freshly-spawned vendor inherits the right state.
+var byte bSkipVendorVoices;
 // Price constants for the non-vanilla modes (retune freely). price_low clamps
 // to a flat value; price_random blends a per-vendor factor (TraderRolledFactor
 // below) across [LO, HI]; price_vanilla on a card vendor blends the SAME
@@ -1053,6 +1060,64 @@ static function SetTradersanityMode(int m)
 {
     default.TradersanityMode = m;
     Log("[Archipelago] APCardWatcher.SetTradersanityMode: mode=" $ default.TradersanityMode);
+}
+
+// Skip-vendor-voices flag from the apworld slot_data (SKIP_VENDOR_VOICES IPC).
+// Class-default + sticky, mirroring SetTradersanityMode. The Snapshot path
+// calls ApplySkipVendorVoicesPass each level load to re-apply the silence on
+// freshly-spawned vendors; a same-session re-arm by a live watcher also picks
+// up the right state immediately so the next trade in the current level
+// already runs silent.
+static function SetSkipVendorVoices(byte v)
+{
+    local APCardWatcher w;
+
+    default.bSkipVendorVoices = v;
+    Log("[Archipelago] APCardWatcher.SetSkipVendorVoices: skip=" $ string(default.bSkipVendorVoices));
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w != None) w.ApplySkipVendorVoicesPass();
+}
+
+// Zero out every VendorDialog string id on the given vendor so
+// VendorManager.DoCutTalk's empty-dialog fast path fires the cue immediately,
+// no audio. Lure (strLureId) is intentionally left alone — the user reported
+// the in-trade cues as the annoyance, not the proximity lure. Idempotent.
+function SilenceVendorDialog(Characters c)
+{
+    if (c == None) return;
+    c.VendorDialog.strSellNimbusId       = "";
+    c.VendorDialog.strSellQArmorId       = "";
+    c.VendorDialog.strSellWBarkId        = "";
+    c.VendorDialog.strSellFMucusId       = "";
+    c.VendorDialog.strSellBronzeCardsId  = "";
+    c.VendorDialog.strSellSilverCardsId  = "";
+    c.VendorDialog.strRanOutOfBeansId    = "";
+    c.VendorDialog.strNotEnoughBeansId   = "";
+    c.VendorDialog.strDeclineId          = "";
+    c.VendorDialog.strTransactionDoneId  = "";
+    c.VendorDialog.strOutOfStockId       = "";
+    c.VendorDialog.strSellDuelId         = "";
+    c.VendorDialog.strNarratorInstrId    = "";
+    c.VendorDialog.strHarryWhatYouGotId  = "";
+}
+
+// Sweep every Characters actor in the current level and silence its in-trade
+// dialog if the option is on. No-op when off — vendors keep their freshly
+// spawned (TravelPostAccept-restored) defaults. Idempotent: re-running on a
+// vendor already silenced is harmless (all fields stay "").
+function ApplySkipVendorVoicesPass()
+{
+    local Characters c;
+    local int silenced;
+
+    if (default.bSkipVendorVoices == 0) return;
+    silenced = 0;
+    foreach AllActors(class'Characters', c)
+    {
+        SilenceVendorDialog(c);
+        silenced++;
+    }
+    Log("[Archipelago] APCardWatcher.ApplySkipVendorVoicesPass: silenced " $ string(silenced) $ " vendor(s)");
 }
 
 // Per-vendor Tradersanity price factors from the apworld slot_data
@@ -2989,6 +3054,12 @@ function Snapshot()
     // art. No-op until the appearance table has arrived; the Timer one-shot +
     // the APPEARANCE-IPC sweep converge anything registered later or async.
     RestampMarkerAppearance();
+
+    // Skip-vendor-voices sweep. Vendors come up with their compiled
+    // VendorDialog defaults each level load; if the option is on, blank the
+    // in-trade string ids now so the first trade in this level is already
+    // silent. No-op when off.
+    ApplySkipVendorVoicesPass();
 }
 
 function bool IsHarryOwned(int id)
