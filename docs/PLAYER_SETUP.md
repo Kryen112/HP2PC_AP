@@ -215,6 +215,11 @@ Quick checklist after first launch:
 - If `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.ini` exists, it overrides both. Either delete it, or open it and make sure `[Engine.Engine]` has `DefaultGame=HPArchipelago.APGameInfo` (not `DefaultGame=Engine.GameInfo`).
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
 
+**Silent NPCs / no dialog plays in cutscenes**:
+
+- Vanilla install issue, not the mod. The game ships with `Language=int` in `[Engine.Engine]`, which looks for UK English voice files some installs don't have (common on non-US installs).
+- Open `<HP2 install>\system\Default.ini`, find `[Engine.Engine]`, change `Language=int` to `Language=usa`, save, and relaunch.
+
 **Toast says "AP: WRONG INSTALL …"**:
 
 - This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning re-shows on every level until you fix it.
