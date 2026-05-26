@@ -211,8 +211,8 @@ function bool IsCutSceneAllowedToSkip(string FileName)
 // softlock-prone cutscenes are identified from gameplay.
 function bool IsCutSceneBlocked(string LevelNameUpper, string CutSceneName)
 {
-    // Grand Staircase secret-opening cutscenes with empty FileName — confirmed
-    // softlocks on skip during open castle playtest.
+    // Grand Staircase secret-opening cutscenes with empty FileName softlock
+    // when fast-forwarded; suppress the skip on these specifically.
     if (LevelNameUpper == "GRANDSTAIRCASE_HUB")
     {
         if (CutSceneName == "CutScene12") return True;
@@ -1227,7 +1227,7 @@ function BlockOpenCastleGryffindorEntryIfMissing()
 }
 function RemoveOpenCastleGryffindorBlocker()    { DestroyTaggedOpenCastleBlockers('APOpenCastleGryffindorBlocker'); }
 
-// ----- Great Hall goal gate (EntryHall_Hub; 1 bookcase — goal_plan.md §3) -----
+// ----- Great Hall goal gate (EntryHall_Hub; 1 bookcase) -----
 // NOT keyed by an APGrantedBlockerKey: this one is gated by the 5-clause goal
 // evaluator, so it does not use ShouldSpawnOpenCastleBlocker (which checks
 // BlockerKeyGranted). Spawn while the goal is unmet; APCardWatcher.Timer calls
@@ -1666,7 +1666,7 @@ function bool TryApplyCard(string ItemName, harry h)
     // with Jellybeans. This deliberately does NOT call it: an AP grant has no
     // in-level icon to clean up, and the chest-mutation side effect would make
     // those card locations unreachable later (the chest spawns a bean instead
-    // of the card icon). Trade-off documented in ../DESIGN.md v2 parking lot.
+    // of the card icon).
     Log("[Archipelago] ApplyGrant: granted card " $ ItemName $ " (Id=" $ cardClass.default.Id $ ")");
     return True;
 }
@@ -2191,7 +2191,6 @@ function bool TryApplyTrap(string Name, harry h)
             beans = h.managerStatus.GetBeanCount();
             // Steal amount. min(N, current) so the count never goes negative
             // (StatusItem.SetCount also floors at 0 — belt-and-suspenders).
-            // Per-trap tuning/weighting is a documented v2 extension.
             lost = 200;
             if (lost > beans)
             {
@@ -2200,7 +2199,7 @@ function bool TryApplyTrap(string Name, harry h)
             if (lost > 0)
             {
                 // Route the decrement through RingLink's shared no-broadcast
-                // bean helper (04-ringlink.md §6.0) so the steal stays LOCAL
+                // bean helper so the steal stays LOCAL
                 // (not mirrored room-wide like every other trap) and the
                 // RingLink poll baseline is resynced. Degrades to a clamped
                 // AddBeans when the IPC actor is absent — same call site

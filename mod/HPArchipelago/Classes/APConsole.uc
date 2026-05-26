@@ -70,7 +70,7 @@ exec function LogPos()
     DevPrint("LogPos: Location=" $ string(Viewport.Actor.Location) $ " Rotation=" $ string(Viewport.Actor.Rotation));
 }
 
-// Actor identification for goal_plan.md §6 (Phase 4 auto-detection): find the
+// Actor identification for Phase 4 auto-detection: find the
 // per-level actors the detector keys off — boss classes for Forbidden Forest /
 // Chamber, and the level-exit / level-change trigger for the challenges +
 // Whomping Willow + Slytherin Common Room. Stand in the level and fire:

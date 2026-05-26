@@ -21,15 +21,14 @@ base_id: 5760000
 # (which wipes any spell AP hasn't granted). Whether they're starters depends
 # on the `starting_spells` yaml option.
 #
-# v1 story-order in vanilla play: Lockhart#1 → Quidditch → Potions (Snape,
+# Story-order in vanilla play: Lockhart#1 → Quidditch → Potions (Snape,
 # brews Wiggenweld but no spell) → Flitwick → Bicorn level → Duelling Club →
 # Sprout → Boomslang level → Dumbledore's study → Goyle level → Slytherin
 # Common → Lockhart#2 → Forbidden Forest → Chamber → Basilisk. Sphere-0 in
 # the open-hub model is "everything reachable from spawn"; the story-mode
-# variant (entrance-locked) is parked for v2. Snape's Potions class doesn't
-# teach a spell so it isn't a check in v1; the brew-Wiggenweld unlock and
-# other story beats (Quidditch practice, Duelling Club, Dumbledore's study)
-# are deferred to v2's Tier-3 check expansion.
+# variant (entrance-locked) is parked. Snape's Potions class doesn't teach
+# a spell so it isn't a check; the brew-Wiggenweld unlock and other story
+# beats (Quidditch practice, Duelling Club, Dumbledore's study) are deferred.
 #
 # The mod fires `CHECK_SPELL <name>` when Harry first learns a spell; the
 # client maps name → location_id via `SPELL_TO_LOCATION_NAME` in apworld/Client.py.
@@ -40,7 +39,7 @@ classrooms:
   - { id_offset: 4, name: "Learned Spongify",    region: Hogwarts,    group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge. Shares the DADA room with Rictusempra so a bookcase here is hard to deploy without blocking Rictusempra too." }
 
 # Special progression checks were here in earlier drafts (Special_Boomslang /
-# _Bicorn / _BitOGoyle). v1 removes them — Boomslang, Bicorn, and BitOGoyle are
+# _Bicorn / _BitOGoyle). Removed — Boomslang, Bicorn, and BitOGoyle are
 # left to vanilla story progression and are not AP items/locations. The card
 # locations inside Bicorn/Boomslang/Goyle levels remain. Add these back when
 # the key-item flow is reliable end-to-end (mod hook for goyle-bump, vendor
@@ -483,12 +482,12 @@ challenge_stars:
 # / boss; reaching the end IS the check. AP id = base 5760000 + id_offset, so
 # id_offset = 700 + idx where idx is the clause-3 objective index the mod's
 # APCardWatcher.NotifyLevelObjective fires CHECK_LOCID (5760700+idx) for.
-# Detection (goal_plan.md §6.7, mod-side, no per-row data needed here):
+# Detection (mod-side, no per-row data needed here):
 #   idx 0-2  Mechanism A  left the terminal ingredient level (CheckExitedLevelObjective); Boomslang also early via nCount
 #   idx 3    Mechanism B  ADV9ARAGOG  Aragog.IsInState('stateBeatAragog')
 #   idx 4    Mechanism B  ADV12CHAMBER Basilisk.bBasilFinishedForGood
 #   idx 5-6  Mechanism C  left the level (watcher per-level bind history)
-#   idx 7-10 Mechanism D  left the terminal challenge level (CheckExitedLevelObjective); FinalStar NOT replaced (§12 #18)
+#   idx 7-10 Mechanism D  left the terminal challenge level (CheckExitedLevelObjective); FinalStar NOT replaced
 # `level`/`idx` are documentation only — the generator uses name/id_offset/
 # region/group (emit_locations generic loop). Region = the level's existing
 # logic region (must exist in BOTH logic_vanilla.yaml and logic_open_castle.yaml).
@@ -511,7 +510,7 @@ level_completions:
   - { id_offset: 710, idx: 10, level: Ch4Spongify,     name: "Spongify Challenge - Complete",     region: SpongifyChallenge, group: LevelCompletions }
   - { id_offset: 711, idx: 11, level: Ch7Gryffindor,   name: "Gryffindor Challenge - Complete",   region: GryffindorChallenge, group: LevelCompletions }
 
-# 13 Tradersanity vendor locations (plans/06-tradersanity.md). Every
+# 13 Tradersanity vendor locations. Every
 # non-Weasley card vendor (Sells_BronzeCards/SilverCards) and ingredient
 # vendor (Sells_WBark/FMucus) sells one AP check on its first sale, then
 # reverts to its normal item once that check is collected. Sourced from the
@@ -529,7 +528,7 @@ level_completions:
 # save/load. `vendor_class` / `loc` are census provenance only; the generic
 # loop also uses id_offset/name/region/group.
 #
-# Id band 800-812: reserved 800-899 in plans/ID_BAND_LEDGER.md, well inside
+# Id band 800-812: reserved inside the 800-899 band, well inside
 # the 1024 NONCARD_LOC_WINDOW so the mod's NonCardLocationChecked[] dedupe
 # (and thus the revert-after-sold behaviour) works. gen_apworld.py fails
 # generation if any non-card offset >= the window.

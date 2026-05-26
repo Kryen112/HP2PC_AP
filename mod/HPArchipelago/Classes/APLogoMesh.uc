@@ -2,8 +2,8 @@
 // APLogoMesh.
 //
 // The 3D plate shown on FOREIGN (non-HP2) Archipelago pickups. HP2-bound
-// pickups morph to the real vanilla item instead and never use this mesh
-// (see plans/03-marker-appearance-by-owner.md). One mesh, two skins:
+// pickups morph to the real vanilla item instead and never use this mesh.
+// One mesh, two skins:
 //
 //   APLogoTex0       9000 foreign plain  (filler / useful)
 //   APLogoArrowTex0  9001 foreign arrow  (progression / trap)

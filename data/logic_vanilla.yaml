@@ -7,7 +7,7 @@
 #   <LocationName>:
 #     requires: <expr>          # required items expression (see grammar below)
 #     region:   <RegionName>    # what region you must be in (entry rule of region)
-#     notes:    <free text>     # optional, why this rule, playtest observations
+#     notes:    <free text>     # optional, why this rule
 #
 # Grammar for `requires`:
 #   - "Flipendo"                       single item

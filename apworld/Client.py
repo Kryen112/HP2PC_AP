@@ -94,7 +94,7 @@ GAME_NAME = "Harry Potter 2 PC"
 GAME_TCP_HOST = "127.0.0.1"
 GAME_TCP_PORT = 38281
 
-# DeathLink (#8) race-insurance amnesty. An inbound death within this window
+# DeathLink race-insurance amnesty. An inbound death within this window
 # of the last death in either direction (CommonContext.last_death_link, stamped
 # by send_death and on_deathlink) is treated as simultaneity and not bounced
 # into the game; an outbound DEATH within it is not re-broadcast. The
@@ -303,14 +303,14 @@ class HP2Context(CommonContext):
         # if not yet built. Resent on every game HELLO (sticky + idempotent
         # mod-side). Rebuilt from self.locations_info on each LocationInfo.
         self.appearance_csv: Optional[str] = None
-        # RingLink (#5). Enabled per-slot via slot_data on Connected. ring_source
+        # RingLink. Enabled per-slot via slot_data on Connected. ring_source
         # is a per-connection random int UUID, re-rolled every Connected, used
         # as the Bounce `source` field and as the self-filter key so the
         # server's echo of our own Bounce is dropped. Replaces a slot-name key
         # so co-op-on-one-slot links and SA2/SMW interop both work.
         self.ring_link_enabled: bool = False
         self.ring_source: Optional[int] = None
-        # DeathLink (#8). Opt-in per-slot via slot_data on Connected; the tag
+        # DeathLink. Opt-in per-slot via slot_data on Connected; the tag
         # itself lives on self.tags (managed by update_death_link). Inbound
         # deaths are NOT queued for an offline game — you can't die when not
         # playing, so a death received then is stale and dropped. Loop
@@ -451,7 +451,7 @@ class HP2Context(CommonContext):
             else:
                 self.tradersanity_prices_csv = None
 
-            # RingLink (#5). Re-roll the per-connection source UUID and
+            # RingLink. Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
             # routable for Bounced packets. Disable cleanly if a later seed
             # / reconnect turns it off.
@@ -460,7 +460,7 @@ class HP2Context(CommonContext):
             else:
                 asyncio.create_task(self._disable_ring_link())
 
-            # DeathLink (#8). Opt-in via slot_data. update_death_link
+            # DeathLink. Opt-in via slot_data. update_death_link
             # (CommonClient.py) mutates self.tags then ConnectUpdate, so the
             # tag persists across a reconnect's Connect; re-run on every
             # Connected so a seed change / reconnect re-asserts the right

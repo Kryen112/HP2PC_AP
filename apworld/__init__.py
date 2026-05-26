@@ -333,7 +333,7 @@ class Tradersanity(Choice):
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
     # StartInventoryPool (add-and-remove-from-pool). Keep it available for
-    # playtest YAMLs; the `starting_spells` set drives which spells the world
+    # the data YAMLs; the `starting_spells` set drives which spells the world
     # precollects.
     start_inventory_from_pool: StartInventoryPool
     game_mode: GameMode
@@ -524,7 +524,7 @@ class HP2World(World):
     def create_regions(self) -> None:
         # Build every region declared in logic.yaml plus a "TBD" placeholder for
         # cards whose vanilla home is still uncatalogued. TBD is reachable from
-        # Menu with no requirement so seed gen succeeds during playtest.
+        # Menu with no requirement so seed gen always succeeds.
         all_region_names = list(REGION_NAMES)
         if "TBD" not in all_region_names:
             all_region_names.append("TBD")
@@ -812,7 +812,7 @@ class HP2World(World):
             "open_castle_goal_levels": levels,
             "open_castle_goal_duels": duels,
             "open_castle_goal_quidditch": quidditch,
-            # Bit i set => level objective i (goal_plan.md §6.4) counts toward
+            # Bit i set => level objective i counts toward
             # open_castle_goal_levels. All 12 in scope. Field exists so a future
             # "which objectives" option needs no slot_data schema bump.
             "open_castle_level_mask": (1 << 12) - 1,

@@ -5,8 +5,8 @@ var array<string> PendingGrants;
 // AP ReceivedItems index for each PendingGrants entry, in lockstep (same push
 // in QueueGrant, same Remove(0,1) in the drain). On successful apply the drain
 // sends `APPLIED <index>` so the client marks it durably consumed in AP Data
-// Storage and never re-grants it (the Stick Ranger durable-ledger model — the
-// .usa cannot persist mod data on M212).
+// Storage and never re-grants it (the .usa cannot persist mod data on M212,
+// so the durable ledger lives in the AP server's Data Storage instead).
 var array<int> PendingGrantIndex;
 // One-shot-per-new-game latch on the persistent singleton (survives level
 // travel; a fresh process re-arms it). Set when NEWGAME is sent on observing
@@ -54,7 +54,7 @@ var string RecvBuffer;
 var bool bStartupSafetySaveDone;
 var bool bSawStateBelowGreatHall;
 
-// RingLink (#5). The persistent singleton owns the bean baseline so it
+// RingLink. The persistent singleton owns the bean baseline so it
 // survives level loads. LastBeanBaseline is the last bean count the poll
 // diffed against. The poll is deliberately NOT gated on
 // IsPlayerInPlayableState: a vendor spend drains beans while harry is
@@ -432,7 +432,7 @@ event Timer()
     TickRingLink();
 }
 
-// RingLink poll + drain (#5). The poll diffs whenever harry + StatusManager
+// RingLink poll + drain. The poll diffs whenever harry + StatusManager
 // are readable — NOT gated on IsPlayerInPlayableState, because a vendor
 // spend drains beans while harry is bKeepStationary (non-playable) and must
 // still be broadcast. Readability alone is the load discriminator: every
@@ -525,7 +525,7 @@ function TickRingLink()
     }
 }
 
-// Shared "mutate beans without broadcasting" helper (§6.0). Applies the
+// Shared "mutate beans without broadcasting" helper. Applies the
 // bean change and then immediately resyncs LastBeanBaseline to the freshly
 // read truth so the next poll diff is zero — this is the linchpin that
 // kills the feedback loop and self-heals if AddBeans clamps. Every
@@ -585,10 +585,10 @@ function SendCheckSpell(string SpellName)
     Log("[Archipelago] APIPCActor: sent CHECK_SPELL " $ SpellName);
 }
 
-// plans/09: strip every CR/LF from a payload so a SAY line cannot be split
-// across frames or truncate the newline-delimited wire. There is no Repl
-// helper in this class — InStr/Left/Mid loop, the same idiom ReceivedText
-// uses to split incoming lines.
+// Strip every CR/LF from a payload so a SAY line cannot be split across
+// frames or truncate the newline-delimited wire. There is no Repl helper
+// in this class — InStr/Left/Mid loop, the same idiom ReceivedText uses
+// to split incoming lines.
 function string StripNewlines(string s)
 {
     local int p;
@@ -608,10 +608,10 @@ function string StripNewlines(string s)
     return s;
 }
 
-// plans/09: ~1/100-on-cast cosmetic chat. The watcher sends a bare ASCII
-// spell name only; Python owns all flavor text (unicode/emoticons) and the
-// random variant. Strip CR/LF so the gag can't split or truncate the wire
-// frame; drop an empty payload. Mirrors SendCheckSpell.
+// ~1/100-on-cast cosmetic chat. The watcher sends a bare ASCII spell name
+// only; Python owns all flavor text (unicode/emoticons) and the random
+// variant. Strip CR/LF so the gag can't split or truncate the wire frame;
+// drop an empty payload. Mirrors SendCheckSpell.
 function SendSay(string Msg)
 {
     local string clean;

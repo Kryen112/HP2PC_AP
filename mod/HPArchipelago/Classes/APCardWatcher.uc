@@ -18,8 +18,7 @@ const LOC_BASE = 5760000;
 // Window size for the non-card-location dedupe array and every `slot` guard
 // below. Mirrors `NONCARD_LOC_WINDOW` in gen_apworld.py — the two MUST hold
 // the same value; gen_apworld.py fails generation if any non-card location
-// id_offset >= this. Sized generously to cover every band in
-// plans/ID_BAND_LEDGER.md with headroom.
+// id_offset >= this. Sized generously to cover every band with headroom.
 const NONCARD_LOC_WINDOW = 1024;
 // Class-default dedup for non-card AP locations (secrets, stars, vendors,
 // duels, matches, level completions). Indexed by `apId - LOC_BASE`.
@@ -75,7 +74,7 @@ const MORPH_REGISTRY_SIZE = 256;
 var Actor MorphActor[256];
 var int   MorphApId[256];
 
-// --- Tradersanity (plans/06-tradersanity.md) --------------------------------
+// --- Tradersanity ------------------------------------------------------------
 // Price mode from the apworld slot_data, pushed via the TRADECFG IPC line
 // (mirrors GOALCFG / bOpenCastleMode). Class-default so it survives level
 // transitions in a session; resent every HELLO so it is sticky. Values mirror
@@ -188,7 +187,7 @@ var byte APGrantedSpell[7];
 // Class-default so it persists across watcher instances within a session.
 var byte LessonCheckFired[7];
 
-// Spell-cast chat flavor (plans/09). LastSeenCastedSpell holds the
+// Spell-cast chat flavor. LastSeenCastedSpell holds the
 // baseWand.LastCastedSpell reference observed last tick; its identity
 // changing is the "≥1 new cast happened" signal. PLAIN per-level instance
 // var (NOT class-default/travel) — re-spawned each level like the
@@ -309,7 +308,7 @@ var int  GoalLevels;
 var int  GoalDuels;
 var int  GoalQuidditch;
 var int  GoalLevelMask;
-// Clause-3 objective bitset (goal_plan.md §6.4: 11 objectives), set by the
+// Clause-3 objective bitset (11 objectives), set by the
 // Phase-4 detectors. Class-default sticky.
 var byte GoalLevelDone[16];
 // One-shot: set when the clauses are first all satisfied. Gates the Great
@@ -329,7 +328,7 @@ var string DeathExitFromLevelCaps;
 // Caps'd name of the level the watcher was last bound in. Mechanism-C credits
 // off OUR own per-level bind history, NOT harry.PreviousLevelName: the return
 // SmartStart auto-saves, and harry.PreSaveGame wipes PreviousLevelName before
-// Snapshot ever runs (goal_plan.md §12 #15). Class-default sticky.
+// Snapshot ever runs. Class-default sticky.
 var string LastBoundLevelCaps;
 
 // Per-spell flag for the in-progress-lesson detection. Set to 1 each tick the
@@ -396,7 +395,7 @@ var byte bGoyleTrapActive;
 // watcher churn never false-triggers.
 var name TrapLastLevelName;
 
-// --- DeathLink (#8) state. All class-default + sticky: an induced kill runs
+// --- DeathLink state. All class-default + sticky: an induced kill runs
 // GotoState('stateDead') → ConsoleCommand("LoadGame 0"), which destroys the
 // current Harry + watcher and spawns fresh ones, so an instance var would not
 // survive the reload. ----------------------------------------------------
@@ -1135,7 +1134,7 @@ static function SetCheckedLocationsCSV(string csv)
     {
         apId = NextCsvInt(rest);
         slot = apId - LOC_BASE;
-        // Card location band is id_offset 100-200 (plans/ID_BAND_LEDGER.md).
+        // Card location band is id_offset 100-200.
         // Within the band the cardId -> apId mapping is scrambled (see
         // APCardAppearance.CardIdToApId), so a 101-iteration linear reverse
         // scan resolves it. Cheap: <= ~10k ops per HELLO worst case
@@ -1660,11 +1659,11 @@ function RestampMarkerAppearance()
     }
 }
 
-// Clause-3 objective index for a Caps'd map name (goal_plan.md §6.4). The 3
+// Clause-3 objective index for a Caps'd map name. The 3
 // key-item ingredient levels (idx 0-2) are listed too: their StatusItem nCount
 // path is unreliable in this build (orphaned StatusItemBitOGoyle; the
-// Adv3DungeonQuest Bicorn prop has null class refs so PickupItem early-returns
-// - §12 #16/#17), so they are credited the robust Willow/Slytherin way: by
+// Adv3DungeonQuest Bicorn prop has null class refs so PickupItem early-returns),
+// so they are credited the robust Willow/Slytherin way: by
 // leaving the (terminal, single-objective) level. -1 = not a clause-3 level.
 static function int LevelObjectiveIndexFor(string CapsLevelName)
 {
@@ -1978,7 +1977,7 @@ event Timer()
         }
     }
 
-    // plans/09 spell-cast chat flavor. baseWand.LastCastedSpell is set on
+    // Spell-cast chat flavor. baseWand.LastCastedSpell is set on
     // every successful cast (baseWand.uc:391/463) and survives spell death
     // (SubtractFromCastedSpellList never clears it), so its reference
     // identity changing since the last 0.25s tick is a reliable "≥1 new
@@ -2480,7 +2479,7 @@ function int LessonShapeToSpellIndex(SpellLessonTrigger lesson)
     return -1;
 }
 
-// plans/09: reverse of the SpellClasses[]/SpellNames[] table — maps a live
+// Reverse of the SpellClasses[]/SpellNames[] table — maps a live
 // baseSpell's class back to its 0..NUM_SPELLS-1 index, or -1 for any non-AP
 // spell (duel / boss / sword-fire casts also flow through CastSpell ->
 // AddToCastedSpellList but must not post chat). Same single-source table the
@@ -2497,7 +2496,7 @@ function int SpellIndexForClass(class<baseSpell> c)
     return -1;
 }
 
-// plans/09: a detected cast of one of the 7 AP spells gets a rate-limited
+// A detected cast of one of the 7 AP spells gets a rate-limited
 // ~1/100 roll; on success ship the bare ASCII spell name over SAY and let
 // Python own all flavor text (unicode/emoticons). FRand() is the codebase
 // RNG idiom (cf. baseWand.Finish). The 5s NextSpellSayEarliest floor caps a
@@ -2778,8 +2777,8 @@ static function EnsureOpenCastleModeDetected()
 }
 
 // Per-level call from Snapshot. Durable probe first (covers cold-load into
-// sentinel-less levels), then the legacy in-level MGBingoLearnAllSpells actor
-// scan as a secondary fallback. IPC `MODE open_castle` is the late authoritative
+// sentinel-less levels), then an in-level MGBingoLearnAllSpells actor scan
+// as a secondary fallback. IPC `MODE open_castle` is the late authoritative
 // belt (APIPCActor). Mirrors the class-default flag/wipe onto this instance.
 function DetectOpenCastleMode()
 {
@@ -3198,7 +3197,7 @@ function ScanFinalStarCompletion()
     }
 }
 
-// DeathLink (#8). Outgoing rising-edge detection on the single terminal state
+// DeathLink. Outgoing rising-edge detection on the single terminal state
 // every death cause funnels through (stateDead → LoadGame 0), plus inbound
 // application via a dedicated terminal path that never routes through
 // Died/KillHarry — KillHarry's boss-victory branch (harry.uc:1576) would send
@@ -3294,7 +3293,7 @@ function ScanDeathLink(APIPCActor ipc)
     }
 }
 
-// Clause-3 Mechanism B (goal_plan.md §6.2): poll the boss in its level.
+// Clause-3 Mechanism B: poll the boss in its level.
 // Aragog: Health<=0 routes to GotoState('stateBeatAragog') (Aragog.uc:176-181),
 // the unambiguous "defeated" state (the level has 2 Aragog actors; only the
 // beaten boss enters it). Basilisk has TWO phases: BeatBoss() runs at BOTH the
@@ -3410,7 +3409,7 @@ function ReplaceVendorEquipment()
         apArmor.ApplyAPAppearance();
     }
 
-    // Tradersanity vendors (plans/06-tradersanity.md).
+    // Tradersanity vendors.
     TradersanityPass();
 }
 
@@ -3743,8 +3742,8 @@ function TradersanityPass()
         // The dropped prop is a real WiggentreeBark/FlobberwormMucus; its
         // ingredient grant is the stock HProp pickup pipeline reading these
         // two class fields (the exact pair APVendorMarker_Trader nulls so it
-        // grants nothing). Null them on this instance: picking the morphed
-        // AP token up no longer adds the ingredient to inventory, while the
+        // grants nothing). Null them on this instance so picking the morphed
+        // AP token up does not add the ingredient to inventory, while the
         // pickup itself still destroys the actor so the check still fires.
         pi.classStatusGroup = None;
         pi.classStatusItem  = None;

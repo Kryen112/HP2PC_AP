@@ -15,8 +15,8 @@
 # Filler `weight:` is the relative frequency when the generator picks a filler
 # item via get_filler_item_name (multiworld.random.choices). Probabilities are
 # weight / sum(weights). Sum across the 11 filler types = 50; example expected
-# counts over a 154-slot fill (110 secrets + 44 stars - 0 non-filler items
-# added in v2): weight 1 → ~3 picks, weight 3 → ~9, weight 7 → ~22,
+# counts over a 154-slot fill (110 secrets + 44 stars): weight 1 → ~3 picks,
+# weight 3 → ~9, weight 7 → ~22,
 # weight 8 → ~25.
 
 base_id: 5750000
@@ -48,7 +48,7 @@ equipment:
   - { id_offset: 8, name: "Nimbus 2001",      classification: useful, group: Equipment, notes: "Fred Weasley vendor in Quidditch courtyard, ~700 beans in vanilla. Grant sets harry.bHaveNimbus2001 = True (mirrors Characters.uc:631)." }
   - { id_offset: 9, name: "Quidditch Armour", classification: useful, group: Equipment, notes: "George Weasley vendor. Grant sets harry.bHaveQArmor = True (mirrors Characters.uc:635)." }
 
-# v1: Boomslang / Bicorn / BitOGoyle are NOT randomized. They flow through
+# Boomslang / Bicorn / BitOGoyle are NOT randomized. They flow through
 # vanilla story progression. Add back when the key-item AP path is reliable
 # (mod hook for goyle-bump trigger, vendor behaviour after missed pickup, etc).
 key_items: []
@@ -225,9 +225,9 @@ filler:
 # ledger marks each applied trap so it never re-fires on reconnect /
 # save-load — only a genuine new game replays it); self-terminating
 # (instant / level-load revert / timer). id band
-# 400-404 — see plans/ID_BAND_LEDGER.md. 401 (Peeves) and 402 (Spider Swarm)
-# are retired: cut from v1 because this M212 open castle build does not render an
-# ad-hoc visible world actor spawned mid-level. Those ids are never reused.
+# 400-404. 401 (Peeves) and 402 (Spider Swarm)
+# are retired: this M212 open castle build does not render an ad-hoc visible
+# world actor spawned mid-level. Those ids are never reused.
 traps:
   - { id_offset: 400, name: "Bean Thief Trap",            classification: trap, group: Traps, notes: "Steals up to 200 beans (clamped at 0); routed through RingLink's no-broadcast bean helper so it stays local. Permanent by design." }
   - { id_offset: 403, name: "Goyle Transformation Trap",  classification: trap, group: Traps, notes: "harry.bIsGoyle=True + SetNewMesh(); reverts on the next level's fresh pawn." }

@@ -51,7 +51,7 @@ LOCATION_CATEGORIES = (
 # value. A non-card location whose id_offset >= this falls outside the mod's
 # NonCardLocationChecked[] array, so its dedupe is silently skipped and the
 # check re-fires on level re-entry / save-load. Card-location and item offsets
-# are deliberately NOT gated. See plans/ID_BAND_LEDGER.md.
+# are deliberately NOT gated.
 NONCARD_LOC_WINDOW = 1024
 CARD_LOCATION_CATEGORY = "cards"
 
@@ -211,7 +211,7 @@ CARD_VENDOR_META: dict[str, tuple[bool, str, str]] = {
 # on the generated marker subclass; APCardMarker.Spawned() then keeps PHYS_None
 # instead of switching to PHYS_Falling.
 #
-# Add cards here as they're discovered during playtest. The check is exact-name
+# Add cards here as they're discovered. The check is exact-name
 # against the WC class, e.g. "WCToothill".
 FLOATING_CARDS: set[str] = {
     "WCToothill",  # Grand Staircase — floats at the top, requires Spongify-jump.
@@ -303,7 +303,7 @@ def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
     if s == "false":
         return "False"
     if s == "TBD":
-        # Lenient: treat TBD as always-reachable so seeds gen during playtest.
+        # Lenient: treat TBD as always-reachable so seeds still generate.
         # validate_logic() collects TBDs separately for the dev-warning list.
         return "True"
 
@@ -391,7 +391,7 @@ def validate_logic(logic: dict, locations: dict, known_items: set[str]) -> tuple
         parse_rule(rule, known_items, f"region {region_name!r} entry")
 
     # Cross-check: every region used in locations.yaml must be defined in logic.yaml
-    # (allow "TBD" as a valid placeholder so playtest can iterate).
+    # (allow "TBD" as a valid placeholder for iteration).
     used_regions = {entry.get("region", "TBD") for category in LOCATION_CATEGORIES for entry in locations.get(category, [])}
     used_regions.discard("TBD")  # TBD is implicit
     missing = used_regions - set(regions.keys())
@@ -467,7 +467,7 @@ def validate(items: dict, locations: dict) -> None:
                     f"id_offset {entry['id_offset']} >= NONCARD_LOC_WINDOW ({NONCARD_LOC_WINDOW}): "
                     f"it falls outside the mod's NonCardLocationChecked[] dedupe window, so "
                     f"the check would re-fire on every level re-entry / save-load. Pick an "
-                    f"in-window band and record it in plans/ID_BAND_LEDGER.md."
+                    f"in-window band."
                 )
 
     classes_in_items = {e["class"] for cat in ("cards_bronze", "cards_silver", "cards_gold") for e in items.get(cat, [])}
