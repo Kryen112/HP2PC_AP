@@ -778,15 +778,20 @@ function SendApplied(int idx)
 // captured the items they correspond to.
 function FlushApplyAcks()
 {
-    local int i;
+    local int i, n;
 
-    if (PendingApplyAcks.Length == 0) return;
-    Log("[Archipelago] APIPCActor.FlushApplyAcks: flushing " $ string(PendingApplyAcks.Length) $ " ack(s) after SaveGame");
-    for (i = 0; i < PendingApplyAcks.Length; i++)
+    n = PendingApplyAcks.Length;
+    if (n == 0) return;
+    Log("[Archipelago] APIPCActor.FlushApplyAcks: flushing " $ string(n) $ " ack(s) after SaveGame");
+    for (i = 0; i < n; i++)
     {
         SendApplied(PendingApplyAcks[i]);
     }
-    PendingApplyAcks.Length = 0;
+    // Use Remove (canonical UScript clear) instead of `.Length = 0`. The
+    // property-setter form works on most UScript variants but is not used
+    // anywhere else in vanilla or this mod, and a buggy resize would leave
+    // a subsequent `arr[arr.Length] = x` append accessing a freed buffer.
+    PendingApplyAcks.Remove(0, n);
 }
 
 // One-shot-per-new-game NEWGAME signal. Called by APCardWatcher when it

@@ -3340,7 +3340,7 @@ function ScanDeathLink(APIPCActor ipc)
         {
             Log("[Archipelago] APCardWatcher: discarding " $ string(ipc.PendingApplyAcks.Length)
                 $ " unflushed APPLIED ack(s) on death rising-edge");
-            ipc.PendingApplyAcks.Length = 0;
+            ipc.PendingApplyAcks.Remove(0, ipc.PendingApplyAcks.Length);
         }
         if (default.bSuppressNextDeathBroadcast == 1)
         {
