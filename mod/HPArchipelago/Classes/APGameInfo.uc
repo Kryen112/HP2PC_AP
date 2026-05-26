@@ -2238,6 +2238,59 @@ function bool TryApplyTrap(string Name, harry h)
     return False;
 }
 
+// Force a SaveGame after a high-stakes AP grant so a new game's
+// moment-of-spawn autosave is not the only revert point during a long
+// session: opening a new save then dying mid-run otherwise reverts the
+// player's in-game state (album cards, equipment, blocker-key effects)
+// to the empty spawn while the AP server still credits them. Gated on
+// IsPlayerInPlayableState so a save cannot land mid-cutscene / mid-vendor /
+// mid-pause-menu. Filler (beans, ingredients, Chocolate Frog, Wiggenweld,
+// traps) is intentionally skipped to keep the save cadence sane.
+//
+// Debounced via APIPCActor.bWantsDurabilitySave + NextDurabilitySaveTime:
+// the first grant in a window saves immediately when playable, every
+// subsequent grant within DURABILITY_SAVE_COOLDOWN_SECS just re-arms the
+// flag, and APIPCActor.MaybeDrainDurabilitySave fires the trailing save
+// once the cooldown expires. A 100-item Connected replay therefore costs
+// at most two saves total.
+function MaybeSaveAfterHighStakesGrant(harry h, string ItemName)
+{
+    local APIPCActor ipc;
+    local string deferReason;
+
+    if (h == None) return;
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc == None) return;
+
+    // Always arm the flag so a deferred save fires once the player is
+    // playable, even if this grant arrived mid-cutscene.
+    ipc.bWantsDurabilitySave = 1;
+
+    // 5.0s mirrors APIPCActor.DURABILITY_SAVE_COOLDOWN_SECS (M212 consts
+    // aren't accessible cross-class, so the literal is used).
+    if (ipc.NextDurabilitySaveTime > Level.TimeSeconds + 5.0)
+    {
+        ipc.NextDurabilitySaveTime = 0;
+    }
+    if (Level.TimeSeconds < ipc.NextDurabilitySaveTime)
+    {
+        Log("[Archipelago] ApplyGrant: durability SaveGame deferred for "
+            $ ItemName $ " - cooldown active, Timer will drain");
+        return;
+    }
+    if (!class'APGameInfo'.static.IsPlayerInPlayableState(h, deferReason, false))
+    {
+        Log("[Archipelago] ApplyGrant: durability SaveGame deferred for "
+            $ ItemName $ " - deferReason=" $ deferReason);
+        return;
+    }
+
+    ipc.bWantsDurabilitySave = 0;
+    ipc.NextDurabilitySaveTime = Level.TimeSeconds + 5.0;
+    Log("[Archipelago] ApplyGrant: durability SaveGame after " $ ItemName);
+    h.SaveGame();
+}
+
 function ApplyGrant(string Body)
 {
     local harry h;
@@ -2309,21 +2362,25 @@ function ApplyGrant(string Body)
         {
             RemoveSpongifyBlocker();
         }
+        MaybeSaveAfterHighStakesGrant(h, ItemName);
         return;
     }
 
     if (TryApplyKeyItem(ItemName, h))
     {
+        MaybeSaveAfterHighStakesGrant(h, ItemName);
         return;
     }
 
     if (TryApplyBlockerKey(ItemName))
     {
+        MaybeSaveAfterHighStakesGrant(h, ItemName);
         return;
     }
 
     if (TryApplyEquipment(ItemName, h))
     {
+        MaybeSaveAfterHighStakesGrant(h, ItemName);
         return;
     }
 
@@ -2410,6 +2467,7 @@ function ApplyGrant(string Body)
 
     if (TryApplyCard(ItemName, h))
     {
+        MaybeSaveAfterHighStakesGrant(h, ItemName);
         return;
     }
 

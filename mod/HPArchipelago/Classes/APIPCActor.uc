@@ -82,6 +82,16 @@ const RING_SANITY_CAP = 1000;
 var float NextDeathSendTime;
 const SEND_DEATH_MIN_INTERVAL_SECS = 5.0;
 
+// Durability-save debounce. Each high-stakes ApplyGrant arms
+// bWantsDurabilitySave; the first arming saves immediately when playable
+// and sets NextDurabilitySaveTime, every subsequent grant within the
+// cooldown is coalesced, and Timer fires the trailing save once the
+// cooldown expires and the player is playable. A 100-item Connected
+// replay therefore costs ~2 saves total instead of 100.
+var byte bWantsDurabilitySave;
+var float NextDurabilitySaveTime;
+const DURABILITY_SAVE_COOLDOWN_SECS = 5.0;
+
 static function APIPCActor GetInstance()
 {
     if (default.PersistentInstance != None && !default.PersistentInstance.bDeleteMe)
@@ -430,6 +440,36 @@ event Timer()
     TryReconnect();
     TryDrainPendingGrants();
     TickRingLink();
+    MaybeDrainDurabilitySave();
+}
+
+// Trailing-edge drain for the durability-save debounce. Fires the save the
+// first tick after the cooldown expires and the player is playable, so a
+// burst of grants that mostly arrived during a cutscene / mid-vendor still
+// gets persisted once control returns.
+function MaybeDrainDurabilitySave()
+{
+    local harry h;
+    local string deferReason;
+
+    if (bWantsDurabilitySave == 0) return;
+
+    // Level.TimeSeconds resets on travel; a cooldown more than one window
+    // ahead of the current clock must be stale from a previous level.
+    if (NextDurabilitySaveTime > Level.TimeSeconds + DURABILITY_SAVE_COOLDOWN_SECS)
+    {
+        NextDurabilitySaveTime = 0;
+    }
+    if (Level.TimeSeconds < NextDurabilitySaveTime) return;
+
+    h = class'APGameInfo'.static.FindGrantReadyHarry(self);
+    if (h == None) return;
+    if (!class'APGameInfo'.static.IsPlayerInPlayableState(h, deferReason, false)) return;
+
+    bWantsDurabilitySave = 0;
+    NextDurabilitySaveTime = Level.TimeSeconds + DURABILITY_SAVE_COOLDOWN_SECS;
+    Log("[Archipelago] APIPCActor.MaybeDrainDurabilitySave: trailing durability SaveGame");
+    h.SaveGame();
 }
 
 // RingLink poll + drain. The poll diffs whenever harry + StatusManager
