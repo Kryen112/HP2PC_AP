@@ -2328,10 +2328,43 @@ function AssignMarkersToVendors()
         }
     }
 
+    // Level-independent backstop: the actor passes above only see markers in
+    // the current level, so a card missed in a one-time area (Dumbledore's
+    // Study, Slytherin Common Room) never enters the vendor pool because its
+    // marker actor is never loaded again. Walk every card id directly so the
+    // gstate gate stamps the missed card the moment iGameState crosses it,
+    // regardless of which level Harry is in.
+    assigned += StampUnownedCardsToVendorByIdWalk();
+
     if (assigned > 0)
     {
         Log("[Archipelago] APCardWatcher.AssignMarkersToVendors: assigned " $ assigned $ " marker location(s) to vendor stock");
     }
+}
+
+// Walk card ids 1..MAX_CARD_ID and call TryAssignMarkerClassToVendor for each,
+// resolving the marker class via DynamicLoadObject on the vanilla card class
+// name (the APCardMarker_<WCClass> naming contract codegen guarantees).
+// Returns the number of cards that transitioned to vendor ownership.
+function int StampUnownedCardsToVendorByIdWalk()
+{
+    local class<APCardMarker> markerCls;
+    local class<Actor> wcClass;
+    local int id, assigned;
+
+    if (siBronze == None) return 0;
+
+    assigned = 0;
+    for (id = 1; id <= MAX_CARD_ID; id++)
+    {
+        wcClass = siBronze.GetCardClassFromId(id);
+        if (wcClass == None) continue;
+        markerCls = class<APCardMarker>(DynamicLoadObject(
+            "HPArchipelago.APCardMarker_" $ string(wcClass.Name), class'Class'));
+        if (markerCls == None) continue;
+        if (TryAssignMarkerClassToVendor(markerCls)) assigned++;
+    }
+    return assigned;
 }
 
 // Helper for AssignMarkersToVendors. Returns True if it just transitioned the
