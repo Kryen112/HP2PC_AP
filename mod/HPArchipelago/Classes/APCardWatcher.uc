@@ -155,6 +155,11 @@ var byte TraderDispensed[16];
 var Actor TraderToken[16];
 var byte TraderWait[16];
 var int  TraderSavedIngr[16];
+// AP location id of the Tradersanity vendor whose dialogue was engaged at
+// the last poll. 0 = no engagement. Rising-edge discriminator for the
+// VENDOR_OPENED IPC so a held-open dialogue fires the hint exactly once
+// per engagement; the client dedupes again per-seed in Data Storage.
+var int TraderHintLastEngagedLocId;
 // Characters.ESells ordinal values (stable in the decompiled retail enum).
 // Used only to record/branch a vendor's ORIGINAL sell type from the
 // registry; live vendor comparisons still use the c.ESells.Sells_* idiom.
@@ -3411,6 +3416,50 @@ function ReplaceVendorEquipment()
 
     // Tradersanity vendors.
     TradersanityPass();
+    TradersanityHintOnOpenPass();
+}
+
+// Edge-detect the player engaging a Tradersanity vendor's dialogue: on the
+// transition from "no engagement / different vendor" to "this vendor", fire
+// VENDOR_OPENED <locId> so the client publishes a broadcast hint for the AP
+// item that vendor is holding. Gated on Tradersanity being on (off-mode
+// vendors have no AP check to hint) and on the location still being
+// unchecked (a checked vendor's item is already known to the room).
+function TradersanityHintOnOpenPass()
+{
+    local VendorManager vm;
+    local Characters engagedVendor;
+    local APIPCActor ipc;
+    local int locId, slot;
+    local string lvl;
+
+    if (default.TradersanityMode == TRADER_OFF) return;
+    if (HarryRef == None) return;
+
+    vm = HarryRef.CurrVendorManager;
+    if (vm == None || vm.Vendor == None)
+    {
+        default.TraderHintLastEngagedLocId = 0;
+        return;
+    }
+
+    engagedVendor = vm.Vendor;
+
+    lvl = string(Level.Outer.Name);
+    locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(engagedVendor.Name));
+    if (locId == 0) return;
+    if (locId == default.TraderHintLastEngagedLocId) return;
+
+    default.TraderHintLastEngagedLocId = locId;
+
+    slot = locId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    if (default.NonCardLocationChecked[slot] == 1) return;
+
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc != None) ipc.SendVendorOpened(locId);
+    Log("[Archipelago] APCardWatcher.TradersanityHintOnOpenPass: fired VENDOR_OPENED "
+        $ locId $ " for engaged vendor " $ string(engagedVendor.Name));
 }
 
 // True for the four Tradersanity-eligible sell types. Fred/George

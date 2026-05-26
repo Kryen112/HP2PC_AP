@@ -329,6 +329,16 @@ class Tradersanity(Choice):
     default = 0
 
 
+class TradersanityHintOnOpen(Toggle):
+    """If true, opening a Tradersanity vendor's dialogue for the first time
+    publishes a broadcast hint for that vendor's AP check, so the room sees
+    which item each trader is holding before any beans change hands. Hints
+    are deduped per seed via AP server Data Storage. No effect when
+    `tradersanity` is off."""
+    display_name = "Tradersanity hint on open"
+    default = 1
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -361,6 +371,7 @@ class HP2Options(PerGameCommonOptions):
     enable_traps: EnableTraps
     trap_fill_percent: TrapFillPercent
     tradersanity: Tradersanity
+    tradersanity_hint_on_open: TradersanityHintOnOpen
     # Rendered under their own OptionGroup headers (see
     # HP2WebWorld.option_groups), so the dataclass position here does not
     # affect template ordering.
@@ -848,6 +859,7 @@ class HP2World(World):
                 "death_link": bool(self.options.death_link.value),
                 "tradersanity": self.options.tradersanity.value,
                 "tradersanity_prices": self._tradersanity_rolled_factors(),
+                "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
             }
         sd = {
             "game_mode": "open_castle",
@@ -855,6 +867,7 @@ class HP2World(World):
             "death_link": bool(self.options.death_link.value),
             "tradersanity": self.options.tradersanity.value,
             "tradersanity_prices": self._tradersanity_rolled_factors(),
+            "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
         }
         sd.update(self._open_castle_goal_config())
         return sd

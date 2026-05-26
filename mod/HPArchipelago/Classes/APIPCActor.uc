@@ -628,6 +628,16 @@ function SendCheckKeyItem(string KeyItemName)
     Log("[Archipelago] APIPCActor: sent CHECK_KEYITEM " $ KeyItemName);
 }
 
+// Tradersanity hint-on-open: the player engaged a Tradersanity vendor's
+// dialogue. Client publishes a broadcast hint for that vendor's AP location
+// (deduped per-seed in Data Storage). No-op when the client side has the
+// option disabled.
+function SendVendorOpened(int LocationId)
+{
+    SendText("VENDOR_OPENED " $ LocationId $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent VENDOR_OPENED " $ LocationId);
+}
+
 function SendGoalComplete()
 {
     SendText("GOAL_COMPLETE" $ Chr(10));

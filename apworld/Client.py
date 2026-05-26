@@ -18,6 +18,7 @@ Mod-side protocol (newline-delimited text):
     RINGOUT <signed_int>        (game → client, local bean total changed organically)
     SAY <text>                  (game → client, ~1/100 on spell cast — cosmetic chat)
     DEATH [cause]               (game → client, Harry entered stateDead — DeathLink out)
+    VENDOR_OPENED <locId>       (game → client, player opened a Tradersanity vendor dialogue → broadcast hint)
     APPLIED <index>             (game → client, item at AP index applied → mark durably consumed)
     NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
     GRANT <index> <classname>   (client → game, forward item received; index = AP ReceivedItems index)
@@ -284,6 +285,16 @@ class HP2Context(CommonContext):
         # pre-rolled the factors from its seeded RNG); pushed every HELLO so
         # the per-seed prices survive game launches and reconnects.
         self.tradersanity_prices_csv: Optional[str] = None
+        # When true, the first VENDOR_OPENED IPC observed for each Tradersanity
+        # location publishes a broadcast hint (LocationScouts create_as_hint=2).
+        # Parsed from slot_data on Connected.
+        self.tradersanity_hint_on_open: bool = False
+        # Per-seed sticky set of Tradersanity location ids the client has
+        # already published a broadcast hint for, loaded from AP server Data
+        # Storage on Connected and written back on each new hint so a
+        # reconnect / client restart never re-broadcasts the same hint.
+        self.vendor_hint_key: Optional[str] = None
+        self.hinted_vendor_locs: set[int] = set()
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
@@ -451,6 +462,22 @@ class HP2Context(CommonContext):
             else:
                 self.tradersanity_prices_csv = None
 
+            # Hint-on-open for Tradersanity vendors. (Re)fetch the per-seed
+            # sticky set so a reconnect or client restart never re-broadcasts
+            # the same hint. Disabled (and the set left empty) when off, so a
+            # later VENDOR_OPENED is a cheap no-op.
+            self.tradersanity_hint_on_open = bool(sd.get("tradersanity_hint_on_open"))
+            self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
+            self.hinted_vendor_locs = set()
+            if self.tradersanity_hint_on_open:
+                asyncio.create_task(self._send_or_queue_ap_msg(
+                    {"cmd": "Get", "keys": [self.vendor_hint_key]},
+                    label=f"Get vendor-hint set {self.vendor_hint_key}",
+                ))
+            logger.info(
+                f"Tradersanity hint-on-open {'enabled' if self.tradersanity_hint_on_open else 'disabled'}"
+            )
+
             # RingLink. Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
             # routable for Bounced packets. Disable cleanly if a later seed
@@ -526,6 +553,13 @@ class HP2Context(CommonContext):
                     self._forward_one(idx, item)
         elif cmd == "Retrieved":
             keys = args.get("keys") or {}
+            if self.vendor_hint_key is not None and self.vendor_hint_key in keys:
+                val = keys.get(self.vendor_hint_key)
+                self.hinted_vendor_locs = set(int(x) for x in val) if val else set()
+                logger.info(
+                    f"Tradersanity vendor-hint set loaded: "
+                    f"{len(self.hinted_vendor_locs)} already-hinted location(s)"
+                )
             if self.ledger_key is not None and self.ledger_key in keys:
                 val = keys.get(self.ledger_key)
                 self.consumed_indices = set(val) if val else set()
@@ -949,6 +983,27 @@ class HP2Context(CommonContext):
                 label=f"LocationChecks for AP location id {location_id} (raw CHECK_LOCID)",
             )
             return
+        if line.startswith("VENDOR_OPENED "):
+            try:
+                location_id = int(line[len("VENDOR_OPENED "):].strip())
+            except ValueError:
+                logger.warning(f"Unparseable VENDOR_OPENED: {line!r}")
+                return
+            if not self.tradersanity_hint_on_open:
+                return
+            if location_id in self.hinted_vendor_locs:
+                return
+            if location_id not in self.server_locations:
+                return
+            self.hinted_vendor_locs.add(location_id)
+            await self._send_or_queue_ap_msg(
+                {"cmd": "LocationScouts",
+                 "locations": [location_id],
+                 "create_as_hint": 2},
+                label=f"LocationScouts hint for AP location id {location_id} (VENDOR_OPENED)",
+            )
+            self._persist_vendor_hints()
+            return
         if line.startswith("CHECK "):
             try:
                 check_id = int(line[6:].strip())
@@ -1083,6 +1138,21 @@ class HP2Context(CommonContext):
              "operations": [{"operation": "replace",
                              "value": sorted(self.consumed_indices)}]},
             label=f"persist durable ledger ({len(self.consumed_indices)} index(es))",
+        ))
+
+    def _persist_vendor_hints(self) -> None:
+        """Write the already-hinted Tradersanity location-id set back to AP
+        server Data Storage so a reconnect or client restart never re-broadcasts
+        the same hint. Same offline-safe queue + replace semantics as the
+        durable ledger."""
+        if self.vendor_hint_key is None:
+            return
+        asyncio.create_task(self._send_or_queue_ap_msg(
+            {"cmd": "Set", "key": self.vendor_hint_key, "default": [],
+             "want_reply": False,
+             "operations": [{"operation": "replace",
+                             "value": sorted(self.hinted_vendor_locs)}]},
+            label=f"persist vendor-hint set ({len(self.hinted_vendor_locs)} loc(s))",
         ))
 
     @property
