@@ -92,6 +92,22 @@ var byte bWantsDurabilitySave;
 var float NextDurabilitySaveTime;
 const DURABILITY_SAVE_COOLDOWN_SECS = 5.0;
 
+// Deferred APPLIED acks. High-stakes drains push their AP index here instead
+// of acking immediately; every successful h.SaveGame() flushes the buffer.
+// A death between apply and save discards the buffer locally and fires
+// DRAIN_ROLLBACK on the falling edge so the client clears the unacked indices
+// from sent_this_session and re-forwards them — the post-reload drain then
+// re-applies them durably. Without the defer, server-acked items applied
+// between the immediate and trailing save are lost on a death-revert. Filler
+// (beans, ingredients, frog, traps) ignores the buffer and acks immediately.
+var array<int> PendingApplyAcks;
+
+// Per-drain-tick flag. APGameInfo.MaybeSaveAfterHighStakesGrant sets it to 1
+// at the top; the drain reads it after ApplyGrant returns to decide whether
+// the current item needs the deferred-ack path (high-stakes) or an immediate
+// ack (filler/trap). Reset to 0 by the drain before every ApplyGrant call.
+var byte bLastGrantWasHighStakes;
+
 static function APIPCActor GetInstance()
 {
     if (default.PersistentInstance != None && !default.PersistentInstance.bDeleteMe)
@@ -470,6 +486,7 @@ function MaybeDrainDurabilitySave()
     NextDurabilitySaveTime = Level.TimeSeconds + DURABILITY_SAVE_COOLDOWN_SECS;
     Log("[Archipelago] APIPCActor.MaybeDrainDurabilitySave: trailing durability SaveGame");
     h.SaveGame();
+    FlushApplyAcks();
 }
 
 // RingLink poll + drain. The poll diffs whenever harry + StatusManager
@@ -746,6 +763,23 @@ function SendApplied(int idx)
     Log("[Archipelago] APIPCActor: sent APPLIED " $ idx);
 }
 
+// Flush every buffered APPLIED ack to the client. Called from save sites
+// (MaybeSaveAfterHighStakesGrant + MaybeDrainDurabilitySave) right after a
+// successful h.SaveGame(), so acks only persist once the game has durably
+// captured the items they correspond to.
+function FlushApplyAcks()
+{
+    local int i;
+
+    if (PendingApplyAcks.Length == 0) return;
+    Log("[Archipelago] APIPCActor.FlushApplyAcks: flushing " $ string(PendingApplyAcks.Length) $ " ack(s) after SaveGame");
+    for (i = 0; i < PendingApplyAcks.Length; i++)
+    {
+        SendApplied(PendingApplyAcks[i]);
+    }
+    PendingApplyAcks.Length = 0;
+}
+
 // One-shot-per-new-game NEWGAME signal. Called by APCardWatcher when it
 // observes iGameState 0 (a genuine new game, both vanilla and open castle). The
 // client wipes its durable ledger so the fresh playthrough re-receives every
@@ -782,6 +816,17 @@ function TryDrainPendingGrants()
     if (PendingGrants.Length == 0)
     {
         bLoggedGrantDeferral = False;
+        return;
+    }
+
+    // Hold the drain while Harry is dying / reloading from Save0. Applying an
+    // item between rising-edge stateDead and post-reload PlayerWalking would
+    // be reverted by the LoadGame, but the APPLIED buffer flush at the next
+    // save would still mark it consumed on the server — exactly the bug the
+    // defer + DRAIN_ROLLBACK pair is fixing. The watcher clears bWasDead on
+    // the falling edge once the post-reload PlayerWalking arrives.
+    if (class'APCardWatcher'.default.bWasDead == 1)
+    {
         return;
     }
 
@@ -867,12 +912,33 @@ function TryDrainPendingGrants()
     PendingGrants.Remove(0, 1);
     PendingGrantIndex.Remove(0, 1);
     Log("[Archipelago] APIPCActor: draining queued grant " $ ItemName $ " (apIndex=" $ string(apIdx) $ ") to " $ string(readyHarry));
+    bLastGrantWasHighStakes = 0;
     gi.ApplyGrant(ItemName);
-    // Past all the playable-state gating above, ApplyGrant has delivered (or
-    // idempotently no-op'd an already-owned item) — either way the AP index is
-    // accounted for in this slot's playthrough. Ack so the client records it
-    // durably and never re-grants it.
-    SendApplied(apIdx);
+    // ApplyGrant has delivered (or idempotently no-op'd) — past the gates
+    // above, the AP index is accounted for. Routing of the APPLIED ack:
+    //   - High-stakes (spell / key item / blocker key / equipment / card):
+    //     buffer the idx; the next h.SaveGame() flushes the buffer. If
+    //     MaybeSaveAfterHighStakesGrant fired the immediate save this tick
+    //     (bWantsDurabilitySave is 0), flush now so the just-buffered idx
+    //     rides the save that just landed.
+    //   - Filler / trap: ack immediately, no buffering. These items have
+    //     no durability contract (a death-revert losing a re-grantable
+    //     bean / trap is acceptable; high-stakes items are not).
+    if (apIdx >= 0)
+    {
+        if (bLastGrantWasHighStakes == 1)
+        {
+            PendingApplyAcks[PendingApplyAcks.Length] = apIdx;
+            if (bWantsDurabilitySave == 0)
+            {
+                FlushApplyAcks();
+            }
+        }
+        else
+        {
+            SendApplied(apIdx);
+        }
+    }
     NextGrantDrainTime = Level.TimeSeconds + 0.5;
 }
 

@@ -3261,6 +3261,16 @@ function ScanDeathLink(APIPCActor ipc)
         // travels out of this level. Mark it so CheckExitedLevelObjective does
         // not miscredit the death-reload as completing an exit-credited level.
         default.DeathExitFromLevelCaps = Caps(string(Level.Outer.Name));
+        // Drop any APPLIED acks that haven't been flushed: their saves never
+        // landed, so the items they refer to are about to be discarded by
+        // LoadGame 0. The post-reload falling edge below sends DRAIN_ROLLBACK
+        // so the client clears them from sent_this_session and re-forwards.
+        if (ipc != None && ipc.PendingApplyAcks.Length > 0)
+        {
+            Log("[Archipelago] APCardWatcher: discarding " $ string(ipc.PendingApplyAcks.Length)
+                $ " unflushed APPLIED ack(s) on death rising-edge");
+            ipc.PendingApplyAcks.Length = 0;
+        }
         if (default.bSuppressNextDeathBroadcast == 1)
         {
             // This stateDead is our own induced (incoming) kill — consume the
@@ -3277,8 +3287,18 @@ function ScanDeathLink(APIPCActor ipc)
     }
     else if (!bDead && default.bWasDead == 1)
     {
-        // Alive again (post-reload PlayerWalking) — re-arm the edge.
-        default.bWasDead = 0;
+        // Alive again (post-reload PlayerWalking) — tell the client to clear
+        // sent_this_session for any indices not yet durably consumed, then
+        // re-forward them. The reload is finished, so the freshly queued
+        // grants are safe from a wipe — earlier (rising edge) would race the
+        // LoadGame. Clearing bWasDead is gated on the send going through;
+        // otherwise a next-tick retry can re-attempt once the IPC settles.
+        if (ipc != None)
+        {
+            ipc.SendText("DRAIN_ROLLBACK" $ Chr(10));
+            Log("[Archipelago] APCardWatcher: post-death recovery - sent DRAIN_ROLLBACK");
+            default.bWasDead = 0;
+        }
     }
 
     // Latch timeout: if the induced GotoState was somehow missed, don't let a

@@ -2265,6 +2265,10 @@ function MaybeSaveAfterHighStakesGrant(harry h, string ItemName)
     ipc = class'APIPCActor'.static.GetInstance();
     if (ipc == None) return;
 
+    // Mark this drain pass as high-stakes so the drain post-ApplyGrant logic
+    // routes the APPLIED ack through the deferred buffer (PendingApplyAcks).
+    ipc.bLastGrantWasHighStakes = 1;
+
     // Always arm the flag so a deferred save fires once the player is
     // playable, even if this grant arrived mid-cutscene.
     ipc.bWantsDurabilitySave = 1;
@@ -2292,6 +2296,10 @@ function MaybeSaveAfterHighStakesGrant(harry h, string ItemName)
     ipc.NextDurabilitySaveTime = Level.TimeSeconds + 5.0;
     Log("[Archipelago] ApplyGrant: durability SaveGame after " $ ItemName);
     h.SaveGame();
+    // FlushApplyAcks is deliberately NOT called here. The drain is the owner
+    // of the buffer-vs-immediate decision: it post-checks bWantsDurabilitySave
+    // and flushes once the current item's idx is buffered. Flushing here would
+    // run with the current idx still un-buffered, leaving it stranded.
 }
 
 function ApplyGrant(string Body)

@@ -864,9 +864,10 @@ class HP2Context(CommonContext):
 
     async def _handle_game_line(self, line: str) -> None:
         if line.startswith("APPLIED "):
-            # Mod confirms an item was applied to the live game. Mark its AP
-            # index durably consumed and persist the ledger to AP storage so a
-            # reconnect / save-load / client restart never re-grants it.
+            # Mod confirms an item was applied to the live game and the
+            # post-apply SaveGame() landed. Mark its AP index durably consumed
+            # and persist the ledger to AP storage so a reconnect / save-load /
+            # client restart never re-grants it.
             try:
                 idx = int(line[len("APPLIED "):].strip())
             except ValueError:
@@ -875,6 +876,21 @@ class HP2Context(CommonContext):
             if idx not in self.consumed_indices:
                 self.consumed_indices.add(idx)
                 self._persist_ledger()
+            return
+        if line == "DRAIN_ROLLBACK":
+            # Mod completed a death-revert: any item between the last save and
+            # the death was un-applied by LoadGame 0, and its APPLIED ack was
+            # buffered but never flushed. Anything in sent_this_session that
+            # isn't durably consumed is exactly that set — drop it from the
+            # session guard so _forward_all_received re-sends it, and the
+            # post-reload drain re-applies it durably.
+            unacked = self.sent_this_session - self.consumed_indices
+            if unacked:
+                self.sent_this_session -= unacked
+                logger.info(f"DRAIN_ROLLBACK: re-forwarding {len(unacked)} unacked item(s) after death-revert")
+                self._forward_all_received()
+            else:
+                logger.info("DRAIN_ROLLBACK: no unacked items in flight - no-op")
             return
         if line == "NEWGAME":
             # Mod observed a genuine new game (iGameState 0). Wipe the
