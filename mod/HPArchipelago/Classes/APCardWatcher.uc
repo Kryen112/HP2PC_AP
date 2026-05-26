@@ -2936,10 +2936,13 @@ function Snapshot()
     // returns False and the drain leaks an item during the intro. Pushing
     // the earliest-drain time forward gives the level's bLevelLoadStarts
     // cutscenes time to enter Running state so the existing gates take over.
+    // A Snapshot fires after every save-load, so the first post-Snapshot
+    // bean diff is the load's autosave revert — absorb it into the
+    // baseline rather than broadcasting.
     if (class'APIPCActor'.static.GetInstance() != None)
     {
-        // 3.0s mirrors APIPCActor.POST_SNAPSHOT_WARMUP_SECS.
         class'APIPCActor'.static.GetInstance().PushDrainStability(3.0);
+        class'APIPCActor'.static.GetInstance().bSuppressNextRingOutDiff = 1;
     }
 
     RecoverStuckCutsceneState();
@@ -3268,12 +3271,24 @@ function ScanDeathLink(APIPCActor ipc)
             default.bPendingDeathLink = 0;
             default.bSuppressNextDeathBroadcast = 1;
             default.DeathSuppressTicksLeft = DEATH_SUPPRESS_TIMEOUT_TICKS;
+            // The imminent LoadGame 0 will revert beans to the autosave
+            // value; mark the diff as a reload so RingLink absorbs it.
+            if (ipc != None) ipc.bSuppressNextRingOutDiff = 1;
             Log("[Archipelago] APCardWatcher: applying inbound DeathLink kill (dedicated terminal path)");
             if (baseBoss(HarryRef.BossTarget) != None) HarryRef.StopBossEncounter();
             HarryRef.bClubDeath       = True;
             HarryRef.bHarryKilled     = True;
             HarryRef.bAllowHarryToDie = True;
             HarryRef.GotoState('stateDead');
+            // Clear input axes and motion so a surface effect (ectoplasm
+            // push, ladder/grab residual) cannot survive the reload and
+            // stick post-respawn.
+            HarryRef.aForward     = 0;
+            HarryRef.aStrafe      = 0;
+            HarryRef.aTurn        = 0;
+            HarryRef.aLookUp      = 0;
+            HarryRef.Velocity     = vect(0, 0, 0);
+            HarryRef.Acceleration = vect(0, 0, 0);
         }
         // else not playable (cutscene/menu/load): keep pending, retry next tick.
     }

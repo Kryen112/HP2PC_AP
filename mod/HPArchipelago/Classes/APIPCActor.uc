@@ -69,10 +69,18 @@ var bool bSawStateBelowGreatHall;
 var int LastBeanBaseline;
 var bool bBaselineValid;
 var int PendingRingDelta;
-// Defensive backstop: a |delta| beyond this is treated as a baseline resync
-// (not broadcast) — guards against a save-load fast enough to skip the
-// no-readable-harry window from broadcasting a bogus room-wide swing.
-const RING_SANITY_CAP = 100000;
+// One-shot gate: skip the next outbound RingLink diff so a LoadGame 0
+// autosave revert is absorbed into the baseline instead of broadcast as
+// an organic spend.
+var byte bSuppressNextRingOutDiff;
+// Treat |delta| over this as a save-revert, not a real spend. Sized to
+// clear the largest legitimate single-tick bean swing while catching
+// every save-revert class.
+const RING_SANITY_CAP = 1000;
+// Rate-limit outbound DEATH to one broadcast per window so a recurring
+// loop cannot spam the room even if every targeted suppressor misses.
+var float NextDeathSendTime;
+const SEND_DEATH_MIN_INTERVAL_SECS = 5.0;
 
 static function APIPCActor GetInstance()
 {
@@ -470,7 +478,14 @@ function TickRingLink()
         delta = current - LastBeanBaseline;
         if (delta != 0)
         {
-            if (delta > RING_SANITY_CAP || delta < -RING_SANITY_CAP)
+            if (bSuppressNextRingOutDiff == 1)
+            {
+                // One-shot suppressor consumed: re-baseline only, do not broadcast.
+                Log("[Archipelago] RingLink: suppressing one-shot diff " $ string(delta)
+                    $ " - re-baselining only");
+                bSuppressNextRingOutDiff = 0;
+            }
+            else if (delta > RING_SANITY_CAP || delta < -RING_SANITY_CAP)
             {
                 Log("[Archipelago] RingLink: implausible bean delta " $ string(delta)
                     $ " - resyncing baseline, not broadcasting");
@@ -619,10 +634,23 @@ function SendGoalComplete()
     Log("[Archipelago] APIPCActor: sent GOAL_COMPLETE");
 }
 
-// DeathLink out: Harry entered stateDead. Cause is optional flavour; the
-// client gates on the DeathLink tag, so an untagged slot makes this a no-op.
+// DeathLink out. Cause is optional flavour; the client gates on the
+// DeathLink tag, so an untagged slot makes this a no-op.
 function SendDeath(string Cause)
 {
+    // Level.TimeSeconds resets on travel; a gate more than one window ahead
+    // of the current clock must be stale from a previous level.
+    if (NextDeathSendTime > Level.TimeSeconds + SEND_DEATH_MIN_INTERVAL_SECS)
+    {
+        NextDeathSendTime = 0;
+    }
+    if (Level.TimeSeconds < NextDeathSendTime)
+    {
+        Log("[Archipelago] APIPCActor.SendDeath: rate-limited (" $ Cause
+            $ ") - last send was within " $ string(SEND_DEATH_MIN_INTERVAL_SECS) $ "s");
+        return;
+    }
+    NextDeathSendTime = Level.TimeSeconds + SEND_DEATH_MIN_INTERVAL_SECS;
     SendText("DEATH " $ Cause $ Chr(10));
     Log("[Archipelago] APIPCActor: sent DEATH " $ Cause);
 }
