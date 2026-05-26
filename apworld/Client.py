@@ -70,11 +70,24 @@ from NetUtils import ClientStatus, SlotType
 from .locations import (
     CARD_CLASS_TO_LOCATION_NAME,
     CARD_GAME_ID_TO_LOCATION_NAME,
+    LOCATION_GROUPS,
     LOCATION_NAME_TO_ID,
 )
 from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
+# All wizard-card item names, derived from ITEM_GROUPS so it can never drift
+# from data/items.yaml. Used by /progress to count cards in received items.
+CARD_ITEM_NAMES_SET = frozenset(
+    ITEM_GROUPS.get("Cards (Bronze)", [])
+    + ITEM_GROUPS.get("Cards (Silver)", [])
+    + ITEM_GROUPS.get("Cards (Gold)", [])
+)
+# Base AP id for the 12 level-completion locations (Hogwarts/Boomslang/...,
+# Aragog, Basilisk, the 4 spell challenges, Whomping Willow, Slytherin,
+# Gryffindor challenge). idx 0..11 = AP id - LEVEL_COMPLETION_BASE.
+LEVEL_COMPLETION_BASE = 5760700
+LEVEL_COMPLETION_COUNT = 12
 # Trap item names, from ITEM_GROUPS so it can never drift from
 # data/items.yaml. Used by the #3 marker-appearance classifier. Every
 # received item is gated by the AP-Data-Storage consumed-index ledger (see
@@ -197,7 +210,62 @@ def _log_safe(text: str, limit: int = 180) -> str:
 
 
 class HP2CommandProcessor(ClientCommandProcessor):
-    pass
+    def _cmd_progress(self) -> bool:
+        """Show progress toward the open castle goal: cards / spells / level
+        objectives / duels / quidditch matches against the thresholds the seed
+        was rolled with."""
+        ctx: "HP2Context" = self.ctx
+        if not ctx.is_open_castle:
+            self.output(
+                "/progress is for open castle seeds. Vanilla seeds win on the "
+                "post-Basilisk credits, not on threshold counts."
+            )
+            return True
+        if ctx.open_castle_goalcfg is None:
+            self.output("Goal config not received yet (waiting on slot_data from AP).")
+            return True
+        parts = ctx.open_castle_goalcfg.split(",")
+        if len(parts) < 6:
+            self.output(f"Goal config malformed: {ctx.open_castle_goalcfg!r}")
+            return True
+        cards_need, spells_need, levels_need, duels_need, quid_need, level_mask = (
+            int(x) for x in parts
+        )
+
+        cards_have = 0
+        for item in ctx.received_by_index.values():
+            name = ctx.item_names.lookup_in_game(item.item, GAME_NAME)
+            if name in CARD_ITEM_NAMES_SET:
+                cards_have += 1
+        spells_have = len(ctx.granted_spell_names)
+
+        checked = ctx.checked_locations
+        levels_have = sum(
+            1 for loc_id in checked
+            if LEVEL_COMPLETION_BASE <= loc_id < LEVEL_COMPLETION_BASE + LEVEL_COMPLETION_COUNT
+            and (level_mask >> (loc_id - LEVEL_COMPLETION_BASE)) & 1
+        )
+        duels_have = 0
+        quid_have = 0
+        for loc_id in checked:
+            name = ctx.location_names.lookup_in_game(loc_id, GAME_NAME)
+            group = LOCATION_GROUPS.get(name, "")
+            if group == "Duels":
+                duels_have += 1
+            elif group == "QuidditchMatches":
+                quid_have += 1
+
+        def row(label: str, have: int, need: int) -> str:
+            tick = "[x]" if have >= need else "[ ]"
+            return f"  {tick} {label:<22} {have} / {need}"
+
+        self.output("Open castle goal progress:")
+        self.output(row("Wizard cards",          cards_have,  cards_need))
+        self.output(row("Spells",                spells_have, spells_need))
+        self.output(row("Level objectives",      levels_have, levels_need))
+        self.output(row("Duels won",             duels_have,  duels_need))
+        self.output(row("Quidditch matches won", quid_have,   quid_need))
+        return True
 
 
 class HP2Context(CommonContext):
