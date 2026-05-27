@@ -31,6 +31,7 @@ from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                         MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS)
+from .music_pool import JINGLE_POOL, MUSIC_POOL
 from .regions import (REGION_ENTRY_RULES_OPEN_CASTLE, REGION_ENTRY_RULES_VANILLA,
                       REGION_NAMES, START_REGION)
 from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_VANILLA,
@@ -353,6 +354,17 @@ class SkipVendorVoices(Toggle):
     default = 0
 
 
+class MusicRandomizer(Toggle):
+    """If true, every placed in-level music trigger has its song swapped to a
+    different track from the same pool. Two pools curated in music_pool.py:
+    long-form background music randomizes within MUSIC_POOL, short feedback
+    cues (win/fail/snitch horn etc.) randomize within JINGLE_POOL. The swap
+    is deterministic per AP seed and per trigger placement — every load of
+    the same level picks the same replacements, but different seeds get
+    different mappings. Pure runtime: no fill/logic impact."""
+    display_name = "Music randomizer"
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -387,6 +399,7 @@ class HP2Options(PerGameCommonOptions):
     tradersanity: Tradersanity
     tradersanity_hint_on_open: TradersanityHintOnOpen
     skip_vendor_voices: SkipVendorVoices
+    music_randomizer: MusicRandomizer
     # Rendered under their own OptionGroup headers (see
     # HP2WebWorld.option_groups), so the dataclass position here does not
     # affect template ordering.
@@ -873,19 +886,7 @@ class HP2World(World):
     def fill_slot_data(self) -> dict:
         # The client only learns the RingLink / DeathLink toggles through
         # slot_data; it has no other view of the YAML. Must be in both paths.
-        if not self._is_open_castle():
-            return {
-                "game_mode": "vanilla",
-                "ring_link": bool(self.options.ring_link),
-                "death_link": bool(self.options.death_link.value),
-                "tradersanity": self.options.tradersanity.value,
-                "tradersanity_prices": self._tradersanity_rolled_factors(),
-                "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
-                "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
-                "enable_quidditch_upgrades": bool(self.options.enable_quidditch_upgrades.value),
-            }
-        sd = {
-            "game_mode": "open_castle",
+        sd: dict = {
             "ring_link": bool(self.options.ring_link),
             "death_link": bool(self.options.death_link.value),
             "tradersanity": self.options.tradersanity.value,
@@ -894,5 +895,22 @@ class HP2World(World):
             "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
             "enable_quidditch_upgrades": bool(self.options.enable_quidditch_upgrades.value),
         }
+        # Music randomizer (both game modes). The pools themselves ride
+        # slot_data so the mod can swap Song strings without the client /
+        # mod needing its own copy of music_pool.py to read. The per-seed
+        # salt is pre-rolled in self.random so two AP seeds with the same
+        # music_pool.py content still produce different per-trigger mappings
+        # (the mod hashes salt + level + actor name to pick the slot index;
+        # without the salt every seed would map identically). Suppressed
+        # when off so an off seed never carries the ~5 KB pool payload.
+        if bool(self.options.music_randomizer.value):
+            sd["music_randomizer"] = True
+            sd["music_pool"] = list(MUSIC_POOL)
+            sd["jingle_pool"] = list(JINGLE_POOL)
+            sd["music_seed"] = self.random.randint(0, 2**31 - 1)
+        if not self._is_open_castle():
+            sd["game_mode"] = "vanilla"
+            return sd
+        sd["game_mode"] = "open_castle"
         sd.update(self._open_castle_goal_config())
         return sd

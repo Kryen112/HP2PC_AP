@@ -99,6 +99,7 @@ event InitGame(string Options, out string Error)
     SpawnAPHUDToastIfMissing();
 
     ReplaceCardChests();
+    ReplaceMusicTriggers();
     DestroyUnobtainableSecretMarkers();
     // Durable open castle detection runs pre-Harry so DestroyGryffindorSpellGiver's
     // bOpenCastleMode gate is reliable even on a cold load into a sentinel-less
@@ -1605,6 +1606,134 @@ function bool TryReplaceCardSlot(class<Actor> slot, out class<Actor> outClass)
         return False;
     }
     return True;
+}
+
+// Music randomizer: rewrite every placed NewMusicTrigger.Song to a different
+// track from the same pool (jingle/music), deterministic per AP seed and per
+// trigger placement. Reads pools + salt from APCardWatcher class-defaults
+// (set by the MUSICRAND/MUSICSEED/MUSICPOOL/JINGLEPOOL IPC lines from the
+// apworld slot_data). Off → no-op so vanilla seeds play untouched.
+//
+// Per-trigger key = (Level.Outer.Name, actor.Name). FNV-1a hash of
+// "<seed>/<level>/<actor>" → pool index. UE1 int is 32-bit signed with
+// wrap-around on MUL/XOR so the standard 32-bit FNV-1a constants work
+// without overflow handling; the final modulus is normalised so negative
+// wrap-around lands non-negative.
+//
+// Classification: case-insensitive lookup against JinglePool. A hit draws
+// from JinglePool; anything else (including unknown tracks not in either
+// pool) draws from MusicPool — "play something" is friendlier than "play
+// nothing" if the pool list drifts ahead of an old install.
+//
+// Save-load is automatic: var() string Song is non-transient so the rewrite
+// is serialized into the .usa and restored on reload. This pass only runs
+// on fresh-level InitGame (ProcessServerTravel skips InitGame) and is
+// idempotent for the same actor-name path, so a re-entry yields the same
+// pick again.
+function ReplaceMusicTriggers()
+{
+    local NewMusicTrigger T;
+    local string levelName, originalSong, replacement, poolLabel;
+    local int idx, total;
+    local bool isJingle;
+
+    if (class'APCardWatcher'.default.bMusicRandomizerEnabled == 0) return;
+    if (class'APCardWatcher'.default.MusicPoolCount <= 0
+        && class'APCardWatcher'.default.JinglePoolCount <= 0) return;
+
+    levelName = Caps(string(Level.Outer.Name));
+    total = 0;
+
+    foreach AllActors(class'NewMusicTrigger', T)
+    {
+        originalSong = T.Song;
+        if (originalSong == "") continue;
+
+        isJingle = IsSongJingle(originalSong);
+        if (isJingle && class'APCardWatcher'.default.JinglePoolCount > 0)
+        {
+            idx = MusicHashIndex(levelName, string(T.Name),
+                                 class'APCardWatcher'.default.JinglePoolCount);
+            replacement = class'APCardWatcher'.default.JinglePool[idx];
+            poolLabel = "jingle";
+        }
+        else if (class'APCardWatcher'.default.MusicPoolCount > 0)
+        {
+            idx = MusicHashIndex(levelName, string(T.Name),
+                                 class'APCardWatcher'.default.MusicPoolCount);
+            replacement = class'APCardWatcher'.default.MusicPool[idx];
+            poolLabel = "music";
+        }
+        else
+        {
+            continue;
+        }
+        if (replacement == "" || replacement ~= originalSong) continue;
+
+        T.Song = replacement;
+        Log("[Archipelago] ReplaceMusicTriggers: " $ levelName $ "/" $ string(T.Name)
+            $ " " $ originalSong $ " -> " $ replacement $ " (" $ poolLabel $ ")");
+        total++;
+    }
+
+    if (total > 0)
+    {
+        Log("[Archipelago] ReplaceMusicTriggers: rewrote " $ total $ " NewMusicTrigger Song(s) in " $ levelName);
+    }
+}
+
+// True if `song` matches any JinglePool entry case-insensitively. Linear
+// scan over <=43 entries — fine, called once per placed NewMusicTrigger at
+// level entry, well under 100 calls per level.
+function bool IsSongJingle(string song)
+{
+    local int i, n;
+
+    n = class'APCardWatcher'.default.JinglePoolCount;
+    for (i = 0; i < n; i++)
+    {
+        if (song ~= class'APCardWatcher'.default.JinglePool[i]) return True;
+    }
+    return False;
+}
+
+// Position-weighted sum hash of "<seed>/<level>/<actor>" into [0, poolSize).
+// History: FNV-1a relied on int32 wrap-on-multiply (broken on M212).
+// Polynomial `hash * 31 + c` was empirically proven degenerate via DIAG
+// logging — multi-iteration hashes of strings differing only at the
+// trailing byte produced bit-identical results (e.g. trigger0 and
+// trigger5 both hashed to 45020332), meaning the per-iteration `c` was
+// being lost somewhere in the `hash * 31` step. The fix: never multiply
+// the accumulator. Each character contributes `c * position` to a plain
+// sum, where position is the 1-indexed byte offset. Different chars at
+// the same position produce different contributions (c1 * i vs c2 * i),
+// guaranteeing different hashes for different inputs. Distribution
+// quality is weak (consecutive trigger numbers map to nearby pool slots)
+// but for a ~98-entry pool with ~11 trigger placements per level this
+// is fine — the seed term in the composite scrambles which slots the
+// "nearby" cluster lands in. c * i max ~ 122 * 50 = 6100, cumulative
+// max ~ 305000 over 50 iters, nowhere near INT_MAX. No overflow, no
+// modulus needed mid-loop. Final modulus into pool size; if any
+// platform quirk produces a negative hash, abs-fold first.
+function int MusicHashIndex(string levelName, string actorName, int poolSize)
+{
+    local string remaining;
+    local int hash, c, i;
+
+    if (poolSize <= 0) return 0;
+    remaining = string(class'APCardWatcher'.default.MusicRandSeed) $ "/"
+              $ levelName $ "/" $ actorName;
+    hash = 0;
+    i = 1;
+    while (remaining != "")
+    {
+        c = Asc(remaining);
+        hash = hash + c * i;
+        i++;
+        remaining = Mid(remaining, 1);
+    }
+    if (hash < 0) hash = -hash;
+    return hash % poolSize;
 }
 
 function bool IsKnownSpellName(string Name)

@@ -376,6 +376,17 @@ class HP2Context(CommonContext):
         # reconnect / client restart never re-broadcasts the same hint.
         self.vendor_hint_key: Optional[str] = None
         self.hinted_vendor_locs: set[int] = set()
+        # Music randomizer config. Parsed from slot_data on Connected; pushed
+        # every HELLO so a fresh game launch / reconnect re-asserts the pools
+        # mod-side. Sticky + idempotent mod-side. All three are None / False
+        # for vanilla seeds (option off → apworld suppresses the slot_data
+        # keys entirely). The pools are CSV strings (no commas in any
+        # basename) rather than separate IPC lines per entry — single sticky
+        # snapshot is simpler to re-arm.
+        self.music_randomizer_enabled: bool = False
+        self.music_pool_csv: Optional[str] = None
+        self.jingle_pool_csv: Optional[str] = None
+        self.music_seed: Optional[int] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
@@ -564,6 +575,35 @@ class HP2Context(CommonContext):
             logger.info(
                 f"Tradersanity hint-on-open {'enabled' if self.tradersanity_hint_on_open else 'disabled'}"
             )
+
+            # Music randomizer pools. Suppressed apworld-side when off, so
+            # absent keys collapse the mod-side IPC vars back to disabled.
+            # When on, both pools are pushed as CSVs and the enabled flag
+            # rides its own line so the mod can latch behavior even if
+            # parsing one of the larger payloads is in flight.
+            if bool(sd.get("music_randomizer")):
+                self.music_randomizer_enabled = True
+                self.music_pool_csv = ",".join(sd.get("music_pool") or [])
+                self.jingle_pool_csv = ",".join(sd.get("jingle_pool") or [])
+                self.music_seed = int(sd.get("music_seed") or 0)
+                logger.info(
+                    f"Music randomizer enabled from slot_data: "
+                    f"{len(sd.get('music_pool') or [])} music / "
+                    f"{len(sd.get('jingle_pool') or [])} jingle tracks, "
+                    f"seed={self.music_seed}"
+                )
+                if self.game_writer is not None:
+                    self._send_to_game("MUSICRAND 1")
+                    self._send_to_game(f"MUSICSEED {self.music_seed}")
+                    self._send_to_game("MUSICPOOL " + self.music_pool_csv)
+                    self._send_to_game("JINGLEPOOL " + self.jingle_pool_csv)
+            else:
+                self.music_randomizer_enabled = False
+                self.music_pool_csv = None
+                self.jingle_pool_csv = None
+                self.music_seed = None
+                if self.game_writer is not None:
+                    self._send_to_game("MUSICRAND 0")
 
             # RingLink. Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
@@ -1029,6 +1069,18 @@ class HP2Context(CommonContext):
             # table, and an off seed should not be carrying stale factors.
             if self.tradersanity_prices_csv:
                 self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
+            # Re-arm the music randomizer enabled flag + pools + per-seed
+            # salt. Sticky + idempotent mod-side. Always re-arm the flag
+            # (so a fresh game launch knows the current state); only re-push
+            # the seed + pool CSVs when enabled.
+            self._send_to_game("MUSICRAND " + ("1" if self.music_randomizer_enabled else "0"))
+            if self.music_randomizer_enabled:
+                if self.music_seed is not None:
+                    self._send_to_game(f"MUSICSEED {self.music_seed}")
+                if self.music_pool_csv is not None:
+                    self._send_to_game("MUSICPOOL " + self.music_pool_csv)
+                if self.jingle_pool_csv is not None:
+                    self._send_to_game("JINGLEPOOL " + self.jingle_pool_csv)
             # #3: re-push the appearance table. Sticky + idempotent mod-side,
             # so resending every HELLO re-arms a fresh game launch / reconnect.
             # is not None (not truthiness) so an all-native "" still re-arms.
