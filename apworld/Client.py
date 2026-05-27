@@ -460,7 +460,7 @@ class HP2Context(CommonContext):
     def connect(self, address: Optional[str] = None) -> None:
         """Defer AP-server connection until the game has booted (sent HELLO).
         Without this, co-op partners see this slot come online the moment the
-        client process opens — long before Harry is in the world. Once the
+        client process opens, long before Harry is in the world. Once the
         game is up, behaves like upstream.
 
         Reached on both paths: --connect / launcher (kicked off from _main)
@@ -768,8 +768,8 @@ class HP2Context(CommonContext):
             logger.info(f"DeathLink: inbound from {data.get('source', '?')} → DEATHLINK")
             # Cosmetic toast. cause is the flavour string the sender chose
             # (e.g. "Stefan got avada kadavra'd") and is preferred over the
-            # bare source name when present. Drop-on-offline path — game
-            # offline path already returned above.
+            # bare source name when present. Drop-on-offline path; the
+            # game-offline case already returned above.
             cause = data.get("cause") or ""
             source = data.get("source") or "?"
             self._toast_to_game(cause if cause else f"DeathLink received from {source}")
@@ -826,9 +826,9 @@ class HP2Context(CommonContext):
     def connection_closed(self) -> None:
         """Toast on AP websocket close. Mirrors the existing "Connected to
         host:port" toast lifecycle (CommonContext calls this on every clean /
-        unclean server-side close). super() resets server state — gate the
-        toast on a slot known so a never-authed first-launch close (wrong
-        password, bad address) doesn't toast spuriously."""
+        unclean server-side close). super() resets server state, so the
+        toast is gated on slot-known to suppress a never-authed first-launch
+        close (wrong password, bad address) from toasting spuriously."""
         was_authed = self.slot is not None
         super().connection_closed()
         if was_authed:
@@ -897,7 +897,7 @@ class HP2Context(CommonContext):
     def _toast_to_game(self, text: str) -> None:
         """Cosmetic-only TOAST: drop on the floor when the game is offline.
         Replaying a stale "X joined" or "Disconnected from AP server" toast
-        the next time the game launches would be confusing — these are
+        the next time the game launches would be confusing; these are
         in-the-moment events, not durable state."""
         if self.game_writer is None or self.game_writer.is_closing():
             return
@@ -1028,7 +1028,7 @@ class HP2Context(CommonContext):
             if self.deferred_connect_address:
                 addr = self.deferred_connect_address
                 self.deferred_connect_address = None
-                logger.info(f"Game booted — connecting to AP server at {addr}")
+                logger.info(f"Game booted; connecting to AP server at {addr}")
                 self.connect(addr)
             self._forward_all_received()
             # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
@@ -1655,7 +1655,7 @@ async def _main(args: argparse.Namespace) -> None:
     # AP-server connection is deferred until the game sends HELLO (see
     # HP2Context.connect / the HELLO handler) so co-op partners don't see
     # this slot online before Harry is in the world. Stash the launch
-    # address here; do not start server_task — the HELLO path creates it.
+    # address here; do not start server_task. The HELLO path creates it.
     if args.connect:
         ctx.deferred_connect_address = args.connect
         logger.info(f"Waiting for game to launch before connecting to {args.connect}...")
