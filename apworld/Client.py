@@ -430,13 +430,6 @@ class HP2Context(CommonContext):
         # RoomUpdate; empty string is a valid payload (no checks yet, still
         # resent every HELLO to overwrite any stale stamp on a reconnect).
         self.checked_csv: Optional[str] = None
-        # AP-server connection deferral. If the game isn't up yet (no HELLO
-        # received), connect() stashes the address here instead of opening the
-        # websocket so co-op partners don't see this slot online while Harry
-        # hasn't booted. Cleared and consumed by the HELLO handler. Set by
-        # _main when the launcher / --connect supplied an address, and by the
-        # connect() override on any user /connect typed before HELLO.
-        self.deferred_connect_address: Optional[str] = None
 
     @staticmethod
     def _format_ap_address(raw: Optional[str]) -> Optional[str]:
@@ -456,25 +449,6 @@ class HP2Context(CommonContext):
         if not host:
             return None
         return f"{host}:{port}"
-
-    def connect(self, address: Optional[str] = None) -> None:
-        """Defer AP-server connection until the game has booted (sent HELLO).
-        Without this, co-op partners see this slot come online the moment the
-        client process opens, long before Harry is in the world. Once the
-        game is up, behaves like upstream.
-
-        Reached on both paths: --connect / launcher (kicked off from _main)
-        and any user-typed /connect in the CLI box."""
-        effective = address or self.server_address
-        if self.game_writer is None or self.game_writer.is_closing():
-            self.deferred_connect_address = effective
-            if effective:
-                # Keep the GUI address bar showing what we'll connect to.
-                self.server_address = effective
-            logger.info(f"Waiting for game to launch before connecting to {effective}...")
-            return
-        self.deferred_connect_address = None
-        super().connect(address)
 
     async def server_auth(self, password_requested: bool = False) -> None:
         if password_requested and not self.password:
@@ -1018,18 +992,6 @@ class HP2Context(CommonContext):
             # consumed (the sent_this_session guard, reset on this connect,
             # stops the pending-grants drain + this from double-sending).
             #
-            # Kick off the deferred AP-server connect if there is one (the
-            # game-boot is the signal we were waiting for so co-op partners
-            # don't see this slot online before Harry is in the world).
-            # game_writer is already set by handle_game_connection before
-            # this line runs, so the connect() override falls through to
-            # super(). Cleared first so we don't double-connect on a
-            # mid-session game reconnect (game crash + relaunch).
-            if self.deferred_connect_address:
-                addr = self.deferred_connect_address
-                self.deferred_connect_address = None
-                logger.info(f"Game booted. Connecting to AP server at {addr}")
-                self.connect(addr)
             self._forward_all_received()
             # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
             # every HELLO (fresh launch / reconnect / cold load into a
@@ -1652,13 +1614,7 @@ async def _main(args: argparse.Namespace) -> None:
     asyncio.get_running_loop().set_exception_handler(_suppress_socket_reset)
     ctx = HP2Context(args.connect, args.password)
     ctx.auth = args.name
-    # AP-server connection is deferred until the game sends HELLO (see
-    # HP2Context.connect / the HELLO handler) so co-op partners don't see
-    # this slot online before Harry is in the world. Stash the launch
-    # address here. Do not start server_task. The HELLO path creates it.
-    if args.connect:
-        ctx.deferred_connect_address = args.connect
-        logger.info(f"Waiting for game to launch before connecting to {args.connect}...")
+    ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
     ctx.tcp_server_task = asyncio.create_task(ctx.run_tcp_server(), name="game tcp server")
     if gui_enabled:
         ctx.run_gui()
