@@ -767,7 +767,7 @@ class HP2Context(CommonContext):
             self.game_writer.write(b"DEATHLINK\n")
             logger.info(f"DeathLink: inbound from {data.get('source', '?')} → DEATHLINK")
             # Cosmetic toast. cause is the flavour string the sender chose
-            # (e.g. "Stefan got avada kadavra'd") and is preferred over the
+            # (e.g. "Harry got avada kadavra'd") and is preferred over the
             # bare source name when present. Drop-on-offline path. The
             # game-offline case already returned above.
             cause = data.get("cause") or ""
