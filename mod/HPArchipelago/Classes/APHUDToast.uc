@@ -217,8 +217,14 @@ function RenderHud(Canvas C)
     local harry h;
     local string s;
 
-    if (ToastCount <= 0) return;
     if (C == None) return;
+
+    // Banner first so it draws regardless of whether the toast queue is empty.
+    // Each pass is independently gated; the banner runs whenever a Tradersanity
+    // vendor is engaged, the toast loop runs whenever ToastCount > 0.
+    DrawTradersanityAPLabel(C);
+
+    if (ToastCount <= 0) return;
 
     h = harry(Level.PlayerHarryActor);
     if (h == None || h.Player == None) return;
@@ -275,6 +281,92 @@ function RenderHud(Canvas C)
 
     C.DrawColor = colorSave;
     C.Style = styleSave;
+}
+
+// Top-of-screen label that names the current vendor's offer as an Archipelago
+// check. Visible while Tradersanity is on, Harry has a vendor engaged
+// (CurrVendorManager set after Bump), the vendor's AP location is unchecked,
+// AND the player hasn't already clicked Yes in this engagement
+// (TraderPurchased). Hidden once any of those flips. The label text is the
+// hinted item name when the apworld has cached one for this vendor (HINT
+// IPC); otherwise the generic "Archipelago Item" fallback for off-hint
+// seeds. Foreign-game item names come through unchanged — the apworld
+// resolves them against slot_info.
+function DrawTradersanityAPLabel(Canvas C)
+{
+    local harry h;
+    local VendorManager vm;
+    local Characters engagedVendor;
+    local int locId, slot;
+    local string lvl;
+    local string label, hintName;
+    local float textW, textH, labelX, labelY;
+    local Color colorText, colorShadow, colorSave;
+    local Font fontSave;
+
+    if (class'APCardWatcher'.default.TradersanityMode == 0) return;
+
+    h = harry(Level.PlayerHarryActor);
+    if (h == None || h.Player == None) return;
+
+    vm = h.CurrVendorManager;
+    if (vm == None || vm.Vendor == None) return;
+
+    engagedVendor = vm.Vendor;
+    lvl = string(Level.Outer.Name);
+    locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(engagedVendor.Name));
+    if (locId <= 0) return;
+
+    slot = locId - 5760000;
+    if (slot < 0 || slot >= 1024) return;
+    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
+    if (class'APCardWatcher'.default.TraderPurchased[slot] == 1) return;
+
+    hintName = class'APCardWatcher'.default.TraderHintItemName[slot];
+    if (hintName != "")
+    {
+        label = hintName;
+    }
+    else
+    {
+        label = "Archipelago Item";
+    }
+
+    fontSave = C.Font;
+    colorSave = C.DrawColor;
+    // Font scales with content: a generic "Archipelago Item" reads as
+    // marketing fluff and stays subtle; the hinted "<player>'s <item>"
+    // form is the load-bearing info the player walked in to see, so it
+    // gets the bigger LocalBigFont. baseConsole defines the family
+    // small -> med -> big -> huge.
+    if (hintName != "")
+    {
+        C.Font = baseConsole(h.Player.Console).LocalBigFont;
+    }
+    else
+    {
+        C.Font = baseConsole(h.Player.Console).LocalSmallFont;
+    }
+
+    // Archipelago-yellow on black shadow, matching the toast palette.
+    colorText.R = 255;
+    colorText.G = 220;
+    colorText.B = 100;
+    colorShadow.R = 0;
+    colorShadow.G = 0;
+    colorShadow.B = 0;
+
+    C.TextSize(label, textW, textH);
+    labelX = (C.SizeX - textW) / 2.0;
+    // Place just above the trade bar (VendorManager's fVENDORBAR_Y=20 then
+    // the bar texture's own height). A small margin so the label is clearly
+    // separated from the bar.
+    labelY = 2.0;
+    C.SetPos(labelX, labelY);
+    C.DrawShadowText(label, colorText, colorShadow);
+
+    C.Font = fontSave;
+    C.DrawColor = colorSave;
 }
 
 defaultproperties

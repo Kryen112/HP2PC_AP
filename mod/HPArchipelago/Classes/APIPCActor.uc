@@ -305,6 +305,15 @@ function HandleLine(string line)
         // every Snapshot so a level change picks up the right state.
         class'APCardWatcher'.static.SetSkipVendorVoices(byte(int(Mid(line, 19))));
     }
+    else if (Left(line, 5) == "HINT ")
+    {
+        // Tradersanity vendor hint payload: "HINT <locId> <item_name>".
+        // Cached per-slot on APCardWatcher.TraderHintItemName so the in-trade
+        // label can show the actual item name instead of generic "Archipelago
+        // Item". Apworld sends one HINT per Tradersanity vendor location
+        // after the scout response resolves, when hint-on-open is enabled.
+        HandleHint(Mid(line, 5));
+    }
     else if (Left(line, 10) == "CONNECTED ")
     {
         // AP server address for the startup "Connected to host:port" toast,
@@ -424,6 +433,28 @@ function HandleLine(string line)
 
 // Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the
 // HUD toast actor as "Sent <item> to <receiver>".
+// HINT body is `<locId> <item_name>`. Splits on the first space and forwards
+// to APCardWatcher.SetVendorHintItemName for the in-trade label to read.
+// item_name may contain spaces (e.g. "Cloak of Invisibility"), so Mid past
+// the first space is the full remainder.
+function HandleHint(string Body)
+{
+    local int spaceIdx, locId;
+    local string itemName;
+
+    spaceIdx = InStr(Body, " ");
+    if (spaceIdx <= 0)
+    {
+        Log("[Archipelago] APIPCActor.HandleHint: malformed body '" $ Body $ "'");
+        return;
+    }
+    locId = int(Left(Body, spaceIdx));
+    itemName = Mid(Body, spaceIdx + 1);
+    if (locId <= 0 || itemName == "") return;
+
+    class'APCardWatcher'.static.SetVendorHintItemName(locId, itemName);
+}
+
 function HandleSent(string Body)
 {
     local string ItemName, Receiver, toastText;

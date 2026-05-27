@@ -52,4 +52,14 @@ class APLogoMesh extends HPMesh
 //transparent-skin recipe in this build (alpha channel does not key here).
 #exec Texture Import File=Textures\APLogoTex0.png Name=APLogoTex0 COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Skins
 #exec Texture Import File=Textures\APLogoArrowTex0.png Name=APLogoArrowTex0 COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Skins
+//64x64 downscale of APLogoTex0 — the in-trade vendor UI icon. Canvas.DrawIcon
+//draws at native USize/VSize; the 256x256 mesh-skin variant overflows the
+//trade bar's small icon slot. Regenerate via tools/gen_trade_icon.py whenever
+//APLogoTex0.png is updated.
+//
+//Imported as a plain opaque texture (no Flags=2 / MaskedOverride magenta).
+//gen_trade_icon.py composites the rosette against the trade bar's dark navy
+//(16,16,41) so the "background square" disappears against the bar and
+//disc-edge LANCZOS blends fade cleanly to navy instead of fringing pink.
+#exec Texture Import File=Textures\APLogoTradeTex0.png Name=APLogoTradeTex0 COMPRESSION=P8 UPSCALE=1 Mips=1 Group=Skins
 #exec MeshMap SetTexture MeshMap=APLogoMesh Num=0 Texture=APLogoTex0

@@ -664,6 +664,10 @@ class HP2Context(CommonContext):
             # self.locations_info[loc] = NetworkItem for every scouted
             # location before on_package runs. Rebuild + push the table.
             self._rebuild_appearance_table()
+            # Vendor hints: when hint-on-open is on, push the resolved item
+            # name for each Tradersanity location to the mod so the in-trade
+            # label reads the actual item, not the generic "Archipelago Item".
+            self._send_vendor_hints_to_mod()
         elif cmd == "Bounced":
             self._handle_ring_bounce(args)
 
@@ -949,6 +953,10 @@ class HP2Context(CommonContext):
             # the mod re-applies the silence sweep on every level snapshot, so
             # a fresh launch / level change picks up the right state.
             self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
+            # Re-push Tradersanity vendor hint item names to the mod. Sticky +
+            # idempotent mod-side (cached per-slot on APCardWatcher), so
+            # resending every HELLO covers fresh launches / reconnects.
+            self._send_vendor_hints_to_mod()
             # Re-arm the Tradersanity per-vendor price factors. Sticky +
             # idempotent mod-side (writes a class-default byte table). Only
             # sent when Tradersanity is on — when off the mod never reads the
@@ -1422,6 +1430,39 @@ class HP2Context(CommonContext):
         self.checked_csv = csv
         logger.info(f"Checked-locations resync rebuilt: {len(ids)} location(s)")
         self._send_to_game("CHECKED " + csv)
+
+    def _send_vendor_hints_to_mod(self) -> None:
+        """Push the resolved item name for each Tradersanity vendor location to
+        the mod via HINT IPC lines, so the in-trade label can read the actual
+        item name instead of the generic "Archipelago Item" fallback. Gated on
+        tradersanity_hint_on_open: an off-hint seed keeps the mystery and the
+        mod sees no HINT, so the label stays generic. Called after every
+        LocationInfo (scout response) and on HELLO so a fresh game session
+        re-receives the cache."""
+        if not self.tradersanity_hint_on_open:
+            return
+        if not self.locations_info:
+            return
+        tradersanity_ids = {
+            LOCATION_NAME_TO_ID[name]
+            for name, group in LOCATION_GROUPS.items()
+            if group == "Tradersanity"
+        }
+        for loc_id in tradersanity_ids:
+            ni = self.locations_info.get(loc_id)
+            if ni is None:
+                continue
+            item_name = self.item_names.lookup_in_slot(ni.item, ni.player)
+            if not item_name:
+                continue
+            # "<slot>'s <item>" so the label reads as a possessive sentence
+            # rather than just an item name in a vacuum — makes the foreign
+            # ownership obvious. For our own items we use the slot name too;
+            # if it gets noisy we can branch on `ni.player == self.slot`
+            # and drop the prefix.
+            player_name = self.player_names.get(ni.player, f"player_{ni.player}")
+            payload = f"{player_name}'s {item_name}"
+            self._send_to_game(f"HINT {loc_id} {payload}")
 
     def _rebuild_appearance_table(self) -> None:
         """Recompute the per-location appearance payload from locations_info
