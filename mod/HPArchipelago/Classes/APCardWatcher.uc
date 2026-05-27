@@ -271,6 +271,13 @@ var byte APGrantedBlockerKey[14];
 // instance; class-default is the defensive belt).
 var byte WasInEndGame;
 
+// Singleton pointer lives ONLY on the class default (`default.LatestInstance`).
+// Each per-level watcher's instance copy of this field must always be None,
+// otherwise the save graph trips on a cross-package ref (Entryhall_hub.APCard-
+// Watcher.LatestInstance → Entry.APCardWatcher0 from app launch) and aborts
+// SaveGame with "Graph is linked to external private object". PreBeginPlay
+// clears it for fresh spawns; Timer clears it defensively every tick for
+// deserialized watchers. Mirrors the same fix in APHUDToast.uc.
 var APCardWatcher LatestInstance;
 
 // Class-default array. Survives level transitions in a session (default vars are
@@ -636,6 +643,12 @@ event PreBeginPlay()
     Super.PreBeginPlay();
     Log("[Archipelago] APCardWatcher.PreBeginPlay - starting timer (Level=" $ string(Level)
         $ " Level.Outer.Name=" $ string(Level.Outer.Name) $ ")");
+
+    // Critical save-graph hygiene — see the comment above the LatestInstance
+    // declaration. Spawn() seeds the instance copy from the class default,
+    // which may point at the prior level's (or Entry's) watcher.
+    LatestInstance = None;
+
     default.LatestInstance = self;
     SetTimer(0.25, true);
 
@@ -1975,6 +1988,14 @@ event Timer()
     local int idx;
     local APHUDToast connToast;
     local bool seedIsOpenCastle;
+
+    // Save-graph hygiene — the instance copy of LatestInstance must always be
+    // None (only `default.LatestInstance` is the singleton pointer). A non-None
+    // instance copy is a cross-package ref that aborts SaveGame.
+    if (LatestInstance != None)
+    {
+        LatestInstance = None;
+    }
 
     EnsureLatestRegistration();
     if (default.LatestInstance != self)

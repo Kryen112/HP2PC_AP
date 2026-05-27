@@ -24,9 +24,15 @@ const MAX_QUEUE = 8;
 const TOAST_DURATION = 5.0;
 const TICK_INTERVAL = 0.1;
 
-var string ToastText[8];
-var float ToastRemaining[8];
-var int ToastCount;
+// transient: the queue is per-session UI, never part of the .usa save. Without
+// this, a SaveGame fired during a "Received: <item>" toast would persist the
+// queue into the save; the next load deserializes a toast actor carrying the
+// stale entry, and a fresh "Connected to <server>" toast from the client lands
+// underneath it. Marking the queue transient drops it from serialization so a
+// deserialized toast starts empty and only the freshly-arriving toasts show.
+var transient string ToastText[8];
+var transient float ToastRemaining[8];
+var transient int ToastCount;
 // HPHud we're currently registered with. `transient` so a saved-state
 // deserialized toast doesn't bring back a stale ref that fools the dedupe
 // path into thinking we're already in propArray when we aren't. Each new
@@ -43,6 +49,18 @@ var Texture ToastBackground;
 // flies out into the world (Characters.uc:698 PlaySound `vendor_spawn_WC`).
 var Sound ToastSound;
 
+// Singleton pointer lives ONLY on the class default (`default.LatestInstance`).
+// The per-instance copy of this field must always be None — otherwise the save
+// graph walks it and trips on a cross-package ref: a freshly-spawned toast in
+// (say) Entryhall_hub initializes its instance copy from the class default at
+// spawn time, which is the very first toast that ran PreBeginPlay this process
+// (e.g. Entry.APHUDToast0 at app launch). Saving Entryhall_hub then aborts with
+// "Graph is linked to external private object APHUDToast Entry.APHUDToast0",
+// the .usa is never written, and the player's progress silently rolls back on
+// the next load. PreBeginPlay clears it for fresh spawns; Timer clears it
+// defensively every tick for deserialized toasts (which skip PreBeginPlay).
+// `transient` is intentionally omitted — M212 does not honor it, so the explicit
+// clear is the load-bearing piece.
 var APHUDToast LatestInstance;
 
 static function APHUDToast GetInstance()
@@ -57,6 +75,12 @@ static function APHUDToast GetInstance()
 event PreBeginPlay()
 {
     Super.PreBeginPlay();
+
+    // Critical save-graph hygiene — see the comment above the LatestInstance
+    // declaration. Spawn() seeds this instance copy from the class default
+    // (which may point at a previous-level / Entry toast), so clear it before
+    // any SaveGame can run.
+    LatestInstance = None;
 
     default.LatestInstance = self;
     SetTimer(TICK_INTERVAL, true);
@@ -100,6 +124,15 @@ event Destroyed()
 // against the same HPHud (cheap ref compare). When harry's myHUD points at a
 // different HPHud than the one we previously registered with (level/save-load
 // rebuilt it), re-register with the new instance.
+//
+// Cross-package guard: refuse if this toast's package (self.Level) doesn't match
+// the live harry's package (h.Level). In M212 `Level.PlayerHarryActor` resolves
+// to the *current* player pawn even from a stale-package actor's perspective,
+// so Entry.APHUDToast0 (alive forever in the title-screen map's package) would
+// otherwise reach the live Entryhall_hub harry and register itself into
+// Entryhall_hub.HPHud.propArray. That cross-package ref is exactly what the
+// SaveGame conform aborts on ("Graph is linked to external private object
+// APHUDToast Entry.APHUDToast0") — keeping the .usa from updating after a drain.
 function bool TryRegisterWithHUD()
 {
     local harry h;
@@ -107,6 +140,10 @@ function bool TryRegisterWithHUD()
 
     h = harry(Level.PlayerHarryActor);
     if (h == None) return False;
+    if (Level != h.Level)
+    {
+        return False;
+    }
     hud = HPHud(h.myHUD);
     if (hud == None) return False;
 
@@ -168,6 +205,15 @@ function EnqueueToast(string text, optional Sound overrideSound)
 event Timer()
 {
     local int i, j;
+
+    // Save-graph hygiene — the instance copy of LatestInstance must never hold
+    // a real ref (see the comment above the field declaration). A deserialized
+    // toast comes back with whatever value the .usa serialized, often a
+    // cross-package toast that would abort the next SaveGame.
+    if (LatestInstance != None)
+    {
+        LatestInstance = None;
+    }
 
     // Defensive: a deserialized toast (from .usa save) doesn't run PreBeginPlay
     // so default.LatestInstance may be None when its Timer first fires. Claim
