@@ -140,7 +140,9 @@ If you're playing solo (just you, no other AP slots):
    | --------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
    | `starting_spells`     | Flipendo, Lumos, Alohomora | Spells Harry starts with; any spell left off this list becomes an AP item. Vanilla physically needs Lumos + Flipendo to clear the Whomping Willow, so keep both unless your fill places them very early. Valid: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo, Spongify. |
    | `vanilla_gate_levels` | on                         | **Vanilla only.** On: the 7 story-region keys are AP items and a bookcase blocks each region until its key arrives (linear story order). Off: all keys precollected, every region open from the start. No effect in open castle (keys are always AP items there).                    |
-   | `tradersanity`        | off                        | Turns each non-Weasley card/ingredient vendor's first sale into an AP check, after which it reverts to selling normally. `price_vanilla` / `price_random` / `price_low` only change what that check costs.                                                                           |
+   | `tradersanity`        | off                        | Turns each non-Weasley card/ingredient vendor's first sale into an AP check, after which it reverts to selling normally. `price_vanilla` / `price_random` / `price_low` only change what that check costs. With `enable_quidditch_upgrades` on, Fred & George also become Tradersanity vendors.                                  |
+   | `tradersanity_hint_on_open` | on                   | First time you open dialogue with an unchecked Tradersanity vendor, the AP check at that vendor is broadcast-hinted so the room can see what item it's holding. No effect when `tradersanity` is off.                                                                                |
+   | `skip_vendor_voices`  | off                        | Silences every vendor's in-trade voice cues (sell / out-of-stock / transaction-done / decline / not-enough-beans / narrator / Harry-inquiry); the trade UI advances instantly. The proximity lure line is left alone. Mainly useful for Tradersanity runs where the same dialogue repeats.    |
    | `enable_traps`        | off                        | Adds trap items (Bean Thief, Goyle Transformation, Forgetfulness) to the pool, replacing some filler. `trap_fill_percent` (5-50, default 5) sets how much filler is replaced.                                                                                                        |
    | `ring_link`           | off                        | Mirrors organic Bertie Bott's bean changes (in-game pickups + vendor spending) to and from other RingLink slots in the room. AP-granted bean filler and the Bean Thief trap are not mirrored. Compatible with Sonic-style RingLink games.                                            |
    | `death_link`          | off                        | Standard Archipelago DeathLink: dying sends a death to every other DeathLink slot, and their deaths kill you.                                                                                                                                                                        |
@@ -169,16 +171,16 @@ In the command box, type:
 /connect <server>:<port>
 ```
 
-It will then prompt for your slot name; enter it and press Enter. For solo on the same machine, the server is typically `localhost:38281`.
+For solo on the same machine, the server is typically `localhost:38281`.
 
 You should see in the log tab:
 
 ```
-Connected to AP server as slot <N> (<YourSlotName>)
+Waiting for game to launch before connecting to <server>:<port>...
 Game-side TCP listener up on ('127.0.0.1', 38281)
 ```
 
-Leave the client window open.
+The client deliberately holds the AP websocket closed until the game is up, so co-op partners don't see your slot come online before Harry is in the world. Leave the client window open.
 
 ### Launch the game
 
@@ -189,7 +191,11 @@ Within a few seconds you should see in the client log:
 ```
 Game connected from ('127.0.0.1', <port>)
 [game→client] HELLO
+Game booted. Connecting to AP server at <server>:<port>
+Connected to AP server as slot <N> (<YourSlotName>)
 ```
+
+If the server asks for your slot name, type it in and press Enter.
 
 The game window should pop a toast top-right when your starting items arrive ("Received Alohomora from <YourSlotName>" etc).
 
@@ -203,7 +209,7 @@ Quick checklist after first launch:
 - **Bookcases block the spell classrooms** you haven't been granted yet. If you can walk straight into Lockhart's DADA classroom and the spell-tutorial cutscene fires immediately, the mod isn't running.
 - **Picking up a wizard card** should fire a `CHECK <id>` line in the client log and (if you have any items waiting) hand you something back.
 - **Goal (vanilla):** the seed completes when you defeat the Basilisk and the post-Basilisk Great Hall walk-in fires the credits.
-- **Goal (open castle):** the Great Hall stays locked until you meet your configured goal clauses (`open_castle_goal_*`); once you do, walking into the Great Hall completes the slot.
+- **Goal (open castle):** the Great Hall stays locked until you meet your configured goal clauses (`open_castle_goal_*`); once you do, walking into the Great Hall completes the slot. Type `/progress` in the client at any time to print a per-clause `[x]/[ ] have / need` summary; the in-game pause menu shows the same panel.
 
 ## Troubleshooting
 
