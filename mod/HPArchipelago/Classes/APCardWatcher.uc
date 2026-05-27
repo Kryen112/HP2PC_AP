@@ -3464,11 +3464,18 @@ function ScanDeathLink(APIPCActor ipc)
         // landed, so the items they refer to are about to be discarded by
         // LoadGame 0. The post-reload falling edge below sends DRAIN_ROLLBACK
         // so the client clears them from sent_this_session and re-forwards.
+        // Reset the drain-pass counters too so the post-revive resumed drain
+        // starts a fresh pass (the pre-death items it counted are reverted).
         if (ipc != None && ipc.PendingApplyAcks.Length > 0)
         {
             Log("[Archipelago] APCardWatcher: discarding " $ string(ipc.PendingApplyAcks.Length)
                 $ " unflushed APPLIED ack(s) on death rising-edge");
             ipc.PendingApplyAcks.Remove(0, ipc.PendingApplyAcks.Length);
+        }
+        if (ipc != None)
+        {
+            ipc.DrainPassItemCount = 0;
+            ipc.bDrainPassHadHighStakes = 0;
         }
         if (default.bSuppressNextDeathBroadcast == 1)
         {
