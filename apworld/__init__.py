@@ -158,9 +158,11 @@ class StartingSpells(OptionSet):
     """Spells Harry starts with. Any spell not listed is an AP item instead.
 
     `vanilla` game_mode physically requires Lumos and Flipendo to finish the
-    Whomping Willow level. Leaving them out of `starting_spells` means the
-    player cannot progress until AP delivers them, so unless the world fill
-    places them very early, you should keep both listed for vanilla.
+    Whomping Willow level, and the vanilla logic gates every Hogwarts /
+    Castle Exterior location behind both. If either is missing here in
+    vanilla, generate_early force-adds it: there is no reachable sphere-0
+    location for fill to put them on otherwise. Open castle leaves the set
+    untouched.
 
     Valid spells: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo & Spongify.
     """
@@ -426,11 +428,17 @@ class HP2World(World):
     item_name_groups = ITEM_GROUPS
 
     def generate_early(self) -> None:
-        # Reject contradictory open castle yaml combos before fill, with a
-        # message that names the fix (rather than silently degrading the goal).
-        # Open castle only — vanilla ignores the open_castle_goal_* options entirely.
+        # Vanilla: Hogwarts and CastleExterior region entry both gate on
+        # Lumos AND Flipendo (regions.py), and WhompingWillow's locations also
+        # require both, so sphere-0 is empty without them. Force-add the pair
+        # rather than fail fill: the StartingSpells docstring commits to this.
         if not self._is_open_castle():
+            current = set(self.options.starting_spells.value)
+            current.update({"Lumos", "Flipendo"})
+            self.options.starting_spells.value = frozenset(current)
             return
+        # Reject contradictory open castle yaml combos before fill, with a
+        # message that names the fix rather than silently degrading the goal.
         if int(self.options.open_castle_goal_cards.value) > 0 and not self.options.enable_wizard_cards:
             raise OptionError(
                 "Harry Potter 2 PC: open_castle_goal_cards > 0 requires "
