@@ -1854,6 +1854,67 @@ function bool GoalSatisfied()
     return True;
 }
 
+// Open castle goal-progress tallies, surfaced in the escape-menu widget
+// (APFEInGamePage.DrawGoalProgressPanel). Mirror the client /progress command
+// exactly so the two views always agree: cards = currently-owned bronze+
+// silver+gold StatusItem counts (AP grants stamp these), spells/levels/duels/
+// quidditch = NonCardLocationChecked[] in their respective AP id bands.
+// Cheap fixed-bound walks called once per menu open, no per-tick cost.
+
+static function int GetOwnedCardCount()
+{
+    local APCardWatcher w;
+    w = GetLatest();
+    if (w == None || w.siBronze == None || w.siSilver == None || w.siGold == None)
+        return 0;
+    return w.siBronze.nCount + w.siSilver.nCount + w.siGold.nCount;
+}
+
+static function int GetGrantedSpellCount()
+{
+    local int i, n;
+    for (i = 0; i < NUM_SPELLS; i++)
+        if (default.APGrantedSpell[i] == 1) n++;
+    return n;
+}
+
+static function int GetCheckedLevelObjectiveCount()
+{
+    local int idx, slot, n;
+    for (idx = 0; idx < 12; idx++)
+    {
+        if (((default.GoalLevelMask >> idx) & 1) == 0) continue;
+        slot = (5760700 + idx) - LOC_BASE;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        if (default.NonCardLocationChecked[slot] == 1) n++;
+    }
+    return n;
+}
+
+static function int GetCheckedDuelCount()
+{
+    local int idx, slot, n;
+    for (idx = 0; idx < 10; idx++)
+    {
+        slot = (5760600 + idx) - LOC_BASE;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        if (default.NonCardLocationChecked[slot] == 1) n++;
+    }
+    return n;
+}
+
+static function int GetCheckedQuidditchMatchCount()
+{
+    local int idx, slot, n;
+    for (idx = 0; idx < 6; idx++)
+    {
+        slot = (5760620 + idx) - LOC_BASE;
+        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        if (default.NonCardLocationChecked[slot] == 1) n++;
+    }
+    return n;
+}
+
 event Timer()
 {
     local int id, i;

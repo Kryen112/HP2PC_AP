@@ -1,5 +1,6 @@
 //=============================================================================
-// APFEInGamePage - pause-menu page with a "Return to Hub" button.
+// APFEInGamePage - pause-menu page with a "Return to Hub" button and an
+// open-castle goal-progress widget (right-side strip, see Paint).
 //
 // Recovers from one-way softlocks where Harry has the AP key for a challenge,
 // partially clears it, then can't progress while the doors behind him have
@@ -12,7 +13,9 @@
 // hidden orphan window (one-time leak of one UWindow node, harmless).
 //
 // Visuals: reuses HP2_Menu.Icons.HP2MenuBackToGame so the button shape
-// matches the "Resume Game" (BackPageButton) aesthetic.
+// matches the "Resume Game" (BackPageButton) aesthetic. The goal-progress
+// widget mirrors the AP-yellow palette of the HUD toast and Tradersanity
+// banner so all three AP-info surfaces read as one family.
 //
 // Spell-challenge suppression: in vanilla mode (APCardWatcher.bOpenCastleMode
 // == 0), the button is hidden on the four spell-challenge levels
@@ -50,6 +53,114 @@ function Created()
     HomeButton.OverTexture   = textureHomeNorm;
     HomeButton.DownTexture   = textureHomeNorm;
     HomeButton.DownSound     = soundBottomClick;
+}
+
+// Open-castle goal-progress widget — 5-row mirror of the client /progress
+// command, drawn in the empty right-side strip of the pause menu so the
+// player can check goal status without alt-tabbing. Vanilla-mode seeds and
+// pre-GOALCFG state short-circuit before draw (see DrawGoalProgressPanel).
+function Paint(Canvas C, float X, float Y)
+{
+    Super.Paint(C, X, Y);
+    DrawGoalProgressPanel(C);
+}
+
+function DrawGoalProgressPanel(Canvas C)
+{
+    local float fScaleFactor, hScale;
+    local Font fontSave, rowFont, headerFont;
+    local Color colorSave, colorWhite, colorYellow, colorGreen, colorShadow;
+    local int styleSave;
+    local harry h;
+    local int xLeft, yLine, lineH;
+    local int cards, spells, levels, duels, quid;
+    local int cardsNeed, spellsNeed, levelsNeed, duelsNeed, quidNeed;
+
+    if (class'APCardWatcher'.default.bOpenCastleMode == 0) return;
+    if (C == None || Root == None || Root.Console == None) return;
+    if (Root.Console.Viewport == None || Root.Console.Viewport.Actor == None) return;
+
+    h = harry(Root.Console.Viewport.Actor);
+    if (h == None || h.Player == None) return;
+
+    fScaleFactor = C.SizeX / WinWidth;
+    hScale = Class'M212HScale'.Static.UWindowGetHeightScale(Root);
+    rowFont    = baseConsole(h.Player.Console).LocalBigFont;
+    headerFont = baseConsole(h.Player.Console).LocalBigFont;
+
+    // Archipelago-yellow for in-progress, green for completed, white for header
+    // black shadow throughout. Yellow matches the HUD toast / vendor banner so
+    // all three AP-info surfaces read as one family.
+    colorWhite.R = 255; colorWhite.G = 255; colorWhite.B = 255;
+    colorYellow.R = 255; colorYellow.G = 220; colorYellow.B = 100;
+    colorGreen.R  =  60; colorGreen.G  = 220; colorGreen.B  =  90;
+    colorShadow.R =   0; colorShadow.G =   0; colorShadow.B =   0;
+
+    fontSave  = C.Font;
+    colorSave = C.DrawColor;
+    styleSave = C.Style;
+
+    // Left strip in 640x480 WinWidth/WinHeight units, x-aligned with the
+    // QuitButton (AT_Left x=12) so the panel reads as part of the bottom-left
+    // column. yLine moves down with each drawn row; clauses with need==0 are
+    // skipped so the panel only shows goals the seed actually rolled.
+    xLeft = 12;
+    yLine = 150;
+    lineH = 26;
+
+    C.Font = headerFont;
+    C.SetPos(xLeft * fScaleFactor, yLine * fScaleFactor * hScale);
+    C.DrawShadowText("Goal progress:", colorWhite, colorShadow);
+    yLine += lineH + 4;
+
+    cardsNeed  = class'APCardWatcher'.default.GoalCards;
+    spellsNeed = class'APCardWatcher'.default.GoalSpells;
+    levelsNeed = class'APCardWatcher'.default.GoalLevels;
+    duelsNeed  = class'APCardWatcher'.default.GoalDuels;
+    quidNeed   = class'APCardWatcher'.default.GoalQuidditch;
+
+    // Pre-HELLO: GOALCFG hasn't arrived; an early-game pause would otherwise
+    // show an empty panel under the header.
+    if (cardsNeed == 0 && spellsNeed == 0 && levelsNeed == 0
+        && duelsNeed == 0 && quidNeed == 0)
+    {
+        C.Font = rowFont;
+        C.SetPos(xLeft * fScaleFactor, yLine * fScaleFactor * hScale);
+        C.DrawShadowText("waiting on AP", colorYellow, colorShadow);
+        C.Font = fontSave;
+        C.DrawColor = colorSave;
+        C.Style = styleSave;
+        return;
+    }
+
+    cards  = class'APCardWatcher'.static.GetOwnedCardCount();
+    spells = class'APCardWatcher'.static.GetGrantedSpellCount();
+    levels = class'APCardWatcher'.static.GetCheckedLevelObjectiveCount();
+    duels  = class'APCardWatcher'.static.GetCheckedDuelCount();
+    quid   = class'APCardWatcher'.static.GetCheckedQuidditchMatchCount();
+
+    C.Font = rowFont;
+    if (cardsNeed  > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Cards",     cards,  cardsNeed,  colorYellow, colorGreen, colorShadow); yLine += lineH; }
+    if (spellsNeed > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Spells",    spells, spellsNeed, colorYellow, colorGreen, colorShadow); yLine += lineH; }
+    if (levelsNeed > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Levels",    levels, levelsNeed, colorYellow, colorGreen, colorShadow); yLine += lineH; }
+    if (duelsNeed  > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Duels",     duels,  duelsNeed,  colorYellow, colorGreen, colorShadow); yLine += lineH; }
+    if (quidNeed   > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Quidditch", quid,   quidNeed,   colorYellow, colorGreen, colorShadow); }
+
+    C.Font = fontSave;
+    C.DrawColor = colorSave;
+    C.Style = styleSave;
+}
+
+function DrawProgressRow(Canvas C, float fScaleFactor, float hScale, int x, int y,
+    string label, int have, int need, Color colWaiting, Color colDone, Color colS)
+{
+    local string row;
+    local Color colT;
+    if (have >= need) colT = colDone;
+    else colT = colWaiting;
+    row = label @ string(have) $ "/" $ string(need);
+    C.SetPos(x * fScaleFactor, y * fScaleFactor * hScale);
+    C.DrawShadowText(row, colT, colS);
 }
 
 function PreSwitchPage()
