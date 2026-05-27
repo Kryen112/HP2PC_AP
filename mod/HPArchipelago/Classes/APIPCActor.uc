@@ -272,6 +272,14 @@ function HandleLine(string line)
         // toast is purely cosmetic, drop on the floor if no toast actor.
         HandleSent(Mid(line, 5));
     }
+    else if (Left(line, 6) == "TOAST ")
+    {
+        // Generic cosmetic toast from the client: DeathLink in/out, player
+        // Join/Part, Goal achieved by another slot, AP server disconnect.
+        // Text is the full literal already formatted client-side. Drop on
+        // the floor if no toast actor (no toast queue mid-Entry).
+        HandleToast(Mid(line, 6));
+    }
     else if (Left(line, 8) == "GOALCFG ")
     {
         // Open castle Great Hall key thresholds from the apworld slot_data, as
@@ -463,6 +471,18 @@ function HandleHint(string Body)
     if (locId <= 0 || itemName == "") return;
 
     class'APCardWatcher'.static.SetVendorHintItemName(locId, itemName);
+}
+
+function HandleToast(string Body)
+{
+    local APHUDToast toast;
+
+    if (Body == "") return;
+    toast = class'APHUDToast'.static.GetInstance();
+    if (toast != None)
+    {
+        toast.EnqueueToast(Body);
+    }
 }
 
 function HandleSent(string Body)

@@ -26,6 +26,7 @@ Mod-side protocol (newline-delimited text):
     DEATHLINK                   (client → game, a linked player died — kill Harry)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server already has as checked; sticky, every HELLO)
+    TOAST <text>                (client → game, generic cosmetic toast: DeathLink in/out, Join/Part, Goal by other slot, AP disconnect)
 
 Durable-grant ledger: the set of applied AP indices is persisted in AP server
 Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
@@ -739,6 +740,13 @@ class HP2Context(CommonContext):
         try:
             self.game_writer.write(b"DEATHLINK\n")
             logger.info(f"DeathLink: inbound from {data.get('source', '?')} → DEATHLINK")
+            # Cosmetic toast. cause is the flavour string the sender chose
+            # (e.g. "Stefan got avada kadavra'd") and is preferred over the
+            # bare source name when present. Drop-on-offline path — game
+            # offline path already returned above.
+            cause = data.get("cause") or ""
+            source = data.get("source") or "?"
+            self._toast_to_game(cause if cause else f"DeathLink received from {source}")
         except Exception as e:
             logger.warning(f"DeathLink: failed to forward inbound, dropping: {e}")
 
@@ -750,7 +758,8 @@ class HP2Context(CommonContext):
         # and ReceivedItems already triggers a "Received X from Y" toast,
         # so a SENT toast on top would be a duplicate.
         try:
-            if args.get("type") == "ItemSend":
+            ptype = args.get("type")
+            if ptype == "ItemSend":
                 item = args.get("item")
                 receiving_slot = args.get("receiving")
                 if (
@@ -763,9 +772,41 @@ class HP2Context(CommonContext):
                     item_name = self.item_names.lookup_in_slot(item.item, receiving_slot) or f"item_{item.item}"
                     logger.info(f"Sent item: {item_name} → {receiver_name} (slot {receiving_slot})")
                     self._send_to_game(f"SENT {item_name}|{receiver_name}")
+            elif ptype in ("Join", "Part", "Goal"):
+                # Other-slot lifecycle events. Filter to our own team and skip
+                # our own slot (own Join fires on every reconnect; our Goal is
+                # already acked locally via GOAL_COMPLETE). slot 0 is the
+                # server pseudo-slot which never fires these, but the
+                # defensive check is cheap.
+                slot = args.get("slot")
+                team = args.get("team")
+                if (
+                    slot is not None
+                    and slot != self.slot
+                    and slot != 0
+                    and (team is None or team == self.team)
+                ):
+                    name = self.player_names.get(slot, f"player_{slot}")
+                    if ptype == "Join":
+                        self._toast_to_game(f"{name} joined")
+                    elif ptype == "Part":
+                        self._toast_to_game(f"{name} left")
+                    else:
+                        self._toast_to_game(f"{name} finished!")
         except Exception as e:
-            logger.exception(f"on_print_json: failed to handle ItemSend: {e}")
+            logger.exception(f"on_print_json: failed to handle {args.get('type')!r}: {e}")
         super().on_print_json(args)
+
+    def connection_closed(self) -> None:
+        """Toast on AP websocket close. Mirrors the existing "Connected to
+        host:port" toast lifecycle (CommonContext calls this on every clean /
+        unclean server-side close). super() resets server state — gate the
+        toast on a slot known so a never-authed first-launch close (wrong
+        password, bad address) doesn't toast spuriously."""
+        was_authed = self.slot is not None
+        super().connection_closed()
+        if was_authed:
+            self._toast_to_game("Disconnected from AP server")
 
     def make_gui(self) -> "type[kvui.GameManager]":
         from kvui import GameManager
@@ -826,6 +867,18 @@ class HP2Context(CommonContext):
         except Exception as e:
             logger.exception(f"Failed to write to game, re-queuing: {e}")
             self.pending_grants.append(text)
+
+    def _toast_to_game(self, text: str) -> None:
+        """Cosmetic-only TOAST: drop on the floor when the game is offline.
+        Replaying a stale "X joined" or "Disconnected from AP server" toast
+        the next time the game launches would be confusing — these are
+        in-the-moment events, not durable state."""
+        if self.game_writer is None or self.game_writer.is_closing():
+            return
+        try:
+            self.game_writer.write(("TOAST " + text + "\n").encode("utf-8"))
+        except Exception as e:
+            logger.warning(f"TOAST drop ({text!r}): write failed: {e}")
 
     async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
@@ -1064,6 +1117,7 @@ class HP2Context(CommonContext):
             cause = f"{me} got avada kadavra'd"
             logger.info(f"DeathLink: outbound death → Bounce ({cause})")
             await self.send_death(cause)
+            self._toast_to_game("DeathLink sent")
             return
         if line.startswith("SAY "):
             # Cosmetic only: a ~1/100 spell-cast roll fired mod-side. Post a
