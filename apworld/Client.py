@@ -364,6 +364,11 @@ class HP2Context(CommonContext):
         # SKIP_VENDOR_VOICES <0|1> to the mod on every HELLO so a reconnect
         # or fresh game launch re-asserts the state.
         self.skip_vendor_voices: bool = False
+        # When true, Fred (Nimbus 2001) and George (Quidditch Armour) sell
+        # AP-tracked items, so the mod paints them with the Tradersanity
+        # icon / banner / hint. Parsed from slot_data on Connected, re-sent
+        # QUIDDITCH_UPGRADES <0|1> on every HELLO.
+        self.quidditch_upgrades: bool = False
         # Per-seed sticky set of Tradersanity location ids the client has
         # already published a broadcast hint for, loaded from AP server Data
         # Storage on Connected and written back on each new hint so a
@@ -545,6 +550,9 @@ class HP2Context(CommonContext):
             self.skip_vendor_voices = bool(sd.get("skip_vendor_voices"))
             self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
             logger.info(f"Skip vendor voices {'enabled' if self.skip_vendor_voices else 'disabled'}")
+            self.quidditch_upgrades = bool(sd.get("enable_quidditch_upgrades"))
+            self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
+            logger.info(f"Quidditch upgrades {'enabled' if self.quidditch_upgrades else 'disabled'}")
             self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
             self.hinted_vendor_locs = set()
             if self.tradersanity_hint_on_open:
@@ -953,6 +961,10 @@ class HP2Context(CommonContext):
             # the mod re-applies the silence sweep on every level snapshot, so
             # a fresh launch / level change picks up the right state.
             self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
+            # Re-arm the quidditch-upgrades flag so Fred/George get the AP
+            # icon + banner + hint only when their two locations exist as
+            # AP checks for this seed.
+            self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
             # Re-push Tradersanity vendor hint item names to the mod. Sticky +
             # idempotent mod-side (cached per-slot on APCardWatcher), so
             # resending every HELLO covers fresh launches / reconnects.
@@ -1448,6 +1460,12 @@ class HP2Context(CommonContext):
             for name, group in LOCATION_GROUPS.items()
             if group == "Tradersanity"
         }
+        # Fred (Nimbus 2001) and George (Quidditch Armour) are AP-tracked
+        # vendors gated on enable_quidditch_upgrades, so they ride on the same
+        # hint pipeline as the 13 Tradersanity vendors when the option is on.
+        if self.quidditch_upgrades:
+            tradersanity_ids.add(5760005)  # Castle Exterior - Nimbus 2001
+            tradersanity_ids.add(5760006)  # Castle Exterior - Quidditch Armour
         for loc_id in tradersanity_ids:
             ni = self.locations_info.get(loc_id)
             if ni is None:

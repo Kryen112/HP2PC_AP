@@ -284,14 +284,16 @@ function RenderHud(Canvas C)
 }
 
 // Top-of-screen label that names the current vendor's offer as an Archipelago
-// check. Visible while Tradersanity is on, Harry has a vendor engaged
-// (CurrVendorManager set after Bump), the vendor's AP location is unchecked,
-// AND the player hasn't already clicked Yes in this engagement
-// (TraderPurchased). Hidden once any of those flips. The label text is the
-// hinted item name when the apworld has cached one for this vendor (HINT
-// IPC); otherwise the generic "Archipelago Item" fallback for off-hint
-// seeds. Foreign-game item names come through unchanged — the apworld
-// resolves them against slot_info.
+// check. Visible while Harry has a vendor engaged (CurrVendorManager set
+// after Bump), the vendor is an AP-active check in this seed (13 generic
+// Tradersanity vendors gated on TradersanityMode, plus Fred/George gated on
+// bQuidditchUpgrades — see APCardWatcher.GetActiveAPVendorLocationId), the
+// AP location is still unchecked, AND the player hasn't already clicked Yes
+// in this engagement (TraderPurchased). Hidden once any of those flips. The
+// label text is the hinted item name when the apworld has cached one for
+// this vendor (HINT IPC); otherwise the generic "Archipelago Item" fallback
+// for off-hint seeds. Foreign-game item names come through unchanged — the
+// apworld resolves them against slot_info.
 function DrawTradersanityAPLabel(Canvas C)
 {
     local harry h;
@@ -304,8 +306,9 @@ function DrawTradersanityAPLabel(Canvas C)
     local Color colorText, colorShadow, colorSave;
     local Font fontSave;
 
-    if (class'APCardWatcher'.default.TradersanityMode == 0) return;
-
+    // Helper internally gates the 13 generic vendors on TradersanityMode and
+    // the Weasley brothers on bQuidditchUpgrades, so the banner appears on
+    // Fred/George in quidditch-upgrades seeds even when Tradersanity is off.
     h = harry(Level.PlayerHarryActor);
     if (h == None || h.Player == None) return;
 
@@ -314,7 +317,7 @@ function DrawTradersanityAPLabel(Canvas C)
 
     engagedVendor = vm.Vendor;
     lvl = string(Level.Outer.Name);
-    locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(engagedVendor.Name));
+    locId = class'APCardWatcher'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
     if (locId <= 0) return;
 
     slot = locId - 5760000;

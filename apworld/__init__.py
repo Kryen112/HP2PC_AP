@@ -874,6 +874,7 @@ class HP2World(World):
                 "tradersanity_prices": self._tradersanity_rolled_factors(),
                 "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
                 "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
+                "enable_quidditch_upgrades": bool(self.options.enable_quidditch_upgrades.value),
             }
         sd = {
             "game_mode": "open_castle",
@@ -883,6 +884,7 @@ class HP2World(World):
             "tradersanity_prices": self._tradersanity_rolled_factors(),
             "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
             "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
+            "enable_quidditch_upgrades": bool(self.options.enable_quidditch_upgrades.value),
         }
         sd.update(self._open_castle_goal_config())
         return sd

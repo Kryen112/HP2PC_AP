@@ -91,6 +91,13 @@ var int TradersanityMode;
 // resent every HELLO. The Snapshot pass re-applies the silence on every level
 // load so a freshly-spawned vendor inherits the right state.
 var byte bSkipVendorVoices;
+// Quidditch-upgrades flag from the apworld slot_data (QUIDDITCH_UPGRADES IPC).
+// When 1, Fred (Nimbus 2001) and George (Quidditch Armour) are AP-tracked, so
+// GetVendorOrWeasleyLocationId resolves them to 5760005 / 5760006 and the
+// icon-swap / banner / hint passes treat them as Tradersanity vendors. When 0,
+// the two locations do not exist in the seed and the brothers fall back to
+// their vanilla trade UX.
+var byte bQuidditchUpgrades;
 // Lazy-loaded AP logo texture used by TradersanityIconSwapPass to replace the
 // trade UI's wiggentree-bark / flobberworm-mucous / card icon on Tradersanity
 // vendors with an "Archipelago Item" plate before purchase. Class default so
@@ -1094,6 +1101,44 @@ static function SetSkipVendorVoices(byte v)
     Log("[Archipelago] APCardWatcher.SetSkipVendorVoices: skip=" $ string(default.bSkipVendorVoices));
     w = class'APCardWatcher'.static.GetLatest();
     if (w != None) w.ApplySkipVendorVoicesPass();
+}
+
+// Quidditch-upgrades flag from the apworld slot_data (QUIDDITCH_UPGRADES IPC).
+// Class-default + sticky. GetVendorOrWeasleyLocationId checks this before
+// returning a Weasley fallback id, so a 0 here leaves Fred/George with their
+// vanilla trade UX.
+static function SetQuidditchUpgrades(byte v)
+{
+    default.bQuidditchUpgrades = v;
+    Log("[Archipelago] APCardWatcher.SetQuidditchUpgrades: enabled=" $ string(default.bQuidditchUpgrades));
+}
+
+// Resolve the AP location id for a vendor Characters actor IF that vendor is
+// an AP check in the current seed. Two paths:
+//   - Generic Tradersanity vendors (the 13 student NPCs in the auto-generated
+//     registry) — only count when TradersanityMode != TRADER_OFF.
+//   - Weasley brothers — Fred → 5760005 (Castle Exterior - Nimbus 2001),
+//     George → 5760006 (Castle Exterior - Quidditch Armour) — only count when
+//     bQuidditchUpgrades is on.
+// Returns 0 when no AP check exists, so the AP-UX passes (icon swap, banner,
+// hint-on-open, mark-purchased) can use a single gate. The post-trade out-
+// of-stock voice mute does NOT use this helper — Fred/George keep their
+// vanilla voice lines.
+static function int GetActiveAPVendorLocationId(Characters c, string lvl)
+{
+    local int loc;
+
+    if (c == None) return 0;
+    loc = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(c.Name));
+    if (loc > 0)
+    {
+        if (default.TradersanityMode == TRADER_OFF) return 0;
+        return loc;
+    }
+    if (default.bQuidditchUpgrades == 0) return 0;
+    if (c.VendorDialogSet == c.EVendorDialog.VDialog_FredWeasley)   return 5760005;
+    if (c.VendorDialogSet == c.EVendorDialog.VDialog_GeorgeWeasley) return 5760006;
+    return 0;
 }
 
 // Zero out every VendorDialog string id on the given vendor so
@@ -3656,7 +3701,7 @@ function TradersanityHintOnOpenPass()
     local int locId, slot;
     local string lvl;
 
-    if (default.TradersanityMode == TRADER_OFF) return;
+    // Helper gates Tradersanity / Weasley separately, so no early return here.
     if (HarryRef == None) return;
 
     vm = HarryRef.CurrVendorManager;
@@ -3669,7 +3714,7 @@ function TradersanityHintOnOpenPass()
     engagedVendor = vm.Vendor;
 
     lvl = string(Level.Outer.Name);
-    locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(engagedVendor.Name));
+    locId = class'APCardWatcher'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
     if (locId == 0) return;
     if (locId == default.TraderHintLastEngagedLocId) return;
 
@@ -3717,6 +3762,14 @@ function Texture GetVanillaTradeIconForVendor(Characters c)
         return Texture(DynamicLoadObject("HP2_Menu.Icons.HP2VendorBronzeCard", class'Texture'));
     if (c.CharacterSells == c.ESells.Sells_SilverCards)
         return Texture(DynamicLoadObject("HP2_Menu.Icons.HP2VendorSilverCard", class'Texture'));
+    // Vanilla VendorManager.DoEngageVendor texture paths for the Weasley
+    // brothers, so the post-check restore in TradersanityIconSwapPass can
+    // return them to their native broom / armour icon once the AP check at
+    // Fred / George has fired.
+    if (c.CharacterSells == c.ESells.Sells_Nimbus2001)
+        return Texture(DynamicLoadObject("HP2_Menu.Icons.HP2Nimbus2001", class'Texture'));
+    if (c.CharacterSells == c.ESells.Sells_QArmor)
+        return Texture(DynamicLoadObject("HP2_Menu.Icons.HP2QuidditchArmor", class'Texture'));
     return None;
 }
 
@@ -3734,7 +3787,8 @@ function TradersanityIconSwapPass()
     local string lvl;
     local Texture desired;
 
-    if (default.TradersanityMode == TRADER_OFF) return;
+    // No TradersanityMode early return: Fred/George ride on bQuidditchUpgrades
+    // alone, so the gate lives inside GetActiveAPVendorLocationId.
     if (HarryRef == None) return;
 
     vm = HarryRef.CurrVendorManager;
@@ -3743,7 +3797,7 @@ function TradersanityIconSwapPass()
 
     engagedVendor = vm.Vendor;
     lvl = string(Level.Outer.Name);
-    locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(engagedVendor.Name));
+    locId = class'APCardWatcher'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
     if (locId == 0) return;
 
     slot = locId - LOC_BASE;
@@ -3782,7 +3836,7 @@ function TradersanityMarkPurchasedPass()
     local int locId, slot;
     local string lvl;
 
-    if (default.TradersanityMode == TRADER_OFF) return;
+    // Helper gates Tradersanity / Weasley separately, so no early return here.
     if (HarryRef == None) return;
 
     vm = HarryRef.CurrVendorManager;
@@ -3791,7 +3845,7 @@ function TradersanityMarkPurchasedPass()
 
     engagedVendor = vm.Vendor;
     lvl = string(Level.Outer.Name);
-    locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(engagedVendor.Name));
+    locId = class'APCardWatcher'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
     if (locId == 0) return;
 
     slot = locId - LOC_BASE;

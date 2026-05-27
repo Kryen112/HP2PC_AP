@@ -305,6 +305,14 @@ function HandleLine(string line)
         // every Snapshot so a level change picks up the right state.
         class'APCardWatcher'.static.SetSkipVendorVoices(byte(int(Mid(line, 19))));
     }
+    else if (Left(line, 19) == "QUIDDITCH_UPGRADES ")
+    {
+        // Gates whether Fred (Nimbus 2001) and George (Quidditch Armour) get
+        // the Tradersanity icon / banner / hint — those two AP locations only
+        // exist when the seed has enable_quidditch_upgrades on. Sticky byte
+        // on the watcher; resent every HELLO.
+        class'APCardWatcher'.static.SetQuidditchUpgrades(byte(int(Mid(line, 19))));
+    }
     else if (Left(line, 5) == "HINT ")
     {
         // Tradersanity vendor hint payload: "HINT <locId> <item_name>".
