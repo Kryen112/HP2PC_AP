@@ -938,11 +938,18 @@ function bool ShouldSpawnOpenCastleBlocker(name Tag, int KeyIdx)
     return VanillaBlockerShouldBlock(KeyIdx);
 }
 
-function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot)
+function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, optional class<Actor> BlockerClass)
 {
     local Actor blocker;
 
-    blocker = Spawn(class'BookcaseGlassDoors', None, Tag, Loc, Rot);
+    // BlockerClass overrides the default mesh; the Whomping Willow site passes
+    // APFordAngliaBlocker so the chokepoint reads as a crashed car instead of
+    // a stack of bookcases outdoors. All other sites fall through to the
+    // bookcase default. Tag-based unlock and the encroachment retry below
+    // work the same regardless of class.
+    if (BlockerClass == None) BlockerClass = class'BookcaseGlassDoors';
+
+    blocker = Spawn(BlockerClass, None, Tag, Loc, Rot);
     if (blocker == None)
     {
         // Encroachment: an actor (typically an ambient hub NPC such as Percy)
@@ -951,7 +958,7 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot)
         // once. Only runs on an actual failure, so it never disturbs NPCs /
         // Tradersanity vendors standing near a bookcase that spawned fine.
         ClearBookcaseEncroachers(Loc, 120.0);
-        blocker = Spawn(class'BookcaseGlassDoors', None, Tag, Loc, Rot);
+        blocker = Spawn(BlockerClass, None, Tag, Loc, Rot);
     }
     if (blocker != None)
     {
@@ -1081,9 +1088,14 @@ function BlockOpenCastleWillowEntryIfMissing()
     local Rotator rot;
     if (!OpenCastleLevelIsAnyOf("GROUNDS_HUB", "GROUNDS_NIGHT")) return;
     if (!ShouldSpawnOpenCastleBlocker('APOpenCastleWillowBlocker', 6)) return;
-    loc.X = -0.42;    loc.Y = 1579.53;  loc.Z = 300.50;
+    // Offset from the bookcase footprint so the Ford pivot centres the wreck
+    // in the chokepoint without leaving a walk-around gap on its right.
+    loc.X = -15;    loc.Y = 1527.5;  loc.Z = 300.50;
     rot.Yaw = 32687;
-    SpawnOpenCastleBookcase('APOpenCastleWillowBlocker', loc, rot);
+    // Ford Anglia wreck instead of a bookcase: thematic fit for the Whomping
+    // Willow encounter from CoS and a clearer "you cannot pass here yet" cue
+    // outdoors than a stack of glass-door bookcases.
+    SpawnOpenCastleBookcase('APOpenCastleWillowBlocker', loc, rot, class'APFordAngliaBlocker');
 }
 function RemoveOpenCastleWillowBlocker()        { DestroyTaggedOpenCastleBlockers('APOpenCastleWillowBlocker'); }
 
