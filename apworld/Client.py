@@ -768,7 +768,7 @@ class HP2Context(CommonContext):
             logger.info(f"DeathLink: inbound from {data.get('source', '?')} → DEATHLINK")
             # Cosmetic toast. cause is the flavour string the sender chose
             # (e.g. "Stefan got avada kadavra'd") and is preferred over the
-            # bare source name when present. Drop-on-offline path; the
+            # bare source name when present. Drop-on-offline path. The
             # game-offline case already returned above.
             cause = data.get("cause") or ""
             source = data.get("source") or "?"
@@ -800,7 +800,7 @@ class HP2Context(CommonContext):
                     self._send_to_game(f"SENT {item_name}|{receiver_name}")
             elif ptype in ("Join", "Part", "Goal"):
                 # Other-slot lifecycle events. Filter to our own team and skip
-                # our own slot (own Join fires on every reconnect; our Goal is
+                # our own slot (own Join fires on every reconnect. Our Goal is
                 # already acked locally via GOAL_COMPLETE). slot 0 is the
                 # server pseudo-slot which never fires these, but the
                 # defensive check is cheap.
@@ -897,7 +897,7 @@ class HP2Context(CommonContext):
     def _toast_to_game(self, text: str) -> None:
         """Cosmetic-only TOAST: drop on the floor when the game is offline.
         Replaying a stale "X joined" or "Disconnected from AP server" toast
-        the next time the game launches would be confusing; these are
+        the next time the game launches would be confusing. These are
         in-the-moment events, not durable state."""
         if self.game_writer is None or self.game_writer.is_closing():
             return
@@ -1028,7 +1028,7 @@ class HP2Context(CommonContext):
             if self.deferred_connect_address:
                 addr = self.deferred_connect_address
                 self.deferred_connect_address = None
-                logger.info(f"Game booted; connecting to AP server at {addr}")
+                logger.info(f"Game booted. Connecting to AP server at {addr}")
                 self.connect(addr)
             self._forward_all_received()
             # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
@@ -1655,7 +1655,7 @@ async def _main(args: argparse.Namespace) -> None:
     # AP-server connection is deferred until the game sends HELLO (see
     # HP2Context.connect / the HELLO handler) so co-op partners don't see
     # this slot online before Harry is in the world. Stash the launch
-    # address here; do not start server_task. The HELLO path creates it.
+    # address here. Do not start server_task. The HELLO path creates it.
     if args.connect:
         ctx.deferred_connect_address = args.connect
         logger.info(f"Waiting for game to launch before connecting to {args.connect}...")
