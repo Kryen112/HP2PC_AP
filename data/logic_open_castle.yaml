@@ -444,7 +444,7 @@ locations:
     { requires: "Spongify & Flipendo & Lumos & Alohomora" }
   "Spongify Challenge - Secret 3": { requires: "Spongify & Flipendo" }
   "Spongify Challenge - Secret 4": { requires: "Spongify & Alohomora" }
-  "Spongify Challenge - Secret 5": { requires: "Spongify & Lumos" }
+  "Spongify Challenge - Secret 5": { requires: "Spongify & Lumos & Flipendo" }
   "Spongify Challenge - Secret 6":
     { requires: "Spongify & Flipendo & Rictusempra" }
   "Spongify Challenge - Secret 7": { requires: "Spongify & Flipendo & Skurge" }
@@ -492,7 +492,7 @@ locations:
     { requires: "Lumos & Spongify & Alohomora" }
   "Forbidden Forest - Card Oliphant":
     { requires: "Lumos & Spongify & Diffindo & Rictusempra & Alohomora" }
-  "Forbidden Forest - Secret 1": { requires: "Lumos & Spongify" }
+  "Forbidden Forest - Secret 1": { requires: "Lumos & Spongify & Flipendo" }
   "Forbidden Forest - Secret 2":
     { requires: "Lumos & Spongify & Diffindo & Rictusempra" }
   "Forbidden Forest - Secret 3": { requires: "Lumos & Spongify & Diffindo" }
