@@ -178,11 +178,16 @@ MUSIC_POOL: list[str] = [
 
 
 # Tripwire: the slot_data shape downstream (Client.py / APGameInfo) assumes
-# the two pools are non-empty and disjoint. Fail loudly at import if either
-# invariant is violated rather than at gen time on a poisoned seed.
+# the two pools are non-empty, disjoint, and comma-free (the pools ride the
+# wire as comma-joined CSVs). Fail loudly at import if any invariant is
+# violated rather than at gen time on a poisoned seed.
 assert MUSIC_POOL, "MUSIC_POOL must not be empty"
 assert JINGLE_POOL, "JINGLE_POOL must not be empty"
 assert not (set(MUSIC_POOL) & set(JINGLE_POOL)), (
     "MUSIC_POOL and JINGLE_POOL must be disjoint; overlap: "
     f"{sorted(set(MUSIC_POOL) & set(JINGLE_POOL))}"
+)
+assert all("," not in name for name in MUSIC_POOL + JINGLE_POOL), (
+    "pool basenames must not contain ',' (the CSV wire delimiter); offenders: "
+    f"{sorted(name for name in MUSIC_POOL + JINGLE_POOL if ',' in name)}"
 )

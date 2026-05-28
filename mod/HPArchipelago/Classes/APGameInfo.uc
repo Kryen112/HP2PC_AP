@@ -1633,7 +1633,7 @@ function bool TryReplaceCardSlot(class<Actor> slot, out class<Actor> outClass)
 function ReplaceMusicTriggers()
 {
     local NewMusicTrigger T;
-    local string levelName, originalSong, replacement, poolLabel;
+    local string levelName, actorName, originalSong, replacement, poolLabel;
     local int idx, total;
     local bool isJingle;
 
@@ -1649,17 +1649,18 @@ function ReplaceMusicTriggers()
         originalSong = T.Song;
         if (originalSong == "") continue;
 
+        actorName = Caps(string(T.Name));
         isJingle = IsSongJingle(originalSong);
         if (isJingle && class'APCardWatcher'.default.JinglePoolCount > 0)
         {
-            idx = MusicHashIndex(levelName, string(T.Name),
+            idx = MusicHashIndex(levelName, actorName,
                                  class'APCardWatcher'.default.JinglePoolCount);
             replacement = class'APCardWatcher'.default.JinglePool[idx];
             poolLabel = "jingle";
         }
         else if (class'APCardWatcher'.default.MusicPoolCount > 0)
         {
-            idx = MusicHashIndex(levelName, string(T.Name),
+            idx = MusicHashIndex(levelName, actorName,
                                  class'APCardWatcher'.default.MusicPoolCount);
             replacement = class'APCardWatcher'.default.MusicPool[idx];
             poolLabel = "music";
@@ -1671,7 +1672,7 @@ function ReplaceMusicTriggers()
         if (replacement == "" || replacement ~= originalSong) continue;
 
         T.Song = replacement;
-        Log("[Archipelago] ReplaceMusicTriggers: " $ levelName $ "/" $ string(T.Name)
+        Log("[Archipelago] ReplaceMusicTriggers: " $ levelName $ "/" $ actorName
             $ " " $ originalSong $ " -> " $ replacement $ " (" $ poolLabel $ ")");
         total++;
     }
