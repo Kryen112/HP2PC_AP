@@ -481,6 +481,18 @@ var byte bPendingDeathLink;
 // wrongly suppress a later natural death. 0 = disarmed. ~10s at 0.25s/tick.
 var int DeathSuppressTicksLeft;
 const DEATH_SUPPRESS_TIMEOUT_TICKS = 40;
+// Earliest Level.TimeSeconds at which a pending inbound kill may apply.
+// Deliberately an INSTANCE var (the DeathLink flags above are class-default):
+// it is a Level.TimeSeconds-relative cooldown and that clock resets to ~0 on
+// level travel, so a sticky value would read as a stale far-future gate in the
+// next level. The per-level watcher respawn hands each level a fresh clock, and
+// the kill must not outlive the reload anyway. ScanDeathLink holds the kill
+// until Harry has been continuously playable past this time, so a one-tick
+// PlayerWalking flicker between cutscene segments cannot trigger it. Mirrors the
+// grant drain's NextGrantDrainEarliest (APIPCActor.uc).
+var float DeathLinkSettleEarliest;
+const DEATHLINK_SETTLE_SECS = 1.0;
+const DEATHLINK_WARMUP_SECS = 3.0;
 
 static function APCardWatcher GetLatest()
 {
@@ -3312,6 +3324,11 @@ function Snapshot()
         class'APIPCActor'.static.GetInstance().bSuppressNextRingOutDiff = 1;
     }
 
+    // Same warmup for the inbound DeathLink kill: hold a death pending across
+    // the load while the level's bLevelLoadStarts cutscenes spin up to Running,
+    // so it cannot fire in the brief pre-cutscene PlayerWalking window.
+    PushDeathLinkSettle(DEATHLINK_WARMUP_SECS);
+
     RecoverStuckCutsceneState();
 
     // #3: morph every marker that registered before/at snapshot (cards via
@@ -3571,6 +3588,20 @@ function ScanFinalStarCompletion()
     }
 }
 
+// Push the inbound-kill settle window forward by `seconds` from now, bumping
+// only when the candidate is later so the level-entry warmup and the per-tick
+// not-playable defers never shorten each other. Mirrors
+// APIPCActor.PushDrainStability for the grant drain.
+function PushDeathLinkSettle(float seconds)
+{
+    local float candidate;
+    candidate = Level.TimeSeconds + seconds;
+    if (candidate > DeathLinkSettleEarliest)
+    {
+        DeathLinkSettleEarliest = candidate;
+    }
+}
+
 // DeathLink. Outgoing rising-edge detection on the single terminal state
 // every death cause funnels through (stateDead → LoadGame 0), plus inbound
 // application via a dedicated terminal path that never routes through
@@ -3662,11 +3693,20 @@ function ScanDeathLink(APIPCActor ipc)
     {
         if (bDead)
         {
-            // Already dying (our own death raced the inbound) — the reload is
+            // Already dying (our own death raced the inbound). The reload is
             // happening regardless, so just drop the pending kill.
             default.bPendingDeathLink = 0;
         }
-        else if (class'APGameInfo'.static.IsPlayerInPlayableState(HarryRef, reason))
+        else if (!class'APGameInfo'.static.IsPlayerInPlayableState(HarryRef, reason))
+        {
+            // Not playable (cutscene / menu / load): hold the kill and push the
+            // settle window, so once control returns the kill still waits out a
+            // full DEATHLINK_SETTLE_SECS of continuous playability before firing.
+            // That is what stops it landing on the one-tick PlayerWalking flicker
+            // between chained cutscene segments. Retry next tick.
+            PushDeathLinkSettle(DEATHLINK_SETTLE_SECS);
+        }
+        else if (Level.TimeSeconds >= DeathLinkSettleEarliest)
         {
             default.bPendingDeathLink = 0;
             default.bSuppressNextDeathBroadcast = 1;
@@ -3690,7 +3730,8 @@ function ScanDeathLink(APIPCActor ipc)
             HarryRef.Velocity     = vect(0, 0, 0);
             HarryRef.Acceleration = vect(0, 0, 0);
         }
-        // else not playable (cutscene/menu/load): keep pending, retry next tick.
+        // else: playable but still inside the settle window - keep pending and
+        // retry next tick once continuous playability clears the window.
     }
 }
 
