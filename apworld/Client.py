@@ -837,14 +837,18 @@ class HP2Context(CommonContext):
             logger.exception(f"on_print_json: failed to handle {args.get('type')!r}: {e}")
         super().on_print_json(args)
 
-    def connection_closed(self) -> None:
+    async def connection_closed(self) -> None:
         """Toast on AP websocket close. Mirrors the existing "Connected to
         host:port" toast lifecycle (CommonContext calls this on every clean /
-        unclean server-side close). super() resets server state, so the
-        toast is gated on slot-known to suppress a never-authed first-launch
-        close (wrong password, bad address) from toasting spuriously."""
+        unclean server-side close). Must be async and await super(): the base
+        method is a coroutine, and it is what runs reset_server_state (clears
+        self.server). A sync override would never run it, so the GUI's
+        Disconnect button and title bar stay stuck on the connected state.
+        super() resets server state, so the toast is gated on slot-known to
+        suppress a never-authed first-launch close (wrong password, bad
+        address) from toasting spuriously."""
         was_authed = self.slot is not None
-        super().connection_closed()
+        await super().connection_closed()
         if was_authed:
             self._toast_to_game("Disconnected from AP server")
 
