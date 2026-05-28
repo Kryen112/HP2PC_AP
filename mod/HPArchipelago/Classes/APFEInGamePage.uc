@@ -17,15 +17,15 @@
 // widget mirrors the AP-yellow palette of the HUD toast and Tradersanity
 // banner so all three AP-info surfaces read as one family.
 //
-// Spell-challenge suppression: in vanilla mode (APCardWatcher.bOpenCastleMode
-// == 0), the button is hidden on the four spell-challenge levels
-// (Ch1Rictusempra, Ch2Skurge, Ch3Diffindo, Ch4Spongify) so the player cannot
-// bail out of a mandatory story-progression challenge for free. Those levels
-// are documented as terminal (APCardWatcher.uc CheckExitedLevelObjective) -
-// a failed run restarts in place via EventTimeUpRestart, so the soft-lock-
-// recovery purpose of the button does not apply there. Open-castle mode
-// keeps the button available everywhere. PreSwitchPage runs each time the
-// pause menu opens, so the hide/show re-evaluates across level transitions.
+// Button suppression: the button is hidden while a cutscene is active (the HUD
+// cutscene/popup flags plus any CutScene actor still bPlaying, which covers the
+// level-load opening scene before CAPTURE fires) and while harry's iGameState
+// is below 20. The gstate floor only bites the vanilla intro; open-castle loads
+// at gstate 180, so the button stays available there. Hiding mid-cutscene stops
+// players bailing to the hub before the level has settled. Visibility
+// re-evaluates in PreSwitchPage (each menu open) and in Paint (per frame, so a
+// cutscene starting with the menu already open is caught); the apply step only
+// toggles on a state change.
 //=============================================================================
 
 class APFEInGamePage extends FEInGamePage;
@@ -33,6 +33,7 @@ class APFEInGamePage extends FEInGamePage;
 var HGameButton HomeButton;
 var Texture textureHomeNorm;
 var Texture textureHomeRO;
+var bool bHomeHideApplied;
 
 function Created()
 {
@@ -62,6 +63,7 @@ function Created()
 function Paint(Canvas C, float X, float Y)
 {
     Super.Paint(C, X, Y);
+    ApplyHomeButtonVisibility();
     DrawGoalProgressPanel(C);
 }
 
@@ -165,29 +167,47 @@ function DrawProgressRow(Canvas C, float fScaleFactor, float hScale, int x, int 
 
 function PreSwitchPage()
 {
-    local Actor playerActor;
-    local string curLevelCaps;
-
     Super.PreSwitchPage();
+    ApplyHomeButtonVisibility();
+}
+
+// Hidden during the vanilla intro (iGameState < 20) and during any active
+// cutscene. The cutscene check is two-tier: the HUD flags only flip after a
+// cutscene issues CAPTURE, so a CutScene actor still bPlaying covers the
+// level-load opening scene before that. Reuses APGameInfo's iterator so
+// "active cutscene" has one definition.
+function bool ShouldHideHomeButton()
+{
+    local harry h;
+    local HPHud hud;
+    local string ignored;
+
+    if (Root == None || Root.Console == None) return False;
+    if (Root.Console.Viewport == None) return False;
+    h = harry(Root.Console.Viewport.Actor);
+    if (h == None) return False;
+
+    if (h.iGameState < 20) return True;
+
+    hud = HPHud(h.myHUD);
+    if (hud != None && hud.IsCutSceneOrPopupInProgress()) return True;
+    if (class'APGameInfo'.static.HasActiveCutScene(h, ignored)) return True;
+
+    return False;
+}
+
+// Only calls Show/HideWindow on a transition: Paint runs every frame and a
+// relayout per frame is wasteful.
+function ApplyHomeButtonVisibility()
+{
+    local bool bHide;
 
     if (HomeButton == None) return;
-    if (book == None || book.Root == None || book.Root.Console == None) return;
-    if (book.Root.Console.Viewport == None || book.Root.Console.Viewport.Actor == None) return;
-
-    playerActor = book.Root.Console.Viewport.Actor;
-    curLevelCaps = Caps(string(playerActor.Level.Outer.Name));
-
-    // Commented because softlocks could still happen due to bugs, might be reimplemented later
-    // if (class'APCardWatcher'.default.bOpenCastleMode == 0
-    //     && (curLevelCaps == "CH1RICTUSEMPRA" || curLevelCaps == "CH2SKURGE"
-    //         || curLevelCaps == "CH3DIFFINDO"  || curLevelCaps == "CH4SPONGIFY"))
-    // {
-    //     HomeButton.HideWindow();
-    // }
-    // else
-    // {
-    //     HomeButton.ShowWindow();
-    // }
+    bHide = ShouldHideHomeButton();
+    if (bHide == bHomeHideApplied) return;
+    if (bHide) HomeButton.HideWindow();
+    else HomeButton.ShowWindow();
+    bHomeHideApplied = bHide;
 }
 
 function Notify(UWindowDialogControl C, byte E)
