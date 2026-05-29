@@ -175,7 +175,7 @@ For dev (running against a local seed), launch it as a module of the apworld so 
 $ap = 'C:\Users\<you>\Documents\Archipelago-play\Archipelago'
 Push-Location $ap
 try {
-    py -3.12 -m worlds.harry_potter_2_pc.Client --name HP2_Test --connect localhost:38282
+    py -3.12 -m worlds.harry_potter_2_pc.Client --name HP2_Test --connect localhost:38281
 } finally {
     Pop-Location
 }

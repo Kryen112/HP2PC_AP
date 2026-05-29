@@ -187,7 +187,12 @@ CARD_CLASS_TO_GAME_ID = {
 
 GAME_NAME = "Harry Potter 2 PC"
 GAME_TCP_HOST = "127.0.0.1"
-GAME_TCP_PORT = 38281
+# Deliberately off the Archipelago server default (38281). The client binds this
+# port for the game IPC listener; a player hosting a local AP server grabs 38281
+# first, which would block the bind and silently strand the game. 42779 is far
+# enough away that incrementing a busy host port never reaches it. Must match the
+# mod's APIPCActor.Addr.Port.
+GAME_TCP_PORT = 42779
 
 # DeathLink race-insurance amnesty. An inbound death within this window
 # of the last death in either direction (CommonContext.last_death_link, stamped

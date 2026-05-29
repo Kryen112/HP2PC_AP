@@ -177,7 +177,7 @@ You should see in the log tab:
 
 ```
 Waiting for game to launch before connecting to <server>:<port>...
-Game-side TCP listener up on ('127.0.0.1', 38281)
+Game-side TCP listener up on ('127.0.0.1', 42779)
 ```
 
 The client deliberately holds the AP websocket closed until the game is up, so co-op partners don't see your slot come online before Harry is in the world. Leave the client window open.

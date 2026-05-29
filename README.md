@@ -9,7 +9,7 @@ An Archipelago multiworld randomizer for _Harry Potter and the Chamber of Secret
 ```
 [HP2 game on M212 engine]
   └─ HPArchipelago.u  (UnrealScript mod, hooks pickups + spells + boss)
-       └─ class'IpDrv.TcpLink' ──► localhost:38281
+       └─ class'IpDrv.TcpLink' ──► localhost:42779
                                        │
                                        ▼
                           [HP2 PC Client, launched from

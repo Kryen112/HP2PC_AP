@@ -122,7 +122,7 @@ static function APIPCActor GetInstance()
 event PreBeginPlay()
 {
     Super.PreBeginPlay();
-    Log("[Archipelago] APIPCActor.PreBeginPlay - connecting to 127.0.0.1:38281");
+    Log("[Archipelago] APIPCActor.PreBeginPlay - connecting to 127.0.0.1:42779");
 
     default.PersistentInstance = self;
     SetTimer(0.25, true);
@@ -159,7 +159,9 @@ function TryReconnect()
         ScheduleNextReconnect();
         return;
     }
-    Addr.Port = 38281;
+    // Off the Archipelago server default (38281) so a local AP server can't hold
+    // the port and strand the game. Must match Client.py GAME_TCP_PORT.
+    Addr.Port = 42779;
     if (!Open(Addr))
     {
         Log("[Archipelago] APIPCActor: Open() returned false");
