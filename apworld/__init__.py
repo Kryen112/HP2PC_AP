@@ -296,15 +296,39 @@ class RingLink(Toggle):
     display_name = "Ring Link"
 
 
-class EnableTraps(Toggle):
-    """If true, trap items (Bean Thief, Goyle Transformation, Forgetfulness)
-    enter the seed, replacing a fraction (set by `trap_fill_percent`) of the filler."""
-    display_name = "Enable Traps"
+class TrapLink(Toggle):
+    """If true, every trap you receive is also sent to all other TrapLink
+    slots in the room, and traps they receive are applied to you. Inbound
+    traps from another HP2 slot apply by name; a trap from a different game
+    (whose name HP2 has no effect for) maps to a random HP2 trap, so a linked
+    player always feels something. Independent of `traps`: you still receive
+    linked traps even if your own seed generates none. Inbound traps respect
+    your `traps` selection — a trap you turned off is remapped to one you kept
+    (unless `traps` is empty, in which case any of the seven can land)."""
+    display_name = "Trap Link"
+
+
+class Traps(OptionSet):
+    """Which trap types may appear in your item pool. Traps replace a fraction
+    (set by `trap_fill_percent`) of the filler. Pick any subset; the empty set
+    means no traps at all. Default is every trap on.
+
+    Valid traps:
+    Bean Thief Trap (steals up to 200 beans),
+    Polyjuice Potion Trap (turns Harry into Goyle for the rest of the level),
+    Obliviate Trap (spellbook withheld ~30s),
+    Drowsiness Draught Trap (sleepy slow ~6s),
+    Engorgio Trap (giant Harry),
+    Reducio Trap (tiny Harry),
+    Confundus Trap (inverted camera look ~20s)."""
+    display_name = "Traps"
+    valid_keys = frozenset(TRAP_NAMES)
+    default = frozenset(TRAP_NAMES)
 
 
 class TrapFillPercent(Range):
-    """Percentage of filler items replaced with traps when `enable_traps` is on.
-    Does nothing when `enable_traps` is off."""
+    """Percentage of filler items replaced with traps when `traps` is non-empty.
+    Does nothing when `traps` is empty."""
     display_name = "Trap fill percent"
     range_start = 5
     range_end = 50
@@ -434,11 +458,16 @@ class HP2Options(PerGameCommonOptions):
     enable_quidditch_matches: EnableQuidditchMatches
     enable_spell_challenge_times: EnableSpellChallengeTimes
     ring_link: RingLink
+    # AP Bounce-channel option (Toggle, default off). Pure runtime channel —
+    # no fill/logic impact; the client reads it from slot_data on Connected,
+    # (de)registers the TrapLink tag, broadcasts received traps and applies
+    # inbound ones.
+    trap_link: TrapLink
     # Built-in AP Bounce-channel option (Toggle, default off). Pure runtime
     # channel — no fill/logic impact; the client reads it from slot_data on
     # Connected and (de)registers the DeathLink tag.
     death_link: DeathLink
-    enable_traps: EnableTraps
+    traps: Traps
     trap_fill_percent: TrapFillPercent
     tradersanity: Tradersanity
     tradersanity_hint_on_open: TradersanityHintOnOpen
@@ -574,15 +603,14 @@ class HP2World(World):
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
     # Spells / Key Items / Filler aren't listed — always in the pool. Traps
-    # are also explicitly excluded from non_filler in create_items (they are
-    # drawn only via the filler-delta partition), so this entry is the
-    # belt-and-suspenders gate for any other _item_enabled consumer.
+    # aren't here either: they're a per-type OptionSet (not a single toggle)
+    # and are handled by name in _item_enabled. They're also excluded from
+    # non_filler in create_items (drawn only via the filler-delta partition).
     _ITEM_GROUP_TO_OPT: dict[str, str] = {
         "Cards (Bronze)": "enable_wizard_cards",
         "Cards (Silver)": "enable_wizard_cards",
         "Cards (Gold)":   "enable_wizard_cards",
         "Equipment":      "enable_quidditch_upgrades",
-        "Traps":          "enable_traps",
     }
 
     def _is_open_castle(self) -> bool:
@@ -633,6 +661,10 @@ class HP2World(World):
         return bool(getattr(self.options, opt_attr).value)
 
     def _item_enabled(self, item_name: str) -> bool:
+        # Traps are selected per-type via the `traps` OptionSet, so a trap is
+        # enabled iff its name is in the chosen set.
+        if item_name in ITEM_GROUPS.get("Traps", []):
+            return item_name in self.options.traps.value
         for group_name, opt_attr in self._ITEM_GROUP_TO_OPT.items():
             if item_name in ITEM_GROUPS.get(group_name, []):
                 return bool(getattr(self.options, opt_attr))
@@ -759,18 +791,20 @@ class HP2World(World):
         delta = active_location_count - len(placeable_non_filler)
         if delta > 0:
             rng: _random.Random = self.multiworld.random if hasattr(self.multiworld, "random") else _random.Random()
-            # Split the delta between traps and filler. Off / 0% / no
-            # TRAP_NAMES ⇒ trap_n stays 0 and the whole delta is filler. The
-            # partition keeps the pool size exactly `delta`, so item/location
-            # balance is unaffected.
+            # Split the delta between traps and filler. Empty trap set / 0% ⇒
+            # trap_n stays 0 and the whole delta is filler. The partition keeps
+            # the pool size exactly `delta`, so item/location balance is
+            # unaffected. Traps are drawn only from the player-selected subset,
+            # in the canonical TRAP_NAMES order so the seed stays reproducible.
+            selected_traps = [t for t in TRAP_NAMES if t in self.options.traps.value]
             trap_n = 0
-            if bool(self.options.enable_traps) and TRAP_NAMES:
+            if selected_traps:
                 pct = int(self.options.trap_fill_percent.value)
                 trap_n = round(delta * pct / 100)
                 trap_n = max(0, min(trap_n, delta))
             for _ in range(trap_n):
                 self.multiworld.itempool.append(
-                    self.create_item(rng.choice(TRAP_NAMES)))
+                    self.create_item(rng.choice(selected_traps)))
             for _ in range(delta - trap_n):
                 self.multiworld.itempool.append(
                     self.create_item(rng.choice(FILLER_NAMES)))
@@ -960,6 +994,10 @@ class HP2World(World):
         # slot_data; it has no other view of the YAML. Must be in both paths.
         sd: dict = {
             "ring_link": bool(self.options.ring_link),
+            "trap_link": bool(self.options.trap_link),
+            # The player's selected trap types, so inbound TrapLink traps can
+            # respect the same preference (canonical order for reproducibility).
+            "trap_pool": [t for t in TRAP_NAMES if t in self.options.traps.value],
             "death_link": bool(self.options.death_link.value),
             "tradersanity": self.options.tradersanity.value,
             "tradersanity_prices": self._tradersanity_rolled_factors(),

@@ -458,6 +458,17 @@ function HandleLine(string line)
         // playable tick and owns the loop-prevention latch.
         class'APCardWatcher'.static.SetPendingDeathLink();
     }
+    else if (Left(line, 9) == "TRAPLINK ")
+    {
+        // Inbound TrapLink trap from another slot. Reuse the grant pipeline as
+        // an index-less grant (apIndex -1): the drain's playable-state gating
+        // delivers it through ApplyGrant -> TryApplyTrap once Harry is in
+        // control, and the -1 index makes SendApplied skip the ack so it never
+        // enters the durable ledger (a linked trap is transient, fire-once, no
+        // replay). Body is `<trapname>|<source_player>`, so ApplyGrant's toast
+        // reads "<trap> from <source>".
+        QueueGrant(Mid(line, 9), -1);
+    }
 }
 
 // Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the

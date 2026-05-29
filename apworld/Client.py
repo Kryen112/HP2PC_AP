@@ -24,6 +24,7 @@ Mod-side protocol (newline-delimited text):
     GRANT <index> <classname>   (client → game, forward item received; index = AP ReceivedItems index)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
     DEATHLINK                   (client → game, a linked player died — kill Harry)
+    TRAPLINK <name>|<source>    (client → game, a linked player's trap — applied via the grant drain as an index-less grant)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server already has as checked; sticky, every HELLO)
     TOAST <text>                (client → game, generic cosmetic toast: DeathLink in/out, Join/Part, Goal by other slot, AP disconnect)
@@ -582,6 +583,17 @@ class HP2Context(CommonContext):
         # so co-op-on-one-slot links and SA2/SMW interop both work.
         self.ring_link_enabled: bool = False
         self.ring_source: Optional[int] = None
+        # TrapLink. Enabled per-slot via slot_data on Connected; the tag lives
+        # on self.tags. A trap this slot receives is broadcast as a TrapLink
+        # Bounce (from _forward_one) and inbound trap Bounces are applied to the
+        # game. The Bounce `source` is this slot's name (the community TrapLink
+        # convention), used to drop the server's echo of our own Bounce.
+        self.trap_link_enabled: bool = False
+        # The trap types this slot enabled (slot_data `trap_pool`). Inbound
+        # TrapLink traps are constrained to this set so a trap the player turned
+        # off is never forced on them. Empty means "no traps in my own pool";
+        # inbound then falls back to all known traps (trap_link is opt-in).
+        self.trap_pool: list[str] = []
         # DeathLink. Opt-in per-slot via slot_data on Connected; the tag
         # itself lives on self.tags (managed by update_death_link). Inbound
         # deaths are NOT queued for an offline game — you can't die when not
@@ -761,6 +773,16 @@ class HP2Context(CommonContext):
             else:
                 asyncio.create_task(self._disable_ring_link())
 
+            # TrapLink. (Re)register the tag on every Connected so a reconnect
+            # stays routable for Bounced trap packets; disable cleanly if a
+            # later seed / reconnect turns it off. trap_pool is the slot's
+            # enabled trap types, used to constrain inbound traps.
+            self.trap_pool = list(sd.get("trap_pool") or [])
+            if sd.get("trap_link"):
+                asyncio.create_task(self._enable_trap_link())
+            else:
+                asyncio.create_task(self._disable_trap_link())
+
             # DeathLink. Opt-in via slot_data. update_death_link
             # (CommonClient.py) mutates self.tags then ConnectUpdate, so the
             # tag persists across a reconnect's Connect; re-run on every
@@ -865,7 +887,10 @@ class HP2Context(CommonContext):
             # label reads the actual item, not the generic "Archipelago Item".
             self._send_vendor_hints_to_mod()
         elif cmd == "Bounced":
+            # One Bounced packet may carry RingLink and/or TrapLink tags; each
+            # handler filters on its own tag, so dispatch to both.
             self._handle_ring_bounce(args)
+            self._handle_traplink_bounce(args)
 
     def _handle_ring_bounce(self, args: dict) -> None:
         """Apply an inbound RingLink Bounce to the game's bean total.
@@ -1046,6 +1071,113 @@ class HP2Context(CommonContext):
                 return
         if was_enabled:
             logger.info("RingLink disabled for this slot; RingLink tag removed")
+
+    def _trap_link_source(self) -> str:
+        """Slot name used as the TrapLink Bounce `source` (the community
+        TrapLink convention). Both the outbound broadcast and the inbound
+        self-filter derive it the same way, so the server's echo of our own
+        Bounce is dropped. Slot names are unique within a multiworld."""
+        if self.slot is None:
+            return ""
+        return self.player_names.get(self.slot, str(self.slot))
+
+    async def _enable_trap_link(self) -> None:
+        # Register the TrapLink tag (mirrors _enable_ring_link). The tag must
+        # persist on self.tags so a later reconnect's Connect already carries
+        # it; a ConnectUpdate is only needed when adding it mid-session.
+        self.trap_link_enabled = True
+        newly_tagged = "TrapLink" not in self.tags
+        self.tags = set(self.tags) | {"TrapLink"}
+        if newly_tagged and self.server and not self.server.socket.closed:
+            try:
+                await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+            except Exception as e:
+                logger.exception(f"TrapLink: ConnectUpdate(tags) failed, inbound traps won't route: {e}")
+                return
+        logger.info(f"TrapLink enabled (source={self._trap_link_source()!r}); TrapLink tag registered")
+
+    async def _disable_trap_link(self) -> None:
+        # Clean teardown mirroring _disable_ring_link. No-op when never tagged
+        # (the common trap_link-off case).
+        was_enabled = self.trap_link_enabled
+        self.trap_link_enabled = False
+        if "TrapLink" not in self.tags:
+            return
+        self.tags = set(self.tags) - {"TrapLink"}
+        if self.server and not self.server.socket.closed:
+            try:
+                await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+            except Exception as e:
+                logger.exception(f"TrapLink: ConnectUpdate(tags) untag failed: {e}")
+                return
+        if was_enabled:
+            logger.info("TrapLink disabled for this slot; TrapLink tag removed")
+
+    def _handle_traplink_bounce(self, args: dict) -> None:
+        """Apply an inbound TrapLink Bounce to the game.
+
+        Like inbound RingLink/DeathLink, NOT cached: if the game is offline the
+        trap is dropped (you can't be trapped when not playing). The mod's grant
+        drain still gates application on a playable Harry, so a trap arriving
+        mid-cutscene waits for control to return."""
+        if not self.trap_link_enabled:
+            return
+        if "TrapLink" not in (args.get("tags") or []):
+            return
+        data = args.get("data") or {}
+        # Drop the server's echo of our own Bounce (stock AP echoes to sender).
+        if data.get("source") == self._trap_link_source():
+            return
+        foreign_name = data.get("trap_name")
+        # Constrain to the player's enabled traps so a trap they turned off is
+        # never forced on them. Empty trap_pool (they generated no traps but
+        # opted into TrapLink) falls back to all known traps. Apply the foreign
+        # name directly only if it's in that candidate set; otherwise (a foreign
+        # game's trap, a missing name, or a disabled HP2 trap) remap to a random
+        # candidate so a linked player always feels something they allowed.
+        candidates = sorted(t for t in TRAP_ITEM_NAMES
+                            if not self.trap_pool or t in self.trap_pool)
+        if not candidates:
+            candidates = sorted(TRAP_ITEM_NAMES)
+        if isinstance(foreign_name, str) and foreign_name in candidates:
+            local_name = foreign_name
+        else:
+            local_name = random.choice(candidates)
+        source = data.get("source")
+        source_label = source if isinstance(source, str) and source else "another world"
+        if self.game_writer is None or self.game_writer.is_closing():
+            logger.info(f"TrapLink: dropping inbound {local_name!r} (game offline, not cached)")
+            return
+        try:
+            self.game_writer.write(f"TRAPLINK {local_name}|{source_label}\n".encode("utf-8"))
+            logger.info(f"TrapLink: inbound {foreign_name!r} from {source_label!r} → TRAPLINK {local_name}")
+        except Exception as e:
+            logger.warning(f"TrapLink: failed to forward inbound {local_name!r}, dropping: {e}")
+
+    def _maybe_broadcast_traplink(self, item_name: str) -> None:
+        """If this slot just received one of its own trap items, share it with
+        every other TrapLink slot. Called from _forward_one, which fires exactly
+        once per genuinely-new trap (reconnect replays are filtered by the
+        consumed-index ledger), so this never double-broadcasts."""
+        if not self.trap_link_enabled:
+            return
+        if item_name not in TRAP_ITEM_NAMES:
+            return
+        if not (self.server and self.slot is not None):
+            return
+        asyncio.create_task(self._send_traplink_bounce(item_name))
+
+    async def _send_traplink_bounce(self, trap_name: str) -> None:
+        try:
+            await self.send_msgs([{
+                "cmd": "Bounce",
+                "tags": ["TrapLink"],
+                "data": {"time": time.time(), "trap_name": trap_name,
+                         "source": self._trap_link_source()},
+            }])
+            logger.info(f"TrapLink: outbound {trap_name} → Bounce")
+        except Exception as e:
+            logger.warning(f"TrapLink: send Bounce failed for {trap_name}: {e}")
 
     def _send_to_game(self, text: str) -> None:
         if self.game_writer is None or self.game_writer.is_closing():
@@ -1800,6 +1932,10 @@ class HP2Context(CommonContext):
             f"from {sender_name} → GRANT {idx} {payload}|{sender_name}"
         )
         self._send_to_game(f"GRANT {idx} {payload}|{sender_name}")
+        # TrapLink: a trap landing on this slot is shared with every other
+        # TrapLink slot. _forward_one fires once per genuinely-new trap, so the
+        # broadcast is correctly deduped (a no-op unless trap_link is on).
+        self._maybe_broadcast_traplink(item_name)
 
     def _forward_all_received(self) -> None:
         """Re-evaluate every received item and forward the ones not yet

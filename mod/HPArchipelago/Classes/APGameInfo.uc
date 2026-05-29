@@ -2179,13 +2179,22 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 }
 
 // Archipelago trap items (ItemClassification.trap). All grant-driven, fired
-// from the GRANT line exactly like the bean/potion filler branches. One-shot:
-// Client.NON_DURABLE_ITEM_NAMES keeps a trap from re-firing on reconnect /
-// durable resync. Each trap self-terminates:
+// from the GRANT line exactly like the bean/potion filler branches. A trap the
+// slot receives as an AP item carries an index and is recorded in the client's
+// durable consumed-index ledger (the APPLIED ack), so it fires once and never
+// re-fires on reconnect / resync. A TrapLink-injected trap arrives via the
+// TRAPLINK line as an index-less grant (apIndex -1), so it is applied once and
+// deliberately never laddered into the ledger. Each trap self-terminates:
 //   Bean Thief    - instant, permanent by design (beans clamp at 0).
-//   Goyle         - reverts on the next level's fresh (bIsGoyle=false) pawn.
-//   Forgetfulness - APCardWatcher restores the spellbook on a timer or the
+//   Polyjuice     - turns Harry into Goyle; reverts on the next level's fresh (bIsGoyle=false) pawn.
+//   Obliviate - APCardWatcher restores the spellbook on a timer or the
 //                   next level transition, whichever comes first.
+//   Drowsiness    - the game's own sleepy status effect; harry.Timer() counts
+//                   it back down once per second (self-reverting).
+//   Engorgio /    - DrawScale up / down; APCardWatcher restores it on a timer
+//   Reducio         or the next level's fresh pawn, whichever comes first.
+//   Confundus     - forces harry.bInvertMouse; APCardWatcher restores the real
+//                   setting on a timer or the next level transition.
 //
 // Spider Swarm and Peeves are not implemented: they require an ad-hoc visible
 // world actor spawned mid-level, and this open castle build does not render actors
@@ -2226,7 +2235,7 @@ function bool TryApplyTrap(string Name, harry h)
         return True;
     }
 
-    if (Name == "Goyle Transformation Trap")
+    if (Name == "Polyjuice Potion Trap")
     {
         // Model swap only (harry.uc:4136 SetNewMesh swaps the mesh when
         // bIsGoyle flips). The next level loads a fresh pawn with the default
@@ -2234,19 +2243,56 @@ function bool TryApplyTrap(string Name, harry h)
         // records it and clears on the level change.
         h.bIsGoyle = True;
         h.SetNewMesh();
-        class'APCardWatcher'.static.MarkGoyleTrapActiveDefault(h);
-        Log("[Archipelago] ApplyGrant: Goyle Transformation Trap - applied (reverts next level)");
+        class'APCardWatcher'.static.MarkPolyjuiceTrapActiveDefault(h);
+        Log("[Archipelago] ApplyGrant: Polyjuice Potion Trap - applied (reverts next level)");
         return True;
     }
 
-    if (Name == "Forgetfulness Trap")
+    if (Name == "Obliviate Trap")
     {
         // Back up the spellbook into an APCardWatcher class-default (survives
         // the per-level watcher respawn and save-load) then clear it. The
         // watcher restores on a timer or the next level transition, whichever
         // comes first, so spells are never permanently lost.
         class'APCardWatcher'.static.BackupAndClearSpellBook(h);
-        Log("[Archipelago] ApplyGrant: Forgetfulness Trap - spellbook backed up + cleared");
+        Log("[Archipelago] ApplyGrant: Obliviate Trap - spellbook backed up + cleared");
+        return True;
+    }
+
+    if (Name == "Drowsiness Draught Trap")
+    {
+        // Reuse the game's own sleepy status effect: GroundSpeed drops to
+        // fSleepySpeed (50 vs 210) with the sleepy walk animation set, and
+        // harry.Timer()'s SleepyAnimTimerSub counts it back down once per
+        // second over iMaxSleepyAnim seconds, so it self-terminates with no
+        // watcher bookkeeping.
+        h.SleepyAnimTimerAdd(h.iMaxSleepyAnim);
+        Log("[Archipelago] ApplyGrant: Drowsiness Draught Trap - sleepy slow applied (self-reverts)");
+        return True;
+    }
+
+    if (Name == "Engorgio Trap")
+    {
+        // Scale the pawn up. The watcher backs up the original DrawScale and
+        // restores it on a timer or the next level's fresh pawn.
+        class'APCardWatcher'.static.MarkSizeTrapActive(h, 1.4);
+        Log("[Archipelago] ApplyGrant: Engorgio Trap - DrawScale up (reverts on timer or next level)");
+        return True;
+    }
+
+    if (Name == "Reducio Trap")
+    {
+        class'APCardWatcher'.static.MarkSizeTrapActive(h, 0.6);
+        Log("[Archipelago] ApplyGrant: Reducio Trap - DrawScale down (reverts on timer or next level)");
+        return True;
+    }
+
+    if (Name == "Confundus Trap")
+    {
+        // Force inverted camera look. The watcher backs up the player's real
+        // bInvertMouse setting and restores it on a timer or the next level.
+        class'APCardWatcher'.static.MarkConfundusTrapActive(h);
+        Log("[Archipelago] ApplyGrant: Confundus Trap - inverted look applied (reverts on timer or next level)");
         return True;
     }
 

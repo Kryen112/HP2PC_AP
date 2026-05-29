@@ -141,8 +141,12 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     '5 Beans': 5750309,
     '10 Beans': 5750310,
     'Bean Thief Trap': 5750400,
-    'Goyle Transformation Trap': 5750403,
-    'Forgetfulness Trap': 5750404,
+    'Polyjuice Potion Trap': 5750403,
+    'Obliviate Trap': 5750404,
+    'Drowsiness Draught Trap': 5750405,
+    'Engorgio Trap': 5750406,
+    'Reducio Trap': 5750407,
+    'Confundus Trap': 5750408,
 }
 
 ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
@@ -282,8 +286,12 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     '5 Beans': ItemClassification.filler,
     '10 Beans': ItemClassification.filler,
     'Bean Thief Trap': ItemClassification.trap,
-    'Goyle Transformation Trap': ItemClassification.trap,
-    'Forgetfulness Trap': ItemClassification.trap,
+    'Polyjuice Potion Trap': ItemClassification.trap,
+    'Obliviate Trap': ItemClassification.trap,
+    'Drowsiness Draught Trap': ItemClassification.trap,
+    'Engorgio Trap': ItemClassification.trap,
+    'Reducio Trap': ItemClassification.trap,
+    'Confundus Trap': ItemClassification.trap,
 }
 
 ITEM_GROUPS: dict[str, list[str]] = {
@@ -295,11 +303,11 @@ ITEM_GROUPS: dict[str, list[str]] = {
     'Cards (Silver)': ['Silver Card - Andros', 'Silver Card - Beamish', 'Silver Card - Chittock', 'Silver Card - Circe', 'Silver Card - Clagg', 'Silver Card - Cliodne', 'Silver Card - Cronk', 'Silver Card - Crumb', 'Silver Card - Dodderidge', 'Silver Card - Duke', 'Silver Card - Fay', 'Silver Card - Fulbert', 'Silver Card - Furmage', 'Silver Card - Gregory', 'Silver Card - Grunnion', 'Silver Card - Jones', 'Silver Card - Lufkin', 'Silver Card - Maeve', 'Silver Card - Montmorency', 'Silver Card - Mopsus', 'Silver Card - Nutcombe', 'Silver Card - Oglethorpe', 'Silver Card - Oldridge', 'Silver Card - Oliphant', 'Silver Card - Plunkett', 'Silver Card - Rastrick', 'Silver Card - Shimpling', 'Silver Card - Shingleton', 'Silver Card - Smethwyck', 'Silver Card - Stalk', 'Silver Card - Summerbee', 'Silver Card - Thurkell', 'Silver Card - Toothill', 'Silver Card - Tremlett', 'Silver Card - Tugwood', 'Silver Card - Wadcock', 'Silver Card - Wendelin', 'Silver Card - Wildsmith', 'Silver Card - Wright', 'Silver Card - Youdle'],
     'Cards (Gold)': ['Gold Card - Bott', 'Gold Card - Dumbledore', 'Gold Card - Gryffindor', 'Gold Card - Herpo', 'Gold Card - Hufflepuff', 'Gold Card - Knightley', 'Gold Card - Paracelsus', 'Gold Card - Pinkstone', 'Gold Card - Potter', 'Gold Card - Ravenclaw', 'Gold Card - Slytherin'],
     'Filler': ['Small Jar of Beans', 'Medium Jar of Beans', 'Large Jar of Beans', 'Massive Jar of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog', '1 Bean', '5 Beans', '10 Beans'],
-    'Traps': ['Bean Thief Trap', 'Goyle Transformation Trap', 'Forgetfulness Trap'],
+    'Traps': ['Bean Thief Trap', 'Polyjuice Potion Trap', 'Obliviate Trap', 'Drowsiness Draught Trap', 'Engorgio Trap', 'Reducio Trap', 'Confundus Trap'],
 }
 
 FILLER_NAMES: list[str] = ['Small Jar of Beans', 'Medium Jar of Beans', 'Large Jar of Beans', 'Massive Jar of Beans', 'Wiggenweld Potion', 'Wiggentree Bark', 'Flobberworm Mucous', 'Chocolate Frog', '1 Bean', '5 Beans', '10 Beans']
-TRAP_NAMES: list[str] = ['Bean Thief Trap', 'Goyle Transformation Trap', 'Forgetfulness Trap']
+TRAP_NAMES: list[str] = ['Bean Thief Trap', 'Polyjuice Potion Trap', 'Obliviate Trap', 'Drowsiness Draught Trap', 'Engorgio Trap', 'Reducio Trap', 'Confundus Trap']
 
 # Map UScript card class name → AP item display name. Used by the client
 # when forwarding 'GRANT <classname>' messages to the mod for cards.

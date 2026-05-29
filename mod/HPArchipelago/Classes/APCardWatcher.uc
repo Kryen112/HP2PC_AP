@@ -431,7 +431,7 @@ var int ConnToastTicksLeft;
 // it. APGameInfo.TryApplyTrap sets these via the static helpers below;
 // TrapTick() (called from Timer) terminates them.
 //
-// Forgetfulness Trap: SpellTrapBackup holds harry.SpellBook[0..31] (the
+// Obliviate Trap: SpellTrapBackup holds harry.SpellBook[0..31] (the
 // engine array is class<baseSpell> SpellBook[32], harry.uc:156). bSpell-
 // TrapActive==1 while spells are withheld; restored when Level.TimeSeconds
 // reaches SpellTrapExpiry OR the level changes, whichever comes first, so
@@ -440,16 +440,33 @@ const SPELL_TRAP_DURATION = 30.0;
 var byte bSpellTrapActive;
 var float SpellTrapExpiry;
 var class<baseSpell> SpellTrapBackup[32];
-// Goyle Transformation Trap: the pawn reverts naturally on the next level's
+// Polyjuice Potion Trap: the pawn reverts naturally on the next level's
 // fresh (bIsGoyle=false) pawn; this sticky just records the active state and
 // is cleared on the level change so it stays accurate.
-var byte bGoyleTrapActive;
+var byte bPolyjuiceTrapActive;
 // Level the watcher last observed (Level.Outer.Name). A trap helper stamps
 // the apply-level here; TrapTick compares each tick and treats any change as
-// the "left the level" boundary that ends the Goyle/spell traps. Level NAME
-// (not watcher instance) is the discriminator so open castle's streamed-sublevel
-// watcher churn never false-triggers.
+// the "left the level" boundary that ends the Polyjuice/spell/size/confundus
+// traps. Level NAME (not watcher instance) is the discriminator so open
+// castle's streamed-sublevel watcher churn never false-triggers.
 var name TrapLastLevelName;
+// Engorgio / Reducio Traps: bSizeTrapActive==1 while harry.DrawScale is
+// scaled away from normal. SizeTrapOrigScale holds the pre-trap DrawScale so
+// the restore is exact (and a stacked size trap preserves the original);
+// restored when Level.TimeSeconds reaches SizeTrapExpiry OR the level changes
+// (the fresh pawn already loads its default scale), whichever comes first.
+const SIZE_TRAP_DURATION = 30.0;
+var byte bSizeTrapActive;
+var float SizeTrapExpiry;
+var float SizeTrapOrigScale;
+// Confundus Trap: bConfundusTrapActive==1 while harry.bInvertMouse is forced
+// on. bConfundusOrigInvertMouse holds the player's real setting so the restore
+// returns it rather than blindly clearing; restored on the timer OR a level
+// change (the fresh pawn re-reads bInvertMouse from the ini), whichever first.
+const CONFUNDUS_TRAP_DURATION = 20.0;
+var byte bConfundusTrapActive;
+var float ConfundusTrapExpiry;
+var byte bConfundusOrigInvertMouse;
 
 // --- DeathLink state. All class-default + sticky: an induced kill runs
 // GotoState('stateDead') → ConsoleCommand("LoadGame 0"), which destroys the
@@ -971,7 +988,7 @@ static function MarkBlockerKeyAsAPGrantedDefault(string KeyName)
     Log("[Archipelago] APCardWatcher.MarkBlockerKeyAsAPGrantedDefault: " $ KeyName $ " (idx=" $ idx $ " class default set)");
 }
 
-// Forgetfulness Trap entry point (called from APGameInfo.TryApplyTrap). Backs
+// Obliviate Trap entry point (called from APGameInfo.TryApplyTrap). Backs
 // the full spellbook up into the class-default array, arms the restore timer
 // + level-change record, then clears Harry's spellbook. Static + class-default
 // so it works even when no watcher instance is alive (mirrors
@@ -984,7 +1001,7 @@ static function BackupAndClearSpellBook(harry h)
     {
         return;
     }
-    // Stacking guard: a second Forgetfulness while one is still active must
+    // Stacking guard: a second Obliviate while one is still active must
     // NOT re-snapshot the spellbook — it is already cleared, so backing it up
     // again would capture an empty book and the timer would "restore" nothing
     // (spells lost permanently). Just extend the expiry; the original backup
@@ -1008,23 +1025,85 @@ static function BackupAndClearSpellBook(harry h)
     Log("[Archipelago] APCardWatcher.BackupAndClearSpellBook: spellbook backed up + cleared (expires at Level.TimeSeconds " $ string(default.SpellTrapExpiry) $ " or on level change)");
 }
 
-// Goyle Transformation Trap bookkeeping (called from APGameInfo.TryApplyTrap
+// Polyjuice Potion Trap bookkeeping (called from APGameInfo.TryApplyTrap
 // after it flips bIsGoyle + SetNewMesh). The mesh reverts for free on the next
 // level's fresh pawn; this sticky just records the active state and the
 // apply-level so TrapTick can clear it on the level change.
-static function MarkGoyleTrapActiveDefault(harry h)
+static function MarkPolyjuiceTrapActiveDefault(harry h)
 {
-    default.bGoyleTrapActive = 1;
+    default.bPolyjuiceTrapActive = 1;
     if (h != None)
     {
         default.TrapLastLevelName = h.Level.Outer.Name;
     }
-    Log("[Archipelago] APCardWatcher.MarkGoyleTrapActiveDefault: Goyle trap active (reverts on next level)");
+    Log("[Archipelago] APCardWatcher.MarkPolyjuiceTrapActiveDefault: Polyjuice trap active (reverts on next level)");
+}
+
+// Engorgio / Reducio Trap entry point (called from APGameInfo.TryApplyTrap).
+// Backs the current DrawScale up into the class-default, arms the restore
+// timer + level-change record, then scales the pawn. Static + class-default so
+// it survives the per-level watcher respawn; TrapTick() does the matching
+// restore. Stacking guard mirrors BackupAndClearSpellBook: a second size trap
+// while one is active just extends the expiry and re-applies the new scale,
+// preserving the ORIGINAL backed-up scale so the restore is never lost.
+static function MarkSizeTrapActive(harry h, float newScale)
+{
+    if (h == None)
+    {
+        return;
+    }
+    if (default.bSizeTrapActive == 1)
+    {
+        default.SizeTrapExpiry = h.Level.TimeSeconds + SIZE_TRAP_DURATION;
+        h.DrawScale = newScale;
+        Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: already active - extended expiry to Level.TimeSeconds " $ string(default.SizeTrapExpiry) $ ", original scale preserved");
+        return;
+    }
+    default.SizeTrapOrigScale = h.DrawScale;
+    default.bSizeTrapActive   = 1;
+    default.SizeTrapExpiry    = h.Level.TimeSeconds + SIZE_TRAP_DURATION;
+    default.TrapLastLevelName = h.Level.Outer.Name;
+    h.DrawScale = newScale;
+    Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: DrawScale " $ string(default.SizeTrapOrigScale) $ " -> " $ string(newScale) $ " (expires at Level.TimeSeconds " $ string(default.SizeTrapExpiry) $ " or on level change)");
+}
+
+// Confundus Trap entry point (called from APGameInfo.TryApplyTrap). Backs the
+// player's real bInvertMouse setting up, arms the restore timer + level-change
+// record, then forces inverted look. Static + class-default like the others;
+// TrapTick() restores. Stacking guard extends the expiry without re-snapshotting
+// (the live value is already forced, so a re-backup would capture the forced
+// state and the restore would never undo it).
+static function MarkConfundusTrapActive(harry h)
+{
+    if (h == None)
+    {
+        return;
+    }
+    if (default.bConfundusTrapActive == 1)
+    {
+        default.ConfundusTrapExpiry = h.Level.TimeSeconds + CONFUNDUS_TRAP_DURATION;
+        h.bInvertMouse = True;
+        Log("[Archipelago] APCardWatcher.MarkConfundusTrapActive: already active - extended expiry to Level.TimeSeconds " $ string(default.ConfundusTrapExpiry) $ ", original setting preserved");
+        return;
+    }
+    if (h.bInvertMouse)
+    {
+        default.bConfundusOrigInvertMouse = 1;
+    }
+    else
+    {
+        default.bConfundusOrigInvertMouse = 0;
+    }
+    default.bConfundusTrapActive = 1;
+    default.ConfundusTrapExpiry  = h.Level.TimeSeconds + CONFUNDUS_TRAP_DURATION;
+    default.TrapLastLevelName    = h.Level.Outer.Name;
+    h.bInvertMouse = True;
+    Log("[Archipelago] APCardWatcher.MarkConfundusTrapActive: bInvertMouse forced on (orig=" $ string(default.bConfundusOrigInvertMouse) $ ", expires at Level.TimeSeconds " $ string(default.ConfundusTrapExpiry) $ " or on level change)");
 }
 
 // Called once per Timer() tick (after Snapshot, HarryRef valid). Terminates
-// the Goyle and Forgetfulness traps: Goyle clears on the level change (pawn
-// already reverted); Forgetfulness restores the backed-up spellbook on the
+// the Polyjuice and Obliviate traps: Polyjuice clears on the level change (pawn
+// already reverted); Obliviate restores the backed-up spellbook on the
 // SpellTrapExpiry timeout OR the level change, whichever comes first, so
 // spells are never permanently lost (a cleared SpellBook travels to the next
 // level). Level NAME is the change discriminator — robust against open castle's
@@ -1041,10 +1120,10 @@ function TrapTick()
     // transition is harmless because both guarded blocks check their flag.
     bLevelChanged = (default.TrapLastLevelName != curLevel);
 
-    if (default.bGoyleTrapActive == 1 && bLevelChanged)
+    if (default.bPolyjuiceTrapActive == 1 && bLevelChanged)
     {
-        default.bGoyleTrapActive = 0;
-        Log("[Archipelago] APCardWatcher.TrapTick: Goyle trap cleared on level change (pawn already reverted)");
+        default.bPolyjuiceTrapActive = 0;
+        Log("[Archipelago] APCardWatcher.TrapTick: Polyjuice trap cleared on level change (pawn already reverted)");
     }
 
     if (default.bSpellTrapActive == 1
@@ -1060,11 +1139,51 @@ function TrapTick()
         default.bSpellTrapActive = 0;
         if (bLevelChanged)
         {
-            Log("[Archipelago] APCardWatcher.TrapTick: Forgetfulness trap ended on level change - spellbook restored");
+            Log("[Archipelago] APCardWatcher.TrapTick: Obliviate trap ended on level change - spellbook restored");
         }
         else
         {
-            Log("[Archipelago] APCardWatcher.TrapTick: Forgetfulness trap ended on timer - spellbook restored");
+            Log("[Archipelago] APCardWatcher.TrapTick: Obliviate trap ended on timer - spellbook restored");
+        }
+    }
+
+    if (default.bSizeTrapActive == 1
+        && (bLevelChanged || Level.TimeSeconds >= default.SizeTrapExpiry))
+    {
+        // On a level change the fresh pawn already loaded its default scale, so
+        // only the same-level timeout needs to actively restore DrawScale.
+        if (!bLevelChanged && HarryRef != None)
+        {
+            HarryRef.DrawScale = default.SizeTrapOrigScale;
+        }
+        default.bSizeTrapActive = 0;
+        if (bLevelChanged)
+        {
+            Log("[Archipelago] APCardWatcher.TrapTick: size trap cleared on level change (pawn already at default scale)");
+        }
+        else
+        {
+            Log("[Archipelago] APCardWatcher.TrapTick: size trap ended on timer - DrawScale restored");
+        }
+    }
+
+    if (default.bConfundusTrapActive == 1
+        && (bLevelChanged || Level.TimeSeconds >= default.ConfundusTrapExpiry))
+    {
+        // On a level change the fresh pawn re-reads bInvertMouse from the ini,
+        // so only the same-level timeout needs to actively restore it.
+        if (!bLevelChanged && HarryRef != None)
+        {
+            HarryRef.bInvertMouse = (default.bConfundusOrigInvertMouse == 1);
+        }
+        default.bConfundusTrapActive = 0;
+        if (bLevelChanged)
+        {
+            Log("[Archipelago] APCardWatcher.TrapTick: confundus trap cleared on level change (pawn re-reads ini setting)");
+        }
+        else
+        {
+            Log("[Archipelago] APCardWatcher.TrapTick: confundus trap ended on timer - bInvertMouse restored");
         }
     }
 
@@ -2036,7 +2155,7 @@ event Timer()
         Snapshot();
         bSnapshotted = True;
         // Run the trap lifetime check on this first post-Bind tick too, so a
-        // level transition restores the Forgetfulness spellbook immediately
+        // level transition restores the Obliviate spellbook immediately
         // (HarryRef is valid here) instead of one tick later — and before the
         // spell-revert loop, which we return short of, can run. Idempotent
         // with the TrapTick() below; only acts when a trap is active.
@@ -2069,7 +2188,7 @@ event Timer()
     // Cheap once-per-process patch (no-op after the first successful inject).
     EnsureHomeMenuInjected();
 
-    // Terminate the Goyle / Forgetfulness traps on their timer or the level
+    // Terminate the Polyjuice / Obliviate traps on their timer or the level
     // change. Runs before the spell-revert loop so a same-tick restore is
     // visible to it (and bSpellTrapActive is cleared before that loop checks).
     TrapTick();
@@ -2172,7 +2291,7 @@ event Timer()
 
     for (i = 0; i < NUM_SPELLS; i++)
     {
-        // Forgetfulness Trap active: the spellbook is intentionally emptied
+        // Obliviate Trap active: the spellbook is intentionally emptied
         // (or being restored this very tick by TrapTick). Skip the per-tick
         // vanilla-spell reconciliation entirely so the trap and the revert
         // don't fight; TrapTick owns restore (timer or level change). break

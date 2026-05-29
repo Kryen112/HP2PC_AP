@@ -569,8 +569,8 @@ def emit_items(items: dict) -> str:
         add(entry, None, filler_names)
     # Traps mirror filler structurally (pool items handed out, effect on
     # GRANT) but carry classification: trap. HP2World.create_items partitions
-    # the filler delta between FILLER_NAMES and TRAP_NAMES per the
-    # enable_traps / trap_fill_percent options.
+    # the filler delta between FILLER_NAMES and the player-selected subset of
+    # TRAP_NAMES per the `traps` OptionSet / trap_fill_percent options.
     for entry in items.get("traps", []):
         add(entry, None, trap_names)
 
