@@ -1,28 +1,21 @@
 """Music randomizer pools.
 
-Source-of-truth list of the audio basenames present in the Bingo install's
-`Music/` folder, partitioned into two pools that randomize within themselves
-when the `music_randomizer` option is on:
+Source-of-truth list of the audio basenames in the install's `Music/` folder,
+split into two pools that shuffle within themselves when `music_randomizer` is on:
 
-- MUSIC_POOL: the 98 long-form tracks used as level background music. Every
-  placed NewMusicTrigger whose vanilla Song is in this set is rewritten to
-  another MUSIC_POOL entry, per-placement deterministic from the AP seed.
+- MUSIC_POOL: the 98 long-form tracks used as level background music.
+- JINGLE_POOL: the 43 short feedback cues (win/fail/found-secret/snitch horn etc.)
+  kept in their own pool so a level's "you won" stinger becomes another short
+  jingle, not a 3-minute orchestral piece on loop.
 
-- JINGLE_POOL: the 43 short feedback cues (win/fail/found-secret/snitch horn
-  etc.) curated by the player so they stay as cues — randomized within their
-  own pool so a level's "you won" stinger becomes a different jingle, not a
-  3-minute orchestral piece on loop.
+The client (music_patch.py) swaps the actual `Music/<name>.ogg` files on disk per
+the AP seed, so every reference resolves shuffled, including the native cutscene /
+menu / spell-lesson music that the old runtime NewMusicTrigger rewrite could not
+touch (Pawn.PlayMusic is final native).
 
-Edit the lists below to add or remove tracks. Basenames are exactly as they
-appear in `<install>/Bingo/Music/` minus the .ogg extension; the engine's
-PlayMusic resolver takes bare basenames (see FEBook.uc:1413 in the HGame
-source for an example). vssver.scc and the 6 .flac files that duplicate an
-.ogg of the same name are deliberately excluded.
-
-Mod-side jingle classification is by exact-string lookup against JINGLE_POOL
-(case-insensitive — see APGameInfo.IsJingle); anything else falls through to
-the music pool. Both pools are sorted alphabetically (case-insensitive) so
-the slot_data wire payload is stable across regenerations.
+Edit the lists below to add or remove tracks. Basenames are exactly as they appear
+in `<install>/Music/` minus the .ogg extension. vssver.scc and the 6 .flac files
+that duplicate an .ogg of the same name are deliberately excluded.
 """
 
 from __future__ import annotations
@@ -177,17 +170,11 @@ MUSIC_POOL: list[str] = [
 ]
 
 
-# Tripwire: the slot_data shape downstream (Client.py / APGameInfo) assumes
-# the two pools are non-empty, disjoint, and comma-free (the pools ride the
-# wire as comma-joined CSVs). Fail loudly at import if any invariant is
-# violated rather than at gen time on a poisoned seed.
+# Tripwire: the client shuffles within each pool, so both must be non-empty and
+# disjoint. Fail loudly at import rather than at patch time on a poisoned seed.
 assert MUSIC_POOL, "MUSIC_POOL must not be empty"
 assert JINGLE_POOL, "JINGLE_POOL must not be empty"
 assert not (set(MUSIC_POOL) & set(JINGLE_POOL)), (
     "MUSIC_POOL and JINGLE_POOL must be disjoint; overlap: "
     f"{sorted(set(MUSIC_POOL) & set(JINGLE_POOL))}"
-)
-assert all("," not in name for name in MUSIC_POOL + JINGLE_POOL), (
-    "pool basenames must not contain ',' (the CSV wire delimiter); offenders: "
-    f"{sorted(name for name in MUSIC_POOL + JINGLE_POOL if ',' in name)}"
 )

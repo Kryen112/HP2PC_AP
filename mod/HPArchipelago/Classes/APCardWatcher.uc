@@ -200,27 +200,6 @@ const SELLS_FMUCUS = 3;
 const SELLS_BRONZE = 4;
 const SELLS_SILVER = 5;
 
-// --- Music randomizer -------------------------------------------------------
-// Pools + per-seed salt from the apworld slot_data (MUSICRAND / MUSICSEED /
-// MUSICPOOL / JINGLEPOOL IPC lines). The placed NewMusicTrigger.Song values
-// in each level are rewritten by APGameInfo.ReplaceMusicTriggers using a
-// deterministic FNV-1a hash of (MusicRandSeed + Level.Outer.Name + actor
-// Name) → pool index, so every load of the same level picks the same
-// replacement while different AP seeds get different mappings. Classification
-// (jingle vs music) is by exact-string lookup against JinglePool — fall
-// through to MusicPool for unknown Songs, so an undocumented track is treated
-// as music rather than dropping its trigger silent. Class-default + sticky
-// like TradersanityMode; resent every HELLO. Array dims are integer literals
-// (M212 requirement) with generous headroom for future pool growth.
-const MUSIC_POOL_CAP  = 256;
-const JINGLE_POOL_CAP = 128;
-var byte bMusicRandomizerEnabled;
-var int MusicRandSeed;
-var string MusicPool[256];
-var int MusicPoolCount;
-var string JinglePool[128];
-var int JinglePoolCount;
-
 var harry HarryRef;
 var StatusItemWizardCards siBronze;
 var StatusItemWizardCards siSilver;
@@ -1267,101 +1246,6 @@ static function SetTraderRolledFactors(string csv)
         }
     }
     Log("[Archipelago] APCardWatcher.SetTraderRolledFactors: ingested " $ n $ " factor entry(ies)");
-}
-
-// Music randomizer arm (MUSICRAND IPC line; 0 off / 1 on). Class-default +
-// sticky like the other setters; APGameInfo.ReplaceMusicTriggers reads this
-// each level entry. Pure runtime: when off the rewrite path is skipped and
-// placed NewMusicTrigger.Song values play vanilla. Idempotent.
-static function SetMusicRandomizerEnabled(int v)
-{
-    default.bMusicRandomizerEnabled = byte(v != 0);
-    Log("[Archipelago] APCardWatcher.SetMusicRandomizerEnabled: " $ default.bMusicRandomizerEnabled);
-}
-
-// Per-seed salt for the per-trigger remap hash (MUSICSEED IPC line). Without
-// a per-seed salt the alphabetised pool would map identically across all AP
-// seeds because the only other hash inputs (level name + actor name) are
-// fixed for the game. Class-default + sticky; idempotent.
-static function SetMusicRandSeed(int seed)
-{
-    default.MusicRandSeed = seed;
-    Log("[Archipelago] APCardWatcher.SetMusicRandSeed: " $ default.MusicRandSeed);
-}
-
-// Music pool from the apworld slot_data (MUSICPOOL IPC line), as
-// comma-separated track basenames. Wipes the array first so a later seed
-// with a smaller pool can't leak stale tail entries. Truncates silently at
-// MUSIC_POOL_CAP — the apworld pool is currently 98 entries with 256 of
-// headroom. Class-default + sticky; resent every HELLO. Idempotent.
-static function SetMusicPoolCSV(string csv)
-{
-    local string rest, name;
-    local int p, n;
-
-    for (n = 0; n < MUSIC_POOL_CAP; n++)
-    {
-        default.MusicPool[n] = "";
-    }
-    default.MusicPoolCount = 0;
-
-    rest = csv;
-    n = 0;
-    while (rest != "" && n < MUSIC_POOL_CAP)
-    {
-        p = InStr(rest, ",");
-        if (p < 0)
-        {
-            name = rest;
-            rest = "";
-        }
-        else
-        {
-            name = Left(rest, p);
-            rest = Mid(rest, p + 1);
-        }
-        if (name == "") continue;
-        default.MusicPool[n] = name;
-        n++;
-    }
-    default.MusicPoolCount = n;
-    Log("[Archipelago] APCardWatcher.SetMusicPoolCSV: ingested " $ n $ " music track(s)");
-}
-
-// Jingle pool from the apworld slot_data (JINGLEPOOL IPC line), same
-// wire/storage shape as SetMusicPoolCSV.
-static function SetJinglePoolCSV(string csv)
-{
-    local string rest, name;
-    local int p, n;
-
-    for (n = 0; n < JINGLE_POOL_CAP; n++)
-    {
-        default.JinglePool[n] = "";
-    }
-    default.JinglePoolCount = 0;
-
-    rest = csv;
-    n = 0;
-    while (rest != "" && n < JINGLE_POOL_CAP)
-    {
-        p = InStr(rest, ",");
-        if (p < 0)
-        {
-            name = rest;
-            rest = "";
-        }
-        else
-        {
-            name = Left(rest, p);
-            rest = Mid(rest, p + 1);
-        }
-        if (name == "") continue;
-        default.JinglePool[n] = name;
-        n++;
-    }
-    default.JinglePoolCount = n;
-    Log("[Archipelago] APCardWatcher.SetJinglePoolCSV: ingested " $ n $ " jingle track(s)");
 }
 
 // Inbound DeathLink arm (DEATHLINK IPC line). Class-default + sticky like the

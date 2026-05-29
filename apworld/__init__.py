@@ -32,7 +32,6 @@ from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                         MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS)
-from .music_pool import JINGLE_POOL, MUSIC_POOL
 from .regions import (REGION_ENTRY_RULES_OPEN_CASTLE, REGION_ENTRY_RULES_VANILLA,
                       REGION_NAMES, START_REGION)
 from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_VANILLA,
@@ -356,13 +355,13 @@ class SkipVendorVoices(Toggle):
 
 
 class MusicRandomizer(Toggle):
-    """If true, every placed in-level music trigger has its song swapped to a
-    different track from the same pool. Two pools curated in music_pool.py:
-    long-form background music randomizes within MUSIC_POOL, short feedback
-    cues (win/fail/snitch horn etc.) randomize within JINGLE_POOL. The swap
-    is deterministic per AP seed and per trigger placement — every load of
-    the same level picks the same replacements, but different seeds get
-    different mappings. Pure runtime: no fill/logic impact."""
+    """If true, every music track is swapped for another from the same pool,
+    deterministic per AP seed. Two pools curated in music_pool.py: long-form
+    background music shuffles within MUSIC_POOL, short cues (win / fail / snitch
+    horn etc.) within JINGLE_POOL, so a cue stays a cue. The client swaps the
+    Music ogg files on disk on connect (no mod changes), so every reference is
+    covered, including cutscene and menu music. Pure runtime: no fill/logic
+    impact."""
     display_name = "Music randomizer"
 
 
@@ -447,19 +446,19 @@ class HP2Settings(settings.Group):
     # install, an open castle seed patches the open castle install. Both blank by
     # default and not framework-required (no surprise folder picker from the
     # client); the client refuses to patch and names the right field when a needed
-    # folder is unset. Only the sound randomizer reads these. Each must be the
-    # folder that contains the 'system' directory with HPSounds.u.
+    # folder is unset. Read by the sound and music randomizers. Each is the install
+    # root, containing both system\HPSounds.u (sound) and Music\ (music).
     class VanillaInstallFolder(settings.UserFolderPath):
-        """Install folder for vanilla-mode seeds: the directory that contains the
-        'system' folder with HPSounds.u. Used only by the sound randomizer. Use
-        forward slashes. Leave blank if you do not use the sound randomizer."""
+        """Install folder for vanilla-mode seeds: the install root, containing the
+        'system' folder (with HPSounds.u) and the 'Music' folder. Used by the sound
+        and music randomizers. Use forward slashes. Leave blank if you use neither."""
         description = "Harry Potter 2 vanilla install folder"
         required = False
 
     class OpenCastleInstallFolder(settings.UserFolderPath):
-        """Install folder for open-castle-mode seeds: the directory that contains
-        the 'system' folder with HPSounds.u. Used only by the sound randomizer.
-        Use forward slashes. Leave blank if you do not use the sound randomizer."""
+        """Install folder for open-castle-mode seeds: the install root, containing
+        the 'system' folder (with HPSounds.u) and the 'Music' folder. Used by the
+        sound and music randomizers. Use forward slashes. Leave blank if neither."""
         description = "Harry Potter 2 open castle install folder"
         required = False
 
@@ -934,18 +933,11 @@ class HP2World(World):
             "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
             "enable_quidditch_upgrades": bool(self.options.enable_quidditch_upgrades.value),
         }
-        # Music randomizer (both game modes). The pools themselves ride
-        # slot_data so the mod can swap Song strings without the client /
-        # mod needing its own copy of music_pool.py to read. The per-seed
-        # salt is pre-rolled in self.random so two AP seeds with the same
-        # music_pool.py content still produce different per-trigger mappings
-        # (the mod hashes salt + level + actor name to pick the slot index;
-        # without the salt every seed would map identically). Suppressed
-        # when off so an off seed never carries the ~5 KB pool payload.
+        # Music randomizer (both game modes). The client swaps the Music/*.ogg
+        # files on disk per this seed, so only the seed rides the wire (the client
+        # owns music_pool.py). Suppressed when off.
         if bool(self.options.music_randomizer.value):
             sd["music_randomizer"] = True
-            sd["music_pool"] = list(MUSIC_POOL)
-            sd["jingle_pool"] = list(JINGLE_POOL)
             sd["music_seed"] = self.random.randint(0, 2**31 - 1)
         # Sound randomizer (both game modes). Only the per-seed salt rides the
         # wire; the client owns sound_pool.py and recomputes the shuffle, so an

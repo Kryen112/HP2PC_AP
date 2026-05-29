@@ -332,41 +332,6 @@ function HandleLine(string line)
         // after the scout response resolves, when hint-on-open is enabled.
         HandleHint(Mid(line, 5));
     }
-    else if (Left(line, 10) == "MUSICRAND ")
-    {
-        // Music randomizer enabled flag (0/1) from the apworld slot_data.
-        // Sticky class-default on the watcher (mirrors GOALCFG / TRADECFG);
-        // resent every HELLO so a fresh game launch / reconnect re-arms it.
-        // Idempotent. APGameInfo.ReplaceMusicTriggers reads this each level
-        // entry to decide whether to walk the placed NewMusicTrigger set.
-        class'APCardWatcher'.static.SetMusicRandomizerEnabled(int(Mid(line, 10)));
-    }
-    else if (Left(line, 10) == "MUSICSEED ")
-    {
-        // Per-seed salt for the per-trigger remap hash. Pre-rolled in the
-        // apworld with self.random so the alphabetised pool produces a
-        // different per-trigger mapping for every AP seed even though the
-        // hash inputs from the game (level + actor name) are fixed. Sticky;
-        // resent every HELLO.
-        class'APCardWatcher'.static.SetMusicRandSeed(int(Mid(line, 10)));
-    }
-    else if (Left(line, 10) == "MUSICPOOL ")
-    {
-        // Music randomizer long-form track pool, as comma-separated track
-        // basenames. Sticky class-default on the watcher (mirrors
-        // TRADERPRICES); resent every HELLO. The mod overwrites the entire
-        // pool on each resend so a later seed with a smaller pool can't
-        // leak stale tail entries.
-        class'APCardWatcher'.static.SetMusicPoolCSV(Mid(line, 10));
-    }
-    else if (Left(line, 11) == "JINGLEPOOL ")
-    {
-        // Music randomizer short-form (jingle) pool, same wire shape as
-        // MUSICPOOL — separate IPC line so the two pools' lifetimes are
-        // explicit and the mod-side classifier can lookup by exact set
-        // membership.
-        class'APCardWatcher'.static.SetJinglePoolCSV(Mid(line, 11));
-    }
     else if (Left(line, 10) == "CONNECTED ")
     {
         // AP server address for the startup "Connected to host:port" toast,

@@ -218,6 +218,13 @@ Set `sound_randomizer: true` in your player yaml to shuffle every sound effect, 
 - **Don't like a swapped sound?** Type `/reroll_sounds` in the client to reshuffle everything with a fresh random set. The new shuffle is remembered for that seed, so it sticks across restarts (restart once to hear it). Run it again if the new set is no better.
 - **Revert to the original sounds.** Connect to a seed with the option off (it auto-restores), or type `/restore_sounds` in the client, or manually copy `HPSounds.u.orig` over `HPSounds.u`. Either way, restart the game once to hear the original sounds again.
 
+### Music randomizer (optional)
+
+Set `music_randomizer: true` in your player yaml to shuffle every music track, deterministically per seed (background tracks swap with background tracks, short jingles with jingles). It works the same way as the sound randomizer: the client swaps the `Music\*.ogg` files in your install on connect, keeping a one-time backup. Because it swaps files rather than rewriting triggers, it covers cutscene, menu, and spell-lesson music too.
+
+- **Same install path, permissions, and timing** as the sound randomizer above (it uses the same per-mode `install_folder`, picks it once, needs write access / admin under `Program Files`, and takes effect on the next launch).
+- **Reshuffle**: `/reroll_music`. **Revert**: `/restore_music`, or connect to a seed with the option off. Restart once to hear the change.
+
 ## Verify it's working
 
 Quick checklist after first launch:

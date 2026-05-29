@@ -71,7 +71,7 @@ from CommonClient import (ClientCommandProcessor, CommonContext,
                           get_base_parser, gui_enabled, server_loop)
 from NetUtils import ClientStatus, SlotType
 
-from . import HP2World, sound_patch
+from . import HP2World, music_patch, sound_patch
 from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
 from .locations import (CARD_CLASS_TO_LOCATION_NAME,
                         CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
@@ -92,32 +92,32 @@ def _hp2_install_path(open_castle: bool) -> Optional[str]:
     return path or None
 
 
-# /reroll_sounds overrides, keyed by "<ap seed>:<slot>" so each multiworld keeps
-# its own reshuffle and the reroll survives the reconnect after the restart. Kept
-# in a small JSON sidecar in the AP user folder, not host.yaml (it is per-seed
-# state, not a setting).
-def _reroll_store_path() -> str:
+# /reroll overrides per randomizer kind ("sound" / "music"), keyed by
+# "<ap seed>:<slot>" so each multiworld keeps its own reshuffle and the reroll
+# survives the reconnect after the restart. Kept in small JSON sidecars in the AP
+# user folder, not host.yaml (per-seed state, not a setting).
+def _reroll_store_path(kind: str) -> str:
     from Utils import user_path
-    return user_path("hp2pc_ap_sound_rerolls.json")
+    return user_path(f"hp2pc_ap_{kind}_rerolls.json")
 
 
-def _load_rerolls() -> dict:
+def _load_rerolls(kind: str) -> dict:
     try:
-        with open(_reroll_store_path(), encoding="utf-8") as f:
+        with open(_reroll_store_path(kind), encoding="utf-8") as f:
             return json.load(f)
     except (OSError, ValueError):
         return {}
 
 
-def _get_reroll(key: str) -> Optional[int]:
-    value = _load_rerolls().get(key)
+def _get_reroll(kind: str, key: str) -> Optional[int]:
+    value = _load_rerolls(kind).get(key)
     return int(value) if value is not None else None
 
 
-def _save_reroll(key: str, seed: int) -> None:
-    data = _load_rerolls()
+def _save_reroll(kind: str, key: str, seed: int) -> None:
+    data = _load_rerolls(kind)
     data[key] = int(seed)
-    with open(_reroll_store_path(), "w", encoding="utf-8") as f:
+    with open(_reroll_store_path(kind), "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 
@@ -255,49 +255,76 @@ def _log_safe(text: str, limit: int = 180) -> str:
 
 
 class HP2CommandProcessor(ClientCommandProcessor):
-    def _cmd_restore_sounds(self) -> bool:
-        """Restore the original SFX: copy HPSounds.u.orig back over HPSounds.u for
-        every configured install, without connecting to a seed. Takes effect on
-        the next game launch."""
+    @staticmethod
+    def _kind_present(kind: str, path: str) -> bool:
+        if kind == "sound":
+            return os.path.exists(sound_patch.package_path(path))
+        return os.path.isdir(music_patch.music_dir(path))
+
+    def _restore_audio(self, kind: str) -> None:
+        thing = "sounds" if kind == "sound" else "music"
+        backup = "HPSounds.u.orig backup" if kind == "sound" else "Music backup"
+        restore_fn = sound_patch.restore_original if kind == "sound" else music_patch.restore_original
         installs = []
         for mode, open_castle in (("vanilla", False), ("open castle", True)):
             path = _hp2_install_path(open_castle)
-            if path and os.path.exists(sound_patch.package_path(path)):
+            if path and self._kind_present(kind, path):
                 installs.append((mode, path))
         if not installs:
-            self.output("No install with system/HPSounds.u is configured. Set "
-                        "'harry_potter_2_pc_options' -> vanilla_install_folder / "
-                        "open_castle_install_folder in host.yaml.")
-            return True
+            self.output("No install is configured. Set 'harry_potter_2_pc_options' -> "
+                        "vanilla_install_folder / open_castle_install_folder in host.yaml.")
+            return
         for mode, path in installs:
             try:
-                result = sound_patch.restore_original(path)
-            except (sound_patch.PatchError, OSError) as exc:
+                result = restore_fn(path)
+            except (sound_patch.PatchError, music_patch.PatchError, OSError) as exc:
                 self.output(f"{mode}: restore failed: {exc}")
                 continue
             if result == "restored":
-                self.output(f"{mode}: original sounds restored. Restart Harry Potter if it is running.")
+                self.output(f"{mode}: original {thing} restored. Restart Harry Potter if it is running.")
             elif result == "unchanged":
                 self.output(f"{mode}: already original.")
             else:
-                self.output(f"{mode}: no HPSounds.u.orig backup found; nothing to restore.")
+                self.output(f"{mode}: no {backup} found; nothing to restore.")
+
+    def _reroll_audio(self, kind: str) -> None:
+        ctx: "HP2Context" = self.ctx
+        enabled = ctx.sound_randomizer_enabled if kind == "sound" else ctx.music_randomizer_enabled
+        thing = "sounds" if kind == "sound" else "music"
+        if not enabled:
+            self.output(f"Reroll needs a connected seed with the {kind} randomizer on.")
+            return
+        install = _hp2_install_path(ctx.is_open_castle)
+        if not install or not self._kind_present(kind, install):
+            self.output("No valid install folder for this seed's mode yet. Reconnect "
+                        "and pick it first.")
+            return
+        self.output(f"Reshuffling {thing}. Restart Harry Potter once it finishes.")
+        asyncio.create_task(ctx._reroll(kind, install))
+
+    def _cmd_restore_sounds(self) -> bool:
+        """Restore the original SFX from backup for every configured install,
+        without connecting to a seed. Takes effect on the next game launch."""
+        self._restore_audio("sound")
+        return True
+
+    def _cmd_restore_music(self) -> bool:
+        """Restore the original music from backup for every configured install,
+        without connecting to a seed. Takes effect on the next game launch."""
+        self._restore_audio("music")
         return True
 
     def _cmd_reroll_sounds(self) -> bool:
         """Reshuffle the sound randomizer with a fresh seed (e.g. if a swapped
-        sound is annoying). The new shuffle is remembered for this seed, so it
-        sticks across restarts. Takes effect on the next game launch."""
-        ctx: "HP2Context" = self.ctx
-        if not ctx.sound_randomizer_enabled:
-            self.output("Reroll needs a connected seed with the sound randomizer on.")
-            return True
-        install = _hp2_install_path(ctx.is_open_castle)
-        if not install or not os.path.exists(sound_patch.package_path(install)):
-            self.output("No valid install folder for this seed's mode yet. Reconnect "
-                        "and pick it first.")
-            return True
-        self.output("Reshuffling sounds. Restart Harry Potter once it finishes.")
-        asyncio.create_task(ctx._reroll_sounds(install))
+        sound is annoying). Remembered for this seed, so it sticks across
+        restarts. Takes effect on the next game launch."""
+        self._reroll_audio("sound")
+        return True
+
+    def _cmd_reroll_music(self) -> bool:
+        """Reshuffle the music randomizer with a fresh seed. Remembered for this
+        seed, so it sticks across restarts. Takes effect on the next game launch."""
+        self._reroll_audio("music")
         return True
 
     def _cmd_progress(self) -> bool:
@@ -465,23 +492,16 @@ class HP2Context(CommonContext):
         # reconnect / client restart never re-broadcasts the same hint.
         self.vendor_hint_key: Optional[str] = None
         self.hinted_vendor_locs: set[int] = set()
-        # Music randomizer config. Parsed from slot_data on Connected; pushed
-        # every HELLO so a fresh game launch / reconnect re-asserts the pools
-        # mod-side. Sticky + idempotent mod-side. All three are None / False
-        # for vanilla seeds (option off → apworld suppresses the slot_data
-        # keys entirely). The pools are CSV strings (no commas in any
-        # basename) rather than separate IPC lines per entry — single sticky
-        # snapshot is simpler to re-arm.
-        self.music_randomizer_enabled: bool = False
-        self.music_pool_csv: Optional[str] = None
-        self.jingle_pool_csv: Optional[str] = None
-        self.music_seed: Optional[int] = None
-        # Sound randomizer. Unlike music this is not an IPC signal to the mod:
-        # on Connected the client binary-patches the local HPSounds.u (per
-        # sound_pool.py + sound_seed) and the game loads it on next launch. Off
-        # seeds omit both keys (apworld suppresses them) and restore the backup.
+        # Sound and music randomizers. Both are client-side file patches of the
+        # install (HPSounds.u for sound, Music/*.ogg for music), applied on
+        # Connected and loaded by the game on next launch, rather than IPC to the
+        # mod. Parsed from slot_data; the option is off (keys absent) for seeds
+        # that did not enable it. seed is the effective seed (a /reroll override
+        # wins over the slot_data seed).
         self.sound_randomizer_enabled: bool = False
         self.sound_seed: Optional[int] = None
+        self.music_randomizer_enabled: bool = False
+        self.music_seed: Optional[int] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
@@ -671,39 +691,12 @@ class HP2Context(CommonContext):
                 f"Tradersanity hint-on-open {'enabled' if self.tradersanity_hint_on_open else 'disabled'}"
             )
 
-            # Music randomizer pools. Suppressed apworld-side when off, so
-            # absent keys collapse the mod-side IPC vars back to disabled.
-            # When on, both pools are pushed as CSVs and the enabled flag
-            # rides its own line so the mod can latch behavior even if
-            # parsing one of the larger payloads is in flight.
-            if bool(sd.get("music_randomizer")):
-                self.music_randomizer_enabled = True
-                self.music_pool_csv = ",".join(sd.get("music_pool") or [])
-                self.jingle_pool_csv = ",".join(sd.get("jingle_pool") or [])
-                self.music_seed = int(sd.get("music_seed") or 0)
-                logger.info(
-                    f"Music randomizer enabled from slot_data: "
-                    f"{len(sd.get('music_pool') or [])} music / "
-                    f"{len(sd.get('jingle_pool') or [])} jingle tracks, "
-                    f"seed={self.music_seed}"
-                )
-                if self.game_writer is not None:
-                    self._send_to_game("MUSICRAND 1")
-                    self._send_to_game(f"MUSICSEED {self.music_seed}")
-                    self._send_to_game("MUSICPOOL " + self.music_pool_csv)
-                    self._send_to_game("JINGLEPOOL " + self.jingle_pool_csv)
-            else:
-                self.music_randomizer_enabled = False
-                self.music_pool_csv = None
-                self.jingle_pool_csv = None
-                self.music_seed = None
-                if self.game_writer is not None:
-                    self._send_to_game("MUSICRAND 0")
-
-            # Sound randomizer. Patches the local HPSounds.u rather than
-            # signalling the mod; runs off the event loop since it rewrites a
-            # large file. Off seeds restore the .orig backup.
-            asyncio.create_task(self._sync_sound_randomizer(sd))
+            # Sound and music randomizers. Both patch files in the install
+            # (HPSounds.u, Music/*.ogg), so they are handled in one task that
+            # resolves the install once (prompting the player at most once) and
+            # runs the file work off the event loop. Off seeds restore from the
+            # backup.
+            asyncio.create_task(self._apply_audio_randomizers(sd))
 
             # RingLink. Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
@@ -1024,42 +1017,55 @@ class HP2Context(CommonContext):
         except Exception as e:
             logger.warning(f"TOAST drop ({text!r}): write failed: {e}")
 
-    async def _sync_sound_randomizer(self, sd: dict) -> None:
-        """Apply or restore the SFX binary patch for this seed, on the install
-        that matches the seed's game mode. The file work runs in an executor so
-        the 100+ MB rewrite never blocks the event loop."""
-        enabled = bool(sd.get("sound_randomizer"))
+    async def _apply_audio_randomizers(self, sd: dict) -> None:
+        """Apply or restore the sound and music file patches for this seed on the
+        install matching its game mode. Resolves the install once (prompting the
+        player at most once) and runs the file work in an executor."""
         open_castle = sd.get("game_mode") == "open_castle"
-        # A /reroll_sounds override (per AP seed) wins over the slot_data seed so a
-        # reroll survives the reconnect that the restart-to-hear-it triggers.
-        base_seed = int(sd.get("sound_seed") or 0)
-        override = _get_reroll(self._reroll_key()) if enabled else None
-        seed = override if override is not None else base_seed
-        self.sound_randomizer_enabled = enabled
-        self.sound_seed = seed if enabled else None
+        sound_on = bool(sd.get("sound_randomizer"))
+        music_on = bool(sd.get("music_randomizer"))
+        self.sound_randomizer_enabled = sound_on
+        self.music_randomizer_enabled = music_on
+        self.sound_seed = self._effective_seed(sd, "sound", "sound_seed") if sound_on else None
+        self.music_seed = self._effective_seed(sd, "music", "music_seed") if music_on else None
 
         install = _hp2_install_path(open_castle)
-        if not install or not os.path.exists(sound_patch.package_path(install)):
-            if not enabled:
-                return  # nothing configured to restore; stay silent
-            # Sound randomizer is on but this mode's install is unset/wrong: ask
-            # the player to pick it once, then remember it in host.yaml.
+        valid = bool(install) and os.path.exists(sound_patch.package_path(install))
+        if (sound_on or music_on) and not valid:
             install = await self._prompt_install_folder(open_castle)
-            if not install:
-                return
+            valid = bool(install)
+        if not valid:
+            return
 
         loop = asyncio.get_event_loop()
+        await self._patch_one(loop, "sound", sound_on, install, self.sound_seed)
+        await self._patch_one(loop, "music", music_on, install, self.music_seed)
+
+    def _effective_seed(self, sd: dict, kind: str, key: str) -> int:
+        """slot_data seed for this kind, unless a /reroll override is saved."""
+        base = int(sd.get(key) or 0)
+        override = _get_reroll(kind, self._reroll_key())
+        return override if override is not None else base
+
+    async def _patch_one(self, loop, kind: str, enabled: bool, install: str,
+                         seed: Optional[int]) -> None:
+        if kind == "sound":
+            apply_fn, restore_fn = sound_patch.apply_patch, sound_patch.restore_original
+            present = os.path.exists(sound_patch.package_path(install))
+        else:
+            apply_fn, restore_fn = music_patch.apply_patch, music_patch.restore_original
+            present = os.path.isdir(music_patch.music_dir(install))
         try:
             if enabled:
-                result = await loop.run_in_executor(
-                    None, sound_patch.apply_patch, install, seed)
+                result = await loop.run_in_executor(None, apply_fn, install, seed)
+            elif present:
+                result = await loop.run_in_executor(None, restore_fn, install)
             else:
-                result = await loop.run_in_executor(
-                    None, sound_patch.restore_original, install)
-        except (sound_patch.PatchError, OSError) as exc:
-            logger.error(f"Sound randomizer: {exc}")
+                return
+        except (sound_patch.PatchError, music_patch.PatchError, OSError) as exc:
+            logger.error(f"{kind.capitalize()} randomizer: {exc}")
             return
-        self._announce_sound_result(enabled, result)
+        self._announce_patch(kind, enabled, result)
 
     async def _prompt_install_folder(self, open_castle: bool) -> Optional[str]:
         """Pop a folder picker for the seed's game mode and persist the choice to
@@ -1071,9 +1077,9 @@ class HP2Context(CommonContext):
             from Utils import open_directory
         except Exception:
             logger.warning(
-                f"Sound randomizer is on, but no folder picker is available here. "
-                f"Set 'harry_potter_2_pc_options' -> '{field}' in host.yaml to your "
-                f"{mode} install folder."
+                f"A randomizer needs your {mode} install folder, but no folder picker "
+                f"is available here. Set 'harry_potter_2_pc_options' -> '{field}' in "
+                f"host.yaml."
             )
             return None
         title = (f"Select your Harry Potter 2 {mode} install folder.")
@@ -1081,9 +1087,8 @@ class HP2Context(CommonContext):
         chosen = await loop.run_in_executor(None, open_directory, title)
         if not chosen:
             logger.warning(
-                f"Sound randomizer is on for this {mode} seed but no folder was "
-                f"chosen. Reconnect to pick it, or set 'harry_potter_2_pc_options' "
-                f"-> '{field}' in host.yaml."
+                f"No {mode} install folder chosen. Reconnect to pick it, or set "
+                f"'harry_potter_2_pc_options' -> '{field}' in host.yaml."
             )
             return None
         if not os.path.exists(sound_patch.package_path(chosen)):
@@ -1110,45 +1115,52 @@ class HP2Context(CommonContext):
                 f"'{field}' manually to avoid being asked again."
             )
 
-    def _announce_sound_result(self, enabled: bool, result: str) -> None:
+    def _announce_patch(self, kind: str, enabled: bool, result: str) -> None:
         # 'unchanged' / 'no-backup' need no message. A live game already loaded
-        # the old package, so a change needs one restart; if the game is not up
-        # yet, the next launch picks it up with no extra restart.
+        # the old files, so a change needs one restart; if the game is not up yet,
+        # the next launch picks it up with no extra restart.
+        noun = "Sound randomizer" if kind == "sound" else "Music randomizer"
+        thing = "sounds" if kind == "sound" else "music"
         if enabled and result == "patched":
             if self.game_writer is not None:
-                self._toast_to_game("Sound randomizer applied. Restart to hear it.")
-                logger.info("Sound randomizer applied. Restart Harry Potter to hear it.")
+                self._toast_to_game(f"{noun} applied. Restart to hear it.")
+                logger.info(f"{noun} applied. Restart Harry Potter to hear it.")
             else:
-                logger.info("Sound randomizer applied; it loads when you launch Harry Potter.")
+                logger.info(f"{noun} applied; it loads when you launch Harry Potter.")
         elif not enabled and result == "restored":
             if self.game_writer is not None:
-                self._toast_to_game("Original sounds restored. Restart to apply.")
-                logger.info("Original sounds restored. Restart Harry Potter.")
+                self._toast_to_game(f"Original {thing} restored. Restart to apply.")
+                logger.info(f"Original {thing} restored. Restart Harry Potter.")
             else:
-                logger.info("Original sounds restored; original SFX load on next launch.")
+                logger.info(f"Original {thing} restored; they load on next launch.")
 
     def _reroll_key(self) -> str:
-        """Per-AP-seed key for a /reroll_sounds override."""
+        """Per-AP-seed key for a /reroll override."""
         return f"{self._last_seed_name}:{self.slot}"
 
-    async def _reroll_sounds(self, install: str) -> None:
-        """Re-patch with a fresh seed and remember it for this AP seed so the
-        reshuffle survives reconnects. Runs the file work in an executor."""
+    async def _reroll(self, kind: str, install: str) -> None:
+        """Re-patch this kind with a fresh seed and remember it for this AP seed so
+        the reshuffle survives reconnects. Runs the file work in an executor."""
         new_seed = random.randint(0, 2**31 - 1)
+        apply_fn = sound_patch.apply_patch if kind == "sound" else music_patch.apply_patch
         loop = asyncio.get_event_loop()
         try:
-            result = await loop.run_in_executor(
-                None, sound_patch.apply_patch, install, new_seed)
-        except (sound_patch.PatchError, OSError) as exc:
-            logger.error(f"Sound randomizer reroll: {exc}")
+            result = await loop.run_in_executor(None, apply_fn, install, new_seed)
+        except (sound_patch.PatchError, music_patch.PatchError, OSError) as exc:
+            logger.error(f"{kind.capitalize()} randomizer reroll: {exc}")
             return
-        self.sound_seed = new_seed
-        _save_reroll(self._reroll_key(), new_seed)
-        if result == "patched":
-            self._toast_to_game("Sounds reshuffled. Restart to hear the new set.")
-            logger.info("Sounds reshuffled. Restart Harry Potter to hear the new set.")
+        if kind == "sound":
+            self.sound_seed = new_seed
         else:
-            logger.info("Reshuffle landed on the same set; run /reroll_sounds again.")
+            self.music_seed = new_seed
+        _save_reroll(kind, self._reroll_key(), new_seed)
+        thing = "Sounds" if kind == "sound" else "Music"
+        cmd = "/reroll_sounds" if kind == "sound" else "/reroll_music"
+        if result == "patched":
+            self._toast_to_game(f"{thing} reshuffled. Restart to hear the new set.")
+            logger.info(f"{thing} reshuffled. Restart Harry Potter to hear the new set.")
+        else:
+            logger.info(f"Reshuffle landed on the same set; run {cmd} again.")
 
     async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
@@ -1299,18 +1311,6 @@ class HP2Context(CommonContext):
             # table, and an off seed should not be carrying stale factors.
             if self.tradersanity_prices_csv:
                 self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
-            # Re-arm the music randomizer enabled flag + pools + per-seed
-            # salt. Sticky + idempotent mod-side. Always re-arm the flag
-            # (so a fresh game launch knows the current state); only re-push
-            # the seed + pool CSVs when enabled.
-            self._send_to_game("MUSICRAND " + ("1" if self.music_randomizer_enabled else "0"))
-            if self.music_randomizer_enabled:
-                if self.music_seed is not None:
-                    self._send_to_game(f"MUSICSEED {self.music_seed}")
-                if self.music_pool_csv is not None:
-                    self._send_to_game("MUSICPOOL " + self.music_pool_csv)
-                if self.jingle_pool_csv is not None:
-                    self._send_to_game("JINGLEPOOL " + self.jingle_pool_csv)
             # #3: re-push the appearance table. Sticky + idempotent mod-side,
             # so resending every HELLO re-arms a fresh game launch / reconnect.
             # is not None (not truthiness) so an all-native "" still re-arms.
