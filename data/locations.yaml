@@ -70,19 +70,18 @@ special_checks: []
 # both the items and these locations together, otherwise the pool has 2
 # orphan items with no homes. The pairing is items 8/9 ↔ locations 5/6.
 #
-# Mod wiring (planned for the same session as secret/star watchers):
-#   - APCardWatcher gains a non-card `VendorLocationChecked[8]` (or similar)
-#     array so APCardMarker_PHCard can dedupe without colliding with the
-#     existing card-domain LocationChecked[].
-#   - APCardWatcher per-tick scan replaces newly-spawned VendorNimbusBroom /
-#     QArmor actors with APCardMarker_PHCard carrying the right
-#     CheckLocationId (mirrors ReplaceVendorSpawnedCards Phase B for cards).
-#   - APCardWatcher detects bHaveNimbus2001 / bHaveQArmor flipping False→True
-#     without a matching AP grant flag and reverts the flag, so the player
-#     doesn't get the equipment locally for free on top of the AP grant.
+# Mod wiring: when enable_quidditch_upgrades is on, APCardWatcher.Replace-
+# VendorEquipment morphs the VendorNimbusBroom / QArmor that MakePurchase
+# throws IN PLACE into the location's AP pickup token (nulls its grant fields,
+# applies the AP appearance, keeps the vanilla throw arc). The check fires when
+# Harry picks the token up; NonCardLocationChecked dedupes it. Harry keeps the
+# bHaveNimbus2001 / bHaveQArmor flag MakePurchase set (so the vendor stops
+# offering), but the token grants no item; the AP grant elsewhere in the seed
+# populates the real equipment. When the option is off the morph is skipped and
+# Fred/George keep their vanilla drop.
 quidditch_purchases:
-  - { id_offset: 5, name: "Castle Exterior - Nimbus 2001",      vendor_class: FredWeasley,   vanilla_sells: Sells_Nimbus2001, region: CastleExterior, group: QuidditchPurchases, notes: "Fred Weasley sells the Nimbus broom for ~700 beans on the Castle Exterior grounds. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned VendorNimbusBroom actor and swaps to APCardMarker_PHCard." }
-  - { id_offset: 6, name: "Castle Exterior - Quidditch Armour", vendor_class: GeorgeWeasley, vanilla_sells: Sells_QArmor,     region: CastleExterior, group: QuidditchPurchases, notes: "George Weasley sells the Quidditch armour. Vendor only spawns after Harry has Rictusempra. AP intercepts the spawned QArmor actor and swaps to APCardMarker_PHCard." }
+  - { id_offset: 5, name: "Castle Exterior - Nimbus 2001",      vendor_class: FredWeasley,   vanilla_sells: Sells_Nimbus2001, region: CastleExterior, group: QuidditchPurchases, notes: "Fred Weasley sells the Nimbus broom for ~700 beans on the Castle Exterior grounds. Vendor only spawns after Harry has Rictusempra. AP morphs the thrown VendorNimbusBroom in place into a pickup token; the check fires when Harry picks it up." }
+  - { id_offset: 6, name: "Castle Exterior - Quidditch Armour", vendor_class: GeorgeWeasley, vanilla_sells: Sells_QArmor,     region: CastleExterior, group: QuidditchPurchases, notes: "George Weasley sells the Quidditch armour. Vendor only spawns after Harry has Rictusempra. AP morphs the thrown QArmor in place into a pickup token; the check fires when Harry picks it up." }
 
 # 10 duel-win locations at the Duelling Club, one per ranked duel. Each check
 # fires when Harry wins the corresponding Duel0N standalone level. `duel_rank`

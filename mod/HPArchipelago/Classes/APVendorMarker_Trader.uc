@@ -14,7 +14,7 @@
 //
 // Semantics differ from APCardMarker: this is a non-card AP location (band
 // 800-812), so Touch dedupes via NonCardLocationChecked[] and fires
-// SendCheckLocationId, like APVendorMarker_Nimbus, not SendCheck.
+// SendCheckLocationId (a non-card AP location), not SendCheck.
 //
 // Spawned by APCardWatcher.TradersanityPass when it sees a freshly-sold item
 // next to an unchecked Tradersanity vendor; CheckLocationId is stamped after
@@ -94,7 +94,7 @@ function Touch(Actor Other)
         PlaySound(soundPickup);
     }
 
-    // AP pickup burst, matching APCardMarker / APVendorMarker_Nimbus styling.
+    // AP pickup burst, matching APCardMarker styling.
     // Pitch=16464 emits the stars upward.
     rotPickupFX.Pitch = 16464;
     rotPickupFX.Yaw = 0;
@@ -130,7 +130,7 @@ defaultproperties
     // Id=200 is the WizardCards[] sentinel APCardMarker uses so vanilla
     // card-owner sweeps skip this marker. classStatusGroup/Item cleared so no
     // inherited HProp pickup pipeline grants inventory on touch (Touch never
-    // calls Super anyway; defensive, mirrors APVendorMarker_Nimbus).
+    // calls Super anyway; defensive).
     Id=200
     bPickupOnTouch=True
     PickupFlyTo=FT_HudPosition

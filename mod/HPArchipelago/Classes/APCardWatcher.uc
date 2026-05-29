@@ -200,6 +200,18 @@ const SELLS_FMUCUS = 3;
 const SELLS_BRONZE = 4;
 const SELLS_SILVER = 5;
 
+// --- Fred / George (Nimbus 2001 / Quidditch Armour) in-place AP tokens -------
+// The thrown VendorNimbusBroom / QArmor is morphed in place (never destroyed +
+// respawned) so it keeps the Velocity / PHYS_Falling / arc vanilla MakePurchase
+// gave it, mirroring the Tradersanity ingredient token. WeasleyToken holds the
+// morphed prop; the check fires when it is picked up (ref None / bDeleteMe).
+// WeasleyDispensed marks that a prop has been bound this session. Index 0 =
+// Nimbus 2001 (5760005), 1 = Quidditch Armour (5760006). INSTANCE state, not
+// class-default: actor refs in a class-default array crash level cleanup (see
+// MorphActor[]); re-acquired each level from the bPersistent prop.
+var Actor WeasleyToken[2];
+var byte  WeasleyDispensed[2];
+
 var harry HarryRef;
 var StatusItemWizardCards siBronze;
 var StatusItemWizardCards siSilver;
@@ -3721,77 +3733,37 @@ function ScanStuckEctoplasm()
     }
 }
 
-// Per-tick scan for VendorNimbusBroom / QArmor actors freshly spawned by
-// Characters.MakePurchase (line 631-636 in vanilla Characters.uc). Each one
-// is destroyed and replaced with our AP-aware subclass at the same
-// Location/Rotation, with CheckLocationId baked in. The replacement's Touch
-// fires CHECK_LOCID instead of granting the inventory item, so AP retains
-// control over what the player actually receives from buying.
+// Per-tick handling of the items Fred (Nimbus 2001) and George (Quidditch
+// Armour) throw on a purchase (Characters.MakePurchase, Characters.uc:616).
+// Like the Tradersanity ingredient path, the thrown VendorNimbusBroom / QArmor
+// is morphed IN PLACE into this location's AP pickup token, never destroyed and
+// respawned. A destroy+respawn copied only Location/Rotation, so the new actor
+// lost the throw Velocity vanilla gave it and dropped straight down from
+// wherever the 0.25s tick caught it mid-arc, sometimes into unreachable
+// geometry (the "Fred/George item went missing" reports). Mutating in place
+// keeps the exact Velocity / PHYS_Falling / arc, so it lands like vanilla.
 //
-// Skips actors that are already our subclass so re-running is idempotent.
-// If the location is already AP-checked (e.g. the player bought once already
-// in this session and AP banked it), destroy the freshly-spawned vanilla
-// item with no replacement — buying twice shouldn't double-fire.
-//
-// Mirrors ReplaceVendorSpawnedCards's structure for the cards path.
+// Gated on bQuidditchUpgrades, exactly as TradersanityPass is gated on
+// TradersanityMode: when the option is off the two locations do not exist in
+// the seed (gen_apworld drops them), so the vanilla broom / armour is left
+// untouched and the player receives the real item.
 function ReplaceVendorEquipment()
 {
     local VendorNimbusBroom broom;
     local QArmor armor;
-    local APVendorMarker_Nimbus apNimbus;
-    local APVendorMarker_QArmor apArmor;
-    local Vector loc;
-    local Rotator rot;
-    local int slot;
 
-    foreach AllActors(class'VendorNimbusBroom', broom)
+    if (default.bQuidditchUpgrades == 1)
     {
-        if (ClassIsChildOf(broom.Class, class'APVendorMarker_Nimbus')) continue;
-        slot = 5760005 - LOC_BASE;  // "Castle Exterior - Nimbus 2001" id_offset 5
-        if (default.NonCardLocationChecked[slot] == 1)
+        foreach AllActors(class'VendorNimbusBroom', broom)
         {
-            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: Nimbus location already AP-checked - destroying vanilla broom with no replacement");
-            broom.Destroy();
-            continue;
+            MorphWeasleyPropInPlace(broom, 0, 5760005);  // Castle Exterior - Nimbus 2001
         }
-        loc = broom.Location;
-        rot = broom.Rotation;
-        Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: swapping VendorNimbusBroom -> APVendorMarker_Nimbus at " $ string(loc));
-        broom.Destroy();
-        apNimbus = Spawn(class'APVendorMarker_Nimbus', , , loc, rot);
-        if (apNimbus == None)
+        foreach AllActors(class'QArmor', armor)
         {
-            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: Spawn(APVendorMarker_Nimbus) returned None");
-            continue;
+            MorphWeasleyPropInPlace(armor, 1, 5760006);  // Castle Exterior - Quidditch Armour
         }
-        apNimbus.CheckLocationId = 5760005;
-        RegisterMorphMarker(apNimbus, 5760005);
-        apNimbus.ApplyAPAppearance();
-    }
-
-    foreach AllActors(class'QArmor', armor)
-    {
-        if (ClassIsChildOf(armor.Class, class'APVendorMarker_QArmor')) continue;
-        slot = 5760006 - LOC_BASE;  // "Castle Exterior - Quidditch Armour" id_offset 6
-        if (default.NonCardLocationChecked[slot] == 1)
-        {
-            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: QArmor location already AP-checked - destroying vanilla armor with no replacement");
-            armor.Destroy();
-            continue;
-        }
-        loc = armor.Location;
-        rot = armor.Rotation;
-        Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: swapping QArmor -> APVendorMarker_QArmor at " $ string(loc));
-        armor.Destroy();
-        apArmor = Spawn(class'APVendorMarker_QArmor', , , loc, rot);
-        if (apArmor == None)
-        {
-            Log("[Archipelago] APCardWatcher.ReplaceVendorEquipment: Spawn(APVendorMarker_QArmor) returned None");
-            continue;
-        }
-        apArmor.CheckLocationId = 5760006;
-        RegisterMorphMarker(apArmor, 5760006);
-        apArmor.ApplyAPAppearance();
+        FireWeasleyCheck(0, 5760005, HarryRef != None && HarryRef.bHaveNimbus2001);
+        FireWeasleyCheck(1, 5760006, HarryRef != None && HarryRef.bHaveQArmor);
     }
 
     // Tradersanity vendors.
@@ -3813,6 +3785,87 @@ function ReplaceVendorEquipment()
     // "sorry, I'm out" via Characters.SayPopupLine (which has NO empty-key
     // fast path — an empty id surfaces the engine's <?int?…?> placeholder).
     TradersanityKillPostTradeOutOfStockPass();
+}
+
+// Morph a freshly-thrown VendorNimbusBroom / QArmor into this location's AP
+// pickup token without destroying it, so it keeps its vanilla throw arc.
+// Mirrors the Tradersanity PotionIngredients morph: null the grant fields
+// (StatusManager.PickupItem / GetHudLocation both early-return on a null
+// classStatusItem, so pickup adds no inventory) and set PickupFlyTo to FT_None
+// so the pickup skips the HUD fly that needs a valid classStatusItem (the
+// ingredient tokens inherit FT_None - this matches them). FireWeasleyCheck
+// fires the check when the token is picked up. Idempotent: an already-morphed
+// prop (classStatusItem already None, e.g. a bPersistent broom back on level
+// re-entry) is just re-bound as the token.
+function MorphWeasleyPropInPlace(HProp prop, int wi, int locId)
+{
+    local int slot;
+
+    if (prop == None || prop.bDeleteMe) return;
+    slot = locId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+
+    if (default.NonCardLocationChecked[slot] == 1)
+    {
+        // Already collected; a leftover (e.g. save-load-restored) prop must not
+        // re-arm. The purchase set bHave* so no fresh one spawns.
+        prop.Destroy();
+        return;
+    }
+
+    if (prop.classStatusItem == None)
+    {
+        // Already our token; re-bind quietly on a fresh per-level watcher.
+        WeasleyToken[wi]     = prop;
+        WeasleyDispensed[wi] = 1;
+        return;
+    }
+
+    prop.classStatusGroup = None;
+    prop.classStatusItem  = None;
+    prop.PickupFlyTo      = prop.EPickupFlyTo.FT_None;
+    ApplyAppearanceTo(prop, AppearanceForApId(locId));
+    RegisterMorphMarker(prop, locId);
+    WeasleyToken[wi]     = prop;
+    WeasleyDispensed[wi] = 1;
+    Log("[Archipelago] APCardWatcher.MorphWeasleyPropInPlace: morphed "
+        $ string(prop.Class.Name) $ " in place to AP token (loc id " $ locId
+        $ ") - keeps vanilla throw arc, check fires on pickup");
+}
+
+// Fire the Weasley AP check once. Primary trigger: the morphed token was picked
+// up, so its ref is now None / bDeleteMe (mirrors the Tradersanity token-pickup
+// fire). Safety net: the player paid (bHave* set) but no token is live and none
+// was bound this session - the thrown prop was grabbed in the sub-tick race
+// before the morph, or an old-format marker was dropped on a cross-version save
+// load - fire directly so the paid check can't strand.
+function FireWeasleyCheck(int wi, int locId, bool bPaid)
+{
+    local APIPCActor ipc;
+    local int slot;
+    local bool bPickedUp, bPaidNoToken;
+
+    slot = locId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    if (default.NonCardLocationChecked[slot] == 1) return;
+
+    bPickedUp = (WeasleyDispensed[wi] == 1
+                 && (WeasleyToken[wi] == None || WeasleyToken[wi].bDeleteMe));
+    bPaidNoToken = (bPaid && WeasleyDispensed[wi] == 0 && WeasleyToken[wi] == None);
+    if (!bPickedUp && !bPaidNoToken) return;
+
+    ipc = class'APIPCActor'.static.GetInstance();
+    if (ipc != None) ipc.SendCheckLocationId(locId);
+    default.NonCardLocationChecked[slot] = 1;
+    WeasleyToken[wi] = None;
+    if (bPickedUp)
+    {
+        Log("[Archipelago] APCardWatcher.FireWeasleyCheck: AP token picked up (loc id " $ locId $ ") - fired CHECK_LOCID");
+    }
+    else
+    {
+        Log("[Archipelago] APCardWatcher.FireWeasleyCheck: paid but no token resolved (loc id " $ locId $ ") - fired CHECK_LOCID directly");
+    }
 }
 
 // Edge-detect the player engaging a Tradersanity vendor's dialogue: on the
