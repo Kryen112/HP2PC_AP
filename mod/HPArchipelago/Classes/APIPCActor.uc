@@ -34,6 +34,15 @@ const POST_SNAPSHOT_WARMUP_SECS = 3.0;
 var bool bWantsReconnect;
 var float NextReconnectAttempt;
 var float ReconnectBackoff;
+// Recurring "not connected" reminder. Counts Timer ticks (0.25s each) while the
+// link is not STATE_Connected; at NOT_CONNECTED_TOAST_TICKS it fires a toast and
+// resets, so a repeating reminder shows every ~10s. Reset to 0 the moment the
+// link connects, so a normal fast connect never toasts. Tick-counted (not
+// Level.TimeSeconds) so it survives the per-level clock reset across travel.
+// Hop-1 only: this is the mod's own TcpLink state to the client, not the
+// client's link to the AP server.
+var int NotConnectedToastTicks;
+const NOT_CONNECTED_TOAST_TICKS = 40;
 // ReceivedText delivers raw TCP chunks, not one-line-per-event. When the client
 // burst-writes a resync (e.g. 39 GRANTs back-to-back), TCP coalesces them into
 // one or a few packets; UE1 fires ReceivedText with the whole blob. We have to
@@ -528,6 +537,38 @@ event Timer()
     TryReconnect();
     TryDrainPendingGrants();
     TickRingLink();
+    TickNotConnectedToast();
+}
+
+// Recurring reminder while the IPC link to the client is down. Hop-1 only: keyed
+// on this actor's own TcpLink state, not on the client's link to the AP server,
+// so it stops the moment the mod reaches the client even if AP itself is down
+// (the client pushes its own one-shot "Disconnected from AP server" toast for
+// that case). GetInstance() is None before a toast actor exists and EnqueueToast
+// no-ops, and toasts only render in HUD states, so this is silent at the title
+// screen / menus / loading and shows once the player is in-game.
+function TickNotConnectedToast()
+{
+    local APHUDToast toast;
+
+    if (LinkState == STATE_Connected)
+    {
+        NotConnectedToastTicks = 0;
+        return;
+    }
+
+    NotConnectedToastTicks++;
+    if (NotConnectedToastTicks < NOT_CONNECTED_TOAST_TICKS)
+    {
+        return;
+    }
+    NotConnectedToastTicks = 0;
+
+    toast = class'APHUDToast'.static.GetInstance();
+    if (toast != None)
+    {
+        toast.EnqueueToast("Not connected to Archipelago. Is the client running?");
+    }
 }
 
 // RingLink poll + drain. The poll diffs whenever harry + StatusManager
