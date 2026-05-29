@@ -1144,6 +1144,7 @@ BLACKLIST: set[tuple[str, str]] = {
     ("Magic_sfx", "pickup_WC_gold"),  # gold card pickup (APCardMarker.soundPickup)
     ("Magic_sfx", "vendor_spawn_WC"),  # AP toast whoosh (APHUDToast.ToastSound)
     ("Critters_sfx", "pickup_frog"),  # Chocolate Frog grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Magic_sfx", "pickup_wizardcard"),  # vanilla card pickup (kept for safety; AP markers use pickup_WC_*)
 }
 
 
