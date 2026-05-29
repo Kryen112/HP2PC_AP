@@ -2029,6 +2029,11 @@ event Timer()
         // spell-revert loop, which we return short of, can run. Idempotent
         // with the TrapTick() below; only acts when a trap is active.
         TrapTick();
+        // Same reasoning for the stuck-ectoplasm release: a save reloaded
+        // (death respawn, level return) restores the slime's serialised claim
+        // on Harry, so clear it on this first bind tick instead of one tick
+        // later. Idempotent; only acts when a slime wrongly claims a Harry.
+        ScanStuckEctoplasm();
         return;
     }
 
@@ -2088,6 +2093,7 @@ event Timer()
     ScanBossKills(ipc);
     ScanDeathLink(ipc);
     ScanFinalStarCompletion();
+    ScanStuckEctoplasm();
 
     // Lesson-end hook for the four spell-tutorial location checks.
     // Fires CHECK_SPELL the tick after harry.CurrSpellLesson transitions from
@@ -3659,6 +3665,59 @@ function ScanBossKills(APIPCActor ipc)
                 break;
             }
         }
+    }
+}
+
+// Generous cylinder-overlap test: True when the pawn is anywhere inside the
+// slime's collision volume, widened on both axes so a player genuinely
+// standing in the slime is never falsely reported as outside. Being a strict
+// superset of the engine's Touch region is the safety property that makes
+// ScanStuckEctoplasm unable to cancel legitimate ectoplasm damage.
+function bool PawnInEctoVolume(Ectoplasma ecto, Actor pawn)
+{
+    local float dx, dy, rSum, dz, zLimit;
+
+    dx = pawn.Location.X - ecto.Location.X;
+    dy = pawn.Location.Y - ecto.Location.Y;
+    rSum = ecto.CollisionRadius + pawn.CollisionRadius + 24.0;
+    if (dx * dx + dy * dy > rSum * rSum)
+        return False;
+
+    zLimit = ecto.CollisionHeight + pawn.CollisionHeight + 80.0;
+    dz = pawn.Location.Z - ecto.Location.Z;
+    if (dz > zLimit || dz < -zLimit)
+        return False;
+
+    return True;
+}
+
+// Release ectoplasm that is still draining Harry from a distance. A
+// phase-through glitch can carry Harry out of a slime's collision without the
+// engine ever firing UnTouch, so its aSlimedHPawn stays bound to him and the
+// 0.5s damage Timer keeps hitting him anywhere in the level. Both aSlimedHPawn
+// (on the slime) and Harry's iEctoRefCount are non-transient, so a level save
+// serialises the stuck claim and it survives travel, reload, and death.
+// Vanilla only drops the claim on UnTouch or a state change, neither of which
+// the glitch triggers. Reconcile it here: any slime claiming a Harry who is no
+// longer inside its volume is released, and that Harry's ecto ref is
+// decremented so EctoRefSub's 1->0 cleanup (run speed, anim set, sounds) runs.
+// EctoplasmaBIG and Ectoblob both extend Ectoplasma, so one scan covers all.
+function ScanStuckEctoplasm()
+{
+    local Ectoplasma ecto;
+    local harry slimed;
+
+    foreach AllActors(class'Ectoplasma', ecto)
+    {
+        slimed = harry(ecto.aSlimedHPawn);
+        if (slimed == None) continue;
+        if (PawnInEctoVolume(ecto, slimed)) continue;
+
+        ecto.aSlimedHPawn = None;
+        slimed.EctoRefSub();
+        Log("[Archipelago] APCardWatcher.ScanStuckEctoplasm: released stuck "
+            $ string(ecto) $ " claim on " $ string(slimed)
+            $ " (phase-through, no UnTouch fired)");
     }
 }
 
