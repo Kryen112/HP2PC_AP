@@ -32,8 +32,8 @@ from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                         MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS)
-from .regions import (REGION_ENTRY_RULES_OPEN_CASTLE, REGION_ENTRY_RULES_VANILLA,
-                      REGION_NAMES, START_REGION)
+from .regions import (REGION_ENTRY_RULES_OPEN_CASTLE,
+                      REGION_ENTRY_RULES_VANILLA, REGION_NAMES, START_REGION)
 from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_VANILLA,
                     LOCATION_RULES_OPEN_CASTLE, LOCATION_RULES_VANILLA)
 
@@ -121,18 +121,16 @@ class HP2Location(Location):
 class GameMode(Choice):
     """Which install layout this seed targets.
 
-    `vanilla` (default): retail HP2 + M212 patch — the normal story flow.
+    `vanilla` (default): retail HP2 + M212 patch, the normal story flow.
     Whether the 7 region keys gate their regions behind bookcases or are
-    precollected is governed by `vanilla_gate_levels`; the other 7 keys are
+    precollected is governed by `vanilla_gate_levels`. The other 7 keys are
     always precollected here.
 
     `open_castle`: the HP2 Bingo community pack's distribution maps (every
     door unlocked from spawn). All 14 bookcase-blocker keys are AP items
     gating each level transition.
 
-    Which spells Harry starts with is governed by `starting_spells`;
-    `vanilla_gate_levels` governs the 7 region keys. Neither is set by this
-    option.
+    Harry's starting spells are set by `starting_spells`, not by this option.
     """
     display_name = "Game Mode"
     option_vanilla = 0
@@ -148,8 +146,8 @@ class VanillaGateLevels(DefaultOnToggle):
     every earlier level key, matching vanilla's linear story order).
 
     If false, those 7 keys are precollected instead, so the regions open
-    immediately and no bookcases spawn — the classic precollect-everything
-    vanilla flow. Has no effect in open castle mode (all 14 keys are always AP
+    immediately and no bookcases spawn (the classic precollect-everything
+    vanilla flow). Has no effect in open castle mode (all 14 keys are always AP
     items there).
     """
     display_name = "Vanilla gate levels"
@@ -158,14 +156,13 @@ class VanillaGateLevels(DefaultOnToggle):
 class StartingSpells(OptionSet):
     """Spells Harry starts with. Any spell not listed is an AP item instead.
 
-    `vanilla` game_mode physically requires Lumos and Flipendo to finish the
-    Whomping Willow level, and the vanilla logic gates every Hogwarts /
-    Castle Exterior location behind both. If either is missing here in
-    vanilla, generate_early force-adds it: there is no reachable sphere-0
-    location for fill to put them on otherwise. Open castle leaves the set
-    untouched.
+    The `vanilla` game mode physically requires Lumos and Flipendo to finish
+    the Whomping Willow level, and the vanilla logic gates every Hogwarts and
+    Castle Exterior location behind both. If either is missing here in vanilla,
+    they are added automatically, since the seed would otherwise have nowhere
+    reachable to place them. Open castle leaves the set untouched.
 
-    Valid spells: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo & Spongify.
+    Valid spells: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo, Spongify.
     """
     display_name = "Starting Spells"
     valid_keys = frozenset(SPELL_ITEM_NAMES)
@@ -179,10 +176,11 @@ class EnableWizardCards(DefaultOnToggle):
 
 
 class EnableSecrets(DefaultOnToggle):
-    """If true, the 109 Secrets become AP locations (both game modes).
+    """If true, the 109 Secrets become AP locations, plus open castle's 9 in
+    the Gryffindor challenge (118 total in open castle).
 
     The `allow_secrets_progression` missable-vs-replayable split is
-    vanilla-only; in open castle every level is infinitely replayable, so all
+    vanilla-only. In open castle every level is infinitely replayable, so all
     enabled secrets follow normal region-entry logic.
     """
     display_name = "Enable Secrets"
@@ -215,7 +213,7 @@ class EnableChallengeStars(DefaultOnToggle):
 
 
 class EnableDuelling(Toggle):
-    """If true, each of the 10 duels at the Duelling Club become a location.
+    """If true, each of the 10 duels at the Duelling Club becomes a location.
     """
     display_name = "Enable Duelling"
 
@@ -248,7 +246,7 @@ class EnableQuidditchUpgrades(Toggle):
 # plus a free integer, and supports yaml `random` / `random-low` / `random-high`.
 class OpenCastleGoalCards(NamedRange):
     """Open castle only. Wizard cards needed to open the Great Hall. 0
-    disables this clause. Counts cards Harry actually owns (incl. AP-granted)."""
+    disables this clause. Counts cards Harry actually owns (including AP-granted)."""
     display_name = "Open castle goal: cards"
     range_start = 0
     range_end = 101
@@ -291,19 +289,16 @@ class OpenCastleGoalQuidditch(Toggle):
 
 
 class RingLink(Toggle):
-    """If true, organic changes to your Bertie Bott's bean total — in-game
-    pickups and vendor spending — are mirrored to every other RingLink slot
-    in the room, and their organic bean changes are applied to yours
-    (clamped at zero). AP-granted bean filler and the Bean Thief trap are
-    not mirrored. Interoperable with Sonic-style RingLink games. Core
-    Archipelago ships a DeathLink option but no RingLink class (it is a
-    convention), so this toggle is defined here."""
+    """If true, in-game bean pickups and vendor spending are mirrored
+    to every other RingLink slot in the room, and their currency changes
+    are applied to yours. AP-granted bean filler and the Bean Thief trap
+    are not mirrored."""
     display_name = "Ring Link"
 
 
 class EnableTraps(Toggle):
     """If true, trap items (Bean Thief, Goyle Transformation, Forgetfulness)
-    enter the seed, replacing a fraction of the filler set by `trap_fill_percent`."""
+    enter the seed, replacing a fraction (set by `trap_fill_percent`) of the filler."""
     display_name = "Enable Traps"
 
 
@@ -319,12 +314,18 @@ class TrapFillPercent(Range):
 class Tradersanity(Choice):
     """Every non-Weasley card vendor and ingredient vendor sells one AP
     location check on its first sale, then permanently reverts to selling its
-    normal card/ingredient. Fred & George (Nimbus 2001 / Quidditch Armour) are
-    untouched. `off` (default) leaves all vendors vanilla and emits no
-    Tradersanity locations. The three on settings differ only in what the
-    AP-check sale costs: `price_vanilla` keeps the vendor's normal asking
-    price, `price_random` randomises it within a band, `price_low` clamps it
-    to a cheap fixed price."""
+    normal card or ingredient. The price mode sets what that AP sale costs:
+
+    off: vendors sell their normal stock only, no AP checks.
+
+    price_vanilla: a normal in-game price. Ingredient vendors keep their real
+    price; card vendors charge a card-like price.
+
+    price_random: a random price per vendor, fixed for the whole seed, from
+    10 to 250 beans.
+
+    price_low: a flat low price of 10 beans for every vendor.
+    """
     display_name = "Tradersanity"
     option_off = 0
     option_price_vanilla = 1
@@ -335,45 +336,43 @@ class Tradersanity(Choice):
 
 class TradersanityHintOnOpen(Toggle):
     """If true, opening a Tradersanity vendor's dialogue for the first time
-    publishes a broadcast hint for that vendor's AP check, so the room sees
-    which item each trader is holding before any beans change hands. Hints
-    are deduped per seed via AP server Data Storage. No effect when
-    `tradersanity` is off."""
+    publishes a broadcast hint for that vendor's AP check.
+    No effect when `tradersanity` is off."""
     display_name = "Tradersanity hint on open"
     default = 1
 
 
 class SkipVendorVoices(Toggle):
-    """If true, every vendor's in-trade voice cues (sell / out-of-stock /
-    transaction-done / decline / not-enough-beans / narrator instruction /
-    Harry's inquiry) are skipped — DoCutTalk takes its empty-dialog fast
-    path and fires the cue immediately, so trades resolve in a fraction of
-    a second instead of the multi-second vanilla pace. The proximity lure
-    line is left alone. Useful for Tradersanity runs where the same
-    dialogue is heard dozens of times."""
+    """If true, every vendor's in-trade voice cues (sell / transaction-done
+    / decline / narrator instruction / Harry's inquiry) are skipped."""
     display_name = "Skip vendor voices"
     default = 0
 
 
 class MusicRandomizer(Toggle):
-    """If true, every music track is swapped for another from the same pool,
-    deterministic per AP seed. Two pools curated in music_pool.py: long-form
-    background music shuffles within MUSIC_POOL, short cues (win / fail / snitch
-    horn etc.) within JINGLE_POOL, so a cue stays a cue. The client swaps the
-    Music ogg files on disk on connect (no mod changes), so every reference is
-    covered, including cutscene and menu music. Pure runtime: no fill/logic
-    impact."""
+    """If true, every music track is swapped for another from the same pool.
+    Requires the client to be run in administrator mode if the game files
+    live inside your program files.
+    Upon first connect, you need to tell your client where your game files live.
+
+    There are 2 music pools:
+    A long-form background music pool and a shorter pool of jingles.
+
+    Music can be reshuffled if needed with the /reroll_music command.
+    Music can be restored to their original with the /restore_music command."""
     display_name = "Music randomizer"
 
 
 class SoundRandomizer(Toggle):
-    """If true, every sound effect is swapped for another of similar length,
-    deterministic per AP seed. Sounds shuffle within duration bands (short /
-    medium / long) defined in sound_pool.py, so a short footstep only ever
-    becomes another short sound. The client applies it by binary-patching the
-    local HPSounds.u on connect (no mod changes, reversible from a backup);
-    different seeds get different mappings. Pure runtime: no fill/logic
-    impact."""
+    """If true, every sound effect is swapped for another of similar length.
+    Requires the client to be run in administrator mode if the game files
+    live inside your program files.
+    Upon first connect, you need to tell your client where your game files live.
+
+    Sounds shuffle within their own group (short / medium / long).
+
+    Sounds can be reshuffled if needed with the /reroll_sounds command.
+    Sounds can be restored to their original with the /restore_sounds command."""
     display_name = "Sound randomizer"
 
 
