@@ -203,7 +203,13 @@ You're playing.
 
 ### Sound randomizer (optional)
 
-Set `sound_randomizer: true` in your player yaml to shuffle every sound effect, deterministically per seed (a short sound only ever becomes another short sound). It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u` when you connect, keeping a one-time `HPSounds.u.orig` backup.
+Set `sound_randomizer` in your player yaml to shuffle the sound effects, deterministically per seed (a short sound only ever becomes another short sound). It has three settings:
+
+- `off` (default): sound effects are left alone.
+- `on`: every sound effect is shuffled.
+- `no_footsteps`: the same, but Harry's footstep sounds are left alone, since randomizing them can get overwhelming.
+
+It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u` when you connect, keeping a one-time `HPSounds.u.orig` backup.
 
 - **Install path (one per mode, you pick it).** There is no default. The first time you connect to a sound-randomizer seed, the client pops a folder picker and asks for the install that matches the seed's game mode (the folder that contains `system\HPSounds.u`). Your choice is saved to `host.yaml`, so you are asked only once per mode. You can also set it ahead of time (or change it later) by editing host.yaml directly; if you run a single install for both modes, point both fields at it:
 

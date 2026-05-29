@@ -363,17 +363,25 @@ class MusicRandomizer(Toggle):
     display_name = "Music randomizer"
 
 
-class SoundRandomizer(Toggle):
-    """If true, every sound effect is swapped for another of similar length.
+class SoundRandomizer(Choice):
+    """Shuffle the sound effects, deterministically per seed.
     Requires the client to be run in administrator mode if the game files
     live inside your program files.
     Upon first connect, you need to tell your client where your game files live.
 
-    Sounds shuffle within their own group (short / medium / long).
+    `off` (default): sound effects are left alone.
+    `on`: every sound effect is swapped for another of similar length (sounds
+    shuffle within their own length band: short / medium / long).
+    `no_footsteps`: the same, but Harry's footstep sounds are left alone, since
+    randomizing them can be overwhelming.
 
-    Sounds can be reshuffled if needed with the /reroll_sounds command.
+    Sounds can be reshuffled with the /reroll_sounds command.
     Sounds can be restored to their original with the /restore_sounds command."""
     display_name = "Sound randomizer"
+    option_off = 0
+    option_on = 1
+    option_no_footsteps = 2
+    default = 0
 
 
 class DialogueRandomizer(Choice):
@@ -965,11 +973,13 @@ class HP2World(World):
         if bool(self.options.music_randomizer.value):
             sd["music_randomizer"] = True
             sd["music_seed"] = self.random.randint(0, 2**31 - 1)
-        # Sound randomizer (both game modes). Only the per-seed salt rides the
-        # wire; the client owns sound_pool.py and recomputes the shuffle, so an
-        # off seed carries nothing and an on seed carries a single int.
-        if bool(self.options.sound_randomizer.value):
-            sd["sound_randomizer"] = True
+        # Sound randomizer (both game modes). A Choice (off / on / no_footsteps):
+        # the mode rides the wire so the client knows whether to leave Harry's
+        # footsteps alone, alongside the per-seed salt. The client owns
+        # sound_pool.py and recomputes the shuffle. Suppressed when off.
+        sound_mode = self.options.sound_randomizer.current_key
+        if sound_mode != "off":
+            sd["sound_mode"] = sound_mode
             sd["sound_seed"] = self.random.randint(0, 2**31 - 1)
         # Dialogue randomizer (both game modes). A Choice (off / within_actor /
         # all_actors): the mode rides the wire so the client knows whether to

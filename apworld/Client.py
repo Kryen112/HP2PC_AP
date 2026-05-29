@@ -134,15 +134,17 @@ class _AudioKind:
         self.reroll_cmd = reroll_cmd  # "/reroll_sounds"
         self.patch = patch            # module: apply_patch / restore_original / package_path
         self.present = present        # (install) -> bool: the target file/folder is there
-        self.mode_aware = mode_aware  # dialogue carries a shuffle mode on top of a seed
+        self.mode_aware = mode_aware  # sound/dialogue carry a shuffle mode on top of a seed
 
 
 # Sound and dialogue repoint a UE1 package, music swaps loose oggs; all three
 # back up once, apply on Connected, restore when off, and reshuffle on /reroll_*.
+# mode_aware kinds (sound, dialogue) carry a per-seed mode (self.audio_mode).
 _AUDIO_KINDS = {
     "sound": _AudioKind(
         "Sound randomizer", "sounds", "HPSounds.u.orig backup", "/reroll_sounds",
-        sound_patch, lambda p: os.path.exists(sound_patch.package_path(p))),
+        sound_patch, lambda p: os.path.exists(sound_patch.package_path(p)),
+        mode_aware=True),
     "music": _AudioKind(
         "Music randomizer", "music", "Music backup", "/reroll_music",
         music_patch, lambda p: os.path.isdir(music_patch.music_dir(p))),
@@ -551,7 +553,9 @@ class HP2Context(CommonContext):
         # mode ("within_actor" / "all_actors"); sound and music are plain on/off.
         self.audio_enabled: dict[str, bool] = {kind: False for kind in _AUDIO_KINDS}
         self.audio_seed: dict[str, Optional[int]] = {kind: None for kind in _AUDIO_KINDS}
-        self.dialogue_mode: Optional[str] = None
+        # Per-seed shuffle mode for the mode_aware kinds (sound: on / no_footsteps;
+        # dialogue: within_actor / all_actors). None for music and for off kinds.
+        self.audio_mode: dict[str, Optional[str]] = {kind: None for kind in _AUDIO_KINDS}
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
@@ -1073,23 +1077,25 @@ class HP2Context(CommonContext):
         (prompting the player at most once) and runs the file work in an executor."""
         try:
             open_castle = sd.get("game_mode") == "open_castle"
-            sound_on = bool(sd.get("sound_randomizer"))
+            sound_mode = sd.get("sound_mode")        # None / absent when off
             music_on = bool(sd.get("music_randomizer"))
             dialogue_mode = sd.get("dialogue_mode")  # None / absent when off
-            self.dialogue_mode = dialogue_mode
-            self.audio_enabled["sound"] = sound_on
+            self.audio_mode["sound"] = sound_mode
+            self.audio_mode["dialogue"] = dialogue_mode
+            self.audio_enabled["sound"] = bool(sound_mode)
             self.audio_enabled["music"] = music_on
             self.audio_enabled["dialogue"] = bool(dialogue_mode)
-            self.audio_seed["sound"] = self._effective_seed(sd, "sound", "sound_seed") if sound_on else None
+            self.audio_seed["sound"] = (
+                self._effective_seed(sd, "sound", "sound_seed") if sound_mode else None)
             self.audio_seed["music"] = self._effective_seed(sd, "music", "music_seed") if music_on else None
             self.audio_seed["dialogue"] = (
                 self._effective_seed(sd, "dialogue", "dialogue_seed") if dialogue_mode else None)
-            any_on = sound_on or music_on or bool(dialogue_mode)
+            any_on = bool(sound_mode) or music_on or bool(dialogue_mode)
 
             install = _hp2_install_path(open_castle)
             valid = bool(install) and os.path.exists(sound_patch.package_path(install))
             logger.info(
-                f"Audio randomizer: sound={sound_on} music={music_on} "
+                f"Audio randomizer: sound={sound_mode or 'off'} music={music_on} "
                 f"dialogue={dialogue_mode or 'off'} "
                 f"mode={'open_castle' if open_castle else 'vanilla'} "
                 f"install={install!r} valid={valid}"
@@ -1122,7 +1128,7 @@ class HP2Context(CommonContext):
                 seed = self.audio_seed[kind]
                 if spec.mode_aware:
                     fut = loop.run_in_executor(
-                        None, spec.patch.apply_patch, install, seed, self.dialogue_mode)
+                        None, spec.patch.apply_patch, install, seed, self.audio_mode[kind])
                 else:
                     fut = loop.run_in_executor(None, spec.patch.apply_patch, install, seed)
             elif spec.present(install):
@@ -1227,7 +1233,7 @@ class HP2Context(CommonContext):
         try:
             if spec.mode_aware:
                 result = await loop.run_in_executor(
-                    None, spec.patch.apply_patch, install, new_seed, self.dialogue_mode)
+                    None, spec.patch.apply_patch, install, new_seed, self.audio_mode[kind])
             else:
                 result = await loop.run_in_executor(None, spec.patch.apply_patch, install, new_seed)
         except _PATCH_ERRORS as exc:

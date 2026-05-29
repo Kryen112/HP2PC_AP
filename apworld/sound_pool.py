@@ -9,6 +9,11 @@ source audio, parsed at generation time; the client never reads wavs.
 BLACKLIST holds feedback cues that are never randomized and never used as a shuffle
 target (found-secret jingle, card pickup, AP toast sounds). It is generated from
 BLACKLIST in tools/gen_sound_pool.py; edit there and regenerate, do not hand-edit.
+
+FOOTSTEPS holds Harry's footstep sounds (the whole FootSteps group plus the
+per-level HAR_foot_wood3 copies). They are left alone only in the 'no_footsteps'
+mode; in normal 'on' mode they shuffle like any other sound. Derived from the
+FootSteps group membership; regenerate, do not hand-edit.
 """
 
 from __future__ import annotations
@@ -1147,11 +1152,63 @@ BLACKLIST: set[tuple[str, str]] = {
     ("Magic_sfx", "pickup_wizardcard"),  # vanilla card pickup (kept for safety; AP markers use pickup_WC_*)
 }
 
+FOOTSTEPS: set[tuple[str, str]] = {
+    ("Adv3DungeonQuest", "HAR_foot_wood3"),
+    ("Adv4Greenhouse", "HAR_foot_wood3"),
+    ("Adv6Goyle", "HAR_foot_wood3"),
+    ("Adv7SlythComRoom", "HAR_foot_wood3"),
+    ("Adv8Forest", "HAR_foot_wood3"),
+    ("Ch3Diffindo", "HAR_foot_wood3"),
+    ("Ch6WizardCard", "HAR_foot_wood3"),
+    ("cocacola", "HAR_foot_wood3"),
+    ("FootSteps", "HAR_acid_burn1"),
+    ("FootSteps", "HAR_acid_burn2"),
+    ("FootSteps", "HAR_acid_burn3"),
+    ("FootSteps", "HAR_broken_ankle"),
+    ("FootSteps", "HAR_foot_cave1"),
+    ("FootSteps", "HAR_foot_cave2"),
+    ("FootSteps", "HAR_foot_cave3"),
+    ("FootSteps", "HAR_foot_cloud1"),
+    ("FootSteps", "HAR_foot_cloud2"),
+    ("FootSteps", "HAR_foot_cloud3"),
+    ("FootSteps", "HAR_foot_ecto1"),
+    ("FootSteps", "HAR_foot_ecto2"),
+    ("FootSteps", "HAR_foot_ecto3"),
+    ("FootSteps", "HAR_foot_grass1"),
+    ("FootSteps", "HAR_foot_grass2"),
+    ("FootSteps", "HAR_foot_grass3"),
+    ("FootSteps", "HAR_foot_metal1"),
+    ("FootSteps", "HAR_foot_metal2"),
+    ("FootSteps", "HAR_foot_metal3"),
+    ("FootSteps", "HAR_foot_rug1"),
+    ("FootSteps", "HAR_foot_rug1-01"),
+    ("FootSteps", "HAR_foot_rug2"),
+    ("FootSteps", "HAR_foot_rug3"),
+    ("FootSteps", "HAR_foot_sneak1"),
+    ("FootSteps", "HAR_foot_sneak2"),
+    ("FootSteps", "HAR_foot_sneak3"),
+    ("FootSteps", "HAR_foot_stone1"),
+    ("FootSteps", "HAR_foot_stone2"),
+    ("FootSteps", "HAR_foot_stone3"),
+    ("FootSteps", "HAR_foot_wet1"),
+    ("FootSteps", "HAR_foot_wet2"),
+    ("FootSteps", "HAR_foot_wet3"),
+    ("FootSteps", "HAR_foot_wood1"),
+    ("FootSteps", "HAR_foot_wood2"),
+    ("FootSteps", "HAR_foot_wood3"),
+    ("FootSteps", "HAR_landing_metal"),
+    ("FootSteps", "HAR_landing_rug"),
+    ("FootSteps", "HAR_landing_stone"),
+    ("FootSteps", "HAR_landing_wet"),
+    ("FootSteps", "HAR_landing_wood"),
+}
+
 
 # Tripwire: the client shuffles each band and identity-maps the blacklist, so the
 # bands must be non-empty, every (group, name) must be unique across all bands
 # (case-insensitive, matching the engine's FName comparison), and every blacklist
-# entry must name a real table sound. Fail loudly at import, not on a poisoned seed.
+# and footstep entry must name a real table sound. Fail loudly at import, not on a
+# poisoned seed.
 _ALL = SHORT + MEDIUM + LONG
 assert SHORT and MEDIUM and LONG, "every duration band must be non-empty"
 _lower = [(g.lower(), n.lower()) for g, n in _ALL]
@@ -1160,3 +1217,6 @@ assert not _dupes, f"duplicate (group, name) across bands: {_dupes}"
 _known = set(_lower)
 _unknown = sorted(p for p in ((g.lower(), n.lower()) for g, n in BLACKLIST) if p not in _known)
 assert not _unknown, f"BLACKLIST names sounds absent from the table: {_unknown}"
+assert FOOTSTEPS, "FOOTSTEPS must be non-empty"
+_fs_unknown = sorted(p for p in ((g.lower(), n.lower()) for g, n in FOOTSTEPS) if p not in _known)
+assert not _fs_unknown, f"FOOTSTEPS names sounds absent from the table: {_fs_unknown}"
