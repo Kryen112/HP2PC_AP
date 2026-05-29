@@ -376,6 +376,31 @@ class SoundRandomizer(Toggle):
     display_name = "Sound randomizer"
 
 
+class DialogueRandomizer(Choice):
+    """Shuffle the spoken dialogue / voice lines.
+    Requires the client to be run in administrator mode if the game files
+    live inside your program files.
+    Upon first connect, you need to tell your client where your game files live.
+
+    `off` (default): dialogue is left alone.
+    `within_actor`: each character's lines are shuffled among their own, so every
+    character keeps their own voice but says the wrong things.
+    `all_actors`: lines are shuffled across every character, so anyone can speak
+    anyone's line.
+
+    Subtitles are shuffled to match, so the on-screen caption reads the line you
+    actually hear. A few lines have no subtitle in the game (match commentary,
+    ambient mutters, alternate takes); those show none, just like the original.
+
+    Dialogue can be reshuffled with the /reroll_dialogue command.
+    Dialogue can be restored to its original with the /restore_dialogue command."""
+    display_name = "Dialogue randomizer"
+    option_off = 0
+    option_within_actor = 1
+    option_all_actors = 2
+    default = 0
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -412,6 +437,7 @@ class HP2Options(PerGameCommonOptions):
     skip_vendor_voices: SkipVendorVoices
     music_randomizer: MusicRandomizer
     sound_randomizer: SoundRandomizer
+    dialogue_randomizer: DialogueRandomizer
     # Rendered under their own OptionGroup headers (see
     # HP2WebWorld.option_groups), so the dataclass position here does not
     # affect template ordering.
@@ -945,6 +971,14 @@ class HP2World(World):
         if bool(self.options.sound_randomizer.value):
             sd["sound_randomizer"] = True
             sd["sound_seed"] = self.random.randint(0, 2**31 - 1)
+        # Dialogue randomizer (both game modes). A Choice (off / within_actor /
+        # all_actors): the mode rides the wire so the client knows whether to
+        # shuffle each speaker's lines among themselves or across all speakers,
+        # alongside the per-seed salt. Suppressed when off.
+        dialogue_mode = self.options.dialogue_randomizer.current_key
+        if dialogue_mode != "off":
+            sd["dialogue_mode"] = dialogue_mode
+            sd["dialogue_seed"] = self.random.randint(0, 2**31 - 1)
         if not self._is_open_castle():
             sd["game_mode"] = "vanilla"
             return sd

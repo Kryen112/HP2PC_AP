@@ -225,6 +225,19 @@ Set `music_randomizer: true` in your player yaml to shuffle every music track, d
 - **Same install path, permissions, and timing** as the sound randomizer above (it uses the same per-mode `install_folder`, picks it once, needs write access / admin under `Program Files`, and takes effect on the next launch).
 - **Reshuffle**: `/reroll_music`. **Revert**: `/restore_music`, or connect to a seed with the option off. Restart once to hear the change.
 
+### Dialogue randomizer (optional)
+
+Set `dialogue_randomizer` in your player yaml to shuffle the spoken voice lines, deterministically per seed. It has three settings:
+
+- `off` (default): dialogue is left alone.
+- `within_actor`: each character's lines are shuffled among their own, so every character keeps their own voice but says the wrong things.
+- `all_actors`: lines are shuffled across every character, so anyone can speak anyone's line.
+
+It works the same way as the sound randomizer: the client binary-patches `<install>\Sounds\AllDialog.uax` (the voices) and `<install>\system\hpdialog.int` (the subtitles) on connect, keeping one-time `.orig` backups of both. Both are shuffled with the same permutation, so the caption you read matches the line you hear. A few clips have no subtitle in the game to begin with (Quidditch/duel commentary, ambient mutters, alternate takes); when one of those plays it shows no caption, exactly as in the unmodified game.
+
+- **Same install path, permissions, and timing** as the sound randomizer above (same per-mode `install_folder`, picks it once, needs write access / admin under `Program Files`, takes effect on the next launch).
+- **Reshuffle**: `/reroll_dialogue` (keeps the seed's mode). **Revert**: `/restore_dialogue`, or connect to a seed with the option off, or manually copy `AllDialog.uax.orig` and `hpdialog.int.orig` back over their files. Restart once to hear the change.
+
 ## Verify it's working
 
 Quick checklist after first launch:
