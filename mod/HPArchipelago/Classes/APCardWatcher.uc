@@ -5,6 +5,17 @@ const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
 const NUM_BLOCKER_KEYS = 14;
 
+// Shift-to-run. While Shift is held and Harry is actually running on the
+// ground with beans to spend, GroundSpeed is scaled by SPRINT_SPEED_MULTIPLIER
+// and SPRINT_BEAN_COST beans are spent per 0.25s watcher tick. The spend goes
+// through the organic managerStatus.AddBeans path so APIPCActor.TickRingLink
+// mirrors it to RingLink automatically. SPRINT_MIN_SPEED is the velocity floor
+// (uu/s) that distinguishes "running" from standing still, so idling on Shift
+// costs nothing.
+const SPRINT_SPEED_MULTIPLIER = 1.5;
+const SPRINT_BEAN_COST = 1;
+const SPRINT_MIN_SPEED = 10.0;
+
 // Story state when the player first gains control in the Great Hall after
 // the opening sequence — the checkpoint where vanilla assigns silver wizard
 // cards to vendors, reached in both vanilla and open castle. The one-time startup
@@ -218,6 +229,12 @@ var StatusItemWizardCards siSilver;
 var StatusItemWizardCards siGold;
 var byte WasOwnedByHarry[102];
 var bool bSnapshotted;
+
+// Shift-to-run falling-edge latch. 1 while SprintTick has GroundSpeed scaled
+// up; lets the restore write the base GroundSpeed back exactly once when sprint
+// ends, instead of every tick, so it can't continuously stomp an ecto/sleepy/
+// web slowdown that is legitimately driving GroundSpeed.
+var byte bSprintApplied;
 var int LastBronzeCount;
 var int LastSilverCount;
 var int LastGoldCount;
@@ -1188,6 +1205,46 @@ function TrapTick()
     }
 
     default.TrapLastLevelName = curLevel;
+}
+
+// Called once per Timer() tick (after Snapshot, HarryRef valid). Shift-to-run:
+// while Shift is held, Harry is in a playable state, running on the ground, and
+// has beans, scale GroundSpeed up and spend beans this tick. The spend uses the
+// organic managerStatus.AddBeans path (NOT MutateBeansNoBroadcast) so
+// APIPCActor.TickRingLink picks up the bean delta and broadcasts it to RingLink.
+// AddBeans floors at 0, so the drain self-stops when beans run out. GroundSpeed
+// is re-applied every sprinting tick (state code rewrites it on transitions),
+// and restored to the base exactly once on the falling edge via bSprintApplied.
+function SprintTick()
+{
+    local HPConsole console;
+    local string deferReason;
+    local bool bWantSprint;
+
+    if (HarryRef == None || HarryRef.managerStatus == None)
+    {
+        return;
+    }
+
+    console = HPConsole(HarryRef.Player.Console);
+    bWantSprint = console != None
+        && console.bShiftDown
+        && HarryRef.Physics == PHYS_Walking
+        && VSize(HarryRef.Velocity) > SPRINT_MIN_SPEED
+        && HarryRef.managerStatus.GetBeanCount() > 0
+        && class'APGameInfo'.static.IsPlayerInPlayableState(HarryRef, deferReason);
+
+    if (bWantSprint)
+    {
+        HarryRef.GroundSpeed = HarryRef.GroundRunSpeed * SPRINT_SPEED_MULTIPLIER;
+        HarryRef.managerStatus.AddBeans(-SPRINT_BEAN_COST);
+        bSprintApplied = 1;
+    }
+    else if (bSprintApplied == 1)
+    {
+        HarryRef.GroundSpeed = HarryRef.GroundRunSpeed;
+        bSprintApplied = 0;
+    }
 }
 
 // Pop the leading comma-delimited integer off `rest` (consumes it, including
@@ -2192,6 +2249,9 @@ event Timer()
     // change. Runs before the spell-revert loop so a same-tick restore is
     // visible to it (and bSpellTrapActive is cleared before that loop checks).
     TrapTick();
+
+    // Shift-to-run upkeep: scale GroundSpeed + drain beans while sprinting.
+    SprintTick();
 
     for (id = 1; id <= MAX_CARD_ID; id++)
     {
