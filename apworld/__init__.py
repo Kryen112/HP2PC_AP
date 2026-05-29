@@ -207,8 +207,9 @@ class AllowSecretsProgression(Toggle):
 
 
 class EnableChallengeStars(DefaultOnToggle):
-    """If true, the 44 Challenge Stars across the 4 spell-challenges
-    (Rictusempra, Skurge, Diffindo, Spongify) become AP locations.
+    """If true, the Challenge Stars become AP locations: 44 across the 4
+    spell-challenges (Rictusempra, Skurge, Diffindo, Spongify), plus open
+    castle's 10 in the Gryffindor challenge (54 total in open castle).
     """
     display_name = "Enable Challenge Stars"
 

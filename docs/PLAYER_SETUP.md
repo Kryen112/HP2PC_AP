@@ -106,7 +106,7 @@ If you're playing solo (just you, no other AP slots):
    | ------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------- |
    | `enable_wizard_cards`          | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
    | `enable_secrets`               | on      | 109 secret-area pickups across all levels.                                                                 |
-   | `enable_challenge_stars`       | on      | 44 challenge stars across the 4 spell-challenge levels.                                                    |
+   | `enable_challenge_stars`       | on      | 44 challenge stars across the 4 spell-challenge levels (open castle adds 10 in the Gryffindor challenge, 54 total). |
    | `enable_duelling`              | off     | 10 Duelling Club ranked-duel wins.                                                                         |
    | `enable_quidditch_matches`     | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
    | `enable_spell_challenge_times` | off     | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.                |
