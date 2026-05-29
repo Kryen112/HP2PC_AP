@@ -1245,6 +1245,9 @@ class HP2Context(CommonContext):
     async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
         logger.info(f"Game connected from {peer}")
+        # Surface the game link in the client window too (ui_logger = "Client"
+        # logger). logger above is HP2Client, which is file-only.
+        ui_logger.info("The Harry Potter 2 game connected to this client. It can now send and receive items.")
         self.game_writer = writer
         # Fresh game session — clear the per-session sent-index guard so the
         # HELLO re-forward / drain below repopulate it from scratch.
@@ -1281,6 +1284,7 @@ class HP2Context(CommonContext):
             pass
         finally:
             logger.info(f"Game disconnected ({peer})")
+            ui_logger.info("The Harry Potter 2 game disconnected from this client. Relaunch the game to reconnect.")
             # Only clear game_writer if it's still OUR writer. On Windows
             # ProactorEventLoop the previous game's readline can wake up
             # *after* a new game has already connected and replaced
@@ -1951,9 +1955,21 @@ class HP2Context(CommonContext):
         self.checked_csv = None
 
     async def run_tcp_server(self) -> None:
-        server = await asyncio.start_server(
-            self.handle_game_connection, GAME_TCP_HOST, GAME_TCP_PORT
-        )
+        try:
+            server = await asyncio.start_server(
+                self.handle_game_connection, GAME_TCP_HOST, GAME_TCP_PORT
+            )
+        except OSError as exc:
+            # Surface a bind failure in the client window (ui_logger), not just
+            # the file log. Without this the listener silently dies and the game
+            # never connects with no obvious reason.
+            ui_logger.error(
+                f"Could not open the game connection port {GAME_TCP_HOST}:{GAME_TCP_PORT} "
+                f"({exc}). Another program is already using it (often a second client "
+                f"instance, or a local Archipelago server set to this port). Close it and "
+                f"restart the client."
+            )
+            return
         sockets = ", ".join(str(s.getsockname()) for s in server.sockets)
         logger.info(f"Game-side TCP listener up on {sockets}")
         async with server:
