@@ -88,6 +88,11 @@ objects via `#exec Audio Import` in `HPSounds/Classes/PackSounds.uc`). There is 
   restore only takes effect on the next launch. The install stays patched between sessions
   until something restores it; we accept that and make the off-ramp obvious rather than
   auto-cleaning on exit.
+- **Reroll** (`/reroll_sounds`): rolls a fresh seed, re-patches from `.orig`, and stores a
+  per-AP-seed override (a small JSON sidecar in the AP user folder, keyed `seed:slot`) that the
+  Connected handler prefers over the slot_data `sound_seed`. Without the override the reconnect
+  triggered by the restart-to-hear-it would re-apply the slot_data seed and undo the reshuffle.
+  For when a specific swap is annoying and the player just wants a different set.
 - **Backup integrity**: a file with **no trailer is pristine original and authoritative**.
   - `.orig` is taken or refreshed from any no-trailer working file. This auto-handles a game
     reinstall: the fresh original file has no trailer, so it becomes the new `.orig`.

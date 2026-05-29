@@ -51,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import os
 import random
@@ -89,6 +90,37 @@ def _hp2_install_path(open_castle: bool) -> Optional[str]:
     except Exception:
         return None
     return path or None
+
+
+# /reroll_sounds overrides, keyed by "<ap seed>:<slot>" so each multiworld keeps
+# its own reshuffle and the reroll survives the reconnect after the restart. Kept
+# in a small JSON sidecar in the AP user folder, not host.yaml (it is per-seed
+# state, not a setting).
+def _reroll_store_path() -> str:
+    from Utils import user_path
+    return user_path("hp2pc_ap_sound_rerolls.json")
+
+
+def _load_rerolls() -> dict:
+    try:
+        with open(_reroll_store_path(), encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+def _get_reroll(key: str) -> Optional[int]:
+    value = _load_rerolls().get(key)
+    return int(value) if value is not None else None
+
+
+def _save_reroll(key: str, seed: int) -> None:
+    data = _load_rerolls()
+    data[key] = int(seed)
+    with open(_reroll_store_path(), "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+
+
 # All wizard-card item names, derived from ITEM_GROUPS so it can never drift
 # from data/items.yaml. Used by /progress to count cards in received items.
 CARD_ITEM_NAMES_SET = frozenset(
@@ -249,6 +281,23 @@ class HP2CommandProcessor(ClientCommandProcessor):
                 self.output(f"{mode}: already original.")
             else:
                 self.output(f"{mode}: no HPSounds.u.orig backup found; nothing to restore.")
+        return True
+
+    def _cmd_reroll_sounds(self) -> bool:
+        """Reshuffle the sound randomizer with a fresh seed (e.g. if a swapped
+        sound is annoying). The new shuffle is remembered for this seed, so it
+        sticks across restarts. Takes effect on the next game launch."""
+        ctx: "HP2Context" = self.ctx
+        if not ctx.sound_randomizer_enabled:
+            self.output("Reroll needs a connected seed with the sound randomizer on.")
+            return True
+        install = _hp2_install_path(ctx.is_open_castle)
+        if not install or not os.path.exists(sound_patch.package_path(install)):
+            self.output("No valid install folder for this seed's mode yet. Reconnect "
+                        "and pick it first.")
+            return True
+        self.output("Reshuffling sounds. Restart Harry Potter once it finishes.")
+        asyncio.create_task(ctx._reroll_sounds(install))
         return True
 
     def _cmd_progress(self) -> bool:
@@ -980,8 +1029,12 @@ class HP2Context(CommonContext):
         that matches the seed's game mode. The file work runs in an executor so
         the 100+ MB rewrite never blocks the event loop."""
         enabled = bool(sd.get("sound_randomizer"))
-        seed = int(sd.get("sound_seed") or 0)
         open_castle = sd.get("game_mode") == "open_castle"
+        # A /reroll_sounds override (per AP seed) wins over the slot_data seed so a
+        # reroll survives the reconnect that the restart-to-hear-it triggers.
+        base_seed = int(sd.get("sound_seed") or 0)
+        override = _get_reroll(self._reroll_key()) if enabled else None
+        seed = override if override is not None else base_seed
         self.sound_randomizer_enabled = enabled
         self.sound_seed = seed if enabled else None
 
@@ -1073,6 +1126,29 @@ class HP2Context(CommonContext):
                 logger.info("Original sounds restored. Restart Harry Potter.")
             else:
                 logger.info("Original sounds restored; original SFX load on next launch.")
+
+    def _reroll_key(self) -> str:
+        """Per-AP-seed key for a /reroll_sounds override."""
+        return f"{self._last_seed_name}:{self.slot}"
+
+    async def _reroll_sounds(self, install: str) -> None:
+        """Re-patch with a fresh seed and remember it for this AP seed so the
+        reshuffle survives reconnects. Runs the file work in an executor."""
+        new_seed = random.randint(0, 2**31 - 1)
+        loop = asyncio.get_event_loop()
+        try:
+            result = await loop.run_in_executor(
+                None, sound_patch.apply_patch, install, new_seed)
+        except (sound_patch.PatchError, OSError) as exc:
+            logger.error(f"Sound randomizer reroll: {exc}")
+            return
+        self.sound_seed = new_seed
+        _save_reroll(self._reroll_key(), new_seed)
+        if result == "patched":
+            self._toast_to_game("Sounds reshuffled. Restart to hear the new set.")
+            logger.info("Sounds reshuffled. Restart Harry Potter to hear the new set.")
+        else:
+            logger.info("Reshuffle landed on the same set; run /reroll_sounds again.")
 
     async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")
