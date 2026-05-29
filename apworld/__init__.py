@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import random as _random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
+import settings
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          LocationProgressType, Region)
 from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
@@ -365,6 +366,17 @@ class MusicRandomizer(Toggle):
     display_name = "Music randomizer"
 
 
+class SoundRandomizer(Toggle):
+    """If true, every sound effect is swapped for another of similar length,
+    deterministic per AP seed. Sounds shuffle within duration bands (short /
+    medium / long) defined in sound_pool.py, so a short footstep only ever
+    becomes another short sound. The client applies it by binary-patching the
+    local HPSounds.u on connect (no mod changes, reversible from a backup);
+    different seeds get different mappings. Pure runtime: no fill/logic
+    impact."""
+    display_name = "Sound randomizer"
+
+
 @dataclass
 class HP2Options(PerGameCommonOptions):
     # PerGameCommonOptions includes start_inventory (just-add) but NOT
@@ -400,6 +412,7 @@ class HP2Options(PerGameCommonOptions):
     tradersanity_hint_on_open: TradersanityHintOnOpen
     skip_vendor_voices: SkipVendorVoices
     music_randomizer: MusicRandomizer
+    sound_randomizer: SoundRandomizer
     # Rendered under their own OptionGroup headers (see
     # HP2WebWorld.option_groups), so the dataclass position here does not
     # affect template ordering.
@@ -429,12 +442,38 @@ class HP2WebWorld(WebWorld):
     ]
 
 
+class HP2Settings(settings.Group):
+    # One install folder per game mode: a vanilla seed patches the vanilla
+    # install, an open castle seed patches the open castle install. Both blank by
+    # default and not framework-required (no surprise folder picker from the
+    # client); the client refuses to patch and names the right field when a needed
+    # folder is unset. Only the sound randomizer reads these. Each must be the
+    # folder that contains the 'system' directory with HPSounds.u.
+    class VanillaInstallFolder(settings.UserFolderPath):
+        """Install folder for vanilla-mode seeds: the directory that contains the
+        'system' folder with HPSounds.u. Used only by the sound randomizer. Use
+        forward slashes. Leave blank if you do not use the sound randomizer."""
+        description = "Harry Potter 2 vanilla install folder"
+        required = False
+
+    class OpenCastleInstallFolder(settings.UserFolderPath):
+        """Install folder for open-castle-mode seeds: the directory that contains
+        the 'system' folder with HPSounds.u. Used only by the sound randomizer.
+        Use forward slashes. Leave blank if you do not use the sound randomizer."""
+        description = "Harry Potter 2 open castle install folder"
+        required = False
+
+    vanilla_install_folder: VanillaInstallFolder = VanillaInstallFolder("")
+    open_castle_install_folder: OpenCastleInstallFolder = OpenCastleInstallFolder("")
+
+
 class HP2World(World):
     """Harry Potter and the Chamber of Secrets (PC) randomizer."""
 
     game = "Harry Potter 2 PC"
     web = HP2WebWorld()
     options_dataclass = HP2Options
+    settings: ClassVar[HP2Settings]
 
     item_name_to_id = ITEM_NAME_TO_ID
     location_name_to_id = LOCATION_NAME_TO_ID
@@ -908,6 +947,12 @@ class HP2World(World):
             sd["music_pool"] = list(MUSIC_POOL)
             sd["jingle_pool"] = list(JINGLE_POOL)
             sd["music_seed"] = self.random.randint(0, 2**31 - 1)
+        # Sound randomizer (both game modes). Only the per-seed salt rides the
+        # wire; the client owns sound_pool.py and recomputes the shuffle, so an
+        # off seed carries nothing and an on seed carries a single int.
+        if bool(self.options.sound_randomizer.value):
+            sd["sound_randomizer"] = True
+            sd["sound_seed"] = self.random.randint(0, 2**31 - 1)
         if not self._is_open_castle():
             sd["game_mode"] = "vanilla"
             return sd

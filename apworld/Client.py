@@ -52,6 +52,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import logging
+import os
 import random
 import sys
 import time
@@ -65,18 +66,29 @@ from typing import Optional
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
 
 import CommonClient
-from CommonClient import CommonContext, ClientCommandProcessor, get_base_parser, server_loop, gui_enabled
+from CommonClient import (ClientCommandProcessor, CommonContext,
+                          get_base_parser, gui_enabled, server_loop)
 from NetUtils import ClientStatus, SlotType
 
-from .locations import (
-    CARD_CLASS_TO_LOCATION_NAME,
-    CARD_GAME_ID_TO_LOCATION_NAME,
-    LOCATION_GROUPS,
-    LOCATION_NAME_TO_ID,
-)
+from . import HP2World, sound_patch
 from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
+from .locations import (CARD_CLASS_TO_LOCATION_NAME,
+                        CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
+                        LOCATION_NAME_TO_ID)
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
+
+
+def _hp2_install_path(open_castle: bool) -> Optional[str]:
+    """Configured install folder for the seed's game mode (open castle vs
+    vanilla), or None. Read at call time so a host.yaml edit needs no client
+    change. An unset folder is filtered by the caller's HPSounds.u existence check."""
+    field = "open_castle_install_folder" if open_castle else "vanilla_install_folder"
+    try:
+        path = str(getattr(HP2World.settings, field)).strip()
+    except Exception:
+        return None
+    return path or None
 # All wizard-card item names, derived from ITEM_GROUPS so it can never drift
 # from data/items.yaml. Used by /progress to count cards in received items.
 CARD_ITEM_NAMES_SET = frozenset(
@@ -211,6 +223,34 @@ def _log_safe(text: str, limit: int = 180) -> str:
 
 
 class HP2CommandProcessor(ClientCommandProcessor):
+    def _cmd_restore_sounds(self) -> bool:
+        """Restore the original SFX: copy HPSounds.u.orig back over HPSounds.u for
+        every configured install, without connecting to a seed. Takes effect on
+        the next game launch."""
+        installs = []
+        for mode, open_castle in (("vanilla", False), ("open castle", True)):
+            path = _hp2_install_path(open_castle)
+            if path and os.path.exists(sound_patch.package_path(path)):
+                installs.append((mode, path))
+        if not installs:
+            self.output("No install with system/HPSounds.u is configured. Set "
+                        "'harry_potter_2_pc_options' -> vanilla_install_folder / "
+                        "open_castle_install_folder in host.yaml.")
+            return True
+        for mode, path in installs:
+            try:
+                result = sound_patch.restore_original(path)
+            except (sound_patch.PatchError, OSError) as exc:
+                self.output(f"{mode}: restore failed: {exc}")
+                continue
+            if result == "restored":
+                self.output(f"{mode}: original sounds restored. Restart Harry Potter if it is running.")
+            elif result == "unchanged":
+                self.output(f"{mode}: already original.")
+            else:
+                self.output(f"{mode}: no HPSounds.u.orig backup found; nothing to restore.")
+        return True
+
     def _cmd_progress(self) -> bool:
         """Show progress toward the open castle goal: cards / spells / level
         objectives / duels / quidditch matches against the thresholds the seed
@@ -387,6 +427,12 @@ class HP2Context(CommonContext):
         self.music_pool_csv: Optional[str] = None
         self.jingle_pool_csv: Optional[str] = None
         self.music_seed: Optional[int] = None
+        # Sound randomizer. Unlike music this is not an IPC signal to the mod:
+        # on Connected the client binary-patches the local HPSounds.u (per
+        # sound_pool.py + sound_seed) and the game loads it on next launch. Off
+        # seeds omit both keys (apworld suppresses them) and restore the backup.
+        self.sound_randomizer_enabled: bool = False
+        self.sound_seed: Optional[int] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
@@ -604,6 +650,11 @@ class HP2Context(CommonContext):
                 self.music_seed = None
                 if self.game_writer is not None:
                     self._send_to_game("MUSICRAND 0")
+
+            # Sound randomizer. Patches the local HPSounds.u rather than
+            # signalling the mod; runs off the event loop since it rewrites a
+            # large file. Off seeds restore the .orig backup.
+            asyncio.create_task(self._sync_sound_randomizer(sd))
 
             # RingLink. Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
@@ -923,6 +974,105 @@ class HP2Context(CommonContext):
             self.game_writer.write(("TOAST " + text + "\n").encode("utf-8"))
         except Exception as e:
             logger.warning(f"TOAST drop ({text!r}): write failed: {e}")
+
+    async def _sync_sound_randomizer(self, sd: dict) -> None:
+        """Apply or restore the SFX binary patch for this seed, on the install
+        that matches the seed's game mode. The file work runs in an executor so
+        the 100+ MB rewrite never blocks the event loop."""
+        enabled = bool(sd.get("sound_randomizer"))
+        seed = int(sd.get("sound_seed") or 0)
+        open_castle = sd.get("game_mode") == "open_castle"
+        self.sound_randomizer_enabled = enabled
+        self.sound_seed = seed if enabled else None
+
+        install = _hp2_install_path(open_castle)
+        if not install or not os.path.exists(sound_patch.package_path(install)):
+            if not enabled:
+                return  # nothing configured to restore; stay silent
+            # Sound randomizer is on but this mode's install is unset/wrong: ask
+            # the player to pick it once, then remember it in host.yaml.
+            install = await self._prompt_install_folder(open_castle)
+            if not install:
+                return
+
+        loop = asyncio.get_event_loop()
+        try:
+            if enabled:
+                result = await loop.run_in_executor(
+                    None, sound_patch.apply_patch, install, seed)
+            else:
+                result = await loop.run_in_executor(
+                    None, sound_patch.restore_original, install)
+        except (sound_patch.PatchError, OSError) as exc:
+            logger.error(f"Sound randomizer: {exc}")
+            return
+        self._announce_sound_result(enabled, result)
+
+    async def _prompt_install_folder(self, open_castle: bool) -> Optional[str]:
+        """Pop a folder picker for the seed's game mode and persist the choice to
+        host.yaml, so the player picks their install once. Returns the chosen
+        folder (which contains system/HPSounds.u) or None if cancelled / no GUI."""
+        mode = "open castle" if open_castle else "vanilla"
+        field = "open_castle_install_folder" if open_castle else "vanilla_install_folder"
+        try:
+            from Utils import open_directory
+        except Exception:
+            logger.warning(
+                f"Sound randomizer is on, but no folder picker is available here. "
+                f"Set 'harry_potter_2_pc_options' -> '{field}' in host.yaml to your "
+                f"{mode} install folder."
+            )
+            return None
+        title = (f"Select your Harry Potter 2 {mode} install folder.")
+        loop = asyncio.get_event_loop()
+        chosen = await loop.run_in_executor(None, open_directory, title)
+        if not chosen:
+            logger.warning(
+                f"Sound randomizer is on for this {mode} seed but no folder was "
+                f"chosen. Reconnect to pick it, or set 'harry_potter_2_pc_options' "
+                f"-> '{field}' in host.yaml."
+            )
+            return None
+        if not os.path.exists(sound_patch.package_path(chosen)):
+            logger.warning(
+                f"'{chosen}' has no system\\HPSounds.u, so it is not a Harry Potter 2 "
+                f"install folder. Not saved; reconnect to try again."
+            )
+            return None
+        self._save_install_folder(field, chosen)
+        return chosen
+
+    def _save_install_folder(self, field: str, path: str) -> None:
+        """Persist a picked install folder into host.yaml so the player is asked
+        only once per mode."""
+        try:
+            import settings as ap_settings
+            current = getattr(HP2World.settings, field)
+            setattr(HP2World.settings, field, type(current)(path))
+            ap_settings.get_settings().save()
+            logger.info(f"Saved {field} to host.yaml: {path}")
+        except Exception as exc:
+            logger.warning(
+                f"Picked '{path}' but could not save it to host.yaml ({exc}); set "
+                f"'{field}' manually to avoid being asked again."
+            )
+
+    def _announce_sound_result(self, enabled: bool, result: str) -> None:
+        # 'unchanged' / 'no-backup' need no message. A live game already loaded
+        # the old package, so a change needs one restart; if the game is not up
+        # yet, the next launch picks it up with no extra restart.
+        if enabled and result == "patched":
+            if self.game_writer is not None:
+                self._toast_to_game("Sound randomizer applied. Restart to hear it.")
+                logger.info("Sound randomizer applied. Restart Harry Potter to hear it.")
+            else:
+                logger.info("Sound randomizer applied; it loads when you launch Harry Potter.")
+        elif not enabled and result == "restored":
+            if self.game_writer is not None:
+                self._toast_to_game("Original sounds restored. Restart to apply.")
+                logger.info("Original sounds restored. Restart Harry Potter.")
+            else:
+                logger.info("Original sounds restored; original SFX load on next launch.")
 
     async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")

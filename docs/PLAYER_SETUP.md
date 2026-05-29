@@ -201,6 +201,22 @@ The game window should pop a toast top-right when your starting items arrive ("R
 
 You're playing.
 
+### Sound randomizer (optional)
+
+Set `sound_randomizer: true` in your player yaml to shuffle every sound effect, deterministically per seed (a short sound only ever becomes another short sound). It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u` when you connect, keeping a one-time `HPSounds.u.orig` backup.
+
+- **Install path (one per mode, you pick it).** There is no default. The first time you connect to a sound-randomizer seed, the client pops a folder picker and asks for the install that matches the seed's game mode (the folder that contains `system\HPSounds.u`). Your choice is saved to `host.yaml`, so you are asked only once per mode. You can also set it ahead of time (or change it later) by editing host.yaml directly; if you run a single install for both modes, point both fields at it:
+
+  ```yaml
+  harry_potter_2_pc_options:
+    vanilla_install_folder: "<path to your vanilla-mode install>"
+    open_castle_install_folder: "<path to your open-castle-mode install>"
+  ```
+
+- **When it applies.** Connect the client *before* launching the game and the first launch already has the shuffled sounds. If the game is already running when you connect, restart it once (the package is read at launch).
+- **Permissions.** The client patches a file inside your install, so it must be able to write there. If your install is under `Program Files` (the default location for the Harry Potter installation), Windows blocks writes unless the program is elevated, so you **must run ArchipelagoLauncher as administrator** (right-click it, "Run as administrator"). Otherwise the patch fails and the client log says so. Alternatively, use an install in a folder you can write to without elevation.
+- **Revert to the original sounds.** Connect to a seed with the option off (it auto-restores), or type `/restore_sounds` in the client, or manually copy `HPSounds.u.orig` over `HPSounds.u`. Either way, restart the game once to hear the original sounds again.
+
 ## Verify it's working
 
 Quick checklist after first launch:
