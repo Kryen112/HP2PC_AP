@@ -241,6 +241,11 @@ APPEARANCE_FOREIGN_PLAIN = 9000
 APPEARANCE_FOREIGN_ARROW = 9001
 
 logger = logging.getLogger("HP2Client")
+# The Kivy client only renders loggers wired into its on-screen tabs ("Client").
+# HP2Client goes to the log file only, so user-facing randomizer messages (apply /
+# restore / reroll / errors the player must act on) use this so they show in the
+# client window, not just the log file.
+ui_logger = logging.getLogger("Client")
 
 
 def _log_safe(text: str, limit: int = 180) -> str:
@@ -1021,25 +1026,36 @@ class HP2Context(CommonContext):
         """Apply or restore the sound and music file patches for this seed on the
         install matching its game mode. Resolves the install once (prompting the
         player at most once) and runs the file work in an executor."""
-        open_castle = sd.get("game_mode") == "open_castle"
-        sound_on = bool(sd.get("sound_randomizer"))
-        music_on = bool(sd.get("music_randomizer"))
-        self.sound_randomizer_enabled = sound_on
-        self.music_randomizer_enabled = music_on
-        self.sound_seed = self._effective_seed(sd, "sound", "sound_seed") if sound_on else None
-        self.music_seed = self._effective_seed(sd, "music", "music_seed") if music_on else None
+        try:
+            open_castle = sd.get("game_mode") == "open_castle"
+            sound_on = bool(sd.get("sound_randomizer"))
+            music_on = bool(sd.get("music_randomizer"))
+            self.sound_randomizer_enabled = sound_on
+            self.music_randomizer_enabled = music_on
+            self.sound_seed = self._effective_seed(sd, "sound", "sound_seed") if sound_on else None
+            self.music_seed = self._effective_seed(sd, "music", "music_seed") if music_on else None
 
-        install = _hp2_install_path(open_castle)
-        valid = bool(install) and os.path.exists(sound_patch.package_path(install))
-        if (sound_on or music_on) and not valid:
-            install = await self._prompt_install_folder(open_castle)
-            valid = bool(install)
-        if not valid:
-            return
+            install = _hp2_install_path(open_castle)
+            valid = bool(install) and os.path.exists(sound_patch.package_path(install))
+            logger.info(
+                f"Audio randomizer: sound={sound_on} music={music_on} "
+                f"mode={'open_castle' if open_castle else 'vanilla'} "
+                f"install={install!r} valid={valid}"
+            )
+            if not sound_on and not music_on:
+                ui_logger.info("Both randomizers are off for this seed; leaving audio as-is.")
 
-        loop = asyncio.get_event_loop()
-        await self._patch_one(loop, "sound", sound_on, install, self.sound_seed)
-        await self._patch_one(loop, "music", music_on, install, self.music_seed)
+            if (sound_on or music_on) and not valid:
+                install = await self._prompt_install_folder(open_castle)
+                valid = bool(install)
+            if not valid:
+                return
+
+            loop = asyncio.get_event_loop()
+            await self._patch_one(loop, "sound", sound_on, install, self.sound_seed)
+            await self._patch_one(loop, "music", music_on, install, self.music_seed)
+        except Exception:
+            ui_logger.exception("Audio randomizer task crashed")
 
     def _effective_seed(self, sd: dict, kind: str, key: str) -> int:
         """slot_data seed for this kind, unless a /reroll override is saved."""
@@ -1049,6 +1065,7 @@ class HP2Context(CommonContext):
 
     async def _patch_one(self, loop, kind: str, enabled: bool, install: str,
                          seed: Optional[int]) -> None:
+        noun = "Sound randomizer" if kind == "sound" else "Music randomizer"
         if kind == "sound":
             apply_fn, restore_fn = sound_patch.apply_patch, sound_patch.restore_original
             present = os.path.exists(sound_patch.package_path(install))
@@ -1057,13 +1074,23 @@ class HP2Context(CommonContext):
             present = os.path.isdir(music_patch.music_dir(install))
         try:
             if enabled:
-                result = await loop.run_in_executor(None, apply_fn, install, seed)
+                fut = loop.run_in_executor(None, apply_fn, install, seed)
             elif present:
-                result = await loop.run_in_executor(None, restore_fn, install)
+                fut = loop.run_in_executor(None, restore_fn, install)
             else:
                 return
+            # Bound the wait: a denied Program Files write can hang the file op
+            # instead of failing fast, which previously left no message at all.
+            result = await asyncio.wait_for(fut, timeout=20)
+        except asyncio.TimeoutError:
+            ui_logger.error(
+                f"{noun}: writing the install did not finish (the write looks blocked). "
+                f"If the install is under Program Files, close Harry Potter and run the "
+                f"Archipelago launcher as administrator, then reconnect."
+            )
+            return
         except (sound_patch.PatchError, music_patch.PatchError, OSError) as exc:
-            logger.error(f"{kind.capitalize()} randomizer: {exc}")
+            ui_logger.error(f"{kind.capitalize()} randomizer: {exc}")
             return
         self._announce_patch(kind, enabled, result)
 
@@ -1076,7 +1103,7 @@ class HP2Context(CommonContext):
         try:
             from Utils import open_directory
         except Exception:
-            logger.warning(
+            ui_logger.warning(
                 f"A randomizer needs your {mode} install folder, but no folder picker "
                 f"is available here. Set 'harry_potter_2_pc_options' -> '{field}' in "
                 f"host.yaml."
@@ -1086,13 +1113,13 @@ class HP2Context(CommonContext):
         loop = asyncio.get_event_loop()
         chosen = await loop.run_in_executor(None, open_directory, title)
         if not chosen:
-            logger.warning(
+            ui_logger.warning(
                 f"No {mode} install folder chosen. Reconnect to pick it, or set "
                 f"'harry_potter_2_pc_options' -> '{field}' in host.yaml."
             )
             return None
         if not os.path.exists(sound_patch.package_path(chosen)):
-            logger.warning(
+            ui_logger.warning(
                 f"'{chosen}' has no system\\HPSounds.u, so it is not a Harry Potter 2 "
                 f"install folder. Not saved; reconnect to try again."
             )
@@ -1108,31 +1135,33 @@ class HP2Context(CommonContext):
             current = getattr(HP2World.settings, field)
             setattr(HP2World.settings, field, type(current)(path))
             ap_settings.get_settings().save()
-            logger.info(f"Saved {field} to host.yaml: {path}")
+            ui_logger.info(f"Saved {field} to host.yaml: {path}")
         except Exception as exc:
-            logger.warning(
+            ui_logger.warning(
                 f"Picked '{path}' but could not save it to host.yaml ({exc}); set "
                 f"'{field}' manually to avoid being asked again."
             )
 
     def _announce_patch(self, kind: str, enabled: bool, result: str) -> None:
-        # 'unchanged' / 'no-backup' need no message. A live game already loaded
-        # the old files, so a change needs one restart; if the game is not up yet,
-        # the next launch picks it up with no extra restart.
+        # A live game already loaded the old files, so a change needs one restart;
+        # if the game is not up yet, the next launch picks it up with no restart.
         noun = "Sound randomizer" if kind == "sound" else "Music randomizer"
         thing = "sounds" if kind == "sound" else "music"
+        seed = self.sound_seed if kind == "sound" else self.music_seed
         if enabled and result == "patched":
             if self.game_writer is not None:
                 self._toast_to_game(f"{noun} applied. Restart to hear it.")
-                logger.info(f"{noun} applied. Restart Harry Potter to hear it.")
+                ui_logger.info(f"{noun} applied (seed {seed}). Restart Harry Potter to hear it.")
             else:
-                logger.info(f"{noun} applied; it loads when you launch Harry Potter.")
+                ui_logger.info(f"{noun} applied (seed {seed}); it loads when you launch Harry Potter.")
+        elif enabled and result == "unchanged":
+            ui_logger.info(f"{noun}: seed {seed} is already applied to this install; no change.")
         elif not enabled and result == "restored":
             if self.game_writer is not None:
                 self._toast_to_game(f"Original {thing} restored. Restart to apply.")
-                logger.info(f"Original {thing} restored. Restart Harry Potter.")
+                ui_logger.info(f"Original {thing} restored. Restart Harry Potter.")
             else:
-                logger.info(f"Original {thing} restored; they load on next launch.")
+                ui_logger.info(f"Original {thing} restored; they load on next launch.")
 
     def _reroll_key(self) -> str:
         """Per-AP-seed key for a /reroll override."""
@@ -1147,7 +1176,7 @@ class HP2Context(CommonContext):
         try:
             result = await loop.run_in_executor(None, apply_fn, install, new_seed)
         except (sound_patch.PatchError, music_patch.PatchError, OSError) as exc:
-            logger.error(f"{kind.capitalize()} randomizer reroll: {exc}")
+            ui_logger.error(f"{kind.capitalize()} randomizer reroll: {exc}")
             return
         if kind == "sound":
             self.sound_seed = new_seed
@@ -1158,9 +1187,9 @@ class HP2Context(CommonContext):
         cmd = "/reroll_sounds" if kind == "sound" else "/reroll_music"
         if result == "patched":
             self._toast_to_game(f"{thing} reshuffled. Restart to hear the new set.")
-            logger.info(f"{thing} reshuffled. Restart Harry Potter to hear the new set.")
+            ui_logger.info(f"{thing} reshuffled. Restart Harry Potter to hear the new set.")
         else:
-            logger.info(f"Reshuffle landed on the same set; run {cmd} again.")
+            ui_logger.info(f"Reshuffle landed on the same set; run {cmd} again.")
 
     async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         peer = writer.get_extra_info("peername")

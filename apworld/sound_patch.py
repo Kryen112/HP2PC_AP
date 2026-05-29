@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import os
 import struct
-import tempfile
 from collections import namedtuple
 from dataclasses import dataclass
 
@@ -250,18 +249,30 @@ def _read(path: str) -> bytes:
         return f.read()
 
 
+_DENIED_MSG = (
+    "could not write to the Harry Potter install folder (permission denied). Close "
+    "the game if it is running. If the install is under Program Files, close the "
+    "Archipelago launcher and reopen it as administrator, then reconnect."
+)
+
+
 def _atomic_write(path: str, data: bytes) -> None:
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".hpsounds_", suffix=".tmp")
+    # Open the temp file directly rather than via tempfile.mkstemp. On Windows a
+    # denied folder (the usual non-elevated write under Program Files) makes
+    # mkstemp spin TMP_MAX times: it retries every PermissionError that
+    # os.access(W_OK) wrongly reports as writable, stalling this executor thread
+    # for tens of seconds and freezing the window when shutdown joins it on exit.
+    # A plain os.open surfaces the denial at once as the friendly admin message.
+    tmp = os.path.join(os.path.dirname(path), ".hpsounds_" + os.urandom(8).hex() + ".tmp")
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
     try:
+        fd = os.open(tmp, flags, 0o600)
         with os.fdopen(fd, "wb") as f:
             f.write(data)
         os.replace(tmp, path)
     except PermissionError as e:
         _safe_remove(tmp)
-        raise PatchError(
-            "could not write HPSounds.u. Close Harry Potter if it is running, "
-            "and make sure the client can write to the install folder."
-        ) from e
+        raise PatchError(_DENIED_MSG) from e
     except BaseException:
         _safe_remove(tmp)
         raise

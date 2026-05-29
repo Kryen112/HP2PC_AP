@@ -20,7 +20,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import tempfile
 
 try:
     from .music_pool import JINGLE_POOL, MUSIC_POOL
@@ -95,18 +94,30 @@ def _safe_remove(path: str) -> None:
         pass
 
 
+_DENIED_MSG = (
+    "could not write to the Harry Potter install folder (permission denied). Close "
+    "the game if it is running. If the install is under Program Files, close the "
+    "Archipelago launcher and reopen it as administrator, then reconnect."
+)
+
+
 def _atomic_write(path: str, data: bytes) -> None:
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".hpmus_", suffix=".tmp")
+    # Open the temp file directly rather than via tempfile.mkstemp. On Windows a
+    # denied folder (the usual non-elevated write under Program Files) makes
+    # mkstemp spin TMP_MAX times: it retries every PermissionError that
+    # os.access(W_OK) wrongly reports as writable, stalling this executor thread
+    # for tens of seconds and freezing the window when shutdown joins it on exit.
+    # A plain os.open surfaces the denial at once as the friendly admin message.
+    tmp = os.path.join(os.path.dirname(path), ".hpmus_" + os.urandom(8).hex() + ".tmp")
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
     try:
+        fd = os.open(tmp, flags, 0o600)
         with os.fdopen(fd, "wb") as f:
             f.write(data)
         os.replace(tmp, path)
     except PermissionError as e:
         _safe_remove(tmp)
-        raise PatchError(
-            "could not write a music file. Close Harry Potter if it is running, "
-            "and make sure the client can write to the install folder."
-        ) from e
+        raise PatchError(_DENIED_MSG) from e
     except BaseException:
         _safe_remove(tmp)
         raise
@@ -126,7 +137,10 @@ def apply_patch(install_path: str, music_seed: int) -> str:
         return "unchanged"
 
     bdir = _backup_dir(install_path)
-    os.makedirs(bdir, exist_ok=True)
+    try:
+        os.makedirs(bdir, exist_ok=True)
+    except PermissionError as e:
+        raise PatchError(_DENIED_MSG) from e
     present = _present_names(mdir)
     if marker is None:
         for name in present:  # pristine working files seed/refresh the backup
