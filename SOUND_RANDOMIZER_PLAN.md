@@ -46,11 +46,15 @@ objects via `#exec Audio Import` in `HPSounds/Classes/PackSounds.uc`). There is 
     < 10s` (193)**, **long `>= 10s` (66, up to 62.9s, mostly `AMB_*` ambiences)**. A short
     footstep can only become another short sound, so rapid `SLOT_None` sounds
     (`harry.uc:2581`) cannot pile a multi-second clip into noise.
-- **Blacklist (first-class)**: `sound_pool.py` carries a blacklist that starts empty. A
-  blacklisted sound is identity-mapped: excluded from the shuffle and its data left
-  untouched, so it always resolves to itself. This is the playtest lever for sounds that turn
-  out annoying (a looped ambience, a feedback cue the mod relies on). Grown by editing the
-  list, same as the music pools.
+- **Blacklist (first-class)**: `sound_pool.py` carries a blacklist. A blacklisted sound is
+  identity-mapped AND removed from the target pool, so it both stays itself and is never what
+  another sound becomes. It ships with the feedback cues the game/mod depend on: the
+  found-secret jingle (`Music_Events.Found_Secret_Music`), the three card-pickup sounds
+  (`Magic_sfx.pickup_WC_bronze/silver/gold`), and the AP toast sounds
+  (`Magic_sfx.vendor_spawn_WC` plus `Critters_sfx.pickup_frog` for the Chocolate Frog grant).
+  The source of truth is the `BLACKLIST` constant in `tools/gen_sound_pool.py` (the generator
+  validates each entry against the table and emits it into `sound_pool.py`, so it survives a
+  regen); grow it there for any sound that proves annoying in playtest.
 - **Permutation source**: per-slot `sound_seed` rolled from `self.random` at generation,
   shipped in slot_data (mirrors `music_seed`). The client recomputes the permutation from the
   seed plus its local `sound_pool.py`. Deterministic and reproducible.

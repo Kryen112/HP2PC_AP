@@ -6,9 +6,9 @@ medium 3.0s < d < 10.0s, long >= 10.0s. The client shuffles within a band, so a
 short sound only ever becomes another short sound. Durations are intrinsic to the
 source audio, parsed at generation time; the client never reads wavs.
 
-BLACKLIST is the one hand-edited part: add a (group, name) pair to identity-map it
-(excluded from the shuffle, its audio left untouched) when a swapped sound proves
-annoying in playtest.
+BLACKLIST holds feedback cues that are never randomized and never used as a shuffle
+target (found-secret jingle, card pickup, AP toast sounds). It is generated from
+BLACKLIST in tools/gen_sound_pool.py; edit there and regenerate, do not hand-edit.
 """
 
 from __future__ import annotations
@@ -1137,7 +1137,14 @@ LONG: list[tuple[str, str]] = [
     ("Quidditch_sfx", "SS_QUID_Crowd_yeah_lp_01"),
 ]
 
-BLACKLIST: set[tuple[str, str]] = set()
+BLACKLIST: set[tuple[str, str]] = {
+    ("Music_Events", "Found_Secret_Music"),  # found-secret jingle (SecretAreaMarker.FoundSound)
+    ("Magic_sfx", "pickup_WC_bronze"),  # bronze card pickup (APCardMarker.soundPickup)
+    ("Magic_sfx", "pickup_WC_silver"),  # silver card pickup (APCardMarker.soundPickup)
+    ("Magic_sfx", "pickup_WC_gold"),  # gold card pickup (APCardMarker.soundPickup)
+    ("Magic_sfx", "vendor_spawn_WC"),  # AP toast whoosh (APHUDToast.ToastSound)
+    ("Critters_sfx", "pickup_frog"),  # Chocolate Frog grant toast (APGameInfo.GetGrantSoundForItem)
+}
 
 
 # Tripwire: the client shuffles each band and identity-maps the blacklist, so the
