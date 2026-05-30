@@ -3366,6 +3366,12 @@ function Snapshot()
     // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla
     // score. Already-checked stars stay vanilla, so replay still scores.
     ReplaceChallengeStars();
+    // Swap Ch7Gryffindor's placed FinalStar for an AP-aware end star that
+    // credits the completion in EndState, then travels. Ch7Gryffindor has no
+    // ChallengeScoreManager, so the vanilla star travels the same frame it is
+    // destroyed and ScanFinalStarCompletion's poll can never see it. No-op
+    // outside CH7GRYFFINDOR.
+    ReplaceGryffindorEndStar();
     // Spawn the visible Slytherin Common Room end star here (post-Bind, so the
     // HProp's PreBeginPlay resolves a valid PlayerHarry) - APGameInfo.InitGame
     // runs before Harry exists, so a star spawned there has PlayerHarry==None
@@ -4751,6 +4757,50 @@ function ReplaceChallengeStars()
     {
         Log("[Archipelago] APCardWatcher.ReplaceChallengeStars: replaced " $ replaced
             $ " vanilla star(s) with AP markers in " $ levelName);
+    }
+}
+
+// Ch7Gryffindor ships a FinalStar that is present from level start but NO
+// ChallengeScoreManager, so picking it up travels to the hub on the same frame it
+// is destroyed - ScanFinalStarCompletion's present->absent poll never catches it
+// (see APGryffindorEndStar). Swap the placed FinalStar for an AP-aware end star
+// that credits the completion in EndState before travelling, the same destroy+
+// respawn pattern as ReplaceChallengeStars. Level-gated to CH7GRYFFINDOR; runs in
+// both game modes (the "Gryffindor Challenge - Complete" check exists in both).
+function ReplaceGryffindorEndStar()
+{
+    local FinalStar fs;
+    local APGryffindorEndStar apStar;
+    local Vector loc;
+    local Rotator rot;
+    local int replaced;
+
+    if (Caps(string(Level.Outer.Name)) != "CH7GRYFFINDOR") return;
+
+    foreach AllActors(class'FinalStar', fs)
+    {
+        if (fs == None || fs.bDeleteMe) continue;
+        // Skip a replacement from a prior Snapshot this level so a second bind
+        // does not destroy+respawn the AP star (and so the freshly Spawned one
+        // below is never revisited by this same iteration).
+        if (ClassIsChildOf(fs.Class, class'APGryffindorEndStar')) continue;
+
+        loc = fs.Location;
+        rot = fs.Rotation;
+        fs.Destroy();
+        apStar = Spawn(class'APGryffindorEndStar', None, 'APGryffindorEndStar', loc, rot);
+        if (apStar == None)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceGryffindorEndStar: Spawn returned None at "
+                $ string(loc));
+            continue;
+        }
+        replaced++;
+    }
+    if (replaced > 0)
+    {
+        Log("[Archipelago] APCardWatcher.ReplaceGryffindorEndStar: replaced " $ replaced
+            $ " vanilla FinalStar(s) with AP end star in CH7GRYFFINDOR");
     }
 }
 
