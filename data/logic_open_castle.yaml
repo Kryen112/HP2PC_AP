@@ -426,7 +426,8 @@ locations:
   # Spongify Challenge
   "Spongify Challenge - Card Merlin":
     { requires: "Spongify & Flipendo & Lumos & Alohomora" }
-  "Spongify Challenge - Card Po": { requires: "Spongify & Lumos & Alohomora" }
+  "Spongify Challenge - Card Po":
+    { requires: "Spongify & Lumos & Alohomora & Flipendo" }
   "Spongify Challenge - Card Warbeck":
     { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Card Woodcroft":
@@ -502,7 +503,7 @@ locations:
 
   # Chamber Of Secrets
   "Chamber of Secrets - Card Elphick":
-    { requires: "Spongify & Diffindo & Skurge" }
+    { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
   "Chamber of Secrets - Secret 1": { requires: "Skurge & Lumos" }
   "Chamber of Secrets - Secret 2": { requires: "Spongify & Diffindo & Skurge" }
   "Chamber of Secrets - Secret 3":
