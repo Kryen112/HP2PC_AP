@@ -2264,10 +2264,15 @@ function bool TryApplyTrap(string Name, harry h)
         // Reuse the game's own sleepy status effect: GroundSpeed drops to
         // fSleepySpeed (50 vs 210) with the sleepy walk animation set, and
         // harry.Timer()'s SleepyAnimTimerSub counts it back down once per
-        // second over iMaxSleepyAnim seconds, so it self-terminates with no
-        // watcher bookkeeping.
+        // second, restoring speed/anim at 0, so it self-terminates with no
+        // watcher bookkeeping. SleepyAnimTimerAdd clamps to iMaxSleepyAnim
+        // (default 6, the cap organic pixie dust relies on), so use it only to
+        // trigger the slow/anim, then set the countdown to 20s directly. Sub
+        // only decrements and never re-clamps, so the longer timer rides down
+        // cleanly without raising the cap for pixie-dust sleepiness.
         h.SleepyAnimTimerAdd(h.iMaxSleepyAnim);
-        Log("[Archipelago] ApplyGrant: Drowsiness Draught Trap - sleepy slow applied (self-reverts)");
+        h.iSleepyAnimTimer = 20;
+        Log("[Archipelago] ApplyGrant: Drowsiness Draught Trap - sleepy slow applied for 20s (self-reverts)");
         return True;
     }
 
