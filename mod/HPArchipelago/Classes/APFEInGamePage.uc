@@ -4,9 +4,11 @@
 //
 // Recovers from one-way softlocks where Harry has the AP key for a challenge,
 // partially clears it, then can't progress while the doors behind him have
-// trigger-locked. The button teleports to Entryhall_Hub via the same code
-// path harry.uc uses for normal level transitions, preserving inventory and
-// quest state via Travel's bItems flag.
+// trigger-locked. The button teleports to Entryhall_Hub through harry.LoadLevel,
+// the same path the in-world TriggerChangeLevel volumes use, so the level being
+// left first commits its persistent-actor state (found secrets, picked-up beans,
+// world cards, dropped chest loot) via SavePActors and snapshots persistent NPCs.
+// Inventory and quest state still carry over via Travel's bItems flag.
 //
 // Injection: APCardWatcher.Timer swaps menuBook.InGamePage for an instance of
 // this subclass once on first observation. The stock InGamePage is left as a
@@ -236,6 +238,7 @@ function Notify(UWindowDialogControl C, byte E)
 function TeleportToHub()
 {
     local HPConsole console;
+    local harry h;
 
     if (book == None || book.Root == None || book.Root.Console == None)
     {
@@ -248,6 +251,8 @@ function TeleportToHub()
         Log("[Archipelago] APFEInGamePage.TeleportToHub: Root.Console is not HPConsole; aborting");
         return;
     }
+    if (console.Viewport != None)
+        h = harry(console.Viewport.Actor);
     // Close the book before changing levels: it closes naturally as the level
     // tears down, but closing it explicitly first avoids the pause overlay
     // flickering during the travel transition.
@@ -256,9 +261,9 @@ function TeleportToHub()
     // not a Mechanism-C completion, so leaving Willow/Slytherin this way does
     // not falsely credit the clause-3 objective. Keyed to the level being left
     // so a later genuine completion of the same level still counts.
-    if (console.Viewport != None && console.Viewport.Actor != None)
+    if (h != None)
         class'APCardWatcher'.default.MenuReturnFromLevelCaps =
-            Caps(string(console.Viewport.Actor.Level.Outer.Name));
+            Caps(string(h.Level.Outer.Name));
     // Bailing from stateDead via R2EH enters the hub still dead; suppress
     // the first post-travel stateDead so it is treated as the bail-out,
     // not an organic death. 40 ticks ~ 10s at 0.25s/tick mirrors
@@ -266,6 +271,18 @@ function TeleportToHub()
     // accessible cross-class, so the literal is used).
     class'APCardWatcher'.default.bSuppressNextDeathBroadcast = 1;
     class'APCardWatcher'.default.DeathSuppressTicksLeft = 40;
-    Log("[Archipelago] APFEInGamePage.TeleportToHub: ChangeLevel('Entryhall_Hub', True)");
-    console.ChangeLevel("Entryhall_Hub", True);
+    // Leave through harry.LoadLevel (the path TriggerChangeLevel volumes use)
+    // so the bailed level commits its persistent-actor state first: SavePActors
+    // saves found secrets, picked-up beans, world cards and dropped chest loot
+    // that a raw ChangeLevel would discard. LoadLevel still travels bItems=True.
+    if (h != None)
+    {
+        Log("[Archipelago] APFEInGamePage.TeleportToHub: harry.LoadLevel('Entryhall_Hub')");
+        h.LoadLevel("Entryhall_Hub");
+    }
+    else
+    {
+        Log("[Archipelago] APFEInGamePage.TeleportToHub: no harry; ChangeLevel('Entryhall_Hub', True)");
+        console.ChangeLevel("Entryhall_Hub", True);
+    }
 }

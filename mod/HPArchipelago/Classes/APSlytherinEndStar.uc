@@ -5,9 +5,11 @@
 // only behavioural change is a full override of PickupProp.EndState:
 //   - credits the clause-3 Slytherin objective (CHECK_LOCID 5760706) via the
 //     dedupe-safe APCardWatcher.NotifyLevelObjective, then
-//   - travels the player back to Entryhall_Hub through HPConsole.ChangeLevel,
-//     the same inventory/quest-preserving path APFEInGamePage.TeleportToHub
-//     uses.
+//   - travels the player back to Entryhall_Hub through harry.LoadLevel, the
+//     same path APFEInGamePage.TeleportToHub uses, so the room commits its
+//     persistent-actor state (found secrets, picked-up beans, dropped loot) via
+//     SavePActors and snapshots persistent NPCs before travelling, while
+//     inventory and quest state still carry over via Travel's bItems flag.
 //
 // Not a Super.EndState() call: vanilla FinalStar.EndState drives a
 // ChallengeScoreManager (challenge-levels only) and TriggerEvent on its
@@ -49,6 +51,7 @@ state PickupProp
         local Pawn p;
         local PlayerPawn localPlayerPawn;
         local HPConsole console;
+        local harry h;
 
         // Credit first: synchronous, idempotent, sticky (sets
         // NonCardLocationChecked + GoalLevelDone[6], fires CHECK_LOCID
@@ -68,17 +71,27 @@ state PickupProp
         }
         if (localPlayerPawn != None && localPlayerPawn.Player != None)
             console = HPConsole(localPlayerPawn.Player.Console);
+        h = harry(localPlayerPawn);
 
-        if (console != None)
+        // Prefer harry.LoadLevel (the path TriggerChangeLevel volumes use) so the
+        // room commits its persistent-actor state via SavePActors before travel;
+        // a raw ChangeLevel would discard found secrets, picked-up beans and
+        // dropped loot. Fall back to ChangeLevel if the harry cast ever fails.
+        if (h != None)
         {
-            Log("[Archipelago] APSlytherinEndStar: ChangeLevel('Entryhall_Hub', True)");
+            Log("[Archipelago] APSlytherinEndStar: harry.LoadLevel('Entryhall_Hub')");
+            h.LoadLevel("Entryhall_Hub");
+        }
+        else if (console != None)
+        {
+            Log("[Archipelago] APSlytherinEndStar: no harry; ChangeLevel('Entryhall_Hub', True)");
             console.ChangeLevel("Entryhall_Hub", True);
         }
         else
         {
             // AP check already fired above; the original level exit still
             // credits via CheckExitedLevelObjective. Do not crash.
-            Log("[Archipelago] APSlytherinEndStar: no HPConsole found - AP check fired, player can still use the original exit");
+            Log("[Archipelago] APSlytherinEndStar: no harry/HPConsole found - AP check fired, player can still use the original exit");
         }
     }
 }
