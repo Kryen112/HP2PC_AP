@@ -1,18 +1,25 @@
-"""Per-seed dialogue randomizer: binary patch of AllDialog.uax + hpdialog.int.
+"""Per-seed dialogue randomizer: binary patch of AllDialog.uax + the caption .ints.
 
-The client applies this on Connected. Two files are patched with one shared
-permutation so the on-screen caption matches the voice that plays:
+The client applies this on Connected. The audio package and every caption .int
+are patched with one shared permutation so the on-screen caption matches the
+voice that plays:
 
   - AllDialog.uax: each dialogue USound export's serial pointer is repointed at a
     shuffled target's (the same mechanic the SFX patcher uses): no audio bytes
     move, names never change, file size is unchanged.
-  - hpdialog.int: the caption text for each line is replaced by its target's text.
+  - hpdialog.int / BumpDialog.int: each line's caption text is replaced by its
+    target's text. Story and emote lines caption from hpdialog.int; the generic
+    student bump lines caption from BumpDialog.int (HChar.uc localizes those from
+    "BumpDialog", not "HPdialog"). Both files must be patched, or bump subtitles
+    keep their original text while the voice is shuffled.
 
-Lines are loaded by string id (baseDialog.uc: DynamicLoadObject("AllDialog." $
-id)) and captions are looked up separately by that same id (Localize("all", id,
-"HPdialog")). Patching both by the same permutation keeps voice and caption in
-sync. A line whose voiced target has no caption in the game (match commentary,
-ambient bumps, alternate takes) shows none, as in the unmodified game.
+Audio is loaded by string id (baseDialog.uc / HChar.uc: DynamicLoadObject(
+"AllDialog." $ id)) and the caption is looked up separately by that same id
+(Localize("all", id, <file>)). Patching every source by the same permutation
+keeps voice and caption in sync. In all_actors mode a line can be shuffled onto
+one whose text lives in the other caption file, so a target's text is resolved
+across all caption files. A line whose voiced target has no caption in the game
+(match commentary, ambient bumps, alternate takes) shows none, as unmodified.
 
 Two modes: 'within_actor' shuffles each speaker's lines among themselves (the
 character keeps their own voice), 'all_actors' shuffles across every speaker. A
@@ -117,33 +124,37 @@ def _build_patched(pristine: bytes, dialogue_seed: int, mode: str) -> bytes:
     return pkg.data[:pkg.export_offset] + bytes(table) + trailer
 
 
-# --- caption rebuild (hpdialog.int) ---
+# --- caption rebuild (the .int localization files) ---
 
-def _rebuild_text(pristine: bytes, dialogue_seed: int, mode: str) -> bytes:
-    """Rewrite hpdialog.int so each line's caption is its permutation target's
-    text. The line ordering, the [All] header, and CRLF endings are preserved;
-    only the value after '=' changes, and only for keys that the permutation
-    moves (text-only keys with no audio pass through). A target with no caption
-    yields an empty value, so a line voiced by a caption-less clip shows none.
-    """
-    text = pristine.decode("latin-1")
-    orig = {}
-    for line in text.splitlines():
+def _parse_captions(pristine: bytes) -> dict[str, str]:
+    """id(lower) -> caption value for one .int caption file (the text after '=')."""
+    out = {}
+    for line in pristine.decode("latin-1").splitlines():
         if "=" in line and not line.lstrip().startswith("["):
             key, _, val = line.partition("=")
-            orig[key.strip().lower()] = val
-    perm = {src.lower(): dst.lower() for src, dst in
-            compute_permutation(dialogue_seed, mode).items()}
+            out[key.strip().lower()] = val
+    return out
 
+
+def _rebuild_text(pristine: bytes, perm: dict[str, str],
+                  captions: dict[str, str]) -> bytes:
+    """Rewrite one .int caption file so each line's caption is its permutation
+    target's text. Line ordering, the [All] header, and CRLF endings are
+    preserved; only the value after '=' changes, and only for keys the
+    permutation moves (keys outside the pool pass through). The target's text is
+    resolved from `captions`, which merges every caption file, so an all_actors
+    target whose text lives in a different .int still resolves. A target with no
+    caption anywhere yields an empty value, so a caption-less clip shows none.
+    """
     out = []
-    for line in text.splitlines(keepends=True):
+    for line in pristine.decode("latin-1").splitlines(keepends=True):
         body = line.rstrip("\r\n")
         ending = line[len(body):]
         if "=" in body and not body.lstrip().startswith("["):
             key, _, _val = body.partition("=")
             dst = perm.get(key.strip().lower())
             if dst is not None:
-                out.append(f"{key}={orig.get(dst, '')}{ending}")
+                out.append(f"{key}={captions.get(dst, '')}{ending}")
                 continue
         out.append(line)
     return "".join(out).encode("latin-1")
@@ -155,8 +166,17 @@ def package_path(install_path: str) -> str:
     return os.path.join(install_path, "Sounds", "AllDialog.uax")
 
 
-def text_path(install_path: str) -> str:
-    return os.path.join(install_path, "system", "hpdialog.int")
+def caption_paths(install_path: str) -> list[str]:
+    """The .int files carrying dialogue captions, each patched with the same
+    permutation. hpdialog.int holds story and emote lines (baseDialog.uc localizes
+    from "HPdialog"); BumpDialog.int holds the generic student bump lines (HChar.uc
+    localizes those from "BumpDialog"). Both share the [All] section + key=value
+    format. Order matters only for the few keys present in both files: a later
+    file's text wins as the shuffle source.
+    """
+    system = os.path.join(install_path, "system")
+    return [os.path.join(system, "hpdialog.int"),
+            os.path.join(system, "BumpDialog.int")]
 
 
 def _apply_audio(install_path: str, dialogue_seed: int, mode: str) -> str:
@@ -193,39 +213,60 @@ def _apply_audio(install_path: str, dialogue_seed: int, mode: str) -> str:
     return "patched"
 
 
-def _apply_text(install_path: str, dialogue_seed: int, mode: str) -> str:
-    """Patch hpdialog.int captions for (dialogue_seed, mode). Returns 'patched',
-    'unchanged', or 'no-file' (the install has no hpdialog.int). The .int has no
-    trailer of its own, so the pristine .orig backup is the source of truth and the
-    target is rebuilt from it and compared for idempotency.
+def _read_pristine(txt_path: str) -> tuple[bytes, bytes] | None:
+    """(current, pristine) for one caption .int, seeding its .orig backup on the
+    first run. None if the file is absent. The .int carries no trailer of its own,
+    so the pristine .orig backup is the source of truth, like the audio package's.
     """
-    txt_path = text_path(install_path)
     if not os.path.exists(txt_path):
-        return "no-file"
+        return None
     orig_path = txt_path + ".orig"
     current = read_file(txt_path)
     if not os.path.exists(orig_path):
         atomic_write(orig_path, current, _TMP_PREFIX)  # first run: current is pristine
-        pristine = current
-    else:
-        pristine = read_file(orig_path)
-    target = _rebuild_text(pristine, dialogue_seed, mode)
-    if current == target:
-        return "unchanged"
-    atomic_write(txt_path, target, _TMP_PREFIX)
-    return "patched"
+        return current, current
+    return current, read_file(orig_path)
+
+
+def _apply_captions(install_path: str, dialogue_seed: int, mode: str) -> str:
+    """Patch every caption .int for (dialogue_seed, mode) with one shared
+    permutation. Returns 'patched' if any file changed, 'unchanged', or 'no-file'
+    (no caption .int present). Each line's new caption is its target's original
+    text, looked up across all caption files (later file wins on a duplicate key)
+    so an all_actors target whose text lives in a different .int still resolves.
+    Each file is rebuilt from its own pristine .orig and compared for idempotency.
+    """
+    perm = {src.lower(): dst.lower() for src, dst in
+            compute_permutation(dialogue_seed, mode).items()}
+    loaded = {}
+    for txt_path in caption_paths(install_path):
+        pair = _read_pristine(txt_path)
+        if pair is not None:
+            loaded[txt_path] = pair
+    if not loaded:
+        return "no-file"
+    captions: dict[str, str] = {}
+    for _current, pristine in loaded.values():
+        captions.update(_parse_captions(pristine))
+    changed = False
+    for txt_path, (current, pristine) in loaded.items():
+        target = _rebuild_text(pristine, perm, captions)
+        if current != target:
+            atomic_write(txt_path, target, _TMP_PREFIX)
+            changed = True
+    return "patched" if changed else "unchanged"
 
 
 def apply_patch(install_path: str, dialogue_seed: int, mode: str) -> str:
-    """Patch the voice (AllDialog.uax) and the captions (hpdialog.int) for
-    (dialogue_seed, mode) with one shared permutation. Returns 'patched' if either
-    file changed, else 'unchanged'.
+    """Patch the voice (AllDialog.uax) and the captions (hpdialog.int +
+    BumpDialog.int) for (dialogue_seed, mode) with one shared permutation. Returns
+    'patched' if any file changed, else 'unchanged'.
     """
     if mode not in _MODE_CODE:
         raise PatchError(f"unknown dialogue mode {mode!r}")
     audio = _apply_audio(install_path, dialogue_seed, mode)
-    text = _apply_text(install_path, dialogue_seed, mode)
-    return "patched" if "patched" in (audio, text) else "unchanged"
+    captions = _apply_captions(install_path, dialogue_seed, mode)
+    return "patched" if "patched" in (audio, captions) else "unchanged"
 
 
 def _restore_one(path: str) -> str:
@@ -242,12 +283,12 @@ def _restore_one(path: str) -> str:
 
 
 def restore_original(install_path: str) -> str:
-    """Restore both AllDialog.uax and hpdialog.int from their .orig backups.
-    Returns 'restored' if either changed, 'no-backup' if neither was ever patched,
-    else 'unchanged'.
+    """Restore AllDialog.uax and every caption .int (hpdialog.int, BumpDialog.int)
+    from their .orig backups. Returns 'restored' if any changed, 'no-backup' if
+    none was ever patched, else 'unchanged'.
     """
-    results = (_restore_one(package_path(install_path)),
-               _restore_one(text_path(install_path)))
+    results = [_restore_one(package_path(install_path))]
+    results += [_restore_one(p) for p in caption_paths(install_path)]
     if "restored" in results:
         return "restored"
     if all(r == "no-backup" for r in results):

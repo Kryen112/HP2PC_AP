@@ -240,10 +240,10 @@ Set `dialogue_randomizer` in your player yaml to shuffle the spoken voice lines,
 - `within_actor`: each character's lines are shuffled among their own, so every character keeps their own voice but says the wrong things.
 - `all_actors`: lines are shuffled across every character, so anyone can speak anyone's line.
 
-It works the same way as the sound randomizer: the client binary-patches `<install>\Sounds\AllDialog.uax` (the voices) and `<install>\system\hpdialog.int` (the subtitles) on connect, keeping one-time `.orig` backups of both. Both are shuffled with the same permutation, so the caption you read matches the line you hear. A few clips have no subtitle in the game to begin with (Quidditch/duel commentary, ambient mutters, alternate takes); when one of those plays it shows no caption, exactly as in the unmodified game.
+It works the same way as the sound randomizer: the client binary-patches `<install>\Sounds\AllDialog.uax` (the voices) and the subtitle files `<install>\system\hpdialog.int` and `<install>\system\BumpDialog.int` (the latter holds the student bump lines) on connect, keeping one-time `.orig` backups of each. All are shuffled with the same permutation, so the caption you read matches the line you hear. A few clips have no subtitle in the game to begin with (Quidditch/duel commentary, ambient mutters, alternate takes); when one of those plays it shows no caption, exactly as in the unmodified game.
 
 - **Same install path, permissions, and timing** as the sound randomizer above (same per-mode `install_folder`, picks it once, needs write access / admin under `Program Files`, takes effect on the next launch).
-- **Reshuffle**: `/reroll_dialogue` (keeps the seed's mode). **Revert**: `/restore_dialogue`, or connect to a seed with the option off, or manually copy `AllDialog.uax.orig` and `hpdialog.int.orig` back over their files. Restart once to hear the change.
+- **Reshuffle**: `/reroll_dialogue` (keeps the seed's mode). **Revert**: `/restore_dialogue`, or connect to a seed with the option off, or manually copy `AllDialog.uax.orig`, `hpdialog.int.orig`, and `BumpDialog.int.orig` back over their files. Restart once to hear the change.
 
 ## Verify it's working
 
