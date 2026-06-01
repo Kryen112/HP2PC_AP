@@ -445,6 +445,13 @@ class HP2CommandProcessor(ClientCommandProcessor):
         self.output(row("Level objectives",      levels_have, levels_need))
         self.output(row("Duels won",             duels_have,  duels_need))
         self.output(row("Quidditch matches won", quid_have,   quid_need))
+        # A clause left at need==0 is disabled and passes trivially (have >= 0),
+        # so this matches the mod's GoalSatisfied AND over the enabled clauses.
+        done = (cards_have >= cards_need and spells_have >= spells_need
+                and levels_have >= levels_need and duels_have >= duels_need
+                and quid_have >= quid_need)
+        self.output("Great Hall open - go finish!" if done
+                    else "Open the Great Hall to win.")
         return True
 
 

@@ -153,7 +153,15 @@ function DrawGoalProgressPanel(Canvas C)
     if (spellsNeed > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Spells",    spells, spellsNeed, colorYellow, colorGreen, colorShadow); yLine += lineH; }
     if (levelsNeed > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Levels",    levels, levelsNeed, colorYellow, colorGreen, colorShadow); yLine += lineH; }
     if (duelsNeed  > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Duels",     duels,  duelsNeed,  colorYellow, colorGreen, colorShadow); yLine += lineH; }
-    if (quidNeed   > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Quidditch", quid,   quidNeed,   colorYellow, colorGreen, colorShadow); }
+    if (quidNeed   > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Quidditch", quid,   quidNeed,   colorYellow, colorGreen, colorShadow); yLine += lineH; }
+
+    // Footer names the endpoint so the goal panel never reads as a bare count.
+    yLine += 6;
+    C.SetPos(xLeft * fScaleFactor, yLine * fScaleFactor * hScale);
+    if (class'APCardWatcher'.default.WasGoalUnlocked == 1)
+        C.DrawShadowText("Great Hall open - go finish!", colorGreen, colorShadow);
+    else
+        C.DrawShadowText("Open the Great Hall to win", colorYellow, colorShadow);
 
     C.Font = fontSave;
     C.DrawColor = colorSave;

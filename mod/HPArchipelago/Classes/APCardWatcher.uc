@@ -377,6 +377,12 @@ var byte bInstallIsOpenCastle;
 var byte SeedDeclaredMode;
 var byte bModeMismatchToastShown;
 
+// Open castle only. Once the goal unlocks the Great Hall (WasGoalUnlocked), a
+// short pointer toward it re-shows once per level until the player walks in and
+// the credits fire. Plain INSTANCE var like bModeMismatchToastShown, so it
+// re-arms on each per-level watcher respawn.
+var byte bGoalUnlockToastShown;
+
 // Durable resync handshake. Set by ApplyResyncSpells the first time the client
 // delivers the AP-Data-Storage spell ledger ("RESYNC_SPELLS <csv>") — at which
 // point default.APGrantedSpell[] reflects every spell this slot has ever
@@ -2854,6 +2860,28 @@ event Timer()
                         $ default.SeedDeclaredMode $ " installOpenCastle="
                         $ default.bInstallIsOpenCastle $ ")");
                 }
+            }
+        }
+    }
+
+    // Open castle goal-unlock pointer. The 5-clause goal opening the Great Hall
+    // is silent and the player may be in any level when the last clause lands,
+    // so point them at it. Same instance-var latch / playable guard as the
+    // mismatch toast, so it re-shows once per level until they walk in and the
+    // credits fire (WasInEndGame).
+    if (default.bOpenCastleMode == 1 && default.WasGoalUnlocked == 1
+        && WasInEndGame == 0 && bGoalUnlockToastShown == 0)
+    {
+        saveHarry = harry(Level.PlayerHarryActor);
+        if (saveHarry != None && saveHarry.GetHealthCount() > 0
+            && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+        {
+            connToast = class'APHUDToast'.static.GetInstance();
+            if (connToast != None)
+            {
+                connToast.EnqueueToast("Goal complete! Go to the Great Hall.");
+                bGoalUnlockToastShown = 1;
+                Log("[Archipelago] APCardWatcher: goal-unlock toast shown");
             }
         }
     }
