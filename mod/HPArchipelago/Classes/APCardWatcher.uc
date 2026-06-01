@@ -1522,6 +1522,38 @@ static function SetCheckedLocationsCSV(string csv)
         $ nGoalLevel $ " level completion(s) → GoalLevelDone[])");
 }
 
+// Inverse of SetCheckedLocationsCSV: serialize the process-lifetime checked
+// arrays back to a comma-separated list of AP location ids. Sent to the client
+// on every bridge (re)connect (APIPCActor.SendCheckedOut) so a check fired
+// while the client wasn't bridged — client launched after the pickup, or
+// client restarted mid-session — is replayed to AP. The client dedupes against
+// the server's checked_locations, so replaying an already-known id is a no-op.
+// Cards resolve via CardIdToApId (the band mapping is scrambled); non-card
+// slots are slot + LOC_BASE. Empty string when nothing collected yet.
+static function string BuildCheckedOutCSV()
+{
+    local int id, slot;
+    local string csv;
+
+    for (id = 1; id <= MAX_CARD_ID; id++)
+    {
+        if (default.LocationChecked[id] == 1)
+        {
+            if (csv != "") csv = csv $ ",";
+            csv = csv $ string(class'APCardAppearance'.static.CardIdToApId(id));
+        }
+    }
+    for (slot = 0; slot < NONCARD_LOC_WINDOW; slot++)
+    {
+        if (default.NonCardLocationChecked[slot] == 1)
+        {
+            if (csv != "") csv = csv $ ",";
+            csv = csv $ string(slot + LOC_BASE);
+        }
+    }
+    return csv;
+}
+
 // ---------------------------------------------------------------------------
 // #3 marker-appearance subsystem
 // ---------------------------------------------------------------------------

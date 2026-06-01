@@ -21,6 +21,7 @@ Mod-side protocol (newline-delimited text):
     VENDOR_OPENED <locId>       (game → client, player opened a Tradersanity vendor dialogue → broadcast hint)
     APPLIED <index>             (game → client, item at AP index applied → mark durably consumed)
     NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
+    CHECKEDOUT <id_csv>         (game → client, on bridge connect: AP location ids the mod has locally checked → replay to AP for any the server is missing)
     GRANT <index> <classname>   (client → game, forward item received; index = AP ReceivedItems index)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
     DEATHLINK                   (client → game, a linked player died — kill Harry)
@@ -824,6 +825,27 @@ class HP2Context(CommonContext):
             # so the first rebuild here gives us a full payload. RoomUpdate
             # below rebuilds incrementally as co-op partners collect.
             self._rebuild_checked_csv()
+
+            # Outbound-check safety net. Re-send every check we've observed
+            # this session that the server doesn't already have. Covers a check
+            # made during an AP outage that the per-message pending_ap_outbound
+            # queue missed — a write into a socket that died but hadn't closed
+            # yet "succeeds" silently, so nothing is ever queued — and any
+            # CHECKEDOUT id the mod replayed while AP was offline. Idempotent:
+            # AP no-ops an already-checked location. checked_locations is the
+            # server's truth (populated above), checked_locations_seen is our
+            # session record; the difference is what to resend.
+            asyncio.create_task(self._reconcile_checks_to_server("Connected"))
+
+            # Re-assert slot completion if the mod already reported the goal.
+            # The CLIENT_GOAL StatusUpdate can be lost the same silent-socket
+            # way a check can; goal_sent stays set across the outage, so this
+            # re-delivers it on reconnect. Idempotent server-side.
+            if self.goal_sent:
+                asyncio.create_task(self._send_or_queue_ap_msg(
+                    {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
+                    label="re-assert ClientStatus.CLIENT_GOAL on reconnect",
+                ))
         elif cmd == "RoomUpdate":
             # The server pushes a checked_locations delta whenever any client
             # (including ours via a different process) collects one of our
@@ -1646,6 +1668,9 @@ class HP2Context(CommonContext):
                 name_to_location=KEYITEM_TO_LOCATION_NAME,
             )
             return
+        if line.startswith("CHECKEDOUT "):
+            await self._handle_checked_out(line[len("CHECKEDOUT "):].strip())
+            return
         if line.startswith("CHECK_LOCID "):
             try:
                 location_id = int(line[len("CHECK_LOCID "):].strip())
@@ -1792,6 +1817,54 @@ class HP2Context(CommonContext):
         except Exception as e:
             logger.exception(f"Flush failed, re-queuing {len(msgs)} message(s): {e}")
             self.pending_ap_outbound = msgs + self.pending_ap_outbound
+
+    async def _handle_checked_out(self, csv: str) -> None:
+        """Mod replay of its locally-collected checks (the inverse of the
+        CHECKED resync), sent on every bridge connect. Records every id as
+        locally-seen so the on-Connected reconcile re-sends it even if AP is
+        offline right now, then opportunistically pushes the ones the server is
+        missing if AP is already up. Unparseable tokens are skipped. No
+        server_locations filtering here: when AP is offline that set is empty,
+        and _reconcile_checks_to_server (the single place that intersects it)
+        is the authoritative filter once Connected."""
+        new_ids: set[int] = set()
+        for tok in csv.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            try:
+                new_ids.add(int(tok))
+            except ValueError:
+                logger.warning(f"CHECKEDOUT: unparseable id {tok!r}, skipping")
+        new_ids -= self.checked_locations_seen
+        if not new_ids:
+            return
+        self.checked_locations_seen |= new_ids
+        logger.info(f"CHECKEDOUT: recorded {len(new_ids)} mod-side check(s) for reconcile")
+        if self.server and self.slot is not None:
+            await self._reconcile_checks_to_server("CHECKEDOUT")
+
+    async def _reconcile_checks_to_server(self, source: str) -> None:
+        """Re-send every locally-observed check the AP server doesn't already
+        have. The robust safety net for outbound checks: a check made during an
+        AP outage that the per-message queue missed (a write into a dying socket
+        "succeeds" and is never queued), plus mod-replayed CHECKEDOUT ids.
+        Idempotent — AP LocationChecks no-ops an already-checked location.
+        Intersect with server_locations (the authoritative per-slot universe,
+        like the appearance scout) so a stale id can't drop the connection;
+        no-op when AP is offline (server_locations empty)."""
+        if not self.server_locations:
+            return
+        to_send = sorted(
+            (self.checked_locations_seen & set(self.server_locations))
+            - set(self.checked_locations)
+        )
+        if not to_send:
+            return
+        await self._send_or_queue_ap_msg(
+            {"cmd": "LocationChecks", "locations": to_send},
+            label=f"LocationChecks reconcile ({len(to_send)} missing, via {source})",
+        )
 
     def _note_sent(self, line: str) -> None:
         """Record that a GRANT line was actually written to the game writer

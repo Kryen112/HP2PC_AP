@@ -210,6 +210,9 @@ event Opened()
     bBaselineValid = False;
     PendingRingDelta = 0;
     SendText("HELLO" $ Chr(10));
+    // Replay locally-collected checks so any fired while the bridge was down
+    // (client launched after a pickup, or client restarted) reaches AP.
+    SendCheckedOut();
 }
 
 event ReceivedText(string Text)
@@ -886,6 +889,24 @@ function SendNewGame()
 {
     SendText("NEWGAME" $ Chr(10));
     Log("[Archipelago] APIPCActor: sent NEWGAME (iGameState 0 - genuine new game)");
+}
+
+// On (re)connect, replay the mod's locally-collected checks to the client (the
+// inverse of the CHECKED resync the client sends us). Covers checks fired into
+// a down bridge: the client launched after the pickup, or restarted
+// mid-session. The client forwards any the AP server is missing; empty payload
+// (nothing collected yet) is suppressed so the client sees no line.
+function SendCheckedOut()
+{
+    local string csv;
+
+    csv = class'APCardWatcher'.static.BuildCheckedOutCSV();
+    if (csv == "")
+    {
+        return;
+    }
+    SendText("CHECKEDOUT " $ csv $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent CHECKEDOUT " $ csv);
 }
 
 // Pushes the earliest-allowed drain time forward by `seconds` from now. Only
