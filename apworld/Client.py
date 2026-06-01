@@ -173,6 +173,11 @@ CARD_ITEM_NAMES_SET = frozenset(
 # Gryffindor challenge). idx 0..11 = AP id - LEVEL_COMPLETION_BASE.
 LEVEL_COMPLETION_BASE = 5760700
 LEVEL_COMPLETION_COUNT = 12
+# Full set sizes for the duels and Quidditch goal clauses. Those two goal
+# options are enable flags (win-all), not counts, so /progress shows these as
+# the have/need denominator when the flag is set.
+DUEL_COUNT = 10
+QUIDDITCH_MATCH_COUNT = 6
 # Trap item names, from ITEM_GROUPS so it can never drift from
 # data/items.yaml. Used by the #3 marker-appearance classifier. Every
 # received item is gated by the AP-Data-Storage consumed-index ledger (see
@@ -402,6 +407,10 @@ class HP2CommandProcessor(ClientCommandProcessor):
         cards_need, spells_need, levels_need, duels_need, quid_need, level_mask = (
             int(x) for x in parts
         )
+        # duels_need / quid_need arrive as 0/1 enable flags (win-all clauses),
+        # so the displayed denominator is the full set size when enabled.
+        duels_need = DUEL_COUNT if duels_need else 0
+        quid_need = QUIDDITCH_MATCH_COUNT if quid_need else 0
 
         cards_have = 0
         for item in ctx.received_by_index.values():

@@ -120,8 +120,13 @@ function DrawGoalProgressPanel(Canvas C)
     cardsNeed  = class'APCardWatcher'.default.GoalCards;
     spellsNeed = class'APCardWatcher'.default.GoalSpells;
     levelsNeed = class'APCardWatcher'.default.GoalLevels;
+    // GoalDuels / GoalQuidditch are 0/1 enable flags (the win condition is
+    // "all duels" / "all matches"), so map an enabled flag to the full set
+    // size for the have/need row: 10 duels, 6 Quidditch matches.
     duelsNeed  = class'APCardWatcher'.default.GoalDuels;
     quidNeed   = class'APCardWatcher'.default.GoalQuidditch;
+    if (duelsNeed > 0) duelsNeed = 10;
+    if (quidNeed  > 0) quidNeed  = 6;
 
     // Pre-HELLO: GOALCFG hasn't arrived; an early-game pause would otherwise
     // show an empty panel under the header.
