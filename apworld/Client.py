@@ -14,7 +14,7 @@ Mod-side protocol (newline-delimited text):
     CHECK_LOCID <id>            (game → client, on secret/star pickup — raw AP location id)
     CHECK_SPELL <name>          (game → client, on spell learned)
     CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
-    GOAL_COMPLETE               (game → client, once when post-Basilisk credits start)
+    GOAL_COMPLETE               (game → client, when the end-game latch sets; also replayed on every bridge connect while it holds, so a goal reached offline still registers)
     RINGOUT <signed_int>        (game → client, local bean total changed organically)
     SAY <text>                  (game → client, ~1/100 on spell cast — cosmetic chat)
     DEATH [cause]               (game → client, Harry entered stateDead — DeathLink out)
@@ -465,13 +465,14 @@ class HP2Context(CommonContext):
         super().__init__(server_address, password)
         self.game_writer: Optional[asyncio.StreamWriter] = None
         self.tcp_server_task: Optional[asyncio.Task] = None
-        self.checked_locations_seen: set[int] = set()
-        # Dedupe GOAL_COMPLETE: once the mod has reported the goal we track it as
-        # "claimed" regardless of whether the AP send succeeded — the actual
-        # delivery to AP lives in pending_ap_outbound below, which retries on
-        # reconnect. Prevents the mod's WasInEndGame guard re-firing across
-        # save-load from re-queueing.
-        self.goal_sent: bool = False
+        # Outbound location checks and goal completion ride CommonContext's own
+        # resend-on-reconnect machinery rather than a parallel set. Every check
+        # is added to self.locations_checked (a framework set the server replays
+        # for us on every Connected and on a Sync index-mismatch); the goal sets
+        # self.finished_game (the framework re-asserts CLIENT_GOAL on every
+        # Connected). Both survive reset_server_state, so a check or goal sent
+        # while AP was unreachable is reconciled on reconnect with no custom
+        # queue. self.locations_checked also doubles as the per-check dedupe set.
         # FIFO of GRANT lines accumulated while no game is connected (start
         # inventory delivered before game boot, mid-session game crash, etc).
         # Drained by handle_game_connection on each new game connect.
@@ -494,6 +495,13 @@ class HP2Context(CommonContext):
         # that seed's server, so seed need not be in the key).
         self.ledger_key: Optional[str] = None
         self.consumed_indices: set[int] = set()
+        # When True, our in-memory consumed_indices wins over the server's stored
+        # value on the next Retrieved (we overwrite the server instead of merging).
+        # Set by the NEWGAME wipe so a stale server ledger — e.g. a wipe Set lost
+        # to a dying socket — can't resurrect consumed indices and strand the
+        # fresh playthrough. False the rest of the time, when the load instead
+        # unions (preserving any locally-applied index whose persist was lost).
+        self._ledger_client_authoritative: bool = False
         # Held until the AP-storage Get resolves so replay can't run against an
         # unknown ledger and double-grant.
         self.ledger_loaded: bool = False
@@ -841,27 +849,9 @@ class HP2Context(CommonContext):
             # so the first rebuild here gives us a full payload. RoomUpdate
             # below rebuilds incrementally as co-op partners collect.
             self._rebuild_checked_csv()
-
-            # Outbound-check safety net. Re-send every check we've observed
-            # this session that the server doesn't already have. Covers a check
-            # made during an AP outage that the per-message pending_ap_outbound
-            # queue missed — a write into a socket that died but hadn't closed
-            # yet "succeeds" silently, so nothing is ever queued — and any
-            # CHECKEDOUT id the mod replayed while AP was offline. Idempotent:
-            # AP no-ops an already-checked location. checked_locations is the
-            # server's truth (populated above), checked_locations_seen is our
-            # session record; the difference is what to resend.
-            asyncio.create_task(self._reconcile_checks_to_server("Connected"))
-
-            # Re-assert slot completion if the mod already reported the goal.
-            # The CLIENT_GOAL StatusUpdate can be lost the same silent-socket
-            # way a check can; goal_sent stays set across the outage, so this
-            # re-delivers it on reconnect. Idempotent server-side.
-            if self.goal_sent:
-                asyncio.create_task(self._send_or_queue_ap_msg(
-                    {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
-                    label="re-assert ClientStatus.CLIENT_GOAL on reconnect",
-                ))
+            # No custom outbound-check or goal re-send here: CommonContext
+            # resends self.locations_checked and re-asserts self.finished_game
+            # for us in its own Connected handling (and on a Sync mismatch).
         elif cmd == "RoomUpdate":
             # The server pushes a checked_locations delta whenever any client
             # (including ours via a different process) collects one of our
@@ -896,7 +886,26 @@ class HP2Context(CommonContext):
                 )
             if self.ledger_key is not None and self.ledger_key in keys:
                 val = keys.get(self.ledger_key)
-                self.consumed_indices = set(val) if val else set()
+                server_set = set(val) if val else set()
+                if self._ledger_client_authoritative:
+                    # A NEWGAME wipe this session made our set the source of
+                    # truth. Keep ours and overwrite the server so a stale
+                    # value (a wipe Set lost to a dying socket) can't resurrect
+                    # consumed indices and block the fresh playthrough's grants.
+                    if self.consumed_indices != server_set:
+                        self._persist_ledger()
+                else:
+                    # Normal load: union rather than replace. On a fresh client
+                    # session our set is empty, so this adopts the server value;
+                    # on an AP reconnect mid-session it preserves any index we
+                    # applied but whose persist Set was lost (silent socket
+                    # death), so an already-applied item is never re-granted.
+                    merged = self.consumed_indices | server_set
+                    self.consumed_indices = merged
+                    if merged != server_set:
+                        # We hold indices the server was missing; write the
+                        # union back so the stored ledger catches up.
+                        self._persist_ledger()
                 self.ledger_loaded = True
                 logger.info(
                     f"Durable ledger loaded: {len(self.consumed_indices)} "
@@ -1525,6 +1534,11 @@ class HP2Context(CommonContext):
             # received_by_index still holds every spell AP has ever delivered.
             logger.info("NEWGAME: wiping durable ledger and re-forwarding all received items")
             self.consumed_indices = set()
+            # Our wiped set is now authoritative over the server's stored value:
+            # a reconnect must not merge a stale pre-wipe ledger back in (see the
+            # Retrieved handler). A fresh game also hasn't goaled.
+            self._ledger_client_authoritative = True
+            self.finished_game = False
             self._persist_ledger()
             self._send_resync_spells()
             self._forward_all_received()
@@ -1602,9 +1616,14 @@ class HP2Context(CommonContext):
                 self._send_resync_key_items()
             return
         if line == "GOAL_COMPLETE":
-            if self.goal_sent:
+            # The mod replays GOAL_COMPLETE on every bridge connect while it
+            # holds the end-game latch, so this can re-fire; finished_game
+            # dedupes it. Setting finished_game also arms CommonContext to
+            # re-assert CLIENT_GOAL on every AP reconnect, covering a goal
+            # reached while AP was unreachable.
+            if self.finished_game:
                 return
-            self.goal_sent = True
+            self.finished_game = True
             await self._send_or_queue_ap_msg(
                 {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
                 label="ClientStatus.CLIENT_GOAL (slot complete)",
@@ -1693,9 +1712,9 @@ class HP2Context(CommonContext):
             except ValueError:
                 logger.warning(f"Unparseable CHECK_LOCID: {line!r}")
                 return
-            if location_id in self.checked_locations_seen:
+            if location_id in self.locations_checked:
                 return
-            self.checked_locations_seen.add(location_id)
+            self.locations_checked.add(location_id)
             await self._send_or_queue_ap_msg(
                 {"cmd": "LocationChecks", "locations": [location_id]},
                 label=f"LocationChecks for AP location id {location_id} (raw CHECK_LOCID)",
@@ -1736,9 +1755,9 @@ class HP2Context(CommonContext):
             if location_id is None:
                 logger.warning(f"Card location {location_name!r} has no AP id; dropping")
                 return
-            if location_id in self.checked_locations_seen:
+            if location_id in self.locations_checked:
                 return
-            self.checked_locations_seen.add(location_id)
+            self.locations_checked.add(location_id)
             await self._send_or_queue_ap_msg(
                 {"cmd": "LocationChecks", "locations": [location_id]},
                 label=f"LocationChecks for {location_name} (id={location_id}, game CHECK {check_id})",
@@ -1753,9 +1772,9 @@ class HP2Context(CommonContext):
         if location_id is None:
             logger.warning(f"{kind.capitalize()} location {location_name!r} has no AP id; dropping")
             return
-        if location_id in self.checked_locations_seen:
+        if location_id in self.locations_checked:
             return
-        self.checked_locations_seen.add(location_id)
+        self.locations_checked.add(location_id)
         await self._send_or_queue_ap_msg(
             {"cmd": "LocationChecks", "locations": [location_id]},
             label=f"LocationChecks for {location_name} (id={location_id}, {kind} {game_name!r})",
@@ -1836,13 +1855,12 @@ class HP2Context(CommonContext):
 
     async def _handle_checked_out(self, csv: str) -> None:
         """Mod replay of its locally-collected checks (the inverse of the
-        CHECKED resync), sent on every bridge connect. Records every id as
-        locally-seen so the on-Connected reconcile re-sends it even if AP is
-        offline right now, then opportunistically pushes the ones the server is
-        missing if AP is already up. Unparseable tokens are skipped. No
-        server_locations filtering here: when AP is offline that set is empty,
-        and _reconcile_checks_to_server (the single place that intersects it)
-        is the authoritative filter once Connected."""
+        CHECKED resync), sent on every bridge connect. Records each id into
+        self.locations_checked, which CommonContext resends to the server on
+        every Connected, so a check fired while the client wasn't bridged
+        (client launched after the pickup, or client restarted) still reaches
+        AP. Also pushes the missing ones live if AP is up now. Unparseable
+        tokens are skipped."""
         new_ids: set[int] = set()
         for tok in csv.split(","):
             tok = tok.strip()
@@ -1852,35 +1870,19 @@ class HP2Context(CommonContext):
                 new_ids.add(int(tok))
             except ValueError:
                 logger.warning(f"CHECKEDOUT: unparseable id {tok!r}, skipping")
-        new_ids -= self.checked_locations_seen
+        new_ids -= self.locations_checked
         if not new_ids:
             return
-        self.checked_locations_seen |= new_ids
-        logger.info(f"CHECKEDOUT: recorded {len(new_ids)} mod-side check(s) for reconcile")
-        if self.server and self.slot is not None:
-            await self._reconcile_checks_to_server("CHECKEDOUT")
-
-    async def _reconcile_checks_to_server(self, source: str) -> None:
-        """Re-send every locally-observed check the AP server doesn't already
-        have. The robust safety net for outbound checks: a check made during an
-        AP outage that the per-message queue missed (a write into a dying socket
-        "succeeds" and is never queued), plus mod-replayed CHECKEDOUT ids.
-        Idempotent — AP LocationChecks no-ops an already-checked location.
-        Intersect with server_locations (the authoritative per-slot universe,
-        like the appearance scout) so a stale id can't drop the connection;
-        no-op when AP is offline (server_locations empty)."""
-        if not self.server_locations:
-            return
-        to_send = sorted(
-            (self.checked_locations_seen & set(self.server_locations))
-            - set(self.checked_locations)
-        )
-        if not to_send:
-            return
-        await self._send_or_queue_ap_msg(
-            {"cmd": "LocationChecks", "locations": to_send},
-            label=f"LocationChecks reconcile ({len(to_send)} missing, via {source})",
-        )
+        self.locations_checked |= new_ids
+        logger.info(f"CHECKEDOUT: recorded {len(new_ids)} mod-side check(s)")
+        # Live send of the ones the server is missing; the framework's Connected
+        # resend is the safety net if AP is offline right now.
+        to_send = sorted(new_ids - set(self.checked_locations))
+        if to_send:
+            await self._send_or_queue_ap_msg(
+                {"cmd": "LocationChecks", "locations": to_send},
+                label=f"LocationChecks ({len(to_send)} via CHECKEDOUT replay)",
+            )
 
     def _note_sent(self, line: str) -> None:
         """Record that a GRANT line was actually written to the game writer
@@ -2161,13 +2163,16 @@ class HP2Context(CommonContext):
             f"Seed changed ({old_seed!r} → {new_seed!r}); clearing prior-seed state "
             f"({len(self.pending_grants)} pending grant(s), "
             f"{len(self.pending_ap_outbound)} pending AP msg(s), "
-            f"{len(self.checked_locations_seen)} checked location(s), "
-            f"goal_sent={self.goal_sent})"
+            f"{len(self.locations_checked)} checked location(s), "
+            f"finished_game={self.finished_game})"
         )
         self.pending_grants = []
         self.pending_ap_outbound = []
-        self.checked_locations_seen = set()
-        self.goal_sent = False
+        # The new seed has its own location universe and its own completion;
+        # drop the framework resend/goal state so we never replay seed A's
+        # checks or goal to seed B.
+        self.locations_checked = set()
+        self.finished_game = False
         # Drop the prior seed's durable-ledger state; the new seed is a
         # different AP server/room, so the next Connected recomputes ledger_key
         # and re-fetches its own consumed-index set from AP storage. Clearing
@@ -2175,6 +2180,7 @@ class HP2Context(CommonContext):
         # derived from this dict).
         self.ledger_key = None
         self.consumed_indices = set()
+        self._ledger_client_authoritative = False
         self.ledger_loaded = False
         self.received_by_index = {}
         self.sent_this_session = set()

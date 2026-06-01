@@ -13,6 +13,14 @@ var array<int> PendingGrantIndex;
 // iGameState 0; APCardWatcher re-arms it (clears) once iGameState climbs > 0,
 // so a later genuine new game in the same process signals again.
 var bool bNewGameSignalled;
+// One-shot latch on the persistent singleton, set by APCardWatcher when it
+// fires GOAL_COMPLETE (the watcher's own WasInEndGame is per-level instance, so
+// it can't anchor a cross-connect replay). Lets Opened() re-send GOAL_COMPLETE
+// on every bridge connect while it holds, so a goal reached while the client
+// was not connected still registers. Cleared by SendNewGame (a genuine new game
+// has not goaled). Transient like the link: a fresh process re-arms it, which
+// is correct because reaching the ending again re-sets WasInEndGame.
+var bool bGoalReached;
 var bool bLoggedGrantDeferral;
 var float NextGrantDrainTime;
 // Stability gate. Bumped to `Level.TimeSeconds + N` whenever any drain check
@@ -213,6 +221,20 @@ event Opened()
     // Replay locally-collected checks so any fired while the bridge was down
     // (client launched after a pickup, or client restarted) reaches AP.
     SendCheckedOut();
+    // Same idea for the goal: if the player reached the ending while the bridge
+    // was down, re-fire GOAL_COMPLETE on connect. Client dedupes via
+    // finished_game, so a replay after the goal already registered is a no-op.
+    if (bGoalReached)
+    {
+        SendGoalComplete();
+    }
+}
+
+// True only while the TcpLink to the client is established. Used to gate the
+// one-shot NEWGAME signal so a fire into a down link does not consume the latch.
+function bool IsLinkConnected()
+{
+    return LinkState == STATE_Connected;
 }
 
 event ReceivedText(string Text)
@@ -887,6 +909,9 @@ function FlushApplyAcks()
 // iGameState climbs > 0.
 function SendNewGame()
 {
+    // A genuine new game has not reached the ending; drop the goal-replay latch
+    // so a goal from a prior playthrough in this process isn't re-fired.
+    bGoalReached = False;
     SendText("NEWGAME" $ Chr(10));
     Log("[Archipelago] APIPCActor: sent NEWGAME (iGameState 0 - genuine new game)");
 }

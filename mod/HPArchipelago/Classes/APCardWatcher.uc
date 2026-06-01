@@ -2688,6 +2688,10 @@ event Timer()
                 Log("[Archipelago] APCardWatcher: bInEndGame transitioned True - firing GOAL_COMPLETE");
                 if (ipc != None)
                 {
+                    // Latch on the persistent singleton so Opened() can replay
+                    // GOAL_COMPLETE on a later connect if this send hits a down
+                    // bridge (WasInEndGame is per-level instance, can't anchor it).
+                    ipc.bGoalReached = True;
                     ipc.SendGoalComplete();
                 }
             }
@@ -2736,7 +2740,14 @@ event Timer()
     // process signals again. NOT pinned to the open-castle-only 180 threshold.
     if (ipc != None && HarryRef.iGameState == 0)
     {
-        if (!ipc.bNewGameSignalled)
+        // Only consume the one-shot latch once the signal actually goes out.
+        // Firing into a down bridge would otherwise latch and never retry, so a
+        // client that connects later in this same gstate-0 window would miss the
+        // ledger wipe. Gating on the live link makes it retry each tick until
+        // connected, then send exactly once. A client that only connects after
+        // gstate climbs > 0 still can't be reconciled (replaying NEWGAME then
+        // would risk re-wiping a mid-playthrough ledger), which is acceptable.
+        if (!ipc.bNewGameSignalled && ipc.IsLinkConnected())
         {
             ipc.SendNewGame();
             ipc.bNewGameSignalled = True;
