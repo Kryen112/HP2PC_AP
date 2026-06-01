@@ -238,7 +238,7 @@ locations:
   "Skurge Challenge - Card Belby": { requires: "Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Card Catchlove":
     { requires: "Flipendo & Lumos & Alohomora" }
-  "Skurge Challenge - Card Kegg": { requires: "Flipendo & Lumos" }
+  "Skurge Challenge - Card Kegg": { requires: "Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Card Wenlock": { requires: "Alohomora" }
   "Skurge Challenge - Card Fulbert":
     { requires: "Flipendo & Lumos & Rictusempra & Alohomora" }
@@ -400,7 +400,7 @@ locations:
   "Slytherin Common Room - Card Platt":
     { requires: "Flipendo & Diffindo & Skurge & Lumos & Alohomora" }
   "Slytherin Common Room - Card Waffling":
-    { requires: "Flipendo & Diffindo & Skurge & Lumos" }
+    { requires: "Flipendo & Diffindo & Skurge & Lumos & Alohomora" }
   "Slytherin Common Room - Card Clagg":
     { requires: "Flipendo & Diffindo & Alohomora" }
   "Slytherin Common Room - Card Fay":
@@ -411,7 +411,7 @@ locations:
   "Slytherin Common Room - Secret 3":
     { requires: "Flipendo & Diffindo & Skurge & Lumos" }
   "Slytherin Common Room - Secret 4":
-    { requires: "Flipendo & Diffindo & Skurge & Lumos" }
+    { requires: "Flipendo & Diffindo & Skurge & Lumos & Alohomora" }
   "Slytherin Common Room - Secret 5":
     { requires: "Flipendo & Diffindo & Skurge & Lumos" }
   "Slytherin Common Room - Secret 6":
