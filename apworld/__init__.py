@@ -843,14 +843,18 @@ class HP2World(World):
         # logic_open_castle.yaml as the `@all_silver_cards` macro, expanded by
         # gen_apworld.py from the same cards_silver classification.
 
-        # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a
-        # lot of beans the player can't have collected early; gate them behind
-        # owning at least 3 spells AND at least 3 bookcase-blocker keys (any of
-        # them — a count threshold the logic grammar can't express). ANDs onto
-        # the existing rule. Only the QuidditchPurchases locations that exist
-        # this seed are touched, so this is a no-op when the vendors are disabled.
+        # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a lot
+        # of beans the player can't have collected early. Gate them behind owning
+        # at least 3 spells AND at least 3 bookcase-blocker keys (any of them, a
+        # count threshold the logic grammar can't express), which ANDs onto the
+        # existing rule. Reaching the Duelling Club is a second sufficient path
+        # (its duels are a repeatable bean grind), so the Duelling Club region
+        # entry ORs in beside the count proxy: 'Duelling Key' in open castle, the
+        # full duel chain in vanilla. Only the QuidditchPurchases locations that
+        # exist this seed are touched, so this is a no-op when the vendors are off.
         spell_names = ITEM_GROUPS.get("Spells", [])
         key_names = ITEM_GROUPS.get("Blocker Keys", [])
+        duelling_rule = self._region_rules().get("DuellingClub")
         for loc_name, group in LOCATION_GROUPS.items():
             if group != "QuidditchPurchases":
                 continue
@@ -861,6 +865,9 @@ class HP2World(World):
             add_rule(loc, lambda state, sp=spell_names, kp=key_names, player=self.player:
                 sum(state.has(s, player) for s in sp) >= 3
                 and sum(state.has(k, player) for k in kp) >= 3)
+            if duelling_rule is not None:
+                add_rule(loc, lambda state, fn=duelling_rule, player=self.player: fn(state, player),
+                         combine="or")
 
         # Open castle: AP's completion_condition mirrors the mod's GoalSatisfied().
         # cards/spells are has-counts (the same items the mod counts; cards
