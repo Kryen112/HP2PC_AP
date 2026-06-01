@@ -450,8 +450,11 @@ class HP2CommandProcessor(ClientCommandProcessor):
         done = (cards_have >= cards_need and spells_have >= spells_need
                 and levels_have >= levels_need and duels_have >= duels_need
                 and quid_have >= quid_need)
-        self.output("Great Hall open - go finish!" if done
-                    else "Open the Great Hall to win.")
+        # Name the endpoint only once every clause passes and the Great Hall has
+        # opened, matching the pause-menu panel. Hidden until then so the summary
+        # reads as pure clause progress.
+        if done:
+            self.output("Great Hall open - go finish!")
         return True
 
 
