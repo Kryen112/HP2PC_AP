@@ -237,8 +237,9 @@ var bool bSnapshotted;
 
 // Shift-to-run falling-edge latch. 1 while SprintApply has the speed caps scaled
 // up; lets the restore write the base caps back exactly once when sprint ends,
-// instead of every frame, so it can't continuously stomp an ecto/sleepy/web
-// slowdown that is legitimately driving GroundSpeed.
+// instead of every frame. Slowdowns (sleepy / ectoplasm / web) are gated out of
+// sprint entirely (SprintContext) and re-pinned each frame by SlowdownClamp, so
+// shift never outruns one.
 var byte bSprintApplied;
 // Base GroundJumpSpeed captured on the sprint rising edge, before SprintApply
 // overwrites it, so the falling-edge restore is exact even for a harry subclass.
@@ -1273,7 +1274,12 @@ function bool SprintContext()
         && HarryRef.managerStatus.GetBeanCount() > 0
         && string(HarryRef.GetStateName()) == "PlayerWalking"
         && !HarryRef.bIsCaptured
-        && !HarryRef.bKeepStationary;
+        && !HarryRef.bKeepStationary
+        // No sprint while any game slowdown (sleepy / ectoplasm / spider web) is
+        // active, so shift can't outrun it: this stops the cap pin, the velocity
+        // injection and the bean drain. SlowdownClamp re-pins GroundSpeed for the
+        // slow's whole duration.
+        && !IsSlowdownActive();
 }
 
 // True when Harry is actively sprinting (eligible AND moving). Drives the bean
@@ -1309,8 +1315,10 @@ function bool WantSprint()
 //    gradually and never trips it.
 //
 // Both caps are restored to base exactly once on the falling edge via
-// bSprintApplied, so an ecto/sleepy/web slowdown legitimately driving GroundSpeed
-// is not continuously stomped.
+// bSprintApplied. Game slowdowns (sleepy / ectoplasm / web) are handled
+// separately: SprintContext makes sprint ineligible while one is active, and
+// SlowdownClamp re-pins GroundSpeed for its duration (any one-frame GroundRunSpeed
+// write here is corrected the same Tick).
 function SprintApply()
 {
     local float target, curSpeed, incomingGS;
@@ -1421,6 +1429,54 @@ function SprintTick()
     if (WantSprint())
     {
         HarryRef.managerStatus.AddBeans(-SPRINT_BEAN_COST);
+    }
+}
+
+// True while any game slowdown is lowering GroundSpeed: the Drowsiness Draught
+// Trap / organic pixie-dust sleepy effect (iSleepyAnimTimer), Skurge ectoplasm
+// (iEctoRefCount), or a spider web (iWebAnimRefCount). Each drives its own field
+// and is the eligibility gate for both sprint suppression and SlowdownClamp.
+function bool IsSlowdownActive()
+{
+    return HarryRef != None
+        && (HarryRef.iSleepyAnimTimer > 0
+            || HarryRef.iEctoRefCount > 0
+            || HarryRef.iWebAnimRefCount > 0);
+}
+
+// Slowdown upkeep, called every frame from Tick. Each slow sets GroundSpeed once
+// on its rising edge (SleepyAnimTimerAdd / EctoRefAdd / WebAnimRefCountAdd) and
+// the game never re-asserts it, so any later reset escapes the slow: the
+// shift-to-run pin in SprintApply, or a cast-end TurnOffSpellCursor writing
+// GroundSpeed = GroundRunSpeed. Re-pin the active slow's cap each grounded frame;
+// when several overlap, take the most restrictive (lowest). The game's own
+// *Sub helpers restore GroundRunSpeed when each ref/timer reaches 0, so this
+// self-terminates with no extra bookkeeping. The IsSlowdownActive gate means a
+// normal (un-slowed) sprint is never touched here.
+function SlowdownClamp()
+{
+    local float cap;
+
+    if (HarryRef == None || HarryRef.Physics != PHYS_Walking || !IsSlowdownActive())
+    {
+        return;
+    }
+    cap = HarryRef.GroundRunSpeed;
+    if (HarryRef.iSleepyAnimTimer > 0 && HarryRef.fSleepySpeed < cap)
+    {
+        cap = HarryRef.fSleepySpeed;
+    }
+    if (HarryRef.iEctoRefCount > 0 && HarryRef.GroundEctoSpeed < cap)
+    {
+        cap = HarryRef.GroundEctoSpeed;
+    }
+    if (HarryRef.iWebAnimRefCount > 0 && HarryRef.fWebSpeed < cap)
+    {
+        cap = HarryRef.fWebSpeed;
+    }
+    if (HarryRef.GroundSpeed > cap)
+    {
+        HarryRef.GroundSpeed = cap;
     }
 }
 
@@ -2386,7 +2442,8 @@ static function int GetCheckedQuidditchMatchCount()
 // of the game resetting them (StopAiming, Landed) and raised before a jump's
 // takeoff clamp, so this runs off Tick rather than the 0.25s Timer that drives
 // the rest of the watcher. Only the active singleton watcher with a bound Harry
-// acts; the bean drain stays on Timer via SprintTick.
+// acts; the bean drain stays on Timer via SprintTick. SlowdownClamp runs after,
+// re-pinning any active slow (sleepy / ectoplasm / web) so shift can't outrun it.
 event Tick(float DeltaTime)
 {
     if (default.LatestInstance != self || !bSnapshotted)
@@ -2394,6 +2451,7 @@ event Tick(float DeltaTime)
         return;
     }
     SprintApply();
+    SlowdownClamp();
 }
 
 event Timer()
