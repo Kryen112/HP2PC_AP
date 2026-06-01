@@ -267,20 +267,29 @@ locations:
     { requires: "Skurge & Flipendo & Lumos & Alohomora" }
 
   # Bicorn Level
-  "Bicorn Level - Card Agrippa": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Card Goshawk": { requires: "Alohomora & Flipendo & Skurge" }
+  "Bicorn Level - Card Agrippa":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
+  "Bicorn Level - Card Goshawk":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
   "Bicorn Level - Card Peakes": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Card Stump": { requires: "Alohomora & Flipendo & Skurge" }
+  "Bicorn Level - Card Stump":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
   "Bicorn Level - Card Cronk": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Card Nutcombe": { requires: "Alohomora & Flipendo & Skurge" }
+  "Bicorn Level - Card Nutcombe":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
   "Bicorn Level - Secret 1": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Secret 2": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Secret 3": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Secret 4": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Secret 5": { requires: "Alohomora & Flipendo & Skurge" }
+  "Bicorn Level - Secret 2":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
+  "Bicorn Level - Secret 3":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
+  "Bicorn Level - Secret 4":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
+  "Bicorn Level - Secret 5":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
   "Bicorn Level - Secret 6":
-    { requires: "Alohomora & Flipendo & Skurge & Lumos" }
-  "Bicorn Level - Secret 7": { requires: "Alohomora & Flipendo & Skurge" }
+    { requires: "Alohomora & Flipendo & Skurge & Lumos & Rictusempra" }
+  "Bicorn Level - Secret 7":
+    { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
   "Bicorn Level - Complete":
     { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
 
