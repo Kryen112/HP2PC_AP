@@ -5,16 +5,21 @@ const NUM_SPELLS = 7;
 const NUM_KEY_ITEMS = 3;
 const NUM_BLOCKER_KEYS = 14;
 
-// Shift-to-run. While Shift is held and Harry is actually running on the
-// ground with beans to spend, GroundSpeed is scaled by SPRINT_SPEED_MULTIPLIER
-// and SPRINT_BEAN_COST beans are spent per 0.25s watcher tick. The spend goes
-// through the organic managerStatus.AddBeans path so APIPCActor.TickRingLink
-// mirrors it to RingLink automatically. SPRINT_MIN_SPEED is the velocity floor
-// (uu/s) that distinguishes "running" from standing still, so idling on Shift
-// costs nothing.
+// Shift-to-run. While Shift is held and Harry is actually running with beans to
+// spend, both speed caps (GroundSpeed and GroundJumpSpeed) are scaled by
+// SPRINT_SPEED_MULTIPLIER every frame, and SPRINT_BEAN_COST beans are spent per
+// 0.25s watcher tick. The spend goes through the organic managerStatus.AddBeans
+// path so APIPCActor.TickRingLink mirrors it to RingLink automatically.
+// SPRINT_MIN_SPEED is the velocity floor (uu/s) that distinguishes "running"
+// from standing still, so idling on Shift costs nothing. SPRINT_RECOVER_EPSILON
+// is the near-zero speed that flags a one-frame velocity collapse: the game
+// hard-zeroes Velocity for the duration of a spell cast (ProcessMove, while
+// bJustFired/bJustAltFired is set), and SprintApply restores the cached run
+// velocity so the run resumes with no acceleration ramp.
 const SPRINT_SPEED_MULTIPLIER = 1.5;
 const SPRINT_BEAN_COST = 1;
 const SPRINT_MIN_SPEED = 10.0;
+const SPRINT_RECOVER_EPSILON = 1.0;
 
 // Story state when the player first gains control in the Great Hall after
 // the opening sequence — the checkpoint where vanilla assigns silver wizard
@@ -230,11 +235,27 @@ var StatusItemWizardCards siGold;
 var byte WasOwnedByHarry[102];
 var bool bSnapshotted;
 
-// Shift-to-run falling-edge latch. 1 while SprintTick has GroundSpeed scaled
-// up; lets the restore write the base GroundSpeed back exactly once when sprint
-// ends, instead of every tick, so it can't continuously stomp an ecto/sleepy/
-// web slowdown that is legitimately driving GroundSpeed.
+// Shift-to-run falling-edge latch. 1 while SprintApply has the speed caps scaled
+// up; lets the restore write the base caps back exactly once when sprint ends,
+// instead of every frame, so it can't continuously stomp an ecto/sleepy/web
+// slowdown that is legitimately driving GroundSpeed.
 var byte bSprintApplied;
+// Base GroundJumpSpeed captured on the sprint rising edge, before SprintApply
+// overwrites it, so the falling-edge restore is exact even for a harry subclass.
+// The game never writes GroundJumpSpeed at runtime, so the value seen at the
+// rising edge is always the pawn default.
+var float SprintBaseJumpSpeed;
+// Cast-recovery cache for shift-to-run. SprintLastVel holds the last healthy
+// horizontal run velocity (Z zeroed); SprintLastSpeed is the previous frame's
+// horizontal speed; bWasCasting is 1 if a cast was in progress last frame. When
+// a spell cast hard-zeroes Velocity, SprintApply re-applies SprintLastVel so the
+// run continues at speed instead of ramping back up from a standstill.
+// bWasCasting extends recovery one frame past the cast (the resume frame, where
+// the fire flags have already cleared) so the restore lands regardless of tick
+// order versus the pawn's movement code. Cleared when the sprint genuinely ends.
+var vector SprintLastVel;
+var float SprintLastSpeed;
+var byte bWasCasting;
 var int LastBronzeCount;
 var int LastSilverCount;
 var int LastGoldCount;
@@ -1207,43 +1228,180 @@ function TrapTick()
     default.TrapLastLevelName = curLevel;
 }
 
-// Called once per Timer() tick (after Snapshot, HarryRef valid). Shift-to-run:
-// while Shift is held, Harry is in a playable state, running on the ground, and
-// has beans, scale GroundSpeed up and spend beans this tick. The spend uses the
-// organic managerStatus.AddBeans path (NOT MutateBeansNoBroadcast) so
-// APIPCActor.TickRingLink picks up the bean delta and broadcasts it to RingLink.
-// AddBeans floors at 0, so the drain self-stops when beans run out. GroundSpeed
-// is re-applied every sprinting tick (state code rewrites it on transitions),
-// and restored to the base exactly once on the falling edge via bSprintApplied.
-function SprintTick()
+// True when shift-to-run is eligible this frame independent of how fast Harry is
+// moving: Shift held, beans to spend, on the ground or airborne, and Harry is
+// player-controllable. The playable check is deliberately leaner than
+// IsPlayerInPlayableState - it allows a dialogue popup (bCutPopupMode, where the
+// player can still walk) and only blocks a real cutscene (bIsCaptured, which is
+// the exact condition StartCutScene uses to pick bCutSceneMode over the popup).
+// bKeepStationary still blocks (vendor lure). Omitting the velocity floor is
+// what lets the cast-recovery branch in SprintApply fire while a spell cast has
+// Velocity pinned at zero. PHYS_Falling is included so a sprint carries through
+// a jump.
+function bool SprintContext()
 {
     local HPConsole console;
-    local string deferReason;
-    local bool bWantSprint;
 
     if (HarryRef == None || HarryRef.managerStatus == None)
+    {
+        return False;
+    }
+
+    console = HPConsole(HarryRef.Player.Console);
+    return console != None
+        && console.bShiftDown
+        && (HarryRef.Physics == PHYS_Walking || HarryRef.Physics == PHYS_Falling)
+        && HarryRef.managerStatus.GetBeanCount() > 0
+        && string(HarryRef.GetStateName()) == "PlayerWalking"
+        && !HarryRef.bIsCaptured
+        && !HarryRef.bKeepStationary;
+}
+
+// True when Harry is actively sprinting (eligible AND moving). Drives the bean
+// drain on the Timer; SprintApply uses SprintContext directly so it can also act
+// during the zero-velocity cast window.
+function bool WantSprint()
+{
+    return SprintContext() && VSize2D(HarryRef.Velocity) > SPRINT_MIN_SPEED;
+}
+
+// Called every frame from Tick (NOT the 0.25s Timer). Three jobs:
+//
+// 1. Pin both speed caps to the sprint target while running: GroundSpeed so
+//    PlayerWalking does not decelerate after the game resets it on
+//    StopAiming/Landed, and GroundJumpSpeed so the DoJump/Falling clamp
+//    (S > GroundJumpSpeed) never fires and the jump keeps its momentum. Per-frame
+//    closes the up-to-0.25s window the Timer poll left open.
+//
+// 2. Suppress the cast "plant". ProcessMove zeroes Velocity every frame while
+//    bJustFired/bJustAltFired is set, and the game leaves them set from the cast
+//    trigger until AnimEnd, which is what stalls the run for the whole cast
+//    animation. Those flags are set once per cast (not re-armed each frame) and
+//    are read nowhere else - the spell is emitted by the anim channel's
+//    stateCast, not by these flags - so clearing them while sprinting stops the
+//    plant without touching the cast. Harry keeps run speed through the cast.
+//    Non-sprint casts are untouched and still plant.
+//
+// 3. Restore momentum as a backstop. The flags are set inside PlayerTick, so the
+//    trigger frame can still zero Velocity once before the clear in job 2 lands;
+//    re-applying the cached run velocity covers that one frame (and anything else
+//    that zeroes Velocity mid-sprint) so the run never ramps up from a stop. The
+//    trigger is a one-frame collapse while still eligible - a real stop decays
+//    gradually and never trips it.
+//
+// Both caps are restored to base exactly once on the falling edge via
+// bSprintApplied, so an ecto/sleepy/web slowdown legitimately driving GroundSpeed
+// is not continuously stomped.
+function SprintApply()
+{
+    local float target, curSpeed, incomingGS;
+    local vector horizVel;
+    local bool bCtx, bCasting, bRecovering;
+
+    if (HarryRef == None)
     {
         return;
     }
 
-    console = HPConsole(HarryRef.Player.Console);
-    bWantSprint = console != None
-        && console.bShiftDown
-        && HarryRef.Physics == PHYS_Walking
-        && VSize(HarryRef.Velocity) > SPRINT_MIN_SPEED
-        && HarryRef.managerStatus.GetBeanCount() > 0
-        && class'APGameInfo'.static.IsPlayerInPlayableState(HarryRef, deferReason);
+    target = HarryRef.GroundRunSpeed * SPRINT_SPEED_MULTIPLIER;
+    curSpeed = VSize2D(HarryRef.Velocity);
+    incomingGS = HarryRef.GroundSpeed;
+    bCtx = SprintContext();
+    bCasting = HarryRef.bJustFired || HarryRef.bJustAltFired;
 
-    if (bWantSprint)
+    // While sprinting, clear the cast-plant flags so ProcessMove never zeroes
+    // Velocity through a cast animation. Harmless when the flags are already
+    // clear (the common case here); only matters for casts that set them.
+    if (bCtx)
     {
-        HarryRef.GroundSpeed = HarryRef.GroundRunSpeed * SPRINT_SPEED_MULTIPLIER;
-        HarryRef.managerStatus.AddBeans(-SPRINT_BEAN_COST);
+        HarryRef.bJustFired = False;
+        HarryRef.bJustAltFired = False;
+    }
+
+    // Recovery re-applies the cached run velocity to erase a momentum dip. It
+    // fires on three signals, all needing a healthy cached velocity:
+    //  - GroundSpeed reset on the ground: the game reset GroundSpeed to the base
+    //    run speed this frame (StopAiming/TurnOffSpellCursor, Landed, cast-end).
+    //    On that frame PlayerWalking physics decelerates toward the base cap
+    //    before the per-frame pin below restores it - the one-frame dip felt when
+    //    casting or stopping aim at full sprint. Gated to PHYS_Walking: GroundSpeed
+    //    only governs ground movement (airborne uses AirSpeed), so a midair reset
+    //    is harmless and restoring there would fight the fall. A normal slow-down
+    //    never resets GroundSpeed (the pin holds it at target), so this cannot
+    //    fire when genuinely halting.
+    //  - a near-zero one-frame collapse (a cast that hard-zeroes Velocity).
+    //  - the post-cast resume frame (bWasCasting), order-independent of the pawn.
+    bRecovering = VSize(SprintLastVel) > SPRINT_MIN_SPEED
+        && ((HarryRef.Physics == PHYS_Walking && incomingGS < target - 1.0)
+            || bCasting
+            || bWasCasting == 1
+            || (curSpeed < SPRINT_RECOVER_EPSILON && SprintLastSpeed > SPRINT_MIN_SPEED));
+
+    if (bCtx && (curSpeed > SPRINT_MIN_SPEED || bRecovering))
+    {
+        // Capture the base jump cap on the rising edge (both caps sit at their
+        // base values here) and pin both caps.
+        if (bSprintApplied == 0)
+        {
+            SprintBaseJumpSpeed = HarryRef.GroundJumpSpeed;
+        }
+        HarryRef.GroundSpeed = target;
+        HarryRef.GroundJumpSpeed = target;
+
+        if (bRecovering)
+        {
+            // Re-apply the cached horizontal run velocity so the run resumes with
+            // no acceleration ramp. Keep the current vertical velocity: SprintLastVel
+            // has Z zeroed, and overwriting Z would cancel a fall, so tapping cast
+            // while airborne could otherwise let Harry hover.
+            horizVel = SprintLastVel;
+            horizVel.Z = HarryRef.Velocity.Z;
+            HarryRef.Velocity = horizVel;
+        }
+        else
+        {
+            // Healthy run frame: remember the horizontal velocity for recovery.
+            horizVel = HarryRef.Velocity;
+            horizVel.Z = 0.0;
+            SprintLastVel = horizVel;
+        }
         bSprintApplied = 1;
     }
     else if (bSprintApplied == 1)
     {
+        // Sprint genuinely ended (Shift up, stopped, left a playable state):
+        // restore the caps once and drop the recovery cache.
         HarryRef.GroundSpeed = HarryRef.GroundRunSpeed;
+        HarryRef.GroundJumpSpeed = SprintBaseJumpSpeed;
+        SprintLastVel = vect(0, 0, 0);
         bSprintApplied = 0;
+    }
+
+    if (bCasting)
+    {
+        bWasCasting = 1;
+    }
+    else
+    {
+        bWasCasting = 0;
+    }
+    // Post-restore horizontal speed, so a multi-frame cast keeps the recovery
+    // trigger satisfied (the restore above leaves Velocity healthy again).
+    SprintLastSpeed = VSize2D(HarryRef.Velocity);
+}
+
+// Called once per 0.25s Timer tick. Shift-to-run bean drain only. The speed-cap
+// application lives in SprintApply (per-frame). Spends SPRINT_BEAN_COST beans
+// while sprinting via the organic managerStatus.AddBeans path (NOT
+// MutateBeansNoBroadcast) so APIPCActor.TickRingLink picks up the delta and
+// mirrors it to RingLink. AddBeans floors at 0, so the drain self-stops when
+// beans run out (WantSprint then returns False and SprintApply restores the caps
+// within a frame).
+function SprintTick()
+{
+    if (WantSprint())
+    {
+        HarryRef.managerStatus.AddBeans(-SPRINT_BEAN_COST);
     }
 }
 
@@ -2203,6 +2361,20 @@ static function int GetCheckedQuidditchMatchCount()
         if (default.NonCardLocationChecked[slot] == 1) n++;
     }
     return n;
+}
+
+// Per-frame shift-to-run upkeep. The speed caps must be re-pinned within a frame
+// of the game resetting them (StopAiming, Landed) and raised before a jump's
+// takeoff clamp, so this runs off Tick rather than the 0.25s Timer that drives
+// the rest of the watcher. Only the active singleton watcher with a bound Harry
+// acts; the bean drain stays on Timer via SprintTick.
+event Tick(float DeltaTime)
+{
+    if (default.LatestInstance != self || !bSnapshotted)
+    {
+        return;
+    }
+    SprintApply();
 }
 
 event Timer()
