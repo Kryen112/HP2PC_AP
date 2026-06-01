@@ -299,6 +299,19 @@ var byte APGrantedKeyItem[3];
 var byte bSawFinalStarThisLevel;
 var byte bAwardedFinalStarThisLevel;
 
+// Genuine spell-challenge best score, indexed 0=Rictusempra..3=Spongify. The
+// shipped ChallengeScoreManager is born with nHighScore == nMaxScore (par), so
+// on completion it writes harry.ChallengeScores[i].nHighScore = max(par, actual):
+// a sub-par run still records par, which makes both the in-game Report Card and
+// the Beat Par Time check read as mastered. We capture the real end score
+// (nCurrScore) at final-star completion and re-assert it onto
+// harry.ChallengeScores every tick, so the menu display and ScanChallengeMastery
+// are both honest. Class-default (always accessed via default.) so it survives
+// the per-level watcher respawn; re-seeded once per session from the travel-saved
+// harry value. bChallengeGenuineSeeded latches that one-time seed.
+var int ChallengeGenuineBest[4];
+var byte bChallengeGenuineSeeded;
+
 // Bookcase-blocker keys. 14 progression items, each gating one or more
 // bookcases the mod spawns in the hub levels (Entryhall_hub / Grandstaircase_hub
 // / Grounds_hub + Grounds_Night). Used in BOTH game modes: open castle puts all
@@ -2490,6 +2503,7 @@ event Timer()
     ScanSecretMarkers(ipc);
     ScanDuelWins(ipc);
     ScanMatchWins(ipc);
+    EnforceGenuineChallengeScores();
     ScanChallengeMastery(ipc);
     ScanBossKills(ipc);
     ScanDeathLink(ipc);
@@ -3842,15 +3856,79 @@ function ScanMatchWins(APIPCActor ipc)
     }
 }
 
+// Keep harry.ChallengeScores[].nHighScore honest against the engine's par-seed.
+// Seeds the genuine table once per session from the travel-saved values (max,
+// never clobbering a same-session capture), then each tick forces harry's high
+// score back to the captured genuine best so the Report Card and
+// ScanChallengeMastery never read the seeded par. Runs in every level (cheap: 4
+// int compares); the per-level ChallengeScoreManager only writes
+// harry.ChallengeScores on completion, and this re-assert overrides that write
+// within one tick. Pre-fix saves whose nHighScore was already corrupted to par
+// are indistinguishable from a genuine master and are carried forward as-is.
+function EnforceGenuineChallengeScores()
+{
+    local int i;
+
+    if (HarryRef == None) return;
+
+    if (default.bChallengeGenuineSeeded == 0)
+    {
+        default.bChallengeGenuineSeeded = 1;
+        for (i = 0; i < 4; i++)
+        {
+            if (HarryRef.ChallengeScores[i].nHighScore > default.ChallengeGenuineBest[i])
+            {
+                default.ChallengeGenuineBest[i] = HarryRef.ChallengeScores[i].nHighScore;
+            }
+        }
+    }
+
+    for (i = 0; i < 4; i++)
+    {
+        if (default.ChallengeGenuineBest[i] <= 0) continue;
+        if (HarryRef.ChallengeScores[i].nHighScore != default.ChallengeGenuineBest[i])
+        {
+            HarryRef.ChallengeScores[i].nHighScore = default.ChallengeGenuineBest[i];
+        }
+    }
+}
+
+// Capture the player's real end score for a spell challenge at the instant the
+// final star is consumed: the challenge has just ended, so ChallengeScoreManager
+// is in Idle with nCurrScore frozen at the finishing value, and the tally that
+// corrupts harry.ChallengeScores has not run yet. Folds it into the genuine
+// best; EnforceGenuineChallengeScores propagates it to harry.ChallengeScores.
+function CaptureSpellChallengeScore(int parIdx)
+{
+    local ChallengeScoreManager mgr;
+
+    if (parIdx < 0 || parIdx > 3) return;
+
+    foreach AllActors(class'ChallengeScoreManager', mgr)
+    {
+        break;
+    }
+    if (mgr == None) return;
+
+    if (mgr.nCurrScore > default.ChallengeGenuineBest[parIdx])
+    {
+        default.ChallengeGenuineBest[parIdx] = mgr.nCurrScore;
+    }
+    Log("[Archipelago] APCardWatcher.CaptureSpellChallengeScore: challenge " $ parIdx
+        $ " end score=" $ mgr.nCurrScore $ " par=" $ mgr.nMaxScore
+        $ " -> genuine best=" $ default.ChallengeGenuineBest[parIdx]);
+}
+
 // Per-tick poll of harry.ChallengeScores[0..3]. A spell challenge is Mastered
-// once nHighScore >= nMaxScore (the par), the same predicate vanilla
-// ChallengeScoreManager.EndState() uses to set bMastered. The `nMaxScore > 0`
-// guard rejects a never-played challenge (0/0) so it cannot false-fire.
-// ChallengeScores is var travel, so a Mastered challenge persists across
-// save-load exactly like quidGameResults. AP location id = 5760630 + i, per
-// data/locations.yaml `spell_challenge_times`, indexed 0=Rictusempra,
-// 1=Skurge, 2=Diffindo, 3=Spongify. Idempotent for the same reason as
-// ScanMatchWins.
+// once nHighScore >= nMaxScore (the par). The shipped engine seeds nHighScore to
+// par, so this predicate is only meaningful because EnforceGenuineChallengeScores
+// (run earlier this tick) has already overwritten nHighScore with the player's
+// real end score; a sub-par run reads nHighScore < nMaxScore and does not fire.
+// The `nMaxScore > 0` guard rejects a never-played challenge (0/0). ChallengeScores
+// is var travel, so a Mastered challenge persists across save-load exactly like
+// quidGameResults. AP location id = 5760630 + i, per data/locations.yaml
+// `spell_challenge_times`, indexed 0=Rictusempra, 1=Skurge, 2=Diffindo,
+// 3=Spongify. Idempotent for the same reason as ScanMatchWins.
 function ScanChallengeMastery(APIPCActor ipc)
 {
     local int i, locId, slot;
@@ -3915,6 +3993,10 @@ function ScanFinalStarCompletion()
         Log("[Archipelago] APCardWatcher.ScanFinalStarCompletion: FinalStar consumed in "
             $ string(Level.Outer.Name) $ " (idx=" $ idx $ ") - crediting completion");
         class'APCardWatcher'.static.NotifyLevelObjective(idx);
+        // idx 7..10 are the four spell challenges (Rictusempra..Spongify); par
+        // index = idx - 7. Capture the real end score now, before the engine's
+        // tally overwrites harry.ChallengeScores with max(par, actual).
+        if (idx >= 7 && idx <= 10) CaptureSpellChallengeScore(idx - 7);
     }
 }
 
