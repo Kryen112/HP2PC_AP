@@ -528,13 +528,29 @@ class HP2Context(CommonContext):
         # via the property — covering the .usa save-load that dropped the
         # SpellBook[] class ref and the cold mod-process boot that reset
         # default.APGrantedSpell[].
-        # Last seed_name observed via RoomInfo. On change, wipe seed-specific
-        # state in _handle_seed_change so a long-running client targeting the
-        # same host:port across seeds doesn't replay seed A's items to seed B.
-        # CommonContext.reset_server_state is NOT the right hook — it runs on
-        # every disconnect, including transient AP blips, which the durable
-        # ledger must survive.
+        # Identity (seed_name, slot name) of the connection whose per-slot state
+        # we currently hold. On a change to either, _reset_connection_state wipes
+        # that state so a long-running client never replays one playthrough's
+        # checks / items / goal to the next:
+        #   - seed_name change → a different multiworld (the common case).
+        #   - slot-name change → switching slots within ONE multiworld; two
+        #     slots share a seed_name, so seed alone misses it (the framework
+        #     would resend slot A's locations_checked to slot B on Connected).
+        # Both are known before that resend: self.auth is set by server_auth,
+        # which the built-in RoomInfo handler awaits before our on_package runs.
+        # The server address is deliberately NOT part of the identity: a host can
+        # return the SAME room on a new port (archipelago.gg inactivity sleep),
+        # so a port change is not a playthrough change — wiping then would drop
+        # locations_checked / pending_ap_outbound the mod can't re-assert while
+        # the bridge stays up. The same-seed-value / same-slot / same-port case
+        # (which seed+slot also can't see) is instead caught authoritatively by
+        # the mod's NEWGAME signal when the fresh save starts.
+        # A transient AP blip / same-slot reconnect leaves both unchanged, so the
+        # durable state correctly survives it. CommonContext.reset_server_state
+        # is NOT the right hook — it runs on every disconnect, which the durable
+        # state must survive.
         self._last_seed_name: Optional[str] = None
+        self._last_auth: Optional[str] = None
         # Open castle Great Hall key config as the "GOALCFG c,s,l,d,q,mask"
         # payload, or None for vanilla / not-yet-received. Parsed from slot_data
         # on Connected; pushed to the mod on every game HELLO (sticky +
@@ -679,10 +695,26 @@ class HP2Context(CommonContext):
     def on_package(self, cmd: str, args: dict) -> None:
         if cmd == "RoomInfo":
             new_seed = args.get("seed_name")
-            if self._last_seed_name and new_seed and new_seed != self._last_seed_name:
-                self._handle_seed_change(self._last_seed_name, new_seed)
+            # self.auth is the slot name we're (re)authenticating as; the
+            # built-in RoomInfo handler awaits server_auth before this runs, so
+            # it is set before the framework's Connected resend of
+            # locations_checked.
+            new_auth = self.auth
+            seed_changed = bool(self._last_seed_name and new_seed
+                                and new_seed != self._last_seed_name)
+            slot_changed = bool(self._last_auth and new_auth
+                                and new_auth != self._last_auth)
+            if seed_changed or slot_changed:
+                reasons = []
+                if seed_changed:
+                    reasons.append(f"seed {self._last_seed_name!r} → {new_seed!r}")
+                if slot_changed:
+                    reasons.append(f"slot {self._last_auth!r} → {new_auth!r}")
+                self._reset_connection_state("; ".join(reasons))
             if new_seed:
                 self._last_seed_name = new_seed
+            if new_auth:
+                self._last_auth = new_auth
         elif cmd == "Connected":
             logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
             if self.pending_ap_outbound:
@@ -1542,6 +1574,13 @@ class HP2Context(CommonContext):
             # Retrieved handler). A fresh game also hasn't goaled.
             self._ledger_client_authoritative = True
             self.finished_game = False
+            # A fresh save has checked nothing. Drop the local check cache so the
+            # framework's next Connected resend can't replay a prior
+            # playthrough's locations — the backstop for two rooms the connect-
+            # time identity can't tell apart (same seed value → same seed_name,
+            # same slot name, same host:port). The new game's genuine checks
+            # repopulate this via CHECK / CHECKEDOUT.
+            self.locations_checked = set()
             self._persist_ledger()
             self._send_resync_spells()
             self._forward_all_received()
@@ -2161,9 +2200,13 @@ class HP2Context(CommonContext):
         logger.info(f"Appearance table rebuilt: {len(pairs)} morphable location(s)")
         self._send_to_game("APPEARANCE " + csv)
 
-    def _handle_seed_change(self, old_seed: str, new_seed: str) -> None:
+    def _reset_connection_state(self, reason: str) -> None:
+        """Wipe per-slot state when the connection identity (seed or slot name)
+        changes, so one slot's outbound checks / received items / goal never
+        carry over to the next. Called from the RoomInfo handler before the
+        framework's Connected handler resends self.locations_checked."""
         logger.info(
-            f"Seed changed ({old_seed!r} → {new_seed!r}); clearing prior-seed state "
+            f"Connection identity changed ({reason}); clearing prior-slot state "
             f"({len(self.pending_grants)} pending grant(s), "
             f"{len(self.pending_ap_outbound)} pending AP msg(s), "
             f"{len(self.locations_checked)} checked location(s), "
@@ -2171,14 +2214,14 @@ class HP2Context(CommonContext):
         )
         self.pending_grants = []
         self.pending_ap_outbound = []
-        # The new seed has its own location universe and its own completion;
-        # drop the framework resend/goal state so we never replay seed A's
-        # checks or goal to seed B.
+        # The new slot has its own location universe and its own completion;
+        # drop the framework resend/goal state so we never replay slot A's
+        # checks or goal to slot B.
         self.locations_checked = set()
         self.finished_game = False
-        # Drop the prior seed's durable-ledger state; the new seed is a
-        # different AP server/room, so the next Connected recomputes ledger_key
-        # and re-fetches its own consumed-index set from AP storage. Clearing
+        # Drop the prior slot's durable-ledger state; the new slot has its own
+        # ledger_key (team:slot), so the next Connected recomputes it and
+        # re-fetches its own consumed-index set from AP storage. Clearing
         # received_by_index also clears the spell ledger (it's a @property
         # derived from this dict).
         self.ledger_key = None
@@ -2187,10 +2230,10 @@ class HP2Context(CommonContext):
         self.ledger_loaded = False
         self.received_by_index = {}
         self.sent_this_session = set()
-        # #3: drop the prior seed's appearance table so the next Connected's
-        # scout rebuilds it from scratch (item placement differs per seed).
+        # #3: drop the prior slot's appearance table so the next Connected's
+        # scout rebuilds it from scratch (item placement differs per slot).
         self.appearance_csv = None
-        # Drop the prior seed's checked-locations resync; the new seed has its
+        # Drop the prior slot's checked-locations resync; the new slot has its
         # own checked_locations universe (different ids, different progress).
         self.checked_csv = None
 
