@@ -4131,6 +4131,18 @@ function ScanDeathLink(APIPCActor ipc)
     }
     else if (!bDead && default.bWasDead == 1)
     {
+        // LoadGame 0 finished and Harry is playable again. If it returned us to
+        // the same level we died in (the in-level autosave case), the death did
+        // NOT travel out of the level, so the death-exit marker must not linger
+        // and suppress a genuine same-visit completion. The in-level reload
+        // restores the level without a fresh PreBeginPlay, so Snapshot() /
+        // CheckExitedLevelObjective never re-run - this falling edge is the only
+        // place that observes the post-reload level. The marker is kept when the
+        // reload landed in a different level (hub autosave) - the case the
+        // CheckExitedLevelObjective death-reload skip actually guards.
+        if (default.DeathExitFromLevelCaps == Caps(string(Level.Outer.Name)))
+            default.DeathExitFromLevelCaps = "";
+
         // Alive again (post-reload PlayerWalking) — tell the client to clear
         // sent_this_session for any indices not yet durably consumed, then
         // re-forward them. The reload is finished, so the freshly queued
