@@ -57,6 +57,7 @@ import json
 import logging
 import os
 import random
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -93,6 +94,16 @@ def _hp2_install_path(open_castle: bool) -> Optional[str]:
     except Exception:
         return None
     return path or None
+
+
+def _auto_launch_enabled() -> bool:
+    """Whether the client launches the matching install's Game.exe on connect.
+    Read at call time so a host.yaml edit needs no client restart. On read error,
+    default to off so a misread never surprise-launches the game."""
+    try:
+        return bool(HP2World.settings.auto_launch_game)
+    except Exception:
+        return False
 
 
 # /reroll overrides per randomizer kind ("sound" / "music"), keyed by
@@ -386,6 +397,18 @@ class HP2CommandProcessor(ClientCommandProcessor):
         self._reroll_audio("dialogue")
         return True
 
+    def _cmd_play(self) -> bool:
+        """Launch Harry Potter for the connected seed's mode (vanilla or open
+        castle). The client already auto-launches on connect; use /play if you
+        turned that off (auto_launch_game), or to relaunch after closing the game.
+        Waits for any in-flight randomizer patch first."""
+        ctx: "HP2Context" = self.ctx
+        if ctx.seed_mode is None:
+            self.output("Connect to a seed first, so the client knows which version to launch.")
+            return True
+        asyncio.create_task(ctx._launch_game_manual())
+        return True
+
     def _cmd_progress(self) -> bool:
         """Show progress toward the open castle goal: cards / spells / level
         objectives / duels / quidditch matches against the thresholds the seed
@@ -601,6 +624,12 @@ class HP2Context(CommonContext):
         # Per-seed shuffle mode for the mode_aware kinds (sound: on / no_footsteps;
         # dialogue: within_actor / all_actors). None for music and for off kinds.
         self.audio_mode: dict[str, Optional[str]] = {kind: None for kind in _AUDIO_KINDS}
+        # Auto-launch: the matching install's Game.exe is started once per client
+        # session, after the audio randomizers settle (or when there is nothing to
+        # patch), so the game never boots while files are being rewritten. The task
+        # handle lets /play await an in-flight patch before launching.
+        self._game_launched: bool = False
+        self._audio_task: Optional[asyncio.Task] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO) — a durable, authoritative open castle signal that
@@ -817,12 +846,12 @@ class HP2Context(CommonContext):
                 f"Tradersanity hint-on-open {'enabled' if self.tradersanity_hint_on_open else 'disabled'}"
             )
 
-            # Sound and music randomizers. Both patch files in the install
-            # (HPSounds.u, Music/*.ogg), so they are handled in one task that
-            # resolves the install once (prompting the player at most once) and
-            # runs the file work off the event loop. Off seeds restore from the
-            # backup.
-            asyncio.create_task(self._apply_audio_randomizers(sd))
+            # Sound, music, and dialogue randomizers. All patch files in the
+            # install, so they run in one task that resolves the install once
+            # (prompting the player at most once) and does the file work off the
+            # event loop. Off seeds restore from the backup. Auto-launch is chained
+            # after, so the game boots only once the files have settled.
+            self._audio_task = asyncio.create_task(self._connect_audio_then_launch(sd))
 
             # RingLink. Re-roll the per-connection source UUID and
             # (re)register the tag on every Connected so a reconnect stays
@@ -1285,10 +1314,15 @@ class HP2Context(CommonContext):
         except Exception as e:
             logger.warning(f"TOAST drop ({text!r}): write failed: {e}")
 
-    async def _apply_audio_randomizers(self, sd: dict) -> None:
+    async def _apply_audio_randomizers(self, sd: dict) -> "tuple[bool, Optional[str]]":
         """Apply or restore the sound, music, and dialogue file patches for this
         seed on the install matching its game mode. Resolves the install once
-        (prompting the player at most once) and runs the file work in an executor."""
+        (prompting the player at most once) and runs the file work in an executor.
+
+        Returns (safe_to_launch, install). safe is True when the install files are
+        settled (patched, already-applied, or nothing to do) so the game can boot,
+        and False when a needed patch could not be written. install is the resolved
+        folder, or None when it is unset and nothing forced a prompt."""
         try:
             open_castle = sd.get("game_mode") == "open_castle"
             sound_mode = sd.get("sound_mode")        # None / absent when off
@@ -1315,19 +1349,28 @@ class HP2Context(CommonContext):
                 f"install={install!r} valid={valid}"
             )
             if not any_on:
+                # No files to touch, so the game is safe to boot now. The launcher
+                # resolves (and prompts once for) the folder itself if it is unset.
                 ui_logger.info("All audio randomizers are off for this seed; leaving audio as-is.")
+                return True, install
 
-            if any_on and not valid:
+            if not valid:
                 install = await self._prompt_install_folder(open_castle)
                 valid = bool(install)
             if not valid:
-                return
+                # A randomizer is on but the install is unknown, so nothing was
+                # patched and the launcher has no folder either. Not safe to boot.
+                return False, None
 
             loop = asyncio.get_event_loop()
+            ok = True
             for kind in _AUDIO_KINDS:
-                await self._patch_one(loop, kind, self.audio_enabled[kind], install)
+                if not await self._patch_one(loop, kind, self.audio_enabled[kind], install):
+                    ok = False
+            return ok, install
         except Exception:
             ui_logger.exception("Audio randomizer task crashed")
+            return False, None
 
     def _effective_seed(self, sd: dict, kind: str, key: str) -> int:
         """slot_data seed for this kind, unless a /reroll override is saved."""
@@ -1335,7 +1378,10 @@ class HP2Context(CommonContext):
         override = _get_reroll(kind, self._reroll_key())
         return override if override is not None else base
 
-    async def _patch_one(self, loop, kind: str, enabled: bool, install: str) -> None:
+    async def _patch_one(self, loop, kind: str, enabled: bool, install: str) -> bool:
+        """Apply or restore one randomizer's files. Returns True when the files are
+        settled (written, already-current, or nothing to do) and False when the
+        write could not complete, so the caller can hold back the auto-launch."""
         spec = _AUDIO_KINDS[kind]
         try:
             if enabled:
@@ -1348,7 +1394,7 @@ class HP2Context(CommonContext):
             elif spec.present(install):
                 fut = loop.run_in_executor(None, spec.patch.restore_original, install)
             else:
-                return
+                return True
             # Bound the wait: a denied Program Files write can hang the file op
             # instead of failing fast, which previously left no message at all.
             result = await asyncio.wait_for(fut, timeout=20)
@@ -1358,28 +1404,107 @@ class HP2Context(CommonContext):
                 f"If the install is under Program Files, close Harry Potter and run the "
                 f"Archipelago launcher as administrator, then reconnect."
             )
-            return
+            return False
         except _PATCH_ERRORS as exc:
             ui_logger.error(f"{spec.noun}: {exc}")
-            return
+            return False
         self._announce_patch(kind, enabled, result)
+        return True
+
+    async def _connect_audio_then_launch(self, sd: dict) -> None:
+        """Run the audio randomizers, then auto-launch the game once they have
+        settled. Chaining the two keeps the game from booting while the install
+        files are still being rewritten, and lets the launch reuse the folder the
+        audio step already resolved, so the player is never asked twice."""
+        safe, install = await self._apply_audio_randomizers(sd)
+        if not _auto_launch_enabled() or self._game_launched:
+            return
+        if not safe:
+            ui_logger.warning(
+                "Not auto-launching: the install is not ready (a randomizer could not "
+                "be applied, or its folder is unset). Fix it above, then type /play."
+            )
+            return
+        await self._auto_launch(install)
+
+    async def _resolve_launch_folder(self) -> Optional[str]:
+        """The install folder to launch for this seed's mode: the configured one if
+        valid, else a one-time folder picker. None if it cannot be resolved."""
+        install = _hp2_install_path(self.is_open_castle)
+        if install and os.path.exists(sound_patch.package_path(install)):
+            return install
+        return await self._prompt_install_folder(self.is_open_castle)
+
+    async def _auto_launch(self, install_hint: Optional[str]) -> None:
+        """Launch Game.exe for this seed's mode. Reuses the folder the audio step
+        resolved when it is valid, else resolves (and prompts once for) it."""
+        if install_hint and os.path.exists(sound_patch.package_path(install_hint)):
+            install = install_hint
+        else:
+            install = await self._resolve_launch_folder()
+        if install:
+            self._launch_game(install)
+
+    async def _launch_game_manual(self) -> None:
+        """Back the /play command. Waits for any in-flight randomizer patch so a
+        manual launch never races a file write either, then launches regardless of
+        the once-per-session guard."""
+        if self._audio_task is not None and not self._audio_task.done():
+            ui_logger.info("Waiting for the audio randomizers to finish before launching.")
+            try:
+                await self._audio_task
+            except Exception:
+                pass
+        install = await self._resolve_launch_folder()
+        if install:
+            self._launch_game(install)
+
+    def _launch_game(self, install: str) -> None:
+        """Start Game.exe from the install's system folder. The UE1 engine needs
+        its working directory to be that system folder, so the process is spawned
+        with cwd there. Sets the once-per-session guard so auto-launch will not
+        also fire."""
+        system_dir = os.path.join(install, "system")
+        exe = os.path.join(system_dir, "Game.exe")
+        if not os.path.exists(exe):
+            ui_logger.error(
+                f"Cannot launch: '{exe}' not found. Check the install folder for this "
+                f"seed's mode in host.yaml."
+            )
+            return
+        mode = "open castle" if self.is_open_castle else "vanilla"
+        try:
+            subprocess.Popen([exe], cwd=system_dir)
+        except OSError as exc:
+            ui_logger.error(f"Could not launch Harry Potter ({mode}): {exc}")
+            return
+        self._game_launched = True
+        ui_logger.info(f"Launching Harry Potter ({mode}).")
 
     async def _prompt_install_folder(self, open_castle: bool) -> Optional[str]:
         """Pop a folder picker for the seed's game mode and persist the choice to
-        host.yaml, so the player picks their install once. Returns the chosen
-        folder (which contains system/HPSounds.u) or None if cancelled / no GUI."""
+        host.yaml, so the player picks their install once. The client needs it to
+        launch the game and to apply any randomizers. Returns the chosen folder
+        (which contains system/Game.exe and system/HPSounds.u) or None if cancelled
+        / no GUI."""
         mode = "open castle" if open_castle else "vanilla"
         field = "open_castle_install_folder" if open_castle else "vanilla_install_folder"
+        ui_logger.info(
+            f"First connect: pick your Harry Potter 2 {mode} install folder so the "
+            f"client can launch the game (and apply any randomizers). It is the folder "
+            f"that contains the 'system' folder with Game.exe. Saved to host.yaml, so "
+            f"you are asked only once per mode."
+        )
         try:
             from Utils import open_directory
         except Exception:
             ui_logger.warning(
-                f"A randomizer needs your {mode} install folder, but no folder picker "
-                f"is available here. Set 'harry_potter_2_pc_options' -> '{field}' in "
+                f"The client needs your {mode} install folder, but no folder picker is "
+                f"available here. Set 'harry_potter_2_pc_options' -> '{field}' in "
                 f"host.yaml."
             )
             return None
-        title = (f"Select your Harry Potter 2 {mode} install folder.")
+        title = f"Select your Harry Potter 2 {mode} install folder (contains system\\Game.exe)"
         loop = asyncio.get_event_loop()
         chosen = await loop.run_in_executor(None, open_directory, title)
         if not chosen:

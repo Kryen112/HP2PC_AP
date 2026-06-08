@@ -177,30 +177,27 @@ For solo on the same machine, the server is typically `localhost:38281`.
 You should see in the log tab:
 
 ```
-Waiting for game to launch before connecting to <server>:<port>...
 Game-side TCP listener up on ('127.0.0.1', 42779)
 ```
 
-The client deliberately holds the AP websocket closed until the game is up, so co-op partners don't see your slot come online before Harry is in the world. Leave the client window open.
+The client connects to the AP server as soon as you `/connect` and reads your seed's config. If the server asks for your slot name, type it and press Enter. Leave the client window open; with auto-launch on (the default), the game starts itself next (see below).
 
 ### Launch the game
 
-Run `<HP2 install>\system\Game.exe` (or use the M212 Start Menu shortcut), and start a new game.
+With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything; just start a new game once the window opens.
 
-Within a few seconds you should see in the client log:
+**First connect only:** the client needs to know where your install is, so it pops a folder picker asking for the install that matches the seed's mode (the folder that contains the `system` folder with `Game.exe`). Your choice is saved to `host.yaml`, so you're asked only once per mode. You can also set it ahead of time by editing host.yaml (see the install-path block under Sound randomizer below).
+
+Within a few seconds of the game booting you should see in the client log:
 
 ```
 Game connected from ('127.0.0.1', <port>)
 [game→client] HELLO
-Game booted. Connecting to AP server at <server>:<port>
-Connected to AP server as slot <N> (<YourSlotName>)
 ```
 
-If the server asks for your slot name, type it in and press Enter.
+The game window pops a toast top-right when your starting items arrive ("Received Alohomora from <YourSlotName>" etc). You're playing.
 
-The game window should pop a toast top-right when your starting items arrive ("Received Alohomora from <YourSlotName>" etc).
-
-You're playing.
+**Prefer to launch it yourself?** Set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml, then run `<HP2 install>\system\Game.exe` (or the M212 Start Menu shortcut) once the client is connected. The `/play` command in the client launches it too, handy if you closed the game and want it back, or if an auto-launch was skipped.
 
 ### Sound randomizer (optional)
 
@@ -218,9 +215,10 @@ It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u`
   harry_potter_2_pc_options:
     vanilla_install_folder: "<path to your vanilla-mode install>"
     open_castle_install_folder: "<path to your open-castle-mode install>"
+    auto_launch_game: true   # default; set false to launch the game yourself
   ```
 
-- **When it applies.** Patching runs a moment after you connect (it rewrites a large file in the background). Wait for the client window to show `Sound randomizer applied ...` before launching the game, and the first launch already has the shuffled sounds. If the game was already running when you connected, restart it once (the package is read at launch). If you instead see a "could not write / run as administrator" line, see Permissions below.
+- **When it applies.** Patching runs a moment after you connect (it rewrites a large file in the background). With auto-launch on (the default), the client finishes patching before it starts the game, so the first launch already has the shuffled sounds and you don't have to time anything. If you launch the game yourself, wait for the client window to show `Sound randomizer applied ...` first (and if the game was already running, restart it once, since the package is read at launch). If you instead see a "could not write / run as administrator" line, see Permissions below.
 - **Permissions.** The client patches a file inside your install, so it must be able to write there. If your install is under `Program Files` (the default location for the Harry Potter installation), Windows blocks writes unless the program is elevated, so you **must run ArchipelagoLauncher as administrator** (right-click it, "Run as administrator"). Otherwise the patch fails and the client log says so. Alternatively, use an install in a folder you can write to without elevation.
 - **Don't like a swapped sound?** Type `/reroll_sounds` in the client to reshuffle everything with a fresh random set. The new shuffle is remembered for that seed, so it sticks across restarts (restart once to hear it). Run it again if the new set is no better.
 - **Revert to the original sounds.** Connect to a seed with the option off (it auto-restores), or type `/restore_sounds` in the client, or manually copy `HPSounds.u.orig` over `HPSounds.u`. Either way, restart the game once to hear the original sounds again.

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import random as _random
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Union
 
 import settings
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
@@ -505,28 +505,35 @@ class HP2WebWorld(WebWorld):
 
 
 class HP2Settings(settings.Group):
-    # One install folder per game mode: a vanilla seed patches the vanilla
-    # install, an open castle seed patches the open castle install. Both blank by
-    # default and not framework-required (no surprise folder picker from the
-    # client); the client refuses to patch and names the right field when a needed
-    # folder is unset. Read by the sound and music randomizers. Each is the install
-    # root, containing both system\HPSounds.u (sound) and Music\ (music).
+    # One install folder per game mode: a vanilla seed uses the vanilla install,
+    # an open castle seed uses the open castle install. Both blank by default and
+    # not framework-required. With auto_launch_game on (the default) the client
+    # pops a one-time folder picker on first connect to learn the folder it
+    # launches (and patches), saving the choice here so it asks once per mode.
+    # Read by the sound / music / dialogue randomizers and the auto-launcher. Each
+    # is the install root, containing system\ (Game.exe, HPSounds.u) and Music\.
     class VanillaInstallFolder(settings.UserFolderPath):
         """Install folder for vanilla-mode seeds: the install root, containing the
-        'system' folder (with HPSounds.u) and the 'Music' folder. Used by the sound
-        and music randomizers. Use forward slashes. Leave blank if you use neither."""
+        'system' folder (with Game.exe and HPSounds.u) and the 'Music' folder. Used
+        to launch the game and by the randomizers. Use forward slashes."""
         description = "Harry Potter 2 vanilla install folder"
         required = False
 
     class OpenCastleInstallFolder(settings.UserFolderPath):
         """Install folder for open-castle-mode seeds: the install root, containing
-        the 'system' folder (with HPSounds.u) and the 'Music' folder. Used by the
-        sound and music randomizers. Use forward slashes. Leave blank if neither."""
+        the 'system' folder (with Game.exe and HPSounds.u) and the 'Music' folder.
+        Used to launch the game and by the randomizers. Use forward slashes."""
         description = "Harry Potter 2 open castle install folder"
         required = False
 
+    class AutoLaunchGame(settings.Bool):
+        """Launch the matching install's Game.exe automatically when the client
+        connects to a seed (once per client session, after any randomizers finish).
+        On by default. Set to false to launch the game yourself or with /play."""
+
     vanilla_install_folder: VanillaInstallFolder = VanillaInstallFolder("")
     open_castle_install_folder: OpenCastleInstallFolder = OpenCastleInstallFolder("")
+    auto_launch_game: Union[AutoLaunchGame, bool] = True
 
 
 class HP2World(World):
