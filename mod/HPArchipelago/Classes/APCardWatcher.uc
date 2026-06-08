@@ -330,9 +330,11 @@ var byte bChallengeGenuineSeeded;
 var string BlockerKeyNames[14];
 var byte APGrantedBlockerKey[14];
 
-// M7 goal detection: 1 once GOAL_COMPLETE has fired this session. Class-default
-// so it survives level transitions (the credits flow stays in the same level
-// instance; class-default is the defensive belt).
+// M7 goal detection: 1 once GOAL_COMPLETE has fired in this watcher. Plain
+// per-level instance var, so it resets when the watcher respawns; re-firing
+// GOAL_COMPLETE after a level change is harmless because the server dedupes goal
+// completion. The durable cross-connect anchor is ipc.bGoalReached on the
+// persistent singleton (see the fire site), not this flag.
 var byte WasInEndGame;
 
 // Singleton pointer lives ONLY on the class default (`default.LatestInstance`).
