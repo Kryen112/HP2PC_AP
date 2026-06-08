@@ -3977,6 +3977,38 @@ function CaptureSpellChallengeScore(int parIdx)
         $ " -> genuine best=" $ default.ChallengeGenuineBest[parIdx]);
 }
 
+// End an in-progress spell challenge when the player bails to the hub via the
+// mod's Return-to-Hub button, mirroring every vanilla exit. The entrance door,
+// time-up, and death-reload all run the challenge's end path, which parks the
+// bPersistent ChallengeScoreManager in Idle; the next entry is then a real
+// Idle->ChallengeInProgress transition whose BeginState restarts nCurrScore (the
+// on-screen timer) at nStartScore. The mod's button leaves straight through
+// harry.LoadLevel and skips that step, so the manager rides to the hub still in
+// ChallengeInProgress and a same-state GotoState on re-entry never re-runs
+// BeginState: the timer carries over, letting a player bank one star per
+// re-entry and reach par for free (CaptureSpellChallengeScore would read the
+// inflated nCurrScore at the final star). EndChallenge() is the canonical end
+// (no tally, no score recorded, GotoState('Idle')), so calling it here makes the
+// button match the other exits. Routed through the watcher because the pause-menu
+// page is not an Actor and cannot iterate AllActors; called synchronously from
+// APFEInGamePage.TeleportToHub before the level travels.
+function EndBailedSpellChallenge()
+{
+    local ChallengeScoreManager mgr;
+
+    foreach AllActors(class'ChallengeScoreManager', mgr)
+    {
+        break;
+    }
+    if (mgr == None) return;
+    if (!mgr.IsInState('ChallengeInProgress')) return;
+
+    Log("[Archipelago] APCardWatcher.EndBailedSpellChallenge: Return-to-Hub bail with a"
+        $ " challenge active (nCurrScore=" $ mgr.nCurrScore $ ") - ending it so the next"
+        $ " entry restarts clean");
+    mgr.EndChallenge();
+}
+
 // Per-tick poll of harry.ChallengeScores[0..3]. A spell challenge is Mastered
 // once nHighScore >= nMaxScore (the par). The shipped engine seeds nHighScore to
 // par, so this predicate is only meaningful because EnforceGenuineChallengeScores

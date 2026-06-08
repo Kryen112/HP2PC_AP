@@ -254,6 +254,7 @@ function TeleportToHub()
 {
     local HPConsole console;
     local harry h;
+    local APCardWatcher w;
 
     if (book == None || book.Root == None || book.Root.Console == None)
     {
@@ -279,6 +280,14 @@ function TeleportToHub()
     if (h != None)
         class'APCardWatcher'.default.MenuReturnFromLevelCaps =
             Caps(string(h.Level.Outer.Name));
+    // Mirror the vanilla challenge exits (entrance door, time-up, death-reload),
+    // which end the challenge before leaving. This button travels straight through
+    // harry.LoadLevel, so without this the bPersistent ChallengeScoreManager rides
+    // to the hub still in ChallengeInProgress and the next entry resumes the old
+    // timer instead of restarting it. Routed through the watcher because this menu
+    // page is not an Actor and cannot iterate AllActors.
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w != None) w.EndBailedSpellChallenge();
     // Bailing from stateDead via R2EH enters the hub still dead; suppress
     // the first post-travel stateDead so it is treated as the bail-out,
     // not an organic death. 40 ticks ~ 10s at 0.25s/tick mirrors
