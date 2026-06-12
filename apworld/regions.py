@@ -6,7 +6,7 @@ from BaseClasses import CollectionState
 
 START_REGION: str = 'Menu'
 
-REGION_NAMES: list[str] = ['BicornLevel', 'BoomslangLevel', 'CastleExterior', 'ChamberOfSecrets', 'DiffindoChallenge', 'DuellingClub', 'DumbledoreStudy', 'ForbiddenForest', 'GoldCardRoom', 'GoyleLevel', 'GryffindorChallenge', 'Hogwarts', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
+REGION_NAMES: list[str] = ['BicornLevel', 'BoomslangLevel', 'CastleExterior', 'ChamberOfSecrets', 'DiffindoChallenge', 'DuellingClub', 'DumbledoreStudy', 'EntryHall', 'ForbiddenForest', 'GoldCardRoom', 'GoyleLevel', 'GrandStaircase', 'GryffindorChallenge', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
 
 # Silver card item names — referenced by lambdas that gate on the
 # open-castle Gold Card Room (20-of-40 silvers, matching the in-game
@@ -24,11 +24,12 @@ REGION_ENTRY_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = 
     'DiffindoChallenge': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Bicorn Level Key', player),
     'DuellingClub': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Bicorn Level Key', player)  and  state.has('Duelling Key', player),
     'DumbledoreStudy': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Bicorn Level Key', player)  and  state.has('Boomslang Level Key', player),
+    'EntryHall': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
     'ForbiddenForest': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Spongify', player)  and  state.has('Bicorn Level Key', player)  and  state.has('Boomslang Level Key', player)  and  state.has('Goyle Level Key', player)  and  state.has('Slytherin Common Room Key', player)  and  state.has('Forbidden Forest Key', player),
     'GoldCardRoom': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  (state.has('Silver Card - Andros', player)  and  state.has('Silver Card - Beamish', player)  and  state.has('Silver Card - Chittock', player)  and  state.has('Silver Card - Circe', player)  and  state.has('Silver Card - Clagg', player)  and  state.has('Silver Card - Cliodne', player)  and  state.has('Silver Card - Cronk', player)  and  state.has('Silver Card - Crumb', player)  and  state.has('Silver Card - Dodderidge', player)  and  state.has('Silver Card - Duke', player)  and  state.has('Silver Card - Fay', player)  and  state.has('Silver Card - Fulbert', player)  and  state.has('Silver Card - Furmage', player)  and  state.has('Silver Card - Gregory', player)  and  state.has('Silver Card - Grunnion', player)  and  state.has('Silver Card - Jones', player)  and  state.has('Silver Card - Lufkin', player)  and  state.has('Silver Card - Maeve', player)  and  state.has('Silver Card - Montmorency', player)  and  state.has('Silver Card - Mopsus', player)  and  state.has('Silver Card - Nutcombe', player)  and  state.has('Silver Card - Oglethorpe', player)  and  state.has('Silver Card - Oldridge', player)  and  state.has('Silver Card - Oliphant', player)  and  state.has('Silver Card - Plunkett', player)  and  state.has('Silver Card - Rastrick', player)  and  state.has('Silver Card - Shimpling', player)  and  state.has('Silver Card - Shingleton', player)  and  state.has('Silver Card - Smethwyck', player)  and  state.has('Silver Card - Stalk', player)  and  state.has('Silver Card - Summerbee', player)  and  state.has('Silver Card - Thurkell', player)  and  state.has('Silver Card - Toothill', player)  and  state.has('Silver Card - Tremlett', player)  and  state.has('Silver Card - Tugwood', player)  and  state.has('Silver Card - Wadcock', player)  and  state.has('Silver Card - Wendelin', player)  and  state.has('Silver Card - Wildsmith', player)  and  state.has('Silver Card - Wright', player)  and  state.has('Silver Card - Youdle', player)),
     'GoyleLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Bicorn Level Key', player)  and  state.has('Boomslang Level Key', player)  and  state.has('Goyle Level Key', player),
+    'GrandStaircase': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
     'GryffindorChallenge': lambda state, player: False,
-    'Hogwarts': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
     'Quidditch': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player)  and  state.has('Quidditch Key', player),
     'RictusempraChallenge': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player),
     'SkurgeChallenge': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player),
@@ -45,11 +46,12 @@ REGION_ENTRY_RULES_OPEN_CASTLE: dict[str, Callable[[CollectionState, int], bool]
     'DiffindoChallenge': lambda state, player: state.has('Diffindo Challenge Key', player)  and  state.has('Diffindo', player),
     'DuellingClub': lambda state, player: state.has('Duelling Key', player),
     'DumbledoreStudy': lambda state, player: state.has('Alohomora', player),
+    'EntryHall': lambda state, player: True,
     'ForbiddenForest': lambda state, player: state.has('Forbidden Forest Key', player),
     'GoldCardRoom': lambda state, player: state.has_from_list_unique(_SILVER_CARD_NAMES, player, 20),
     'GoyleLevel': lambda state, player: state.has('Goyle Level Key', player),
+    'GrandStaircase': lambda state, player: True,
     'GryffindorChallenge': lambda state, player: state.has('Gryffindor Challenge Key', player),
-    'Hogwarts': lambda state, player: True,
     'Quidditch': lambda state, player: state.has('Quidditch Key', player),
     'RictusempraChallenge': lambda state, player: state.has('Rictusempra Challenge Key', player),
     'SkurgeChallenge': lambda state, player: state.has('Skurge Challenge Key', player)  and  state.has('Skurge', player),

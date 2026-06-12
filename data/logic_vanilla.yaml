@@ -43,7 +43,10 @@ regions:
   WhompingWillow:
     entry: "true"
 
-  Hogwarts:
+  EntryHall:
+    entry: "Lumos & Flipendo"
+
+  GrandStaircase:
     entry: "Lumos & Flipendo"
 
   CastleExterior:
@@ -150,55 +153,55 @@ locations:
   "Castle Exterior - Nimbus 2001": { requires: "Rictusempra" }
   "Castle Exterior - Quidditch Armour": { requires: "Rictusempra" }
 
-  # Hogwarts (region entry: Lumos & Flipendo)
-  "Hogwarts - Card Sawbridge": { requires: "Alohomora" }
-  "Hogwarts - Card Andros": { requires: "Alohomora & Flipendo" }
-  "Hogwarts - Card Dodderidge": { requires: "Alohomora" }
-  "Hogwarts - Card Ethelred": { requires: "Alohomora" }
-  "Hogwarts - Card Maeve": { requires: "Alohomora & Flipendo" }
-  "Hogwarts - Card Hipworth": { requires: "Alohomora" }
-  "Hogwarts - Card Bonham": { requires: "Alohomora" }
-  "Hogwarts - Card Wright": { requires: "Alohomora & Diffindo" }
-  "Hogwarts - Card Barkwith": { requires: "Alohomora & Rictusempra" }
-  "Hogwarts - Card Blane": { requires: "Alohomora & Rictusempra & Skurge" }
-  "Hogwarts - Card Vablatsky": { requires: "Alohomora & Rictusempra & Skurge" }
-  "Hogwarts - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
-  "Hogwarts - Card Alderton": { requires: "Alohomora & Spongify" }
-  "Hogwarts - Card Lufkin":
+  # Entry Hall + Grand Staircase (region entry: Lumos & Flipendo)
+  "Entry Hall - Card Sawbridge": { requires: "Alohomora" }
+  "Entry Hall - Card Andros": { requires: "Alohomora & Flipendo" }
+  "Entry Hall - Card Dodderidge": { requires: "Alohomora" }
+  "Grand Staircase - Card Ethelred": { requires: "Alohomora" }
+  "Grand Staircase - Card Maeve": { requires: "Alohomora & Flipendo" }
+  "Grand Staircase - Card Hipworth": { requires: "Alohomora" }
+  "Grand Staircase - Card Bonham": { requires: "Alohomora" }
+  "Entry Hall - Card Wright": { requires: "Alohomora & Diffindo" }
+  "Grand Staircase - Card Barkwith": { requires: "Alohomora & Rictusempra" }
+  "Grand Staircase - Card Blane": { requires: "Alohomora & Rictusempra & Skurge" }
+  "Grand Staircase - Card Vablatsky": { requires: "Alohomora & Rictusempra & Skurge" }
+  "Entry Hall - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
+  "Entry Hall - Card Alderton": { requires: "Alohomora & Spongify" }
+  "Grand Staircase - Card Lufkin":
     { requires: "Alohomora & Skurge & Diffindo & Spongify" }
-  "Hogwarts - Card Toothill": { requires: "Spongify" }
-  "Hogwarts - Card Oldridge": { requires: "Spongify & Alohomora" }
-  "Hogwarts - Card Jones": { requires: "Alohomora & Diffindo & Flipendo" }
-  "Hogwarts - Card Gunhilda": { requires: "Alohomora & Rictusempra" }
-  "Hogwarts - Card Shingleton":
+  "Grand Staircase - Card Toothill": { requires: "Spongify" }
+  "Grand Staircase - Card Oldridge": { requires: "Spongify & Alohomora" }
+  "Entry Hall - Card Jones": { requires: "Alohomora & Diffindo & Flipendo" }
+  "Entry Hall - Card Gunhilda": { requires: "Alohomora & Rictusempra" }
+  "Entry Hall - Card Shingleton":
     { requires: "Alohomora & Skurge & Rictusempra & Lumos" }
-  "Hogwarts - Card Montmorency":
+  "Entry Hall - Card Montmorency":
     { requires: "Alohomora & Skurge & Rictusempra" }
-  "Hogwarts - Card Wendelin":
+  "Entry Hall - Card Wendelin":
     { requires: "Alohomora & Skurge & Diffindo & Rictusempra & Lumos" }
-  "Hogwarts - Secret 1":
+  "Entry Hall - Secret 1":
     { requires: "Rictusempra & Skurge & Alohomora & Lumos" }
-  "Hogwarts - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Hogwarts - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Lumos" }
-  "Hogwarts - Secret 4": { requires: "Rictusempra & Alohomora" }
-  "Hogwarts - Secret 5": { requires: "Alohomora" }
-  "Hogwarts - Secret 6": { requires: "Alohomora" }
-  "Hogwarts - Secret 7": { requires: "Alohomora" }
-  "Hogwarts - Secret 8": { requires: "Diffindo" }
-  "Hogwarts - Secret 9": { requires: "Diffindo & Flipendo" }
-  "Hogwarts - Secret 10": { requires: "Flipendo" }
-  "Hogwarts - Secret 11": { requires: "Alohomora" }
-  "Hogwarts - Secret 12": { requires: "Spongify" }
-  "Hogwarts - Secret 13": { requires: "Alohomora" }
-  "Hogwarts - Secret 14": { requires: "Alohomora" }
-  "Hogwarts - Secret 15": { requires: "Alohomora" }
-  "Hogwarts - Secret 16": { requires: "Flipendo" }
-  "Hogwarts - Secret 17": { requires: "Spongify" }
-  "Hogwarts - Secret 18":
+  "Entry Hall - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Entry Hall - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Lumos" }
+  "Entry Hall - Secret 4": { requires: "Rictusempra & Alohomora" }
+  "Entry Hall - Secret 5": { requires: "Alohomora" }
+  "Entry Hall - Secret 6": { requires: "Alohomora" }
+  "Entry Hall - Secret 7": { requires: "Alohomora" }
+  "Entry Hall - Secret 8": { requires: "Diffindo" }
+  "Entry Hall - Secret 9": { requires: "Diffindo & Flipendo" }
+  "Entry Hall - Secret 10": { requires: "Flipendo" }
+  "Entry Hall - Secret 11": { requires: "Alohomora" }
+  "Entry Hall - Secret 12": { requires: "Spongify" }
+  "Grand Staircase - Secret 13": { requires: "Alohomora" }
+  "Grand Staircase - Secret 14": { requires: "Alohomora" }
+  "Grand Staircase - Secret 15": { requires: "Alohomora" }
+  "Grand Staircase - Secret 16": { requires: "Flipendo" }
+  "Grand Staircase - Secret 17": { requires: "Spongify" }
+  "Grand Staircase - Secret 18":
     { requires: "Alohomora & Skurge & Diffindo & Spongify" }
-  "Hogwarts - Secret 19": { requires: "true" }
-  "Hogwarts - Secret 20": { requires: "Alohomora" }
-  "Hogwarts - Secret 21": { requires: "Alohomora" }
+  "Grand Staircase - Secret 19": { requires: "true" }
+  "Grand Staircase - Secret 20": { requires: "Alohomora" }
+  "Grand Staircase - Secret 21": { requires: "Alohomora" }
   "Dumbledore's Study - Card Muldoon":
     {
       requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'",
@@ -624,15 +627,15 @@ locations:
     { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
 
   # Tradersanity vendors
-  "Hogwarts Entrance Hall - Card Vendor 1": { requires: "true" }
-  "Hogwarts Entrance Hall - Card Vendor 2": { requires: "true" }
-  "Hogwarts Entrance Hall - Card Vendor 3": { requires: "true" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 1": { requires: "Rictusempra" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 2": { requires: "Rictusempra" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 3": { requires: "Rictusempra" }
-  "Hogwarts Staircase - Card Vendor 1": { requires: "true" }
-  "Hogwarts Staircase - Card Vendor 2": { requires: "true" }
-  "Hogwarts Staircase - Ingredient Vendor 1": { requires: "true" }
+  "Entry Hall - Card Vendor 1": { requires: "true" }
+  "Entry Hall - Card Vendor 2": { requires: "true" }
+  "Entry Hall - Card Vendor 3": { requires: "true" }
+  "Entry Hall - Ingredient Vendor 1": { requires: "Rictusempra" }
+  "Entry Hall - Ingredient Vendor 2": { requires: "Rictusempra" }
+  "Entry Hall - Ingredient Vendor 3": { requires: "Rictusempra" }
+  "Grand Staircase - Card Vendor 1": { requires: "true" }
+  "Grand Staircase - Card Vendor 2": { requires: "true" }
+  "Grand Staircase - Ingredient Vendor 1": { requires: "true" }
   "Castle Exterior - Card Vendor 1":
     {
       requires: "Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key'",

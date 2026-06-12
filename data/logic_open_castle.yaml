@@ -45,7 +45,10 @@ regions:
   WhompingWillow:
     entry: "'Whomping Willow Key' & Spongify"
 
-  Hogwarts:
+  EntryHall:
+    entry: "true"
+
+  GrandStaircase:
     entry: "true"
 
   CastleExterior:
@@ -106,53 +109,53 @@ locations:
   "Whomping Willow - Secret 2": { requires: "Lumos & Flipendo & Alohomora" }
   "Whomping Willow - Complete": { requires: "Lumos & Flipendo" }
 
-  # Hogwarts
-  "Hogwarts - Card Alderton": { requires: "Spongify & Alohomora" }
-  "Hogwarts - Card Barkwith": { requires: "Alohomora" }
-  "Hogwarts - Card Blane": { requires: "Alohomora" }
-  "Hogwarts - Card Bonham": { requires: "Alohomora" }
-  "Hogwarts - Card Ethelred": { requires: "Alohomora" }
-  "Hogwarts - Card Gunhilda": { requires: "Alohomora" }
-  "Hogwarts - Card Hipworth": { requires: "Alohomora" }
-  "Hogwarts - Card Sawbridge": { requires: "Alohomora" }
-  "Hogwarts - Card Vablatsky":
+  # Entry Hall + Grand Staircase
+  "Entry Hall - Card Alderton": { requires: "Spongify & Alohomora" }
+  "Grand Staircase - Card Barkwith": { requires: "Alohomora" }
+  "Grand Staircase - Card Blane": { requires: "Alohomora" }
+  "Grand Staircase - Card Bonham": { requires: "Alohomora" }
+  "Grand Staircase - Card Ethelred": { requires: "Alohomora" }
+  "Entry Hall - Card Gunhilda": { requires: "Alohomora" }
+  "Grand Staircase - Card Hipworth": { requires: "Alohomora" }
+  "Entry Hall - Card Sawbridge": { requires: "Alohomora" }
+  "Grand Staircase - Card Vablatsky":
     { requires: "'Chamber of Secrets Key' & Alohomora" }
-  "Hogwarts - Card Andros": { requires: "Flipendo & Alohomora" }
-  "Hogwarts - Card Dodderidge": { requires: "Alohomora" }
-  "Hogwarts - Card Jones": { requires: "Flipendo & Diffindo & Alohomora" }
-  "Hogwarts - Card Lufkin":
+  "Entry Hall - Card Andros": { requires: "Flipendo & Alohomora" }
+  "Entry Hall - Card Dodderidge": { requires: "Alohomora" }
+  "Entry Hall - Card Jones": { requires: "Flipendo & Diffindo & Alohomora" }
+  "Grand Staircase - Card Lufkin":
     { requires: "Alohomora & Skurge & Diffindo & Spongify" }
-  "Hogwarts - Card Maeve": { requires: "Flipendo & Alohomora" }
-  "Hogwarts - Card Montmorency": { requires: "Alohomora & Skurge" }
-  "Hogwarts - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
-  "Hogwarts - Card Oldridge": { requires: "Spongify & Alohomora" }
-  "Hogwarts - Card Shingleton": { requires: "Alohomora & Lumos & Skurge" }
-  "Hogwarts - Card Toothill": { requires: "Spongify" }
-  "Hogwarts - Card Wendelin":
+  "Grand Staircase - Card Maeve": { requires: "Flipendo & Alohomora" }
+  "Entry Hall - Card Montmorency": { requires: "Alohomora & Skurge" }
+  "Entry Hall - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
+  "Grand Staircase - Card Oldridge": { requires: "Spongify & Alohomora" }
+  "Entry Hall - Card Shingleton": { requires: "Alohomora & Lumos & Skurge" }
+  "Grand Staircase - Card Toothill": { requires: "Spongify" }
+  "Entry Hall - Card Wendelin":
     { requires: "Skurge & Lumos & Diffindo & Alohomora" }
-  "Hogwarts - Card Wright": { requires: "Diffindo & Alohomora" }
-  "Hogwarts - Secret 1": { requires: "Alohomora & Lumos & Skurge" }
-  "Hogwarts - Secret 2": { requires: "Alohomora & Skurge" }
-  "Hogwarts - Secret 3": { requires: "Skurge & Lumos & Diffindo" }
-  "Hogwarts - Secret 4": { requires: "Alohomora" }
-  "Hogwarts - Secret 5": { requires: "Alohomora" }
-  "Hogwarts - Secret 6": { requires: "Alohomora" }
-  "Hogwarts - Secret 7": { requires: "Alohomora" }
-  "Hogwarts - Secret 8": { requires: "Diffindo" }
-  "Hogwarts - Secret 9": { requires: "Flipendo & Diffindo" }
-  "Hogwarts - Secret 10": { requires: "Flipendo" }
-  "Hogwarts - Secret 11": { requires: "Alohomora" }
-  "Hogwarts - Secret 12": { requires: "Spongify" }
-  "Hogwarts - Secret 13": { requires: "Alohomora" }
-  "Hogwarts - Secret 14": { requires: "Alohomora" }
-  "Hogwarts - Secret 15": { requires: "Alohomora" }
-  "Hogwarts - Secret 16": { requires: "Flipendo" }
-  "Hogwarts - Secret 17": { requires: "Spongify" }
-  "Hogwarts - Secret 18":
+  "Entry Hall - Card Wright": { requires: "Diffindo & Alohomora" }
+  "Entry Hall - Secret 1": { requires: "Alohomora & Lumos & Skurge" }
+  "Entry Hall - Secret 2": { requires: "Alohomora & Skurge" }
+  "Entry Hall - Secret 3": { requires: "Skurge & Lumos & Diffindo" }
+  "Entry Hall - Secret 4": { requires: "Alohomora" }
+  "Entry Hall - Secret 5": { requires: "Alohomora" }
+  "Entry Hall - Secret 6": { requires: "Alohomora" }
+  "Entry Hall - Secret 7": { requires: "Alohomora" }
+  "Entry Hall - Secret 8": { requires: "Diffindo" }
+  "Entry Hall - Secret 9": { requires: "Flipendo & Diffindo" }
+  "Entry Hall - Secret 10": { requires: "Flipendo" }
+  "Entry Hall - Secret 11": { requires: "Alohomora" }
+  "Entry Hall - Secret 12": { requires: "Spongify" }
+  "Grand Staircase - Secret 13": { requires: "Alohomora" }
+  "Grand Staircase - Secret 14": { requires: "Alohomora" }
+  "Grand Staircase - Secret 15": { requires: "Alohomora" }
+  "Grand Staircase - Secret 16": { requires: "Flipendo" }
+  "Grand Staircase - Secret 17": { requires: "Spongify" }
+  "Grand Staircase - Secret 18":
     { requires: "Alohomora & Skurge & Diffindo & Spongify" }
-  "Hogwarts - Secret 19": { requires: "true" }
-  "Hogwarts - Secret 20": { requires: "Alohomora" }
-  "Hogwarts - Secret 21": { requires: "Alohomora" }
+  "Grand Staircase - Secret 19": { requires: "true" }
+  "Grand Staircase - Secret 20": { requires: "Alohomora" }
+  "Grand Staircase - Secret 21": { requires: "Alohomora" }
 
   # Castle Exterior
   "Castle Exterior - Card Marjoribanks": { requires: "Diffindo & Alohomora" }
@@ -592,15 +595,15 @@ locations:
     { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
 
   # Tradersanity vendors
-  "Hogwarts Entrance Hall - Card Vendor 1": { requires: "true" }
-  "Hogwarts Entrance Hall - Card Vendor 2": { requires: "true" }
-  "Hogwarts Entrance Hall - Card Vendor 3": { requires: "true" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 1": { requires: "true" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 2": { requires: "true" }
-  "Hogwarts Entrance Hall - Ingredient Vendor 3": { requires: "true" }
-  "Hogwarts Staircase - Card Vendor 1": { requires: "true" }
-  "Hogwarts Staircase - Card Vendor 2": { requires: "true" }
-  "Hogwarts Staircase - Ingredient Vendor 1": { requires: "true" }
+  "Entry Hall - Card Vendor 1": { requires: "true" }
+  "Entry Hall - Card Vendor 2": { requires: "true" }
+  "Entry Hall - Card Vendor 3": { requires: "true" }
+  "Entry Hall - Ingredient Vendor 1": { requires: "true" }
+  "Entry Hall - Ingredient Vendor 2": { requires: "true" }
+  "Entry Hall - Ingredient Vendor 3": { requires: "true" }
+  "Grand Staircase - Card Vendor 1": { requires: "true" }
+  "Grand Staircase - Card Vendor 2": { requires: "true" }
+  "Grand Staircase - Ingredient Vendor 1": { requires: "true" }
   "Castle Exterior - Card Vendor 1": { requires: "true" }
   "Castle Exterior - Card Vendor 2": { requires: "true" }
   "Castle Exterior - Ingredient Vendor 1": { requires: "true" }

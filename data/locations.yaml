@@ -33,10 +33,10 @@ base_id: 5760000
 # The mod fires `CHECK_SPELL <name>` when Harry first learns a spell; the
 # client maps name → location_id via `SPELL_TO_LOCATION_NAME` in apworld/Client.py.
 classrooms:
-  - { id_offset: 1, name: "Learned Rictusempra", region: Hogwarts,    group: Classrooms, notes: "Lockhart's first class (story step 1) — teaches Rictusempra after the in-classroom spell challenge" }
-  - { id_offset: 2, name: "Learned Skurge",      region: Hogwarts,    group: Classrooms, notes: "Flitwick's class (story step 4) — teaches Skurge after the spell challenge" }
+  - { id_offset: 1, name: "Learned Rictusempra", region: GrandStaircase, group: Classrooms, notes: "Lockhart's first class (story step 1) — teaches Rictusempra after the in-classroom spell challenge" }
+  - { id_offset: 2, name: "Learned Skurge",      region: GrandStaircase, group: Classrooms, notes: "Flitwick's class (story step 4) — teaches Skurge after the spell challenge" }
   - { id_offset: 3, name: "Learned Diffindo",      region: CastleExterior, group: Classrooms, notes: "Sprout's Herbology class (story step 7) — teaches Diffindo after the spell challenge" }
-  - { id_offset: 4, name: "Learned Spongify",    region: Hogwarts,    group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge. Shares the DADA room with Rictusempra so a bookcase here is hard to deploy without blocking Rictusempra too." }
+  - { id_offset: 4, name: "Learned Spongify",    region: GrandStaircase, group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge. Shares the DADA room with Rictusempra so a bookcase here is hard to deploy without blocking Rictusempra too." }
 
 # Special progression checks were here in earlier drafts (Special_Boomslang /
 # _Bicorn / _BitOGoyle). Removed — Boomslang, Bicorn, and BitOGoyle are
@@ -200,21 +200,21 @@ spell_challenge_times:
 # resolve location. Regions catalogued from an open-hub playthrough.
 cards:
   - { id_offset: 100, name: "Bicorn Level - Card Agrippa",       card_class: WCAgrippa,       region: BicornLevel,         group: CardLocations }
-  - { id_offset: 101, name: "Hogwarts - Card Alderton",      card_class: WCAlderton,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 101, name: "Entry Hall - Card Alderton",    card_class: WCAlderton,      region: EntryHall,           group: CardLocations }
   - { id_offset: 102, name: "Rictusempra Challenge - Card Barbary",       card_class: WCBarbary,       region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 103, name: "Hogwarts - Card Barkwith",      card_class: WCBarkwith,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 103, name: "Grand Staircase - Card Barkwith", card_class: WCBarkwith,      region: GrandStaircase,    group: CardLocations }
   - { id_offset: 104, name: "Skurge Challenge - Card Belby",         card_class: WCBelby,         region: SkurgeChallenge,     group: CardLocations }
-  - { id_offset: 105, name: "Hogwarts - Card Blane",         card_class: WCBlane,         region: Hogwarts,            group: CardLocations }
+  - { id_offset: 105, name: "Grand Staircase - Card Blane",  card_class: WCBlane,         region: GrandStaircase,      group: CardLocations }
   - { id_offset: 106, name: "Goyle Level - Card Bloxam",        card_class: WCBloxam,        region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 107, name: "Hogwarts - Card Bonham",        card_class: WCBonham,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 107, name: "Grand Staircase - Card Bonham", card_class: WCBonham,        region: GrandStaircase,      group: CardLocations }
   - { id_offset: 108, name: "Skurge Challenge - Card Catchlove",     card_class: WCCatchlove,     region: SkurgeChallenge,     group: CardLocations }
   - { id_offset: 109, name: "Chamber of Secrets - Card Elphick",       card_class: WCElphick,       region: ChamberOfSecrets,    group: CardLocations }
-  - { id_offset: 110, name: "Hogwarts - Card Ethelred",      card_class: WCEthelred,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 110, name: "Grand Staircase - Card Ethelred", card_class: WCEthelred,      region: GrandStaircase,    group: CardLocations }
   - { id_offset: 111, name: "Forbidden Forest - Card Fancourt",      card_class: WCFancourt,      region: ForbiddenForest,     group: CardLocations }
   - { id_offset: 112, name: "Bicorn Level - Card Goshawk",       card_class: WCGoshawk,       region: BicornLevel,         group: CardLocations }
   - { id_offset: 113, name: "Rictusempra Challenge - Card Graves",        card_class: WCGraves,        region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 114, name: "Hogwarts - Card Gunhilda",      card_class: WCGunhilda,      region: Hogwarts,            group: CardLocations }
-  - { id_offset: 115, name: "Hogwarts - Card Hipworth",      card_class: WCHipworth,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 114, name: "Entry Hall - Card Gunhilda",    card_class: WCGunhilda,      region: EntryHall,           group: CardLocations }
+  - { id_offset: 115, name: "Grand Staircase - Card Hipworth", card_class: WCHipworth,      region: GrandStaircase,    group: CardLocations }
   - { id_offset: 116, name: "Skurge Challenge - Card Kegg",          card_class: WCKegg,          region: SkurgeChallenge,     group: CardLocations }
   - { id_offset: 117, name: "Diffindo Challenge - Card Ketteridge",    card_class: WCKetteridge,    region: DiffindoChallenge,   group: CardLocations }
   - { id_offset: 118, name: "Castle Exterior - Card Marjoribanks",  card_class: WCMarjoribanks,  region: CastleExterior,      group: CardLocations }
@@ -228,7 +228,7 @@ cards:
   - { id_offset: 126, name: "Goyle Level - Card Plumpton",      card_class: WCPlumpton,      region: GoyleLevel,          group: CardLocations }
   - { id_offset: 127, name: "Spongify Challenge - Card Po",            card_class: WCPo,            region: SpongifyChallenge,   group: CardLocations }
   - { id_offset: 128, name: "Castle Exterior - Card Pokeby",        card_class: WCPokeby,        region: CastleExterior,      group: CardLocations }
-  - { id_offset: 129, name: "Hogwarts - Card Sawbridge",     card_class: WCSawbridge,     region: Hogwarts,            group: CardLocations }
+  - { id_offset: 129, name: "Entry Hall - Card Sawbridge",   card_class: WCSawbridge,     region: EntryHall,           group: CardLocations }
   - { id_offset: 130, name: "Forbidden Forest - Card Scamander",     card_class: WCScamander,     region: ForbiddenForest,     group: CardLocations }
   - { id_offset: 131, name: "Whomping Willow - Card Starkey",       card_class: WCStarkey,       region: WhompingWillow,      group: CardLocations }
   - { id_offset: 132, name: "Goyle Level - Card Stroulger",     card_class: WCStroulger,     region: GoyleLevel,          group: CardLocations }
@@ -239,7 +239,7 @@ cards:
   - { id_offset: 137, name: "Boomslang Level - Card Toke",          card_class: WCToke,          region: BoomslangLevel,      group: CardLocations }
   - { id_offset: 138, name: "Castle Exterior - Card Twonk",         card_class: WCTwonk,         region: CastleExterior,      group: CardLocations }
   - { id_offset: 139, name: "Diffindo Challenge - Card Ulric",         card_class: WCUlric,         region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 140, name: "Hogwarts - Card Vablatsky",     card_class: WCVablatsky,     region: Hogwarts,            group: CardLocations }
+  - { id_offset: 140, name: "Grand Staircase - Card Vablatsky", card_class: WCVablatsky,     region: GrandStaircase,   group: CardLocations }
   - { id_offset: 141, name: "Slytherin Common Room - Card Waffling",      card_class: WCWaffling,      region: SlytherinCommon,     group: CardLocations }
   - { id_offset: 142, name: "Rictusempra Challenge - Card Wagtail",       card_class: WCWagtail,       region: RictusempraChallenge, group: CardLocations }
   - { id_offset: 143, name: "Spongify Challenge - Card Warbeck",       card_class: WCWarbeck,       region: SpongifyChallenge,   group: CardLocations }
@@ -249,7 +249,7 @@ cards:
   - { id_offset: 147, name: "Rictusempra Challenge - Card Wintringham",   card_class: WCWintringham,   region: RictusempraChallenge, group: CardLocations }
   - { id_offset: 148, name: "Diffindo Challenge - Card Withers",       card_class: WCWithers,       region: DiffindoChallenge,   group: CardLocations }
   - { id_offset: 149, name: "Spongify Challenge - Card Woodcroft",     card_class: WCWoodcroft,     region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 150, name: "Hogwarts - Card Andros",        card_class: WCAndros,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 150, name: "Entry Hall - Card Andros",      card_class: WCAndros,        region: EntryHall,           group: CardLocations }
   - { id_offset: 151, name: "Dumbledore's Study - Card Beamish",       card_class: WCBeamish,       region: DumbledoreStudy,     group: CardLocations }
   - { id_offset: 152, name: "Rictusempra Challenge - Card Chittock",      card_class: WCChittock,      region: RictusempraChallenge, group: CardLocations }
   - { id_offset: 153, name: "Goyle Level - Card Circe",         card_class: WCCirce,         region: GoyleLevel,          group: CardLocations }
@@ -257,37 +257,37 @@ cards:
   - { id_offset: 155, name: "Forbidden Forest - Card Cliodne",       card_class: WCCliodne,       region: ForbiddenForest,     group: CardLocations }
   - { id_offset: 156, name: "Bicorn Level - Card Cronk",         card_class: WCCronk,         region: BicornLevel,         group: CardLocations }
   - { id_offset: 157, name: "Rictusempra Challenge - Card Crumb",         card_class: WCCrumb,         region: RictusempraChallenge, group: CardLocations }
-  - { id_offset: 158, name: "Hogwarts - Card Dodderidge",    card_class: WCDodderidge,    region: Hogwarts,            group: CardLocations }
+  - { id_offset: 158, name: "Entry Hall - Card Dodderidge",  card_class: WCDodderidge,    region: EntryHall,           group: CardLocations }
   - { id_offset: 159, name: "Rictusempra Challenge - Card Duke",          card_class: WCDuke,          region: RictusempraChallenge, group: CardLocations }
   - { id_offset: 160, name: "Slytherin Common Room - Card Fay",           card_class: WCFay,           region: SlytherinCommon,     group: CardLocations }
   - { id_offset: 161, name: "Skurge Challenge - Card Fulbert",       card_class: WCFulbert,       region: SkurgeChallenge,     group: CardLocations }
   - { id_offset: 162, name: "Spongify Challenge - Card Furmage",       card_class: WCFurmage,       region: SpongifyChallenge,   group: CardLocations }
   - { id_offset: 163, name: "Skurge Challenge - Card Gregory",       card_class: WCGregory,       region: SkurgeChallenge,     group: CardLocations }
   - { id_offset: 164, name: "Spongify Challenge - Card Grunnion",      card_class: WCGrunnion,      region: SpongifyChallenge,   group: CardLocations }
-  - { id_offset: 165, name: "Hogwarts - Card Jones",         card_class: WCJones,         region: Hogwarts,            group: CardLocations }
-  - { id_offset: 166, name: "Hogwarts - Card Lufkin",        card_class: WCLufkin,        region: Hogwarts,            group: CardLocations }
-  - { id_offset: 167, name: "Hogwarts - Card Maeve",         card_class: WCMaeve,         region: Hogwarts,            group: CardLocations }
-  - { id_offset: 168, name: "Hogwarts - Card Montmorency",   card_class: WCMontmorency,   region: Hogwarts,            group: CardLocations }
-  - { id_offset: 169, name: "Hogwarts - Card Mopsus",        card_class: WCMopsus,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 165, name: "Entry Hall - Card Jones",       card_class: WCJones,         region: EntryHall,           group: CardLocations }
+  - { id_offset: 166, name: "Grand Staircase - Card Lufkin", card_class: WCLufkin,        region: GrandStaircase,      group: CardLocations }
+  - { id_offset: 167, name: "Grand Staircase - Card Maeve",  card_class: WCMaeve,         region: GrandStaircase,      group: CardLocations }
+  - { id_offset: 168, name: "Entry Hall - Card Montmorency", card_class: WCMontmorency,   region: EntryHall,           group: CardLocations }
+  - { id_offset: 169, name: "Entry Hall - Card Mopsus",      card_class: WCMopsus,        region: EntryHall,           group: CardLocations }
   - { id_offset: 170, name: "Bicorn Level - Card Nutcombe",      card_class: WCNutcombe,      region: BicornLevel,         group: CardLocations }
   - { id_offset: 171, name: "Castle Exterior - Card Oglethorpe",    card_class: WCOglethorpe,    region: CastleExterior,      group: CardLocations }
-  - { id_offset: 172, name: "Hogwarts - Card Oldridge",      card_class: WCOldridge,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 172, name: "Grand Staircase - Card Oldridge", card_class: WCOldridge,      region: GrandStaircase,    group: CardLocations }
   - { id_offset: 173, name: "Forbidden Forest - Card Oliphant",      card_class: WCOliphant,      region: ForbiddenForest,     group: CardLocations }
   - { id_offset: 174, name: "Castle Exterior - Card Plunkett",      card_class: WCPlunkett,      region: CastleExterior,      group: CardLocations }
   - { id_offset: 175, name: "Spongify Challenge - Card Rastrick",      card_class: WCRastrick,      region: SpongifyChallenge,   group: CardLocations }
   - { id_offset: 176, name: "Diffindo Challenge - Card Shimpling",     card_class: WCShimpling,     region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 177, name: "Hogwarts - Card Shingleton",    card_class: WCShingleton,    region: Hogwarts,            group: CardLocations }
+  - { id_offset: 177, name: "Entry Hall - Card Shingleton",  card_class: WCShingleton,    region: EntryHall,           group: CardLocations }
   - { id_offset: 178, name: "Diffindo Challenge - Card Smethwyck",     card_class: WCSmethwyck,     region: DiffindoChallenge,   group: CardLocations }
   - { id_offset: 179, name: "Diffindo Challenge - Card Stalk",         card_class: WCStalk,         region: DiffindoChallenge,   group: CardLocations }
   - { id_offset: 180, name: "Spongify Challenge - Card Summerbee",     card_class: WCSummerbee,     region: SpongifyChallenge,   group: CardLocations }
   - { id_offset: 181, name: "Diffindo Challenge - Card Thurkell",      card_class: WCThurkell,      region: DiffindoChallenge,   group: CardLocations }
-  - { id_offset: 182, name: "Hogwarts - Card Toothill",      card_class: WCToothill,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 182, name: "Grand Staircase - Card Toothill", card_class: WCToothill,      region: GrandStaircase,    group: CardLocations }
   - { id_offset: 183, name: "Rictusempra Challenge - Card Tremlett",      card_class: WCTremlett,      region: RictusempraChallenge, group: CardLocations }
   - { id_offset: 184, name: "Boomslang Level - Card Tugwood",       card_class: WCTugwood,       region: BoomslangLevel,      group: CardLocations }
   - { id_offset: 185, name: "Castle Exterior - Card Wadcock",       card_class: WCWadcock,       region: CastleExterior,      group: CardLocations }
-  - { id_offset: 186, name: "Hogwarts - Card Wendelin",      card_class: WCWendelin,      region: Hogwarts,            group: CardLocations }
+  - { id_offset: 186, name: "Entry Hall - Card Wendelin",    card_class: WCWendelin,      region: EntryHall,           group: CardLocations }
   - { id_offset: 187, name: "Goyle Level - Card Wildsmith",     card_class: WCWildsmith,     region: GoyleLevel,          group: CardLocations }
-  - { id_offset: 188, name: "Hogwarts - Card Wright",        card_class: WCWright,        region: Hogwarts,            group: CardLocations }
+  - { id_offset: 188, name: "Entry Hall - Card Wright",      card_class: WCWright,        region: EntryHall,           group: CardLocations }
   - { id_offset: 189, name: "Castle Exterior - Card Youdle",        card_class: WCYoudle,        region: CastleExterior,      group: CardLocations }
   - { id_offset: 190, name: "Gold Card Room - Card Bott",          card_class: WCBott,          region: GoldCardRoom,    group: CardLocations }
   - { id_offset: 191, name: "Gold Card Room - Card Dumbledore",    card_class: WCDumbledore,    region: GoldCardRoom,    group: CardLocations }
@@ -350,27 +350,27 @@ secrets:
   - { id_offset: 345, name: "Goyle Level - Secret 3", level: Adv6Goyle, marker: SecretAreaMarker11, tag: SecretAreaMarker, loc: "(1855.84, -880.22, 961.89)", missable: true, region: GoyleLevel, group: Secrets }
   - { id_offset: 346, name: "Goyle Level - Secret 4", level: Adv6Goyle, marker: SecretAreaMarker12, tag: SecretAreaMarker, loc: "(-1024.96, -1183.71, 978.32)", missable: true, region: GoyleLevel, group: Secrets }
   - { id_offset: 347, name: "Goyle Level - Secret 2", level: Adv6Goyle, marker: SecretAreaMarker13, tag: SecretAreaMarker, loc: "(1229.10, -416.04, 257.53)", missable: true, region: GoyleLevel, group: Secrets }
-  - { id_offset: 348, name: "Hogwarts - Secret 1", level: Entryhall_hub, marker: SecretAreaMarker0, tag: SecretAreaMarker, loc: "(-5503.68, -1599.47, -451.90)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 349, name: "Hogwarts - Secret 2", level: Entryhall_hub, marker: SecretAreaMarker1, tag: SecretAreaMarker, loc: "(-4583.40, -1087.95, -123.90)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 350, name: "Hogwarts - Secret 3", level: Entryhall_hub, marker: SecretAreaMarker2, tag: SecretAreaMarker, loc: "(-1870.78, -3136.74, -835.90)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 351, name: "Hogwarts - Secret 4", level: Entryhall_hub, marker: SecretAreaMarker3, tag: SecretAreaMarker, loc: "(-2303.62, -879.80, -427.90)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 352, name: "Hogwarts - Secret 5", level: Entryhall_hub, marker: SecretAreaMarker4, tag: SecretAreaMarker, loc: "(-1472.28, -848.09, 32.10)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 353, name: "Hogwarts - Secret 6", level: Entryhall_hub, marker: SecretAreaMarker5, tag: SecretAreaMarker, loc: "(127.89, -1296.35, -223.90)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 354, name: "Hogwarts - Secret 7", level: Entryhall_hub, marker: SecretAreaMarker6, tag: SecretAreaMarker, loc: "(-1471.60, -2143.28, 16.10)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 355, name: "Hogwarts - Secret 8", level: Entryhall_hub, marker: SecretAreaMarker7, tag: SecretAreaMarker, loc: "(63.73, -2143.84, 16.10)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 356, name: "Hogwarts - Secret 9", level: Entryhall_hub, marker: SecretAreaMarker8, tag: SecretAreaMarker, loc: "(2877.37, -1678.23, 388.10)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 357, name: "Hogwarts - Secret 10", level: Entryhall_hub, marker: SecretAreaMarker9, tag: SecretAreaMarker, loc: "(416.97, -3312.36, 152.10)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 358, name: "Hogwarts - Secret 11", level: Entryhall_hub, marker: SecretAreaMarker10, tag: SecretAreaMarker, loc: "(-1183.59, -2576.43, 384.10)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 359, name: "Hogwarts - Secret 12", level: Entryhall_hub, marker: SecretAreaMarker11, tag: SecretAreaMarker, loc: "(-704.20, -2078.72, 258.10)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 360, name: "Hogwarts - Secret 13", level: Grandstaircase_hub, marker: SecretAreaMarker0, tag: SecretAreaMarker, loc: "(-1376.00, -6319.65, 1500.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 361, name: "Hogwarts - Secret 14", level: Grandstaircase_hub, marker: SecretAreaMarker1, tag: SecretAreaMarker, loc: "(-1420.18, -6848.42, 1500.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 363, name: "Hogwarts - Secret 15", level: Grandstaircase_hub, marker: SecretAreaMarker3, tag: SecretAreaMarker, loc: "(1215.78, -6473.02, 1216.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 364, name: "Hogwarts - Secret 16", level: Grandstaircase_hub, marker: SecretAreaMarker4, tag: SecretAreaMarker, loc: "(495.27, -4846.56, 1476.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 365, name: "Hogwarts - Secret 17", level: Grandstaircase_hub, marker: SecretAreaMarker5, tag: SecretAreaMarker, loc: "(-15.37, -2449.00, 1764.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 366, name: "Hogwarts - Secret 18", level: Grandstaircase_hub, marker: SecretAreaMarker6, tag: SecretAreaMarker, loc: "(-1440.83, -5311.44, 1764.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 367, name: "Hogwarts - Secret 19", level: Grandstaircase_hub, marker: SecretAreaMarker7, tag: SecretAreaMarker, loc: "(-1455.48, -5215.92, 1000.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 368, name: "Hogwarts - Secret 20", level: Grandstaircase_hub, marker: SecretAreaMarker8, tag: SecretAreaMarker, loc: "(-813.65, -6752.09, 1218.00)", missable: false, region: Hogwarts, group: Secrets }
-  - { id_offset: 369, name: "Hogwarts - Secret 21", level: Grandstaircase_hub, marker: SecretAreaMarker9, tag: SecretAreaMarker, loc: "(-32.12, -5536.23, 1730.00)", missable: false, region: Hogwarts, group: Secrets }
+  - { id_offset: 348, name: "Entry Hall - Secret 1", level: Entryhall_hub, marker: SecretAreaMarker0, tag: SecretAreaMarker, loc: "(-5503.68, -1599.47, -451.90)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 349, name: "Entry Hall - Secret 2", level: Entryhall_hub, marker: SecretAreaMarker1, tag: SecretAreaMarker, loc: "(-4583.40, -1087.95, -123.90)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 350, name: "Entry Hall - Secret 3", level: Entryhall_hub, marker: SecretAreaMarker2, tag: SecretAreaMarker, loc: "(-1870.78, -3136.74, -835.90)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 351, name: "Entry Hall - Secret 4", level: Entryhall_hub, marker: SecretAreaMarker3, tag: SecretAreaMarker, loc: "(-2303.62, -879.80, -427.90)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 352, name: "Entry Hall - Secret 5", level: Entryhall_hub, marker: SecretAreaMarker4, tag: SecretAreaMarker, loc: "(-1472.28, -848.09, 32.10)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 353, name: "Entry Hall - Secret 6", level: Entryhall_hub, marker: SecretAreaMarker5, tag: SecretAreaMarker, loc: "(127.89, -1296.35, -223.90)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 354, name: "Entry Hall - Secret 7", level: Entryhall_hub, marker: SecretAreaMarker6, tag: SecretAreaMarker, loc: "(-1471.60, -2143.28, 16.10)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 355, name: "Entry Hall - Secret 8", level: Entryhall_hub, marker: SecretAreaMarker7, tag: SecretAreaMarker, loc: "(63.73, -2143.84, 16.10)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 356, name: "Entry Hall - Secret 9", level: Entryhall_hub, marker: SecretAreaMarker8, tag: SecretAreaMarker, loc: "(2877.37, -1678.23, 388.10)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 357, name: "Entry Hall - Secret 10", level: Entryhall_hub, marker: SecretAreaMarker9, tag: SecretAreaMarker, loc: "(416.97, -3312.36, 152.10)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 358, name: "Entry Hall - Secret 11", level: Entryhall_hub, marker: SecretAreaMarker10, tag: SecretAreaMarker, loc: "(-1183.59, -2576.43, 384.10)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 359, name: "Entry Hall - Secret 12", level: Entryhall_hub, marker: SecretAreaMarker11, tag: SecretAreaMarker, loc: "(-704.20, -2078.72, 258.10)", missable: false, region: EntryHall, group: Secrets }
+  - { id_offset: 360, name: "Grand Staircase - Secret 13", level: Grandstaircase_hub, marker: SecretAreaMarker0, tag: SecretAreaMarker, loc: "(-1376.00, -6319.65, 1500.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 361, name: "Grand Staircase - Secret 14", level: Grandstaircase_hub, marker: SecretAreaMarker1, tag: SecretAreaMarker, loc: "(-1420.18, -6848.42, 1500.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 363, name: "Grand Staircase - Secret 15", level: Grandstaircase_hub, marker: SecretAreaMarker3, tag: SecretAreaMarker, loc: "(1215.78, -6473.02, 1216.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 364, name: "Grand Staircase - Secret 16", level: Grandstaircase_hub, marker: SecretAreaMarker4, tag: SecretAreaMarker, loc: "(495.27, -4846.56, 1476.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 365, name: "Grand Staircase - Secret 17", level: Grandstaircase_hub, marker: SecretAreaMarker5, tag: SecretAreaMarker, loc: "(-15.37, -2449.00, 1764.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 366, name: "Grand Staircase - Secret 18", level: Grandstaircase_hub, marker: SecretAreaMarker6, tag: SecretAreaMarker, loc: "(-1440.83, -5311.44, 1764.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 367, name: "Grand Staircase - Secret 19", level: Grandstaircase_hub, marker: SecretAreaMarker7, tag: SecretAreaMarker, loc: "(-1455.48, -5215.92, 1000.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 368, name: "Grand Staircase - Secret 20", level: Grandstaircase_hub, marker: SecretAreaMarker8, tag: SecretAreaMarker, loc: "(-813.65, -6752.09, 1218.00)", missable: false, region: GrandStaircase, group: Secrets }
+  - { id_offset: 369, name: "Grand Staircase - Secret 21", level: Grandstaircase_hub, marker: SecretAreaMarker9, tag: SecretAreaMarker, loc: "(-32.12, -5536.23, 1730.00)", missable: false, region: GrandStaircase, group: Secrets }
   - { id_offset: 370, name: "Rictusempra Challenge - Secret 1", level: Ch1Rictusempra, marker: SecretAreaMarker0, tag: SecretAreaMarker, loc: "(-1279.43, 1494.53, -284.36)", missable: false, region: RictusempraChallenge, group: Secrets }
   - { id_offset: 371, name: "Rictusempra Challenge - Secret 3", level: Ch1Rictusempra, marker: SecretAreaMarker1, tag: SecretAreaMarker, loc: "(350.62, -1740.36, 86.48)", missable: false, region: RictusempraChallenge, group: Secrets }
   - { id_offset: 372, name: "Rictusempra Challenge - Secret 5", level: Ch1Rictusempra, marker: SecretAreaMarker2, tag: SecretAreaMarker, loc: "(1025.36, -1738.16, -40.74)", missable: false, region: RictusempraChallenge, group: Secrets }
@@ -542,15 +542,15 @@ level_completions:
 # accessible in vanilla but all spawn; per-location `requires:` is authored
 # in logic_vanilla.yaml / logic_open_castle.yaml.
 tradersanity:
-  - { id_offset: 800, name: "Hogwarts Entrance Hall - Card Vendor 1",       level: Entryhall_hub,       vendor_name: GOldMaleGry0, vendor_class: GOldMaleGry1, sells: BronzeCards, loc: "(-1751.78, -3153.07, 108.50)", region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 801, name: "Hogwarts Entrance Hall - Card Vendor 2",       level: Entryhall_hub,       vendor_name: GOldMaleSly2, vendor_class: GOldMaleSly2, sells: SilverCards, loc: "(-242.83, -986.37, -20.00)",   region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 802, name: "Hogwarts Entrance Hall - Card Vendor 3",       level: Entryhall_hub,       vendor_name: GFemGry4,     vendor_class: GFemGry4,     sells: SilverCards, loc: "(-1925.79, -2459.75, 107.00)", region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 803, name: "Hogwarts Entrance Hall - Ingredient Vendor 1", level: Entryhall_hub,       vendor_name: GOldMaleGry3, vendor_class: GOldMaleGry1, sells: WBark,       loc: "(-447.53, -1466.94, -275.50)", region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 804, name: "Hogwarts Entrance Hall - Ingredient Vendor 2", level: Entryhall_hub,       vendor_name: GFemSly4,     vendor_class: GFemSly3,     sells: WBark,       loc: "(-3556.57, -671.87, -467.40)", region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 805, name: "Hogwarts Entrance Hall - Ingredient Vendor 3", level: Entryhall_hub,       vendor_name: GMaleSly2,    vendor_class: GMaleSly4,    sells: FMucus,      loc: "(-3767.43, -676.76, -467.50)", region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 806, name: "Hogwarts Staircase - Card Vendor 1",           level: Grandstaircase_hub,  vendor_name: GMaleRav0,    vendor_class: GMaleRav3,    sells: BronzeCards, loc: "(-1014.72, -5290.09, 428.50)", region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 807, name: "Hogwarts Staircase - Card Vendor 2",           level: Grandstaircase_hub,  vendor_name: GOldMaleHuf0, vendor_class: GOldMaleHuf1, sells: SilverCards, loc: "(-1082.65, -5710.97, 428.50)", region: Hogwarts,       group: Tradersanity }
-  - { id_offset: 808, name: "Hogwarts Staircase - Ingredient Vendor 1",     level: Grandstaircase_hub,  vendor_name: GFemSly0,     vendor_class: GFemSly4,     sells: FMucus,      loc: "(-751.42, -5811.37, 428.50)",  region: Hogwarts,       group: Tradersanity }
+  - { id_offset: 800, name: "Entry Hall - Card Vendor 1",                   level: Entryhall_hub,       vendor_name: GOldMaleGry0, vendor_class: GOldMaleGry1, sells: BronzeCards, loc: "(-1751.78, -3153.07, 108.50)", region: EntryHall,      group: Tradersanity }
+  - { id_offset: 801, name: "Entry Hall - Card Vendor 2",                   level: Entryhall_hub,       vendor_name: GOldMaleSly2, vendor_class: GOldMaleSly2, sells: SilverCards, loc: "(-242.83, -986.37, -20.00)",   region: EntryHall,      group: Tradersanity }
+  - { id_offset: 802, name: "Entry Hall - Card Vendor 3",                   level: Entryhall_hub,       vendor_name: GFemGry4,     vendor_class: GFemGry4,     sells: SilverCards, loc: "(-1925.79, -2459.75, 107.00)", region: EntryHall,      group: Tradersanity }
+  - { id_offset: 803, name: "Entry Hall - Ingredient Vendor 1",             level: Entryhall_hub,       vendor_name: GOldMaleGry3, vendor_class: GOldMaleGry1, sells: WBark,       loc: "(-447.53, -1466.94, -275.50)", region: EntryHall,      group: Tradersanity }
+  - { id_offset: 804, name: "Entry Hall - Ingredient Vendor 2",             level: Entryhall_hub,       vendor_name: GFemSly4,     vendor_class: GFemSly3,     sells: WBark,       loc: "(-3556.57, -671.87, -467.40)", region: EntryHall,      group: Tradersanity }
+  - { id_offset: 805, name: "Entry Hall - Ingredient Vendor 3",             level: Entryhall_hub,       vendor_name: GMaleSly2,    vendor_class: GMaleSly4,    sells: FMucus,      loc: "(-3767.43, -676.76, -467.50)", region: EntryHall,      group: Tradersanity }
+  - { id_offset: 806, name: "Grand Staircase - Card Vendor 1",              level: Grandstaircase_hub,  vendor_name: GMaleRav0,    vendor_class: GMaleRav3,    sells: BronzeCards, loc: "(-1014.72, -5290.09, 428.50)", region: GrandStaircase, group: Tradersanity }
+  - { id_offset: 807, name: "Grand Staircase - Card Vendor 2",              level: Grandstaircase_hub,  vendor_name: GOldMaleHuf0, vendor_class: GOldMaleHuf1, sells: SilverCards, loc: "(-1082.65, -5710.97, 428.50)", region: GrandStaircase, group: Tradersanity }
+  - { id_offset: 808, name: "Grand Staircase - Ingredient Vendor 1",        level: Grandstaircase_hub,  vendor_name: GFemSly0,     vendor_class: GFemSly4,     sells: FMucus,      loc: "(-751.42, -5811.37, 428.50)",  region: GrandStaircase, group: Tradersanity }
   - { id_offset: 809, name: "Castle Exterior - Card Vendor 1",              level: Grounds_hub,         vendor_name: GMaleGry3,    vendor_class: GMaleGry4,    sells: BronzeCards, loc: "(-1298.998, 220.142, 44.40)",  region: CastleExterior, group: Tradersanity }
   - { id_offset: 810, name: "Castle Exterior - Card Vendor 2",              level: Grounds_hub,         vendor_name: GFemSly4,     vendor_class: GFemSly2,     sells: SilverCards, loc: "(413.536, -1315.564, 44.60)",  region: CastleExterior, group: Tradersanity }
   - { id_offset: 811, name: "Castle Exterior - Ingredient Vendor 1",        level: Grounds_hub,         vendor_name: GFemRav3,     vendor_class: GFemRav1,     sells: WBark,       loc: "(-1443.021, -2010.919, 44.60)", region: CastleExterior, group: Tradersanity }
