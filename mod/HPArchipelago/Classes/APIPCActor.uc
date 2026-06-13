@@ -21,6 +21,11 @@ var bool bNewGameSignalled;
 // has not goaled). Transient like the link: a fresh process re-arms it, which
 // is correct because reaching the ending again re-sets WasInEndGame.
 var bool bGoalReached;
+// Last level name sent over the bridge (Caps form of Level.Outer.Name). The
+// singleton persists across level loads, so a (re)connect can replay it: the
+// tracker follows the player to the current map even if the bridge was down
+// when the level loaded.
+var string CurrentLevelName;
 var bool bLoggedGrantDeferral;
 var float NextGrantDrainTime;
 // Stability gate. Bumped to `Level.TimeSeconds + N` whenever any drain check
@@ -227,6 +232,13 @@ event Opened()
     if (bGoalReached)
     {
         SendGoalComplete();
+    }
+    // Replay the current map so the tracker can follow the player to it even
+    // if this level loaded while the bridge was down.
+    if (CurrentLevelName != "")
+    {
+        SendText("LEVEL " $ CurrentLevelName $ Chr(10));
+        Log("[Archipelago] APIPCActor: replayed LEVEL " $ CurrentLevelName);
     }
 }
 
@@ -758,6 +770,21 @@ function SendCheckSpell(string SpellName)
 {
     SendText("CHECK_SPELL " $ SpellName $ Chr(10));
     Log("[Archipelago] APIPCActor: sent CHECK_SPELL " $ SpellName);
+}
+
+// Current map the player is in (Caps form of Level.Outer.Name). The tracker
+// uses it to switch to the matching map tab. Remembered on the singleton so
+// Opened() can replay it after a (re)connect. Strip CR/LF so a map name can
+// never split the newline-delimited wire.
+function SendLevel(string LevelName)
+{
+    local string clean;
+
+    clean = StripNewlines(LevelName);
+    if (clean == "") return;
+    CurrentLevelName = clean;
+    SendText("LEVEL " $ clean $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent LEVEL " $ clean);
 }
 
 // Strip every CR/LF from a payload so a SAY line cannot be split across

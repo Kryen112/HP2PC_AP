@@ -521,6 +521,12 @@ class HP2Context(CommonContext):
         # that seed's server, so seed need not be in the key).
         self.ledger_key: Optional[str] = None
         self.consumed_indices: set[int] = set()
+        # Current map the player is in, mirrored to AP Data Storage under
+        # level_key (HP2PC_AP_level:{team}:{slot}) so the PopTracker can follow
+        # the player by reading/notifying on that key. The mod sends LEVEL on
+        # each transition and replays it on bridge reconnect.
+        self.level_key: Optional[str] = None
+        self.current_level: Optional[str] = None
         # When True, our in-memory consumed_indices wins over the server's stored
         # value on the next Retrieved (we overwrite the server instead of merging).
         # Set by the NEWGAME wipe so a stale server ledger — e.g. a wipe Set lost
@@ -761,6 +767,14 @@ class HP2Context(CommonContext):
                 {"cmd": "Get", "keys": [self.ledger_key]},
                 label=f"Get durable ledger {self.ledger_key}",
             ))
+
+            # Map-follow key for the tracker. Re-publish the last known level on
+            # AP (re)connect: the game only resends LEVEL when the game↔client
+            # bridge reopens, so an AP-only reconnect would otherwise leave the
+            # stored value stale.
+            self.level_key = f"HP2PC_AP_level:{self.team}:{self.slot}"
+            if self.current_level:
+                self._persist_level(self.current_level)
 
             # Startup connection toast. server_loop has set self.server_address
             # to the normalised ws://host[:port] it actually connected to by
@@ -1848,6 +1862,14 @@ class HP2Context(CommonContext):
             await self.send_death(cause)
             self._toast_to_game("DeathLink sent")
             return
+        if line.startswith("LEVEL "):
+            # Current map the player entered. Mirror it to AP Data Storage so
+            # the PopTracker can follow the player to the matching map tab.
+            level = line[len("LEVEL "):].strip()
+            if level:
+                self.current_level = level
+                self._persist_level(level)
+            return
         if line.startswith("SAY "):
             # Cosmetic only: a ~1/100 spell-cast roll fired mod-side. Post a
             # random flavor line to multiworld chat. No dedupe / no location
@@ -2073,6 +2095,20 @@ class HP2Context(CommonContext):
              "operations": [{"operation": "replace",
                              "value": sorted(self.consumed_indices)}]},
             label=f"persist durable ledger ({len(self.consumed_indices)} index(es))",
+        ))
+
+    def _persist_level(self, level: str) -> None:
+        """Mirror the player's current map to AP server Data Storage so the
+        tracker can follow along (it reads level_key on connect and subscribes
+        for changes). Offline-safe queue + replace semantics, want_reply=False —
+        single writer, latest value wins."""
+        if self.level_key is None:
+            return
+        asyncio.create_task(self._send_or_queue_ap_msg(
+            {"cmd": "Set", "key": self.level_key, "default": "",
+             "want_reply": False,
+             "operations": [{"operation": "replace", "value": level}]},
+            label=f"persist current level ({level})",
         ))
 
     def _persist_vendor_hints(self) -> None:

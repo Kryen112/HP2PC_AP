@@ -82,6 +82,14 @@ event InitGame(string Options, out string Error)
         }
     }
 
+    // Tell the client which map this is so the tracker can follow the player.
+    // InitGame is the launch / level / area-transition path; Caps matches the
+    // form the watcher's level checks already use.
+    if (IPCActor != None)
+    {
+        IPCActor.SendLevel(Caps(string(Level.Outer.Name)));
+    }
+
     cls = class<Actor>(DynamicLoadObject("HPArchipelago.APCardWatcher", class'Class'));
     if (cls != None)
     {
