@@ -1018,6 +1018,20 @@ class HP2World(World):
             "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
             "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
             "enable_quidditch_upgrades": bool(self.options.enable_quidditch_upgrades.value),
+            # Per-category check toggles. The tracker has no other view of the
+            # YAML, so it needs each one to flip its setting marker and gate the
+            # matching category's location visibility. enable_traps is derived:
+            # traps are in the pool only when a type is selected and the fill is
+            # non-zero.
+            "enable_wizard_cards": bool(self.options.enable_wizard_cards.value),
+            "enable_secrets": bool(self.options.enable_secrets.value),
+            "allow_secrets_progression": bool(self.options.allow_secrets_progression.value),
+            "enable_challenge_stars": bool(self.options.enable_challenge_stars.value),
+            "enable_duelling": bool(self.options.enable_duelling.value),
+            "enable_quidditch_matches": bool(self.options.enable_quidditch_matches.value),
+            "enable_spell_challenge_times": bool(self.options.enable_spell_challenge_times.value),
+            "vanilla_gate_levels": bool(self.options.vanilla_gate_levels.value),
+            "enable_traps": bool(self.options.traps.value and self.options.trap_fill_percent.value > 0),
         }
         # Music randomizer (both game modes). The client swaps the Music/*.ogg
         # files on disk per this seed, so only the seed rides the wire (the client
