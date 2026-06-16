@@ -146,16 +146,16 @@ locations:
   "Entry Hall - Secret 10": { requires: "Flipendo" }
   "Entry Hall - Secret 11": { requires: "Alohomora" }
   "Entry Hall - Secret 12": { requires: "Spongify" }
-  "Grand Staircase - Secret 13": { requires: "Alohomora" }
-  "Grand Staircase - Secret 14": { requires: "Alohomora" }
-  "Grand Staircase - Secret 15": { requires: "Alohomora" }
-  "Grand Staircase - Secret 16": { requires: "Flipendo" }
-  "Grand Staircase - Secret 17": { requires: "Spongify" }
-  "Grand Staircase - Secret 18":
+  "Grand Staircase - Secret 1": { requires: "Alohomora" }
+  "Grand Staircase - Secret 2": { requires: "Alohomora" }
+  "Grand Staircase - Secret 3": { requires: "Alohomora" }
+  "Grand Staircase - Secret 4": { requires: "Flipendo" }
+  "Grand Staircase - Secret 5": { requires: "Spongify" }
+  "Grand Staircase - Secret 6":
     { requires: "Alohomora & Skurge & Diffindo & Spongify" }
-  "Grand Staircase - Secret 19": { requires: "true" }
-  "Grand Staircase - Secret 20": { requires: "Alohomora" }
-  "Grand Staircase - Secret 21": { requires: "Alohomora" }
+  "Grand Staircase - Secret 7": { requires: "true" }
+  "Grand Staircase - Secret 8": { requires: "Alohomora" }
+  "Grand Staircase - Secret 9": { requires: "Alohomora" }
 
   # Castle Exterior
   "Castle Exterior - Card Marjoribanks": { requires: "Diffindo & Alohomora" }
