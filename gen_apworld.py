@@ -227,17 +227,21 @@ def load_data() -> tuple[dict, dict, dict, dict]:
 
 
 SILVER_CARDS_MACRO = "@all_silver_cards"
-# Open-castle Gold Card Room gate. The in-game door (CardLockTrigger in
-# Grandstaircase_hub.unr) only wires CardLock1 + CardLock2, so it fully opens
-# at 20 silvers (Lock1@10 + Lock2@20) — not 40. Open castle has no card-
-# collection arc forcing the player toward 40 silvers, so the AP logic must
-# match physical reachability or UT hides the room from players already
-# standing in it. Vanilla logic keeps @all_silver_cards (matches the "collect
-# them all" expectation of that mode). Expansion sentinel is a bare ident the
-# rule grammar accepts; _emit_rule_body special-cases it.
-SILVER_AT_LEAST_20_MACRO = "@silver_cards_at_least_20"
-SILVER_AT_LEAST_20_SENTINEL = "_HP2_silver_cards_at_least_20_"
-SILVER_AT_LEAST_20_THRESHOLD = 20
+# Gold Card Room silver gate, both modes. @all_silver_cards and
+# @silver_cards_at_least_<N> expand to a bare-ident sentinel that
+# _emit_rule_body rewrites to state.has_from_list_unique(_SILVER_CARD_NAMES,
+# player, N): the full silver count for @all_silver_cards, N for the explicit
+# form. The poptracker generator mirrors the same call as
+# count("silver_cards") >= N, so the items-menu silver counter is the live
+# control in both modes. The in-game door (CardLockTrigger) wires Lock1@10 +
+# Lock2@20, so open castle gates at 20; vanilla keeps the collect-them-all
+# expectation at the full silver count.
+_SILVER_AT_LEAST_MACRO_RE = re.compile(r"@silver_cards_at_least_(\d+)")
+_SILVER_AT_LEAST_SENTINEL_RE = re.compile(r"^_HP2_silver_cards_at_least_(\d+)_$")
+
+
+def _silver_sentinel(n: int) -> str:
+    return f"_HP2_silver_cards_at_least_{n}_"
 
 
 def _rule_string_slots(logic: dict) -> list[tuple[dict, str]]:
@@ -256,26 +260,23 @@ def _rule_string_slots(logic: dict) -> list[tuple[dict, str]]:
 def expand_macros(logic: dict, items: dict, context: str) -> None:
     """Substitute rule-string macros in-place before validation.
 
-    `@all_silver_cards` expands to the parenthesised AND of every cards_silver
-    item name in items.yaml — single source of truth for the items.yaml card
-    tier classification, so a silver-tier typo gets caught here too.
-
-    `@silver_cards_at_least_20` expands to a bare-ident sentinel that
-    `_emit_rule_body` rewrites to `state.has_from_list_unique(SILVER_CARD_NAMES,
-    player, 20)`. Used only by the open-castle GoldCardRoom region (the
-    physical in-game door opens at 20 silvers, not 40 — see comment on
-    SILVER_AT_LEAST_20_MACRO).
+    `@all_silver_cards` and `@silver_cards_at_least_<N>` both expand to a
+    bare-ident sentinel that `_emit_rule_body` rewrites to
+    `state.has_from_list_unique(_SILVER_CARD_NAMES, player, N)` — the full silver
+    count for the former, N for the latter. Silver names come from
+    items.yaml.cards_silver, so the threshold can never drift from the pool size.
     """
     silver_names = [e["name"] for e in items.get("cards_silver", [])]
     if not silver_names:
         raise ValueError(
             f"{context}: items.yaml has no cards_silver to expand {SILVER_CARDS_MACRO}"
         )
-    chain = "(" + " & ".join(f"'{n}'" for n in silver_names) + ")"
+    full = _silver_sentinel(len(silver_names))
     slots = _rule_string_slots(logic)
     for meta, key in slots:
-        meta[key] = meta[key].replace(SILVER_CARDS_MACRO, chain)
-        meta[key] = meta[key].replace(SILVER_AT_LEAST_20_MACRO, SILVER_AT_LEAST_20_SENTINEL)
+        meta[key] = meta[key].replace(SILVER_CARDS_MACRO, full)
+        meta[key] = _SILVER_AT_LEAST_MACRO_RE.sub(
+            lambda m: _silver_sentinel(int(m.group(1))), meta[key])
     leftover = sorted({
         m.group(0)
         for meta, key in slots
@@ -284,7 +285,7 @@ def expand_macros(logic: dict, items: dict, context: str) -> None:
     if leftover:
         raise ValueError(
             f"{context}: unknown rule macro(s) {leftover}; defined: "
-            f"{SILVER_CARDS_MACRO}, {SILVER_AT_LEAST_20_MACRO}"
+            f"{SILVER_CARDS_MACRO}, @silver_cards_at_least_<N>"
         )
 
 
@@ -321,6 +322,8 @@ def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
             return "False"
         if ident == "TBD":
             return "True"
+        if _SILVER_AT_LEAST_SENTINEL_RE.match(ident):
+            return "True"  # validation placeholder; _emit_rule_body emits the real call
         if ident not in known_items:
             unknown.append(ident)
         return f"state.has({ident!r}, player)"
@@ -355,6 +358,8 @@ def rule_idents(rule_str: str) -> set[str]:
         ident = tok[1:-1] if tok.startswith("'") else tok
         if ident in ("true", "True", "false", "False", "TBD"):
             continue
+        if _SILVER_AT_LEAST_SENTINEL_RE.match(ident):
+            continue
         out.add(ident)
     return out
 
@@ -364,10 +369,8 @@ def collect_known_items(items: dict) -> set[str]:
     for category in ("spells", "key_items", "blocker_keys", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
         for entry in items.get(category, []):
             names.add(entry["name"])
-    # Bare-ident sentinels emitted by expand_macros. parse_rule must accept
-    # them (else validation fails on the legitimate use), and _emit_rule_body
-    # rewrites them to non-state.has() Python expressions.
-    names.add(SILVER_AT_LEAST_20_SENTINEL)
+    # Silver-gate sentinels from expand_macros aren't items; parse_rule and
+    # rule_idents recognise them by pattern, _emit_rule_body rewrites them.
     return names
 
 
@@ -750,9 +753,9 @@ def _emit_regions_dual(
         "",
         f"REGION_NAMES: list[str] = {all_regions!r}",
         "",
-        "# Silver card item names — referenced by lambdas that gate on the",
-        "# open-castle Gold Card Room (20-of-40 silvers, matching the in-game",
-        "# CardLockTrigger that only wires Lock1+Lock2). Sourced from",
+        "# Silver card item names. Referenced by the Gold Card Room gate in both",
+        "# modes via has_from_list_unique (open castle needs 20, vanilla all of",
+        "# them; the in-game CardLockTrigger wires Lock1+Lock2). Sourced from",
         "# items.yaml.cards_silver at gen time so it can never drift.",
         f"_SILVER_CARD_NAMES: list[str] = {silver_names!r}",
         "",
@@ -780,10 +783,11 @@ def _emit_rule_body(rule_str: str) -> str:
             return "True"
         if ident in ("false", "False"):
             return "False"
-        if ident == SILVER_AT_LEAST_20_SENTINEL:
+        sentinel = _SILVER_AT_LEAST_SENTINEL_RE.match(ident)
+        if sentinel:
             return (
                 f"state.has_from_list_unique(_SILVER_CARD_NAMES, player, "
-                f"{SILVER_AT_LEAST_20_THRESHOLD})"
+                f"{sentinel.group(1)})"
             )
         return f"state.has({ident!r}, player)"
 

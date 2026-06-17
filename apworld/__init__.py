@@ -845,10 +845,10 @@ class HP2World(World):
             except KeyError:
                 continue
             add_item_rule(loc, lambda item, silvers=silver_items: item.name not in silvers)
-        # Gold Card Room *reachability* — the 40-silver gate itself — lives in
-        # the GoldCardRoom region `entry` of logic_vanilla.yaml and
-        # logic_open_castle.yaml as the `@all_silver_cards` macro, expanded by
-        # gen_apworld.py from the same cards_silver classification.
+        # Gold Card Room reachability (the silver-count gate itself) lives in the
+        # GoldCardRoom region `entry`: logic_vanilla.yaml `@all_silver_cards` (all
+        # of them) and logic_open_castle.yaml `@silver_cards_at_least_20`, both
+        # expanded by gen_apworld.py from the same cards_silver classification.
 
         # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a lot
         # of beans the player can't have collected early. Gate them behind owning
