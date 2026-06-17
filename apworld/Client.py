@@ -28,6 +28,7 @@ Mod-side protocol (newline-delimited text):
     TRAPLINK <name>|<source>    (client → game, a linked player's trap — applied via the grant drain as an index-less grant)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server already has as checked; sticky, every HELLO)
+    RESYNC_CARDS <class_csv>    (client → game, wizard-card UScript class names ever received; re-asserts CardOwner_Harry; sticky, every Connected + HELLO)
     TOAST <text>                (client → game, generic cosmetic toast: DeathLink in/out, Join/Part, Goal by other slot, AP disconnect)
 
 Durable-grant ledger: the set of applied AP indices is persisted in AP server
@@ -35,16 +36,19 @@ Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
 APPLIED, wiped on NEWGAME. The mod's .usa cannot persist mod data (M212), so AP
 storage is the source of truth for which indices have already been forwarded.
 
-Durable AP-grant resyncs (spells, bookcase-blocker keys, potion key items): each
-set of granted item names is derived live from AP's cumulative ReceivedItems
-list (which the server replays in full on every Connected) and pushed to the
-mod as RESYNC_SPELLS / RESYNC_BLOCKERKEYS / RESYNC_KEYITEMS on every Connected
-and every game HELLO. The mod re-stamps the matching class-default flag arrays
-(APGrantedSpell / APGrantedBlockerKey / APGrantedKeyItem) and restores any live
+Durable AP-grant resyncs (spells, bookcase-blocker keys, potion key items,
+wizard cards): each set of granted item names is derived live from AP's
+cumulative ReceivedItems list (which the server replays in full on every
+Connected) and pushed to the mod as RESYNC_SPELLS / RESYNC_BLOCKERKEYS /
+RESYNC_KEYITEMS / RESYNC_CARDS on every Connected and every game HELLO. The mod
+re-stamps the matching class-default flag arrays (APGrantedSpell /
+APGrantedBlockerKey / APGrantedKeyItem / APGrantedCard) and restores any live
 game state the .usa save dropped (spellbook entries, bookcase blocker actors,
-Harry's ingredient StatusItems), so a process restart that wiped the compiled
-class-defaults can never strand the slot — the consumed-indices ledger would
-otherwise block any GRANT replay for these items.
+Harry's ingredient StatusItems, folio card ownership), so a process restart that
+wiped the compiled class-defaults can never strand the slot — the consumed-indices
+ledger would otherwise block any GRANT replay for these items. Cards additionally
+have no .usa-backed store at all, so the resync is also their save-load recovery
+within a single process (the gold-card-room "tracker enterable but folio short" fix).
 
 AP-side protocol: standard Archipelago WebSocket (handled by CommonContext).
 """
@@ -1002,6 +1006,7 @@ class HP2Context(CommonContext):
                 self._send_resync_spells()
                 self._send_resync_blocker_keys()
                 self._send_resync_key_items()
+                self._send_resync_cards()
         elif cmd == "LocationInfo":
             # CommonContext's built-in handler has already populated
             # self.locations_info[loc] = NetworkItem for every scouted
@@ -1795,6 +1800,7 @@ class HP2Context(CommonContext):
                 self._send_resync_spells()
                 self._send_resync_blocker_keys()
                 self._send_resync_key_items()
+                self._send_resync_cards()
             return
         if line == "GOAL_COMPLETE":
             # The mod replays GOAL_COMPLETE on every bridge connect while it
@@ -2153,6 +2159,23 @@ class HP2Context(CommonContext):
         }
 
     @property
+    def granted_card_class_names(self) -> set[str]:
+        """Wizard-card UScript class names (the GRANT-payload form, via
+        ITEM_NAME_TO_CARD_CLASS) this slot has ever received from AP, derived
+        from received_by_index the same way as `granted_spell_names`. Read by
+        `_send_resync_cards` on every Connected + game HELLO. Cards have no other
+        durable record — the mod's folio is the only store and the .usa cannot
+        persist mod state — so this is the source of truth for re-asserting
+        CardOwner_Harry on a card the folio dropped."""
+        return {
+            ucls
+            for item in self.received_by_index.values()
+            for ucls in (ITEM_NAME_TO_CARD_CLASS.get(
+                self.item_names.lookup_in_game(item.item, GAME_NAME)),)
+            if ucls
+        }
+
+    @property
     def granted_key_item_names(self) -> set[str]:
         """Potion-ingredient key items (Boomslang / Bicorn / BitOGoyle) this
         slot has received from AP. Always empty today — these names are not in
@@ -2205,6 +2228,21 @@ class HP2Context(CommonContext):
             self._send_to_game(f"RESYNC_KEYITEMS {csv}")
         else:
             self._send_to_game("RESYNC_KEYITEMS")
+
+    def _send_resync_cards(self) -> None:
+        """Push the derived wizard-card ledger to the mod as a single
+        RESYNC_CARDS line. Sticky + idempotent mod-side; sent on every Connected
+        (Retrieved) and every game HELLO. The mod re-stamps default.APGrantedCard[]
+        AND re-asserts CardOwner_Harry for any received card the folio is missing,
+        so a save-load / death-reload that dropped one isn't permanent — the
+        consumed-indices ledger would otherwise block GRANT replay, the same
+        failure the spell / blocker-key resync prevents, and the cause of the
+        gold-card-room "tracker says enterable but folio is short" reports."""
+        csv = ",".join(sorted(self.granted_card_class_names))
+        if csv:
+            self._send_to_game(f"RESYNC_CARDS {csv}")
+        else:
+            self._send_to_game("RESYNC_CARDS")
 
     def _forward_one(self, idx: int, item) -> None:
         """Forward one received item to the game as `GRANT <idx> <payload>`,

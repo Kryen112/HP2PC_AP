@@ -449,6 +449,23 @@ function HandleLine(string line)
     {
         class'APCardWatcher'.static.ApplyResyncKeyItems("");
     }
+    else if (Left(line, 13) == "RESYNC_CARDS ")
+    {
+        // Durable wizard-card resync. Re-stamps default.APGrantedCard[] AND
+        // re-asserts CardOwner_Harry for any received card the live folio is
+        // missing, so a save-load / death-reload that dropped a card (the
+        // consumed-indices ledger would otherwise block GRANT replay) is healed.
+        // Payload is the card UScript class names, comma-separated. Sent every
+        // Connected + HELLO. Cards have no .usa-backed store, so this is their
+        // only save-load survivability (mirrors RESYNC_SPELLS / _BLOCKERKEYS).
+        class'APCardWatcher'.static.ApplyResyncCards(Mid(line, 13));
+    }
+    else if (line == "RESYNC_CARDS")
+    {
+        // Empty-list form (no cards received yet). No state change; mirrors the
+        // bare RESYNC_SPELLS / RESYNC_BLOCKERKEYS forms so the wire is symmetric.
+        class'APCardWatcher'.static.ApplyResyncCards("");
+    }
     else if (Left(line, 8) == "CHECKED ")
     {
         // Per-slot checked-locations resync from the client, as a

@@ -1630,6 +1630,7 @@ function bool TryApplyCard(string ItemName, harry h)
     local StatusItemWizardCards siCard;
     local int nOldCardCount;
     local int nNewCardCount;
+    local int tier;
 
     cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ ItemName, class'Class'));
     if (cardClass == None)
@@ -1637,17 +1638,22 @@ function bool TryApplyCard(string ItemName, harry h)
         return False;
     }
 
+    // tier mirrors APCardWatcher.CARD_TIER_* (1 bronze / 2 silver / 3 gold);
+    // recorded durably below so the watcher revert loop never wipes this card.
     if (ClassIsChildOf(cardClass, class'BronzeCards'))
     {
         siClass = class'StatusItemBronzeCards';
+        tier = 1;
     }
     else if (ClassIsChildOf(cardClass, class'SilverCards'))
     {
         siClass = class'StatusItemSilverCards';
+        tier = 2;
     }
     else if (ClassIsChildOf(cardClass, class'Goldcards'))
     {
         siClass = class'StatusItemGoldCards';
+        tier = 3;
     }
     else
     {
@@ -1677,6 +1683,10 @@ function bool TryApplyCard(string ItemName, harry h)
     {
         class'APCardWatcher'.static.GetLatest().MarkAsGranted(cardClass.default.Id);
     }
+    // Durable, class-default tier record. Survives the per-level watcher respawn
+    // and save-load, so the revert loop never mistakes this AP-granted card for a
+    // vanilla pickup and ReassertAPGrantedCards can restore it if the folio drops it.
+    class'APCardWatcher'.static.MarkCardAsAPGrantedDefault(cardClass.default.Id, tier);
     nOldCardCount = siCard.nCount;
     siCard.SetCardOwner(cardClass.default.Id, siCard.ECardOwner.CardOwner_Harry);
     nNewCardCount = siCard.nCount;

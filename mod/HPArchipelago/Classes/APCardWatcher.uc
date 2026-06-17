@@ -235,6 +235,22 @@ var StatusItemWizardCards siGold;
 var byte WasOwnedByHarry[102];
 var bool bSnapshotted;
 
+// Durable AP-granted-card ledger. Class-default (process-lifetime, survives the
+// per-level watcher respawn and save-load) so a wizard card the slot received
+// from AP is never mistaken for a fresh vanilla pickup by the Timer revert loop,
+// and so a folio that dropped one (save-load / death-reload race, or a cold load
+// with no .usa-backed mod state) can be re-asserted. Indexed by card Id (1..101);
+// the value is the card's tier (CARD_TIER_*) so ReassertAPGrantedCards knows
+// which StatusItem to set ownership on without re-resolving the class. Mirrors
+// default.APGrantedSpell[] / default.APGrantedBlockerKey[]; written by every card
+// grant (APGameInfo.TryApplyCard) and by the RESYNC_CARDS client ledger
+// (ApplyResyncCards). Dimension literal MUST be 102 (M212 array dims take an
+// integer literal, not a const) — matches WasOwnedByHarry[] / LocationChecked[].
+const CARD_TIER_BRONZE = 1;
+const CARD_TIER_SILVER = 2;
+const CARD_TIER_GOLD   = 3;
+var byte APGrantedCard[102];
+
 // Shift-to-run falling-edge latch. 1 while SprintApply has the speed caps scaled
 // up; lets the restore write the base caps back exactly once when sprint ends,
 // instead of every frame. Slowdowns (sleepy / ectoplasm / web) are gated out of
@@ -738,6 +754,57 @@ function RevertVanillaPickup(int id)
     }
 }
 
+// Re-assert Harry ownership for every card this slot has received from AP
+// (default.APGrantedCard[id] != 0) that the live folio is currently missing, and
+// protect all of them from the Timer revert loop (WasOwnedByHarry). Quiet: no
+// pickup FX, idempotent (SetCardOwner on an already-owned id only reorders, never
+// double-counts). Heals the save-load / death-reload drop that the client's
+// consumed-indices ledger would otherwise make permanent (no GRANT replay).
+// Called from Snapshot (per level) and from ApplyResyncCards when a bound watcher
+// is already live. The tier value selects the matching StatusItem: card ownership
+// is per-tier, so a silver id set on siBronze would wrongly raise siBronze.nCount.
+function ReassertAPGrantedCards()
+{
+    local int id, restored;
+
+    if (siBronze == None || siSilver == None || siGold == None)
+    {
+        return;
+    }
+    restored = 0;
+    for (id = 1; id <= MAX_CARD_ID; id++)
+    {
+        if (default.APGrantedCard[id] == 0)
+        {
+            continue;
+        }
+        // Suppress the revert loop for this id even if ownership is restored
+        // after Snapshot baselined it (the exact reload race this fixes).
+        WasOwnedByHarry[id] = 1;
+        if (IsHarryOwned(id))
+        {
+            continue;
+        }
+        if (default.APGrantedCard[id] == CARD_TIER_BRONZE)
+        {
+            siBronze.SetCardOwner(id, siBronze.ECardOwner.CardOwner_Harry);
+        }
+        else if (default.APGrantedCard[id] == CARD_TIER_SILVER)
+        {
+            siSilver.SetCardOwner(id, siSilver.ECardOwner.CardOwner_Harry);
+        }
+        else if (default.APGrantedCard[id] == CARD_TIER_GOLD)
+        {
+            siGold.SetCardOwner(id, siGold.ECardOwner.CardOwner_Harry);
+        }
+        restored++;
+    }
+    if (restored > 0)
+    {
+        Log("[Archipelago] APCardWatcher.ReassertAPGrantedCards: restored " $ restored $ " AP-granted card(s) missing from folio");
+    }
+}
+
 event PreBeginPlay()
 {
     local int i;
@@ -849,6 +916,22 @@ static function MarkKeyItemAsAPGrantedDefault(string KeyItemName)
     else if (KeyItemName == "BitOGoyle") default.APGrantedKeyItem[2] = 1;
     else return;
     Log("[Archipelago] APCardWatcher.MarkKeyItemAsAPGrantedDefault: " $ KeyItemName $ " (class default set)");
+}
+
+// Class-default-only marker so a card grant (APGameInfo.TryApplyCard) and the
+// RESYNC_CARDS ledger (ApplyResyncCards) record the card's tier durably even when
+// no watcher instance is alive. The Timer revert loop reads this to never revert
+// an AP-granted card as a vanilla pickup; ReassertAPGrantedCards reads the tier to
+// restore a dropped card to the right StatusItem. Mirrors
+// MarkSpellAsAPGrantedDefault. tier is CARD_TIER_BRONZE / _SILVER / _GOLD.
+static function MarkCardAsAPGrantedDefault(int id, int tier)
+{
+    if (id < 1 || id > MAX_CARD_ID)
+    {
+        return;
+    }
+    default.APGrantedCard[id] = byte(tier);
+    Log("[Archipelago] APCardWatcher.MarkCardAsAPGrantedDefault: id=" $ id $ " tier=" $ string(tier) $ " (class default set)");
 }
 
 // Durable resync entry point. The client's AP-Data-Storage spell ledger arrives
@@ -1010,6 +1093,74 @@ static function ApplyResyncKeyItems(string CsvNames)
         {
             MarkKeyItemAsAPGrantedDefault(name);
         }
+    }
+}
+
+// Durable card-grant resync entry point. The client's RESYNC_CARDS line carries
+// the wizard-card UScript class names (GRANT-payload form) of every card this
+// slot has ever received from AP, sent on every Connected and game HELLO. Records
+// each card's tier in default.APGrantedCard[] (so the revert loop never wipes it
+// and a dropped card can be restored to the right StatusItem), then re-asserts
+// ownership on the live folio if a bound watcher exists — otherwise the next
+// Snapshot picks the flags up from the class-defaults. Mirrors ApplyResyncSpells /
+// ApplyResyncBlockerKeys: cards have no .usa-backed store and the consumed-indices
+// ledger blocks GRANT replay, so without this a save-load / death-reload that
+// dropped a card from the folio is unrecoverable. Idempotent.
+static function ApplyResyncCards(string CsvNames)
+{
+    local int p, id, tier;
+    local string rest, name;
+    local APCardWatcher w;
+    local class<WizardCardIcon> cardClass;
+
+    Log("[Archipelago] APCardWatcher.ApplyResyncCards: csv='" $ CsvNames $ "'");
+
+    rest = CsvNames;
+    while (rest != "")
+    {
+        p = InStr(rest, ",");
+        if (p < 0)
+        {
+            name = rest;
+            rest = "";
+        }
+        else
+        {
+            name = Left(rest, p);
+            rest = Mid(rest, p + 1);
+        }
+        if (name == "") continue;
+
+        cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ name, class'Class'));
+        if (cardClass == None) continue;
+        id = cardClass.default.Id;
+        if (id < 1 || id > MAX_CARD_ID) continue;
+
+        if (ClassIsChildOf(cardClass, class'BronzeCards'))
+        {
+            tier = CARD_TIER_BRONZE;
+        }
+        else if (ClassIsChildOf(cardClass, class'SilverCards'))
+        {
+            tier = CARD_TIER_SILVER;
+        }
+        else if (ClassIsChildOf(cardClass, class'Goldcards'))
+        {
+            tier = CARD_TIER_GOLD;
+        }
+        else
+        {
+            continue;
+        }
+        MarkCardAsAPGrantedDefault(id, tier);
+    }
+
+    // Re-assert ownership immediately when a bound watcher is live; a pre-bind
+    // resync (cold load) is picked up by the first post-Bind Snapshot instead.
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w != None && w.bSnapshotted)
+    {
+        w.ReassertAPGrantedCards();
     }
 }
 
@@ -2540,6 +2691,17 @@ event Timer()
     {
         if (WasOwnedByHarry[id] == 0 && IsHarryOwned(id))
         {
+            // AP-granted cards are expected to be Harry-owned. Never treat one as
+            // a fresh vanilla pickup: that revert + spurious CHECK, with the
+            // consumed-indices ledger blocking any GRANT replay, is exactly the
+            // missing-cards bug. Just baseline it so we stop re-checking. This is
+            // the primary fix for the reload race — ownership can be restored
+            // after Snapshot baselined, leaving WasOwnedByHarry 0 here.
+            if (default.APGrantedCard[id] != 0)
+            {
+                WasOwnedByHarry[id] = 1;
+                continue;
+            }
             WasOwnedByHarry[id] = 1;
             Log("[Archipelago] APCardWatcher: new vanilla card pickup detected, id=" $ id);
             if (ipc != None)
@@ -3599,6 +3761,13 @@ function Snapshot()
         }
     }
     Log("[Archipelago] APCardWatcher: initial snapshot - Harry already owns " $ ownedCardCount $ " cards");
+
+    // Restore any AP-granted card the .usa save dropped or a prior revert nuked,
+    // and protect every AP-granted id from the revert loop. Mirrors the spell
+    // re-add below; the durable RESYNC_CARDS ledger (default.APGrantedCard[]) is
+    // the source of truth. Runs before the nCount baseline so restored cards are
+    // reflected in LastSilverCount and don't log a spurious nCount CHANGE.
+    ReassertAPGrantedCards();
 
     DetectOpenCastleMode();
 
