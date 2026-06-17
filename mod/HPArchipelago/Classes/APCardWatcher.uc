@@ -2962,19 +2962,44 @@ event Timer()
     // Loading a save already at/after 180 never does — and a loaded game
     // inherently has a save, so the safety net is moot there. Recording this
     // on the singleton is what scopes the save to new games only.
-    if (ipc != None && HarryRef.iGameState < STARTUP_SAFETY_SAVE_GAMESTATE)
+    //
+    // The folio guard matters: a loaded save reads its real gstate only once
+    // the level-start cutscene's ChangeGameState lands (harry.SetGameState
+    // during bring-up), so for a brief window after load iGameState is still
+    // its 0 default even on a >=180 save. That transient window would set the
+    // flag and arm a redundant safety save every load. A loaded save already
+    // owns its folio; a genuine new game owns no cards through the intro climb
+    // (cards aren't collectible before Great Hall arrival), so an empty folio
+    // is what actually distinguishes new game from the transient-0 load window.
+    if (ipc != None && HarryRef.iGameState < STARTUP_SAFETY_SAVE_GAMESTATE
+        && siBronze != None && siSilver != None && siGold != None
+        && (siBronze.nCount + siSilver.nCount + siGold.nCount) == 0)
     {
         ipc.bSawStateBelowGreatHall = True;
     }
 
     // Durable-ledger new-game signal. Both vanilla and open castle start a genuine
-    // new game at iGameState 0 and climb; a loaded save resumes at its saved
-    // gstate and never re-observes 0. So iGameState==0 ⇒ genuine new game →
-    // tell the client to wipe its AP-Data-Storage consumed-index ledger so the
-    // fresh playthrough re-receives every item. One-shot via the singleton
-    // latch; re-armed once gstate climbs > 0 so a later new game in the same
-    // process signals again. NOT pinned to the open-castle-only 180 threshold.
-    if (ipc != None && HarryRef.iGameState == 0)
+    // new game at iGameState 0 and climb; tell the client to wipe its
+    // AP-Data-Storage consumed-index ledger so the fresh playthrough re-receives
+    // every item. One-shot via the singleton latch; re-armed once gstate climbs
+    // > 0 so a later new game in the same process signals again. NOT pinned to
+    // the open-castle-only 180 threshold.
+    //
+    // The folio guard is load-bearing: a freshly-loaded save does NOT resume at
+    // its saved gstate instantly — harry.SetGameState applies the real value
+    // during the level-start cutscene's bring-up, so iGameState reads its 0
+    // default for a brief window after load even on a mid-playthrough save. If
+    // the bridge link happens to be up in that window, the bare iGameState==0
+    // test fires NEWGAME on a loaded game, wiping the ledger and re-granting the
+    // entire item history — which silently re-adds every additive filler item
+    // (beans, ingredient jars, potions) since nominative items (spells/cards/
+    // keys) are idempotent under re-grant but filler is not. A genuine new game
+    // owns no cards through the intro (cards aren't collectible before Great
+    // Hall arrival); a loaded save carries its folio. So an empty folio is the
+    // signal that separates a real new game from the transient-0 load window.
+    if (ipc != None && HarryRef.iGameState == 0
+        && siBronze != None && siSilver != None && siGold != None
+        && (siBronze.nCount + siSilver.nCount + siGold.nCount) == 0)
     {
         // Only consume the one-shot latch once the signal actually goes out.
         // Firing into a down bridge would otherwise latch and never retry, so a
