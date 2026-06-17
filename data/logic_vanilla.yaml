@@ -68,7 +68,7 @@ regions:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & 'Bicorn Level Key' & 'Duelling Key'"
 
   DiffindoChallenge:
-    entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key'"
+    entry: "Lumos & Flipendo & Diffindo"
 
   BoomslangLevel:
     entry: "Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key'"
@@ -106,11 +106,11 @@ locations:
   "Learned Rictusempra": { requires: "Rictusempra" }
   "Learned Skurge": { requires: "Rictusempra & Skurge" }
   "Learned Diffindo":
-    {
-      requires: "Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
-    }
+    { requires: "Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key'" }
   "Learned Spongify":
-    { requires: "Alohomora & Rictusempra & Skurge & Diffindo & Spongify" }
+    {
+      requires: "Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
+    }
 
   # Whomping Willow
   "Whomping Willow - Card Starkey": { requires: "Lumos & Flipendo" }
@@ -620,11 +620,15 @@ locations:
   "Quidditch - Match 3 (Slytherin)":
     { requires: "Rictusempra & Skurge & Alohomora" }
   "Quidditch - Match 4 (Hufflepuff)":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
+    { requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key'" }
   "Quidditch - Match 5 (Ravenclaw)":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+    {
+      requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
+    }
   "Quidditch - Match 6 (Slytherin)":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
+    {
+      requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
+    }
 
   # Tradersanity vendors
   "Entry Hall - Card Vendor 1": { requires: "true" }
