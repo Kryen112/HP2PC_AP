@@ -850,20 +850,32 @@ class HP2World(World):
         # of them) and logic_open_castle.yaml `@silver_cards_at_least_20`, both
         # expanded by gen_apworld.py from the same cards_silver classification.
 
-        # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) cost a lot
-        # of beans the player can't have collected early. Gate them behind owning
-        # at least 3 spells AND at least 3 bookcase-blocker keys (any of them, a
-        # count threshold the logic grammar can't express), which ANDs onto the
-        # existing rule. Reaching the Duelling Club is a second sufficient path
-        # (its duels are a repeatable bean grind), so the Duelling Club region
-        # entry ORs in beside the count proxy: 'Duelling Key' in open castle, the
-        # full duel chain in vanilla. Only the QuidditchPurchases locations that
-        # exist this seed are touched, so this is a no-op when the vendors are off.
+        # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) and the
+        # Tradersanity vendors cost a lot of beans the player can't have
+        # collected early. Gate them behind owning at least 3 spells AND at
+        # least 3 bookcase-blocker keys (any of them, a count threshold the
+        # logic grammar can't express), which ANDs onto the existing rule.
+        # Reaching the Duelling Club is a second sufficient path (its duels are
+        # a repeatable bean grind), so the Duelling Club region entry ORs in
+        # beside the count proxy: 'Duelling Key' in open castle, the full duel
+        # chain in vanilla. Only the locations that exist this seed are touched,
+        # so this is a no-op when those vendors are off.
+        #
+        # QuidditchPurchases is always gated. Tradersanity vendors are gated
+        # too, EXCEPT when the price is the flat-low 10 beans AND opening a
+        # vendor publishes its hint: cheap enough to afford in sphere 1 and the
+        # player is told it's there, so it stays an ungated sphere-1 check.
         spell_names = ITEM_GROUPS.get("Spells", [])
         key_names = ITEM_GROUPS.get("Blocker Keys", [])
         duelling_rule = self._region_rules().get("DuellingClub")
+        gate_traders = not (
+            self.options.tradersanity.value == Tradersanity.option_price_low
+            and self.options.tradersanity_hint_on_open.value)
+        gated_groups = {"QuidditchPurchases"}
+        if gate_traders:
+            gated_groups.add("Tradersanity")
         for loc_name, group in LOCATION_GROUPS.items():
-            if group != "QuidditchPurchases":
+            if group not in gated_groups:
                 continue
             try:
                 loc = self.multiworld.get_location(loc_name, self.player)
