@@ -471,6 +471,18 @@ function HandleLine(string line)
         // bare RESYNC_SPELLS / RESYNC_BLOCKERKEYS forms so the wire is symmetric.
         class'APCardWatcher'.static.ApplyResyncCards("");
     }
+    else if (Left(line, 16) == "RESYNC_BEANROOM ")
+    {
+        // Open-castle bean-room ledger restored from AP data storage on connect
+        // / HELLO. Merges dispensers + floor-collected (set, never clear) and
+        // restores dropped-bean positions on a cold load. Sticky + idempotent.
+        class'APCardWatcher'.static.ApplyResyncBeanRoom(Mid(line, 16));
+    }
+    else if (line == "RESYNC_BEANROOM")
+    {
+        // Empty-list form (nothing persisted yet). No-op; keeps the wire symmetric.
+        class'APCardWatcher'.static.ApplyResyncBeanRoom("");
+    }
     else if (Left(line, 8) == "CHECKED ")
     {
         // Per-slot checked-locations resync from the client, as a
@@ -846,6 +858,15 @@ function SendGoalComplete()
 {
     SendText("GOAL_COMPLETE" $ Chr(10));
     Log("[Archipelago] APIPCActor: sent GOAL_COMPLETE");
+}
+
+// Push the open-castle bean-room ledger to the client to persist in AP data
+// storage (the only store that survives a restart here). Sent when the player
+// leaves the bean room. Payload is APCardWatcher.BuildBeanRoomState's flat list.
+function SendBeanRoomState(string payload)
+{
+    SendText("BEANSTATE " $ payload $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent BEANSTATE (len " $ Len(payload) $ ")");
 }
 
 // DeathLink out. Cause is optional flavour; the client gates on the

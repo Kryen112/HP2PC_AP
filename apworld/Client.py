@@ -22,6 +22,7 @@ Mod-side protocol (newline-delimited text):
     APPLIED <index>             (game → client, item at AP index applied → mark durably consumed)
     NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
     CHECKEDOUT <id_csv>         (game → client, on bridge connect: AP location ids the mod has locally checked → replay to AP for any the server is missing)
+    BEANSTATE <payload>         (game → client, on leaving the open-castle bean room: its ledger to persist in AP storage so the room survives a restart)
     GRANT <index> <payload>\x1f<segrecord>  (client → game, forward item received; index = AP ReceivedItems index; \x1f splits the apply payload from a colourised toast segment record)
     SENT <segrecord>            (client → game, colourised "we sent X to Y" toast for items routed to other slots)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
@@ -30,6 +31,7 @@ Mod-side protocol (newline-delimited text):
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server already has as checked; sticky, every HELLO)
     RESYNC_CARDS <class_csv>    (client → game, wizard-card UScript class names ever received; re-asserts CardOwner_Harry; sticky, every Connected + HELLO)
+    RESYNC_BEANROOM <payload>   (client → game, open-castle bean-room ledger from AP storage; merges dispensers/floor, restores drops on cold load; every Connected + HELLO)
     TOAST <text>                (client → game, yellow system toast: DeathLink out, AP disconnect, randomizer notices)
     TOASTW <text>               (client → game, white lifecycle toast: Join/Part, Goal by other slot, inbound DeathLink)
     segrecord = `<roleChar><text>` segments joined by \x1e; roles s=our slot o=other g/u/t/f=item-by-flag l=location w=white n=newline
@@ -534,6 +536,14 @@ class HP2Context(CommonContext):
         # each transition and replays it on bridge reconnect.
         self.level_key: Optional[str] = None
         self.current_level: Optional[str] = None
+        # Open-castle bean-room ledger, persisted in AP Data Storage under
+        # beanroom_key (HP2PC_AP_beanroom:{team}:{slot}) so the room's collected /
+        # opened state survives a game restart (the .usa can't hold mod data on
+        # M212). The mod sends BEANSTATE on leaving the room; we Get + replay it
+        # to the mod (RESYNC_BEANROOM) on every connect / HELLO.
+        self.beanroom_key: Optional[str] = None
+        self.beanroom_state: str = ""
+        self.beanroom_loaded: bool = False
         # When True, our in-memory consumed_indices wins over the server's stored
         # value on the next Retrieved (we overwrite the server instead of merging).
         # Set by the NEWGAME wipe so a stale server ledger — e.g. a wipe Set lost
@@ -775,6 +785,15 @@ class HP2Context(CommonContext):
                 label=f"Get durable ledger {self.ledger_key}",
             ))
 
+            # Open-castle bean-room ledger. Independent of the item ledger;
+            # replayed to the mod once its own Retrieved lands (and every HELLO).
+            self.beanroom_key = f"HP2PC_AP_beanroom:{self.team}:{self.slot}"
+            self.beanroom_loaded = False
+            asyncio.create_task(self._send_or_queue_ap_msg(
+                {"cmd": "Get", "keys": [self.beanroom_key]},
+                label=f"Get bean room state {self.beanroom_key}",
+            ))
+
             # Map-follow key for the tracker. Re-publish the last known level on
             # AP (re)connect: the game only resends LEVEL when the game↔client
             # bridge reopens, so an AP-only reconnect would otherwise leave the
@@ -969,6 +988,12 @@ class HP2Context(CommonContext):
                     f"Tradersanity vendor-hint set loaded: "
                     f"{len(self.hinted_vendor_locs)} already-hinted location(s)"
                 )
+            if self.beanroom_key is not None and self.beanroom_key in keys:
+                val = keys.get(self.beanroom_key)
+                self.beanroom_state = val if isinstance(val, str) else ""
+                self.beanroom_loaded = True
+                self._send_resync_beanroom()
+                logger.info(f"Bean room state loaded ({len(self.beanroom_state)} chars)")
             if self.ledger_key is not None and self.ledger_key in keys:
                 val = keys.get(self.ledger_key)
                 server_set = set(val) if val else set()
@@ -1700,6 +1725,12 @@ class HP2Context(CommonContext):
                 self.consumed_indices.add(idx)
                 self._persist_ledger()
             return
+        if line.startswith("BEANSTATE "):
+            # Open-castle bean-room ledger snapshot from the mod (sent on leaving
+            # the room). Persist verbatim to AP storage so it survives a restart.
+            self.beanroom_state = line[len("BEANSTATE "):]
+            self._persist_beanroom()
+            return
         if line == "DRAIN_ROLLBACK":
             # Mod completed a death-revert: any item between the last save and
             # the death was un-applied by LoadGame 0, and its APPLIED ack was
@@ -1744,6 +1775,10 @@ class HP2Context(CommonContext):
             # repopulate this via CHECK / CHECKEDOUT.
             self.locations_checked = set()
             self._persist_ledger()
+            # Fresh playthrough: clear the persisted bean-room ledger so its room
+            # starts full (the mod wipes its class-default copy on NEWGAME too).
+            self.beanroom_state = ""
+            self._persist_beanroom()
             self._send_resync_spells()
             self._forward_all_received()
             return
@@ -1819,6 +1854,10 @@ class HP2Context(CommonContext):
                 self._send_resync_blocker_keys()
                 self._send_resync_key_items()
                 self._send_resync_cards()
+            # Bean-room ledger is independent of the item ledger; gate on its own
+            # load flag so a fresh game launch / reconnect re-asserts it.
+            if self.beanroom_loaded:
+                self._send_resync_beanroom()
             return
         if line == "GOAL_COMPLETE":
             # The mod replays GOAL_COMPLETE on every bridge connect while it
@@ -2134,6 +2173,29 @@ class HP2Context(CommonContext):
              "operations": [{"operation": "replace", "value": level}]},
             label=f"persist current level ({level})",
         ))
+
+    def _persist_beanroom(self) -> None:
+        """Write the open-castle bean-room ledger back to AP Data Storage so the
+        room's collected / opened state survives a game restart. Offline-safe
+        queue + replace semantics, want_reply=False — single writer, latest wins."""
+        if self.beanroom_key is None:
+            return
+        asyncio.create_task(self._send_or_queue_ap_msg(
+            {"cmd": "Set", "key": self.beanroom_key, "default": "",
+             "want_reply": False,
+             "operations": [{"operation": "replace", "value": self.beanroom_state}]},
+            label="persist bean room state",
+        ))
+
+    def _send_resync_beanroom(self) -> None:
+        """Push the persisted bean-room ledger to the mod, which merges dispensers /
+        floor (set, never clear) and restores dropped-bean positions on a cold
+        load. Sent on the bean-room Retrieved and every game HELLO. _send_to_game
+        queues if the game bridge is down."""
+        if self.beanroom_state:
+            self._send_to_game("RESYNC_BEANROOM " + self.beanroom_state)
+        else:
+            self._send_to_game("RESYNC_BEANROOM")
 
     def _persist_vendor_hints(self) -> None:
         """Write the already-hinted Tradersanity location-id set back to AP

@@ -56,6 +56,15 @@ var Actor SpongifyBlockerInstance;
 var Vector SlytherinEndStarLocation;
 var Rotator SlytherinEndStarRotation;
 
+// Bean room access (open castle only). Entry: a TriggerChangeLevel spawned in
+// Entryhall_hub that travels to BeanRewardRoom. Exit: an APBeanRoomExitStar
+// spawned in BeanRewardRoom that travels back. Coords captured in-game via the
+// APConsole LogPos exec, same as SlytherinEndStarLocation.
+var Vector BeanRoomEntryLocation;
+var Rotator BeanRoomEntryRotation;
+var Vector BeanRoomExitStarLocation;
+var Rotator BeanRoomExitStarRotation;
+
 event InitGame(string Options, out string Error)
 {
     local class<Actor> cls;
@@ -1312,6 +1321,10 @@ function SpawnAllOpenCastleBlockers()
     BlockOpenCastleQuidditchEntryIfMissing();
     BlockOpenCastleGryffindorEntryIfMissing();
     BlockOpenCastleGreatHallEntryIfMissing();
+    // Not a blocker: the always-open bean room entry trigger. Lives here so it
+    // spawns on both the InitGame and save-load (TrySpawnClassroomBlockers)
+    // paths. Level-gated to Entryhall_hub, so it no-ops elsewhere.
+    SpawnBeanRoomEntryIfMissing();
 }
 
 // Spawn the visible end star in the Slytherin Common Room so the level's
@@ -1360,6 +1373,120 @@ function SpawnSlytherinEndStarIfMissing()
     {
         Log("[Archipelago] SpawnSlytherinEndStar: Spawn returned None at "
             $ string(SlytherinEndStarLocation) $ " (encroachment? coords may need tweak)");
+    }
+}
+
+// Always-open bean room entry (open castle only). Vanilla reaches the bean room
+// through the house-point-ceremony cutscene chain, which open castle never
+// plays, so this stock TriggerChangeLevel is the only way in. It renders
+// nothing in-game and on Touch by Harry travels via LoadLevel (carrying beans
+// and inventory). No key gate: the room is a freely re-enterable bean cache.
+// Level-gated to Entryhall_hub, tag-idempotent so hub re-entry never double-
+// spawns. SetCollision is explicit so Touch fires regardless of spawn defaults.
+function SpawnBeanRoomEntryIfMissing()
+{
+    local Actor existing;
+    local TriggerChangeLevel portal;
+
+    if (Caps(string(Level.Outer.Name)) != "ENTRYHALL_HUB") return;
+    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
+
+    foreach AllActors(class'Actor', existing)
+    {
+        if (existing.Tag == 'APBeanRoomEntry' && !existing.bDeleteMe)
+        {
+            return;
+        }
+    }
+
+    portal = Spawn(class'TriggerChangeLevel', None, 'APBeanRoomEntry',
+        BeanRoomEntryLocation, BeanRoomEntryRotation);
+    if (portal != None)
+    {
+        portal.NewMapName = "BeanRewardRoom";
+        portal.SetCollision(True, False, False);
+        Log("[Archipelago] SpawnBeanRoomEntry: spawned at " $ string(BeanRoomEntryLocation)
+            $ " -> " $ portal.NewMapName);
+    }
+    else
+    {
+        Log("[Archipelago] SpawnBeanRoomEntry: Spawn returned None at "
+            $ string(BeanRoomEntryLocation) $ " (encroachment? coords may need tweak)");
+    }
+}
+
+// Spawn the bean room exit star (open castle only). The room has no native
+// walkable exit once the timer is suppressed, so this star is the in-world way
+// back to the hub. Mirror of SpawnSlytherinEndStarIfMissing: driven from
+// APCardWatcher.Snapshot (post-Bind, valid PlayerHarry), level-gated to
+// BeanRewardRoom, prior instance destroyed + respawned each bind. Open-castle-
+// only so vanilla's bean room flow is untouched.
+function SpawnBeanRoomExitStarIfMissing()
+{
+    local Actor existing;
+    local APBeanRoomExitStar star;
+    local int destroyed;
+
+    if (Caps(string(Level.Outer.Name)) != "BEANREWARDROOM") return;
+    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
+
+    foreach AllActors(class'Actor', existing)
+    {
+        if (existing.Tag == 'APBeanRoomExitStar' && !existing.bDeleteMe)
+        {
+            existing.Destroy();
+            destroyed++;
+        }
+    }
+    if (destroyed > 0)
+    {
+        Log("[Archipelago] SpawnBeanRoomExitStar: destroyed " $ destroyed
+            $ " prior instance(s) before respawn");
+    }
+
+    star = Spawn(class'APBeanRoomExitStar', None,
+        'APBeanRoomExitStar', BeanRoomExitStarLocation, BeanRoomExitStarRotation);
+    if (star != None)
+    {
+        Log("[Archipelago] SpawnBeanRoomExitStar: spawned at "
+            $ string(BeanRoomExitStarLocation));
+    }
+    else
+    {
+        Log("[Archipelago] SpawnBeanRoomExitStar: Spawn returned None at "
+            $ string(BeanRoomExitStarLocation) $ " (encroachment? coords may need tweak)");
+    }
+}
+
+// Keep the bean room running with NO timer (open castle only). Called every
+// tick from APCardWatcher.Timer while in BeanRewardRoom: the timer auto-starts
+// ~0.2s after Harry spawns (CountdownTimerManager.PostBeginPlay), so a one-shot
+// stop gets overridden. Stopping it removes the HUD bar and means the expiry
+// event (which travels back into the story Great Hall) never fires; the Event
+// is also blanked as belt-and-suspenders. No-op once Idle.
+function StopBeanRoomTimer()
+{
+    local BeanRoomTimerManager mgr;
+    local int n;
+
+    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
+    if (Caps(string(Level.Outer.Name)) != "BEANREWARDROOM") return;
+    if (Level.PlayerHarryActor == None) return;
+
+    foreach AllActors(class'BeanRoomTimerManager', mgr)
+    {
+        if (mgr == None || mgr.bDeleteMe) continue;
+        if (mgr.IsInState('CountingDown'))
+        {
+            mgr.StopCountDown();
+            mgr.Event = 'None';
+            n++;
+        }
+    }
+    if (n > 0)
+    {
+        Log("[Archipelago] StopBeanRoomTimer: stopped " $ n
+            $ " bean room timer(s) (open castle no-timer mode)");
     }
 }
 
@@ -2541,4 +2668,8 @@ defaultproperties
     DiffindoBlockerOffsets(2)=(X=50.000000,Y=162.000000,Z=-20.000000)
     SlytherinEndStarLocation=(X=-206.795639,Y=-11138.078125,Z=-379.500000)
     SlytherinEndStarRotation=(Pitch=0,Yaw=0,Roll=0)
+    BeanRoomEntryLocation=(X=-2208.000000,Y=-1520.000000,Z=-19.500000)
+    BeanRoomEntryRotation=(Pitch=0,Yaw=49,Roll=0)
+    BeanRoomExitStarLocation=(X=-662.000000,Y=522.000000,Z=-979.500000)
+    BeanRoomExitStarRotation=(Pitch=0,Yaw=27,Roll=0)
 }
