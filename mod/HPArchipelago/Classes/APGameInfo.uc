@@ -2312,6 +2312,10 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //   Reducio         or the next level's fresh pawn, whichever comes first.
 //   Confundus     - forces harry.bInvertMouse; APCardWatcher restores the real
 //                   setting on a timer or the next level transition.
+//   Overcompensation - swaps the held wand to the enlarged APWandGiant mesh
+//                   (DrawScale doesn't render on the bone-attached wand); lasts
+//                   the level and reverts when APCardWatcher sees the next level
+//                   change, like the Polyjuice trap.
 //
 // Spider Swarm and Peeves are not implemented: they require an ad-hoc visible
 // world actor spawned mid-level, and this open castle build does not render actors
@@ -2415,6 +2419,17 @@ function bool TryApplyTrap(string Name, harry h)
         // bInvertMouse setting and restores it on a timer or the next level.
         class'APCardWatcher'.static.MarkConfundusTrapActive(h);
         Log("[Archipelago] ApplyGrant: Confundus Trap - inverted look applied (reverts on timer or next level)");
+        return True;
+    }
+
+    if (Name == "Overcompensation Trap")
+    {
+        // Enlarge the held wand by swapping it to the giant pre-scaled mesh.
+        // DrawScale does not render on the bone-attached wand, so the watcher
+        // swaps baseWand.Mesh and, like the Polyjuice trap, keeps it for the
+        // rest of the level, restoring the canonical wand mesh on the next level.
+        class'APCardWatcher'.static.MarkWandSizeTrapActive(h);
+        Log("[Archipelago] ApplyGrant: Overcompensation Trap - wand enlarged (reverts on next level)");
         return True;
     }
 

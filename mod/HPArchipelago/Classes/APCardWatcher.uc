@@ -560,8 +560,9 @@ var class<baseSpell> SpellTrapBackup[32];
 var byte bPolyjuiceTrapActive;
 // Level the watcher last observed (Level.Outer.Name). A trap helper stamps
 // the apply-level here; TrapTick compares each tick and treats any change as
-// the "left the level" boundary that ends the Polyjuice/spell/size/confundus
-// traps. Level NAME (not watcher instance) is the discriminator so open
+// the "left the level" boundary that ends the
+// Polyjuice/spell/size/confundus/wand-size traps. Level NAME (not watcher
+// instance) is the discriminator so open
 // castle's streamed-sublevel watcher churn never false-triggers.
 var name TrapLastLevelName;
 // Engorgio / Reducio Traps: bSizeTrapActive==1 while harry.DrawScale is
@@ -581,6 +582,15 @@ const CONFUNDUS_TRAP_DURATION = 20.0;
 var byte bConfundusTrapActive;
 var float ConfundusTrapExpiry;
 var byte bConfundusOrigInvertMouse;
+// Overcompensation Trap: bWandSizeTrapActive==1 while the held wand wears the
+// enlarged APWandGiant mesh instead of HPModels.WandMesh. This build's renderer
+// ignores a bone-attached actor's own DrawScale, so the wand is enlarged by
+// swapping baseWand.Mesh/ThirdPersonMesh to the baked-scale giant mesh (see
+// APWandMesh.uc). Like the Polyjuice/Goyle trap it lasts the rest of the level
+// and reverts on the next level change - but because the wand is inventory and
+// may travel across the boundary, TrapTick reassigns the canonical
+// HPModels.WandMesh actively rather than relying on a fresh-spawned wand.
+var byte bWandSizeTrapActive;
 
 // --- DeathLink state. All class-default + sticky: an induced kill runs
 // GotoState('stateDead') → ConsoleCommand("LoadGame 0"), which destroys the
@@ -1383,6 +1393,45 @@ static function MarkSizeTrapActive(harry h, float newScale)
     Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: DrawScale " $ string(default.SizeTrapOrigScale) $ " -> " $ string(newScale) $ " (expires at Level.TimeSeconds " $ string(default.SizeTrapExpiry) $ " or on level change)");
 }
 
+// Overcompensation Trap entry point (called from APGameInfo.TryApplyTrap).
+// Swaps the held wand to the enlarged APWandGiant mesh (DrawScale does not
+// render on the bone-attached wand, so a baked-scale mesh is the only lever).
+// Lasts the rest of the level; TrapTick() reassigns HPModels.WandMesh on the
+// next level change. Static + class-default so it survives the per-level
+// watcher respawn. No-op when no wand is equipped or the mesh fails to load.
+static function MarkWandSizeTrapActive(harry h)
+{
+    local baseWand wand;
+    local Mesh giant;
+
+    if (h == None)
+    {
+        return;
+    }
+    wand = baseWand(h.Weapon);
+    if (wand == None)
+    {
+        Log("[Archipelago] APCardWatcher.MarkWandSizeTrapActive: no wand equipped - no-op");
+        return;
+    }
+    giant = Mesh(DynamicLoadObject("HPArchipelago.APWandGiant", class'Mesh'));
+    if (giant == None)
+    {
+        Log("[Archipelago] APCardWatcher.MarkWandSizeTrapActive: APWandGiant failed to load - no-op");
+        return;
+    }
+    wand.Mesh = giant;
+    wand.ThirdPersonMesh = giant;
+    if (default.bWandSizeTrapActive == 1)
+    {
+        Log("[Archipelago] APCardWatcher.MarkWandSizeTrapActive: already active - wand kept enlarged");
+        return;
+    }
+    default.bWandSizeTrapActive = 1;
+    default.TrapLastLevelName    = h.Level.Outer.Name;
+    Log("[Archipelago] APCardWatcher.MarkWandSizeTrapActive: wand enlarged (reverts on next level)");
+}
+
 // Confundus Trap entry point (called from APGameInfo.TryApplyTrap). Backs the
 // player's real bInvertMouse setting up, arms the restore timer + level-change
 // record, then forces inverted look. Static + class-default like the others;
@@ -1501,6 +1550,21 @@ function TrapTick()
         {
             Log("[Archipelago] APCardWatcher.TrapTick: confundus trap ended on timer - bInvertMouse restored");
         }
+    }
+
+    if (default.bWandSizeTrapActive == 1 && bLevelChanged)
+    {
+        // Lasts the rest of the level like Polyjuice. The wand is inventory and
+        // may travel across the boundary, so restore the canonical wand mesh
+        // actively rather than relying on a fresh-spawned wand; a fresh wand
+        // already on WandMesh is reassigned harmlessly.
+        if (HarryRef != None && baseWand(HarryRef.Weapon) != None)
+        {
+            baseWand(HarryRef.Weapon).Mesh = Mesh(DynamicLoadObject("HPModels.WandMesh", class'Mesh'));
+            baseWand(HarryRef.Weapon).ThirdPersonMesh = baseWand(HarryRef.Weapon).Mesh;
+        }
+        default.bWandSizeTrapActive = 0;
+        Log("[Archipelago] APCardWatcher.TrapTick: Overcompensation trap ended on level change - wand mesh restored");
     }
 
     default.TrapLastLevelName = curLevel;
