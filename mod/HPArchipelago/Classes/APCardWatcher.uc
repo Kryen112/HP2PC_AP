@@ -235,6 +235,14 @@ var StatusItemWizardCards siGold;
 var byte WasOwnedByHarry[102];
 var bool bSnapshotted;
 
+// Folio emptiness sampled at Snapshot entry, BEFORE ReassertAPGrantedCards
+// re-asserts this slot's AP cards. A genuine new game binds with an empty
+// folio; a loaded save binds with its .usa folio already restored. The live
+// nCount sum can't tell them apart any more because RESYNC fills the folio on
+// connect, so the NEWGAME signal and the startup-safety-save scope read this
+// pre-RESYNC sample instead. Per-instance: each level's watcher re-samples.
+var bool bFolioEmptyAtSnapshot;
+
 // Durable AP-granted-card ledger. Class-default (process-lifetime, survives the
 // per-level watcher respawn and save-load) so a wizard card the slot received
 // from AP is never mistaken for a fresh vanilla pickup by the Timer revert loop,
@@ -805,6 +813,69 @@ function ReassertAPGrantedCards()
     }
 }
 
+// Re-derive the card-set milestone rewards from the restored card counts. The
+// extra health bar (vanilla harry.DoCelebrateCardSet -> health potential) and
+// the silver Gold-Card-Room keys (StatusItemSilverCards.UpdateCount -> Lock1..4)
+// are one-shot side effects of the live card pickup. The RESYNC restore path
+// sets card ownership directly via SetCardOwner and never replays them, so a
+// card that arrives by resync (a new game / reconnect with already-received
+// cards) leaves its milestone ungranted. Both rewards are pure functions of the
+// count, so reconcile the derived stats: one health icon per 10 bronze (plus the
+// base icon), one lock per 10 silver. Idempotent (tops up only the shortfall, and
+// never lowers), so it is a no-op on a load whose folio is already correct.
+function ReconcileCardMilestones()
+{
+    local StatusManager ms;
+    local StatusItemHealth siHealth;
+    local int nBronze, desiredPotential, healthShortfall;
+
+    if (HarryRef == None || HarryRef.managerStatus == None) return;
+    if (siBronze == None || siSilver == None) return;
+    ms = HarryRef.managerStatus;
+    nBronze = siBronze.nCount;
+
+    // Extra health bars. Vanilla seeds one icon and adds one per 10 bronze,
+    // capped at the item's nMaxCount. A positive AddHealthPotential also tops
+    // current HP to the new max, matching the vanilla celebration heal.
+    siHealth = StatusItemHealth(ms.GetStatusItem(class'StatusGroupHealth', class'StatusItemHealth'));
+    if (siHealth != None && siHealth.nUnitsPerIcon > 0)
+    {
+        desiredPotential = (1 + (nBronze / 10)) * siHealth.nUnitsPerIcon;
+        if (siHealth.nMaxCount > 0 && desiredPotential > siHealth.nMaxCount)
+        {
+            desiredPotential = siHealth.nMaxCount;
+        }
+        healthShortfall = desiredPotential - siHealth.nCurrCountPotential;
+        if (healthShortfall > 0)
+        {
+            ms.AddHealthPotential(healthShortfall);
+            Log("[Archipelago] APCardWatcher.ReconcileCardMilestones: +" $ healthShortfall
+                $ " health potential for " $ nBronze $ " bronze cards (target " $ desiredPotential $ ")");
+        }
+    }
+
+    // Silver Gold-Card-Room keys: one lock per completed set of 10 silver cards.
+    ReconcileSilverLock(ms, class'StatusItemLock1', siSilver.nCount >= 10);
+    ReconcileSilverLock(ms, class'StatusItemLock2', siSilver.nCount >= 20);
+    ReconcileSilverLock(ms, class'StatusItemLock3', siSilver.nCount >= 30);
+    ReconcileSilverLock(ms, class'StatusItemLock4', siSilver.nCount >= 40);
+}
+
+// Set one Gold-Card-Room lock to owned when its silver threshold is met.
+// Idempotent: only raises a missing lock to 1, never lowers one.
+function ReconcileSilverLock(StatusManager ms, class<StatusItem> lockClass, bool bWanted)
+{
+    local StatusItem siLock;
+
+    if (!bWanted || ms == None) return;
+    siLock = ms.GetStatusItem(class'StatusGroupLocks', lockClass);
+    if (siLock != None && siLock.nCount < 1)
+    {
+        ms.IncrementCount(class'StatusGroupLocks', lockClass, 1);
+        Log("[Archipelago] APCardWatcher.ReconcileSilverLock: granted " $ string(lockClass) $ " (silver milestone)");
+    }
+}
+
 event PreBeginPlay()
 {
     local int i;
@@ -1157,10 +1228,14 @@ static function ApplyResyncCards(string CsvNames)
 
     // Re-assert ownership immediately when a bound watcher is live; a pre-bind
     // resync (cold load) is picked up by the first post-Bind Snapshot instead.
+    // Skip on a new game (empty folio at the last Snapshot): the NEWGAME GRANT
+    // replay delivers those cards fresh with their pickup celebration, so only
+    // the resync branch (loaded save / reconnect) needs the silent restore.
     w = class'APCardWatcher'.static.GetLatest();
-    if (w != None && w.bSnapshotted)
+    if (w != None && w.bSnapshotted && !w.bFolioEmptyAtSnapshot)
     {
         w.ReassertAPGrantedCards();
+        w.ReconcileCardMilestones();
     }
 }
 
@@ -2969,11 +3044,12 @@ event Timer()
     // its 0 default even on a >=180 save. That transient window would set the
     // flag and arm a redundant safety save every load. A loaded save already
     // owns its folio; a genuine new game owns no cards through the intro climb
-    // (cards aren't collectible before Great Hall arrival), so an empty folio
-    // is what actually distinguishes new game from the transient-0 load window.
+    // (cards aren't collectible before Great Hall arrival). RESYNC re-asserts AP
+    // cards onto the live folio on connect, so the live nCount no longer shows
+    // that distinction. bFolioEmptyAtSnapshot samples the folio at Snapshot
+    // entry, before the re-assert. It reads empty only on a genuine new game.
     if (ipc != None && HarryRef.iGameState < STARTUP_SAFETY_SAVE_GAMESTATE
-        && siBronze != None && siSilver != None && siGold != None
-        && (siBronze.nCount + siSilver.nCount + siGold.nCount) == 0)
+        && bFolioEmptyAtSnapshot)
     {
         ipc.bSawStateBelowGreatHall = True;
     }
@@ -2995,11 +3071,12 @@ event Timer()
     // (beans, ingredient jars, potions) since nominative items (spells/cards/
     // keys) are idempotent under re-grant but filler is not. A genuine new game
     // owns no cards through the intro (cards aren't collectible before Great
-    // Hall arrival); a loaded save carries its folio. So an empty folio is the
-    // signal that separates a real new game from the transient-0 load window.
+    // Hall arrival); a loaded save carries its folio. RESYNC fills the live folio
+    // on connect, so the signal reads bFolioEmptyAtSnapshot, the folio sampled at
+    // Snapshot entry (before the AP re-assert), to separate a real new game from
+    // the transient-0 load window.
     if (ipc != None && HarryRef.iGameState == 0
-        && siBronze != None && siSilver != None && siGold != None
-        && (siBronze.nCount + siSilver.nCount + siGold.nCount) == 0)
+        && bFolioEmptyAtSnapshot)
     {
         // Only consume the one-shot latch once the signal actually goes out.
         // Firing into a down bridge would otherwise latch and never retry, so a
@@ -3787,12 +3864,32 @@ function Snapshot()
     }
     Log("[Archipelago] APCardWatcher: initial snapshot - Harry already owns " $ ownedCardCount $ " cards");
 
-    // Restore any AP-granted card the .usa save dropped or a prior revert nuked,
-    // and protect every AP-granted id from the revert loop. Mirrors the spell
-    // re-add below; the durable RESYNC_CARDS ledger (default.APGrantedCard[]) is
-    // the source of truth. Runs before the nCount baseline so restored cards are
-    // reflected in LastSilverCount and don't log a spurious nCount CHANGE.
-    ReassertAPGrantedCards();
+    // New-game discriminator for the NEWGAME signal: an empty folio here (before
+    // ReassertAPGrantedCards re-asserts this slot's AP cards) means this bind is
+    // a genuine new game, not a loaded save. Sampled now because RESYNC fills the
+    // folio moments later and would otherwise mask the difference.
+    bFolioEmptyAtSnapshot = (ownedCardCount == 0);
+
+    // On a genuine new game (empty folio at entry) the NEWGAME signal fires a
+    // full GRANT replay that re-delivers every card fresh, so the vanilla pickup
+    // celebration grants the extra health bar / silver key with its toast. Skip
+    // the silent reassert + reconcile here so those milestones arrive through that
+    // flow, not instantly. A loaded save / reconnect (folio not empty here) has no
+    // replay coming, so it still needs the silent restore + milestone reconcile.
+    if (!bFolioEmptyAtSnapshot)
+    {
+        // Restore any AP-granted card the .usa save dropped or a prior revert
+        // nuked, and protect every AP-granted id from the revert loop. The durable
+        // RESYNC_CARDS ledger (default.APGrantedCard[]) is the source of truth.
+        // Runs before the nCount baseline so restored cards are reflected in
+        // LastSilverCount and don't log a spurious nCount CHANGE.
+        ReassertAPGrantedCards();
+        // Re-derive the card-set milestone rewards (extra health bars, silver
+        // Gold-Card-Room keys) from the restored counts. The silent restore sets
+        // card ownership directly and never replays the vanilla pickup that grants
+        // them, so reconcile the derived stats here.
+        ReconcileCardMilestones();
+    }
 
     DetectOpenCastleMode();
 
