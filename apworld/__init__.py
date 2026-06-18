@@ -204,6 +204,36 @@ class AllowSecretsProgression(Toggle):
     display_name = "Allow Secrets progression"
 
 
+class AllowRunningLogic(Toggle):
+    """If true, locations and regions tagged with the `Running` logic flag are
+    treated as reachable via Harry's always-on run speed, without the spell they
+    would otherwise need. Applies in both game modes.
+
+    Additive only: it never removes a requirement, so a seed solvable with it
+    off stays solvable with it on. `Running` is a logic flag, not an item: when
+    this is on the world precollects it so the `... | Running` clauses in
+    data/logic_*.yaml pass. Off by default — the standard logic expects the
+    spell. The mod always lets the player run regardless of this option; it only
+    governs what generation assumes.
+    """
+    display_name = "Allow Running logic"
+
+
+class AllowGlitchedLogic(Toggle):
+    """If true, locations and regions tagged with the `Glitched` logic flag are
+    treated as reachable via glitches, without the items they would otherwise
+    need. One umbrella flag covering every glitch shortcut. Applies in both game
+    modes.
+
+    Additive only: a seed solvable with it off stays solvable with it on.
+    `Glitched` is a logic flag, not an item: when this is on the world
+    precollects it so the `... | Glitched` clauses in data/logic_*.yaml pass.
+    Off by default — the standard logic expects no glitches. Enabling it assumes
+    the player can perform the glitches the tagged checks rely on.
+    """
+    display_name = "Allow Glitched logic"
+
+
 class EnableChallengeStars(DefaultOnToggle):
     """If true, the Challenge Stars become AP locations: 44 across the 4
     spell-challenges (Rictusempra, Skurge, Diffindo, Spongify), plus open
@@ -443,6 +473,12 @@ class HP2Options(PerGameCommonOptions):
     start_inventory_from_pool: StartInventoryPool
     game_mode: GameMode
     starting_spells: StartingSpells
+    # Logic-flag toggles, both modes. Each precollects a code-less event item
+    # (Running / Glitched) when on, relaxing the `... | Running` / `... |
+    # Glitched` clauses in data/logic_*.yaml. Pure generation logic — no item,
+    # no pool entry, nothing the mod needs at runtime.
+    allow_running_logic: AllowRunningLogic
+    allow_glitched_logic: AllowGlitchedLogic
     # Per-category check toggles. Each gates both the matching locations and
     # any paired items (currently: wizard cards, vendor equipment) — generator
     # emits both sides into the stable id space, HP2World filters at build
@@ -770,6 +806,20 @@ class HP2World(World):
             loc.progress_type = LocationProgressType.EXCLUDED
 
     def create_items(self) -> None:
+        # Logic flags (Running / Glitched) are player-selected capabilities, not
+        # items: when enabled, precollect each as a code-less event item so the
+        # `... | Running` / `... | Glitched` clauses in the rule tables pass.
+        # Never placed, never sent over the wire — the mod runs/glitches the
+        # same regardless; this only relaxes generation logic.
+        for flag_name, option in (
+            ("Running", self.options.allow_running_logic),
+            ("Glitched", self.options.allow_glitched_logic),
+        ):
+            if option:
+                self.multiworld.push_precollected(
+                    HP2Item(flag_name, ItemClassification.progression, None, self.player)
+                )
+
         starters = self._starter_names()
         # Traps are excluded here alongside filler: neither counts as a
         # placeable non-filler item. Traps only ever enter the pool through
@@ -1045,6 +1095,11 @@ class HP2World(World):
             "enable_spell_challenge_times": bool(self.options.enable_spell_challenge_times.value),
             "vanilla_gate_levels": bool(self.options.vanilla_gate_levels.value),
             "enable_traps": bool(self.options.traps.value and self.options.trap_fill_percent.value > 0),
+            # Logic-flag toggles. The mod ignores these (running/glitching is
+            # always physically possible); the tracker reads them to flip its
+            # matching setting marker so its reachability matches the seed.
+            "allow_running_logic": bool(self.options.allow_running_logic.value),
+            "allow_glitched_logic": bool(self.options.allow_glitched_logic.value),
         }
         # Music randomizer (both game modes). The client swaps the Music/*.ogg
         # files on disk per this seed, so only the seed rides the wire (the client

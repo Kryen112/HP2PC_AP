@@ -32,6 +32,23 @@ AP_FRAMEWORK_DIR = Path(
 ).resolve()
 APWORLD_GAME_NAME = "Harry Potter 2 PC"
 
+# --- LOCAL ONLY — do not commit -------------------------------------------
+# Copy the built apworld into each local Archipelago custom_worlds so the
+# running generator / client / launcher pick up the rebuild. Machine-specific
+# paths; override with HP2_APWORLD_INSTALL_DIRS (os.pathsep-separated).
+_DEFAULT_APWORLD_INSTALL_DIRS = [
+    # The frozen install used to generate seeds and run the client/launcher.
+    # The dev checkout is NOT a target: it loads the world from the
+    # worlds/harry_potter_2_pc junction to this repo's apworld/ (DEV_SETUP).
+    Path(r"C:\ProgramData\Archipelago\custom_worlds"),
+]
+APWORLD_INSTALL_DIRS = (
+    [Path(p) for p in os.environ["HP2_APWORLD_INSTALL_DIRS"].split(os.pathsep)]
+    if os.environ.get("HP2_APWORLD_INSTALL_DIRS")
+    else _DEFAULT_APWORLD_INSTALL_DIRS
+)
+# --- end LOCAL ONLY -------------------------------------------------------
+
 LOCATION_CATEGORIES = (
     "classrooms",
     "special_checks",
@@ -289,6 +306,20 @@ def expand_macros(logic: dict, items: dict, context: str) -> None:
         )
 
 
+# Reserved logic-flag tokens. Not items (never in items.yaml, never in the
+# pool): each is a player-selected capability that, when its option is on,
+# HP2World precollects as a code-less event item so `state.has(<flag>)` passes.
+# Rules opt a location/region into a flag additively, e.g.
+#   requires: "Spongify | Running"
+# These names compile to the same `state.has(...)` an item would, so
+# _emit_rule_body needs no special case; parse_rule only skips the unknown-item
+# check for them, and rule_idents excludes them (like true/false/TBD) so they
+# never read as item dependencies.
+#   Running  — gaps clearable by the always-on run speed instead of a spell.
+#   Glitched — umbrella for every glitch shortcut.
+LOGIC_FLAG_NAMES: frozenset[str] = frozenset({"Running", "Glitched"})
+
+
 def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
     """Convert a logic.yaml rule string to a Python expression body.
 
@@ -324,6 +355,8 @@ def parse_rule(rule_str: str, known_items: set[str], context: str) -> str:
             return "True"
         if _SILVER_AT_LEAST_SENTINEL_RE.match(ident):
             return "True"  # validation placeholder; _emit_rule_body emits the real call
+        if ident in LOGIC_FLAG_NAMES:
+            return f"state.has({ident!r}, player)"
         if ident not in known_items:
             unknown.append(ident)
         return f"state.has({ident!r}, player)"
@@ -359,6 +392,8 @@ def rule_idents(rule_str: str) -> set[str]:
         if ident in ("true", "True", "false", "False", "TBD"):
             continue
         if _SILVER_AT_LEAST_SENTINEL_RE.match(ident):
+            continue
+        if ident in LOGIC_FLAG_NAMES:
             continue
         out.add(ident)
     return out
@@ -1156,6 +1191,22 @@ def build_apworld_zip() -> Path | None:
     return zip_path
 
 
+# --- LOCAL ONLY — do not commit -------------------------------------------
+def install_apworld(zip_path: Path) -> None:
+    """Copy the built apworld into each local custom_worlds dir so the running
+    Archipelago picks up the rebuild. Skips dirs that do not exist."""
+    import shutil
+
+    for dest_dir in APWORLD_INSTALL_DIRS:
+        if not dest_dir.is_dir():
+            print(f"  skipped install (no such dir): {dest_dir}")
+            continue
+        dest = dest_dir / zip_path.name
+        shutil.copy2(zip_path, dest)
+        print(f"  installed -> {dest}")
+# --- end LOCAL ONLY -------------------------------------------------------
+
+
 def main() -> int:
     items, locations, logic_vanilla, logic_open_castle = load_data()
     try:
@@ -1251,6 +1302,7 @@ def main() -> int:
     zip_path = build_apworld_zip()
     if zip_path is not None:
         print(f"Built {zip_path} ({zip_path.stat().st_size // 1024} KB)")
+        install_apworld(zip_path)  # LOCAL ONLY — do not commit
     return 0
 
 
