@@ -348,8 +348,8 @@ class Traps(OptionSet):
     Polyjuice Potion Trap (turns Harry into Goyle for the rest of the level),
     Obliviate Trap (spellbook withheld ~30s),
     Drowsiness Draught Trap (sleepy slow ~6s),
-    Engorgio Trap (giant Harry),
-    Reducio Trap (tiny Harry),
+    Engorgio Trap (giant Harry for the rest of the level),
+    Reducio Trap (tiny Harry for the rest of the level),
     Confundus Trap (inverted camera look ~20s),
     Overcompensation Trap (giant wand for the rest of the level)."""
     display_name = "Traps"

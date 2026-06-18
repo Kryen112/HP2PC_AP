@@ -565,15 +565,11 @@ var byte bPolyjuiceTrapActive;
 // instance) is the discriminator so open
 // castle's streamed-sublevel watcher churn never false-triggers.
 var name TrapLastLevelName;
-// Engorgio / Reducio Traps: bSizeTrapActive==1 while harry.DrawScale is
-// scaled away from normal. SizeTrapOrigScale holds the pre-trap DrawScale so
-// the restore is exact (and a stacked size trap preserves the original);
-// restored when Level.TimeSeconds reaches SizeTrapExpiry OR the level changes
-// (the fresh pawn already loads its default scale), whichever comes first.
-const SIZE_TRAP_DURATION = 30.0;
+// Engorgio / Reducio Traps: bSizeTrapActive==1 while harry.DrawScale is scaled
+// away from normal. Like the Polyjuice trap the effect lasts the rest of the
+// level; the next level loads a fresh pawn at its default DrawScale, so the
+// revert is automatic and TrapTick only has to clear the flag on a level change.
 var byte bSizeTrapActive;
-var float SizeTrapExpiry;
-var float SizeTrapOrigScale;
 // Confundus Trap: bConfundusTrapActive==1 while harry.bInvertMouse is forced
 // on. bConfundusOrigInvertMouse holds the player's real setting so the restore
 // returns it rather than blindly clearing; restored on the timer OR a level
@@ -1366,31 +1362,26 @@ static function MarkPolyjuiceTrapActiveDefault(harry h)
 }
 
 // Engorgio / Reducio Trap entry point (called from APGameInfo.TryApplyTrap).
-// Backs the current DrawScale up into the class-default, arms the restore
-// timer + level-change record, then scales the pawn. Static + class-default so
-// it survives the per-level watcher respawn; TrapTick() does the matching
-// restore. Stacking guard mirrors BackupAndClearSpellBook: a second size trap
-// while one is active just extends the expiry and re-applies the new scale,
-// preserving the ORIGINAL backed-up scale so the restore is never lost.
+// Scales the pawn and records the apply-level. Static + class-default so it
+// survives the per-level watcher respawn. Like Polyjuice the effect lasts the
+// rest of the level and reverts on the next level's fresh pawn; TrapTick() just
+// clears the flag. Stacking guard: a second size trap while one is active simply
+// applies the new scale (a later Reducio overrides an earlier Engorgio).
 static function MarkSizeTrapActive(harry h, float newScale)
 {
     if (h == None)
     {
         return;
     }
+    h.DrawScale = newScale;
     if (default.bSizeTrapActive == 1)
     {
-        default.SizeTrapExpiry = h.Level.TimeSeconds + SIZE_TRAP_DURATION;
-        h.DrawScale = newScale;
-        Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: already active - extended expiry to Level.TimeSeconds " $ string(default.SizeTrapExpiry) $ ", original scale preserved");
+        Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: already active - DrawScale set to " $ string(newScale));
         return;
     }
-    default.SizeTrapOrigScale = h.DrawScale;
     default.bSizeTrapActive   = 1;
-    default.SizeTrapExpiry    = h.Level.TimeSeconds + SIZE_TRAP_DURATION;
     default.TrapLastLevelName = h.Level.Outer.Name;
-    h.DrawScale = newScale;
-    Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: DrawScale " $ string(default.SizeTrapOrigScale) $ " -> " $ string(newScale) $ " (expires at Level.TimeSeconds " $ string(default.SizeTrapExpiry) $ " or on level change)");
+    Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: DrawScale -> " $ string(newScale) $ " (reverts on next level)");
 }
 
 // Overcompensation Trap entry point (called from APGameInfo.TryApplyTrap).
@@ -1512,24 +1503,12 @@ function TrapTick()
         }
     }
 
-    if (default.bSizeTrapActive == 1
-        && (bLevelChanged || Level.TimeSeconds >= default.SizeTrapExpiry))
+    if (default.bSizeTrapActive == 1 && bLevelChanged)
     {
-        // On a level change the fresh pawn already loaded its default scale, so
-        // only the same-level timeout needs to actively restore DrawScale.
-        if (!bLevelChanged && HarryRef != None)
-        {
-            HarryRef.DrawScale = default.SizeTrapOrigScale;
-        }
+        // Lasts the rest of the level like Polyjuice; the fresh pawn already
+        // loaded its default DrawScale, so just clear the flag.
         default.bSizeTrapActive = 0;
-        if (bLevelChanged)
-        {
-            Log("[Archipelago] APCardWatcher.TrapTick: size trap cleared on level change (pawn already at default scale)");
-        }
-        else
-        {
-            Log("[Archipelago] APCardWatcher.TrapTick: size trap ended on timer - DrawScale restored");
-        }
+        Log("[Archipelago] APCardWatcher.TrapTick: size trap cleared on level change (pawn already at default scale)");
     }
 
     if (default.bConfundusTrapActive == 1
