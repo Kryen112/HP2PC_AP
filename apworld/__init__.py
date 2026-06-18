@@ -334,7 +334,7 @@ class TrapLink(Toggle):
     player always feels something. Independent of `traps`: you still receive
     linked traps even if your own seed generates none. Inbound traps respect
     your `traps` selection — a trap you turned off is remapped to one you kept
-    (unless `traps` is empty, in which case any of the eight can land)."""
+    (unless `traps` is empty, in which case any of the nine can land)."""
     display_name = "Trap Link"
 
 
@@ -351,7 +351,8 @@ class Traps(OptionSet):
     Engorgio Trap (giant Harry for the rest of the level),
     Reducio Trap (tiny Harry for the rest of the level),
     Confundus Trap (inverted camera look ~20s),
-    Overcompensation Trap (giant wand for the rest of the level)."""
+    Overcompensation Trap (giant wand for the rest of the level),
+    Levicorpus Trap (Harry hangs upside down for the rest of the level)."""
     display_name = "Traps"
     valid_keys = frozenset(TRAP_NAMES)
     default = frozenset(TRAP_NAMES)

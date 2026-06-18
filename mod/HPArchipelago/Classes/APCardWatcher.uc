@@ -561,7 +561,7 @@ var byte bPolyjuiceTrapActive;
 // Level the watcher last observed (Level.Outer.Name). A trap helper stamps
 // the apply-level here; TrapTick compares each tick and treats any change as
 // the "left the level" boundary that ends the
-// Polyjuice/spell/size/confundus/wand-size traps. Level NAME (not watcher
+// Polyjuice/spell/size/confundus/wand-size/levicorpus traps. Level NAME (not watcher
 // instance) is the discriminator so open
 // castle's streamed-sublevel watcher churn never false-triggers.
 var name TrapLastLevelName;
@@ -587,6 +587,13 @@ var byte bConfundusOrigInvertMouse;
 // may travel across the boundary, TrapTick reassigns the canonical
 // HPModels.WandMesh actively rather than relying on a fresh-spawned wand.
 var byte bWandSizeTrapActive;
+// Levicorpus Trap: bLevicorpusTrapActive==1 while Harry hangs upside down
+// (Rotation/DesiredRotation Roll forced to 32768 = 180 degrees). Like the
+// Polyjuice trap it lasts the rest of the level and the next level's fresh pawn
+// spawns upright, so TrapTick just clears the flag on a level change. The native
+// walking physics rights the pawn every frame, so the roll is re-pinned per
+// frame in event Tick (LevicorpusHold), not on the 0.25s Timer.
+var byte bLevicorpusTrapActive;
 
 // --- DeathLink state. All class-default + sticky: an induced kill runs
 // GotoState('stateDead') → ConsoleCommand("LoadGame 0"), which destroys the
@@ -1457,6 +1464,36 @@ static function MarkConfundusTrapActive(harry h)
     Log("[Archipelago] APCardWatcher.MarkConfundusTrapActive: bInvertMouse forced on (orig=" $ string(default.bConfundusOrigInvertMouse) $ ", expires at Level.TimeSeconds " $ string(default.ConfundusTrapExpiry) $ " or on level change)");
 }
 
+// Levicorpus Trap entry point (called from APGameInfo.TryApplyTrap). Flips Harry
+// upside down and records the apply-level. Rotation is a const native var so the
+// flip goes through SetRotation; DesiredRotation.Roll is set directly so the pawn
+// wants to stay flipped. Static + class-default like the others. Like Polyjuice
+// the effect lasts the rest of the level and reverts on the next level's fresh
+// upright pawn; event Tick (LevicorpusHold) re-pins the roll each frame and
+// TrapTick clears the flag on a level change. Stacking guard just re-applies
+// the flip (idempotent).
+static function MarkLevicorpusTrapActive(harry h)
+{
+    local Rotator R;
+
+    if (h == None)
+    {
+        return;
+    }
+    R = h.Rotation;
+    R.Roll = 32768;
+    h.SetRotation(R);
+    h.DesiredRotation.Roll = 32768;
+    if (default.bLevicorpusTrapActive == 1)
+    {
+        Log("[Archipelago] APCardWatcher.MarkLevicorpusTrapActive: already active - Harry kept flipped");
+        return;
+    }
+    default.bLevicorpusTrapActive = 1;
+    default.TrapLastLevelName     = h.Level.Outer.Name;
+    Log("[Archipelago] APCardWatcher.MarkLevicorpusTrapActive: Harry flipped upside down (reverts on next level)");
+}
+
 // Called once per Timer() tick (after Snapshot, HarryRef valid). Terminates
 // the Polyjuice and Obliviate traps: Polyjuice clears on the level change (pawn
 // already reverted); Obliviate restores the backed-up spellbook on the
@@ -1544,6 +1581,16 @@ function TrapTick()
         }
         default.bWandSizeTrapActive = 0;
         Log("[Archipelago] APCardWatcher.TrapTick: Overcompensation trap ended on level change - wand mesh restored");
+    }
+
+    if (default.bLevicorpusTrapActive == 1 && bLevelChanged)
+    {
+        // Lasts the rest of the level like Polyjuice; the fresh pawn spawns
+        // upright, so just clear the flag. The per-frame upside-down hold lives
+        // in event Tick (LevicorpusHold) - the 0.25s Timer is too coarse to
+        // fight the native walking physics that rights the pawn each frame.
+        default.bLevicorpusTrapActive = 0;
+        Log("[Archipelago] APCardWatcher.TrapTick: Levicorpus trap cleared on level change (fresh pawn upright)");
     }
 
     default.TrapLastLevelName = curLevel;
@@ -2768,6 +2815,32 @@ event Tick(float DeltaTime)
     }
     SprintApply();
     SlowdownClamp();
+    LevicorpusHold();
+}
+
+// Per-frame upside-down hold for the Levicorpus Trap. The native PlayerWalking
+// physics rights the pawn (forces Roll toward 0) every frame, faster than the
+// 0.25s Timer can fight, so the roll is re-pinned here each frame like the
+// sprint speed caps. Only acts while the trap is active and Harry is bound.
+function LevicorpusHold()
+{
+    local Rotator R;
+
+    if (default.bLevicorpusTrapActive == 0 || HarryRef == None)
+    {
+        return;
+    }
+    if (HarryRef.Rotation.Roll != 32768)
+    {
+        R = HarryRef.Rotation;
+        R.Roll = 32768;
+        HarryRef.SetRotation(R);
+    }
+    HarryRef.DesiredRotation.Roll = 32768;
+    // The 180-degree roll flips the pawn's right-axis, which harry.PlayerMove
+    // derives from GetAxes(Rotation) - so strafe input drives Harry the wrong
+    // way. Negate aStrafe each frame to cancel that out while flipped.
+    HarryRef.aStrafe = -HarryRef.aStrafe;
 }
 
 event Timer()

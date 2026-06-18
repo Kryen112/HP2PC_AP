@@ -225,7 +225,7 @@ filler:
 # ledger marks each applied trap so it never re-fires on reconnect /
 # save-load — only a genuine new game replays it); self-terminating
 # (instant / level-load revert / timer). id band
-# 400-409. 401 (Peeves) and 402 (Spider Swarm)
+# 400-410. 401 (Peeves) and 402 (Spider Swarm)
 # are retired: this M212 open castle build does not render an ad-hoc visible
 # world actor spawned mid-level. Those ids are never reused.
 traps:
@@ -237,3 +237,4 @@ traps:
   - { id_offset: 407, name: "Reducio Trap",               classification: trap, group: Traps, notes: "Scales harry.DrawScale down; lasts the rest of the level and reverts on the next level's fresh pawn. Same mechanism as Engorgio." }
   - { id_offset: 408, name: "Confundus Trap",             classification: trap, group: Traps, notes: "Sets harry.bInvertMouse so the camera look is inverted; original value restored on a timer or the next level transition, whichever comes first." }
   - { id_offset: 409, name: "Overcompensation Trap", classification: trap, group: Traps, notes: "Enlarges the held wand by swapping it to the giant APWandGiant mesh (DrawScale does not render on the bone-attached wand, so a baked-scale mesh is the lever). Lasts the rest of the level and reverts on the next level like the Polyjuice trap; restore reassigns HPModels.WandMesh actively since the wand is inventory." }
+  - { id_offset: 410, name: "Levicorpus Trap", classification: trap, group: Traps, notes: "Flips Harry upside down (Rotation/DesiredRotation Roll forced to 32768 = 180 degrees) for the rest of the level; APCardWatcher re-pins the roll every frame (event Tick) so the native walking physics can't right him, and also negates aStrafe each frame so the flipped right-axis doesn't reverse left/right movement; the next level's fresh pawn spawns upright (reverts like the Polyjuice trap)." }

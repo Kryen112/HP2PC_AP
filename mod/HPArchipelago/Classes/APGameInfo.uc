@@ -2316,6 +2316,9 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //                   (DrawScale doesn't render on the bone-attached wand); lasts
 //                   the level and reverts when APCardWatcher sees the next level
 //                   change, like the Polyjuice trap.
+//   Levicorpus    - flips Harry upside down (Roll 32768) for the rest of the
+//                   level; APCardWatcher holds the roll each tick and the next
+//                   level's fresh pawn spawns upright, like the Polyjuice trap.
 //
 // Spider Swarm and Peeves are not implemented: they require an ad-hoc visible
 // world actor spawned mid-level, and this open castle build does not render actors
@@ -2430,6 +2433,16 @@ function bool TryApplyTrap(string Name, harry h)
         // rest of the level, restoring the canonical wand mesh on the next level.
         class'APCardWatcher'.static.MarkWandSizeTrapActive(h);
         Log("[Archipelago] ApplyGrant: Overcompensation Trap - wand enlarged (reverts on next level)");
+        return True;
+    }
+
+    if (Name == "Levicorpus Trap")
+    {
+        // Flip Harry upside down (180 degree roll) for the rest of the level.
+        // The watcher re-applies the roll each tick so walking physics can't
+        // right him, and the next level's fresh pawn spawns upright.
+        class'APCardWatcher'.static.MarkLevicorpusTrapActive(h);
+        Log("[Archipelago] ApplyGrant: Levicorpus Trap - Harry flipped upside down (reverts on next level)");
         return True;
     }
 
