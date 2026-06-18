@@ -22,14 +22,17 @@ Mod-side protocol (newline-delimited text):
     APPLIED <index>             (game → client, item at AP index applied → mark durably consumed)
     NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
     CHECKEDOUT <id_csv>         (game → client, on bridge connect: AP location ids the mod has locally checked → replay to AP for any the server is missing)
-    GRANT <index> <classname>   (client → game, forward item received; index = AP ReceivedItems index)
+    GRANT <index> <payload>\x1f<segrecord>  (client → game, forward item received; index = AP ReceivedItems index; \x1f splits the apply payload from a colourised toast segment record)
+    SENT <segrecord>            (client → game, colourised "we sent X to Y" toast for items routed to other slots)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
     DEATHLINK                   (client → game, a linked player died — kill Harry)
     TRAPLINK <name>|<source>    (client → game, a linked player's trap — applied via the grant drain as an index-less grant)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server already has as checked; sticky, every HELLO)
     RESYNC_CARDS <class_csv>    (client → game, wizard-card UScript class names ever received; re-asserts CardOwner_Harry; sticky, every Connected + HELLO)
-    TOAST <text>                (client → game, generic cosmetic toast: DeathLink in/out, Join/Part, Goal by other slot, AP disconnect)
+    TOAST <text>                (client → game, yellow system toast: DeathLink out, AP disconnect, randomizer notices)
+    TOASTW <text>               (client → game, white lifecycle toast: Join/Part, Goal by other slot, inbound DeathLink)
+    segrecord = `<roleChar><text>` segments joined by \x1e; roles s=our slot o=other g/u/t/f=item-by-flag l=location w=white n=newline
 
 Durable-grant ledger: the set of applied AP indices is persisted in AP server
 Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
@@ -1088,7 +1091,7 @@ class HP2Context(CommonContext):
             # game-offline case already returned above.
             cause = data.get("cause") or ""
             source = data.get("source") or "?"
-            self._toast_to_game(cause if cause else f"DeathLink received from {source}")
+            self._toast_to_game(cause if cause else f"DeathLink received from {source}", white=True)
         except Exception as e:
             logger.warning(f"DeathLink: failed to forward inbound, dropping: {e}")
 
@@ -1112,8 +1115,19 @@ class HP2Context(CommonContext):
                 ):
                     receiver_name = self.player_names.get(receiving_slot, f"player_{receiving_slot}")
                     item_name = self.item_names.lookup_in_slot(item.item, receiving_slot) or f"item_{item.item}"
-                    logger.info(f"Sent item: {item_name} → {receiver_name} (slot {receiving_slot})")
-                    self._send_to_game(f"SENT {item_name}|{receiver_name}")
+                    sender_name = self.player_names.get(self.slot, "Harry")
+                    location_name = ""
+                    if item.location > 0:
+                        location_name = self.location_names.lookup_in_slot(item.location, self.slot) or ""
+                    segrecord = self._build_item_segrecord(
+                        sender_name, True, item_name, item.flags,
+                        receiver_name, False, location_name,
+                    )
+                    logger.info(
+                        f"Sent item: {item_name} → {receiver_name} "
+                        f"(slot {receiving_slot}) loc={location_name!r}"
+                    )
+                    self._send_to_game(f"SENT {segrecord}")
             elif ptype in ("Join", "Part", "Goal"):
                 # Other-slot lifecycle events. Filter to our own team and skip
                 # our own slot (own Join fires on every reconnect. Our Goal is
@@ -1130,11 +1144,11 @@ class HP2Context(CommonContext):
                 ):
                     name = self.player_names.get(slot, f"player_{slot}")
                     if ptype == "Join":
-                        self._toast_to_game(f"{name} joined")
+                        self._toast_to_game(f"{name} joined", white=True)
                     elif ptype == "Part":
-                        self._toast_to_game(f"{name} left")
+                        self._toast_to_game(f"{name} left", white=True)
                     else:
-                        self._toast_to_game(f"{name} finished!")
+                        self._toast_to_game(f"{name} finished!", white=True)
         except Exception as e:
             logger.exception(f"on_print_json: failed to handle {args.get('type')!r}: {e}")
         super().on_print_json(args)
@@ -1321,15 +1335,19 @@ class HP2Context(CommonContext):
             logger.exception(f"Failed to write to game, re-queuing: {e}")
             self.pending_grants.append(text)
 
-    def _toast_to_game(self, text: str) -> None:
+    def _toast_to_game(self, text: str, white: bool = False) -> None:
         """Cosmetic-only TOAST: drop on the floor when the game is offline.
         Replaying a stale "X joined" or "Disconnected from AP server" toast
         the next time the game launches would be confusing. These are
-        in-the-moment events, not durable state."""
+        in-the-moment events, not durable state.
+
+        `white` routes multiworld lifecycle events (joins, inbound DeathLink) to
+        the mod's neutral-white style; the default yellow is HP2's system voice."""
         if self.game_writer is None or self.game_writer.is_closing():
             return
+        verb = "TOASTW " if white else "TOAST "
         try:
-            self.game_writer.write(("TOAST " + text + "\n").encode("utf-8"))
+            self.game_writer.write((verb + text + "\n").encode("utf-8"))
         except Exception as e:
             logger.warning(f"TOAST drop ({text!r}): write failed: {e}")
 
@@ -2244,6 +2262,44 @@ class HP2Context(CommonContext):
         else:
             self._send_to_game("RESYNC_CARDS")
 
+    @staticmethod
+    def _item_role(flags: int) -> str:
+        """AP classification flag -> toast role letter. Bit-priority: progression
+        beats trap beats useful beats filler, so a progression+useful item reads
+        as progression rather than falling through to filler."""
+        if flags & 0b001:
+            return "g"
+        if flags & 0b100:
+            return "t"
+        if flags & 0b010:
+            return "u"
+        return "f"
+
+    def _build_item_segrecord(
+        self, sender_name, sender_is_self, item_name, flags,
+        receiver_name, receiver_is_self, location_name,
+    ) -> str:
+        """Colourised toast segment record for an item move, mirroring the
+        AP-standard "X sent Y to Z" / "X found their Y" phrasing. Segments are
+        `<roleChar><text>` joined by \\x1e; the mod parses them into its segment
+        pool. Roles: s=our slot, o=other slot, g/u/t/f=item by flag, l=location,
+        w=white connective, n=line break. The location, when known, goes on a
+        second line in parentheses."""
+        item_seg = self._item_role(flags) + item_name
+        if sender_is_self and receiver_is_self:
+            segs = ["s" + sender_name, "w found their ", item_seg]
+        else:
+            segs = [
+                ("s" if sender_is_self else "o") + sender_name,
+                "w sent ",
+                item_seg,
+                "w to ",
+                ("s" if receiver_is_self else "o") + receiver_name,
+            ]
+        if location_name:
+            segs += ["n", "w(", "l" + location_name, "w)"]
+        return "\x1e".join(segs)
+
     def _forward_one(self, idx: int, item) -> None:
         """Forward one received item to the game as `GRANT <idx> <payload>`,
         unless its index is already durably consumed (applied in a prior
@@ -2259,11 +2315,20 @@ class HP2Context(CommonContext):
         ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
         payload = ucls if ucls else item_name
         sender_name = self.player_names.get(item.player, f"player_{item.player}")
-        logger.info(
-            f"Forwarding item idx={idx} {item_name} (id={item.item}) "
-            f"from {sender_name} → GRANT {idx} {payload}|{sender_name}"
+        sender_is_self = item.player == self.slot
+        receiver_name = self.player_names.get(self.slot, "Harry")
+        location_name = ""
+        if item.location > 0:
+            location_name = self.location_names.lookup_in_slot(item.location, item.player) or ""
+        segrecord = self._build_item_segrecord(
+            sender_name, sender_is_self, item_name, item.flags,
+            receiver_name, True, location_name,
         )
-        self._send_to_game(f"GRANT {idx} {payload}|{sender_name}")
+        logger.info(
+            f"Forwarding item idx={idx} {item_name} (id={item.item}) from "
+            f"{sender_name} (self={sender_is_self}) loc={location_name!r}"
+        )
+        self._send_to_game(f"GRANT {idx} {payload}\x1f{segrecord}")
         # TrapLink: a trap landing on this slot is shared with every other
         # TrapLink slot. _forward_one fires once per genuinely-new trap, so the
         # broadcast is correctly deduped (a no-op unless trap_link is on).

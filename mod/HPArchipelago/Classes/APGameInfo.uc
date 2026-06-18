@@ -2142,34 +2142,6 @@ static function harry FindGrantReadyHarry(Actor caller)
     return None;
 }
 
-// Player-facing string for the HUD toast. Echoes the AP display name as-is —
-// for cards, that name lives on the generated APCardMarker_<X>.DisplayName
-// defaultprop (sourced from items.yaml, e.g. "Silver Card - Duke"); for
-// non-cards, the GRANT payload itself already IS the AP item name.
-// `Sender` is empty when the IPC payload had no sender field (older client
-// builds, or any path that bypasses the GRANT pipe-encoded format).
-function string FormatGrantText(string ItemName, string Sender)
-{
-    local class<APCardMarker> markerCls;
-    local string display, base;
-
-    display = ItemName;
-    if (Left(ItemName, 2) == "WC")
-    {
-        markerCls = class<APCardMarker>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ ItemName, class'Class'));
-        if (markerCls != None && markerCls.default.DisplayName != "")
-        {
-            display = markerCls.default.DisplayName;
-        }
-    }
-    base = "Received " $ display;
-    if (Sender != "")
-    {
-        base = base $ " from " $ Sender;
-    }
-    return base;
-}
-
 // AP-granted bean filler must not be mirrored by RingLink: the recipient
 // already received the AP item, so broadcasting the AddBeans as an organic
 // delta would double-count it across every linked slot. Route every AP
@@ -2340,25 +2312,37 @@ function ApplyGrant(string Body)
 {
     local harry h;
     local APHUDToast toast;
-    local string ItemName, Sender;
-    local int pipeIdx;
+    local string ItemName, SegRecord, LegacySender;
+    local int sepIdx, pipeIdx;
 
-    // Body is `<itemname>` (legacy) or `<itemname>|<sender>` (the client
-    // sends the AP slot name as the sender). Parse out both so the toast
-    // can include "from <sender>" without the rest of ApplyGrant caring.
-    pipeIdx = InStr(Body, "|");
-    if (pipeIdx >= 0)
+    // Toast payload rides the body after the item payload. New client form is
+    // `<payload>Chr(31)<segrecord>`, a colourised multi-segment record built
+    // client-side (the segrecord already carries the AP display name, so cards
+    // need no class->DisplayName resolve here). TrapLink and older lines use
+    // the bare `<payload>|<sender>` form, which falls back to a plain white
+    // toast. `ItemName` (the payload) drives every apply branch below
+    // regardless of which form arrived.
+    sepIdx = InStr(Body, Chr(31));
+    if (sepIdx >= 0)
     {
-        ItemName = Left(Body, pipeIdx);
-        Sender = Mid(Body, pipeIdx + 1);
+        ItemName = Left(Body, sepIdx);
+        SegRecord = Mid(Body, sepIdx + 1);
     }
     else
     {
-        ItemName = Body;
-        Sender = "";
+        pipeIdx = InStr(Body, "|");
+        if (pipeIdx >= 0)
+        {
+            ItemName = Left(Body, pipeIdx);
+            LegacySender = Mid(Body, pipeIdx + 1);
+        }
+        else
+        {
+            ItemName = Body;
+        }
     }
 
-    Log("[Archipelago] APGameInfo.ApplyGrant: " $ ItemName $ " (sender='" $ Sender $ "')");
+    Log("[Archipelago] APGameInfo.ApplyGrant: " $ ItemName);
 
     h = FindGrantReadyHarry(self);
     if (h == None)
@@ -2369,14 +2353,24 @@ function ApplyGrant(string Body)
     Log("[Archipelago] ApplyGrant: targeting harry=" $ string(h) $ " managerStatus=" $ string(h.managerStatus));
 
     // HUD toast feedback. Fires once per successful grant arrival — past
-    // FindGrantReadyHarry means delivery is happening (or about to). The
-    // grant queue's drain spacing (0.75s) prevents toast flooding.
-    // Chocolate Frog gets a per-item override sound (the vanilla frog
-    // pickup ribbit) instead of the generic vendor whoosh.
+    // FindGrantReadyHarry means delivery is happening (or about to). The grant
+    // queue's drain spacing (0.75s) prevents toast flooding. Chocolate Frog
+    // gets a per-item override sound (the frog ribbit) over the vendor whoosh.
     toast = class'APHUDToast'.static.GetInstance();
     if (toast != None)
     {
-        toast.EnqueueToast(FormatGrantText(ItemName, Sender), GetGrantSoundForItem(ItemName));
+        if (SegRecord != "")
+        {
+            toast.EnqueueSegmentToast(SegRecord, GetGrantSoundForItem(ItemName));
+        }
+        else if (LegacySender != "")
+        {
+            toast.EnqueuePlainToast("Received " $ ItemName $ " from " $ LegacySender, 1, GetGrantSoundForItem(ItemName));
+        }
+        else
+        {
+            toast.EnqueuePlainToast("Received " $ ItemName, 1, GetGrantSoundForItem(ItemName));
+        }
     }
 
     if (IsKnownSpellName(ItemName))

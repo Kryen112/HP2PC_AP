@@ -322,11 +322,16 @@ function HandleLine(string line)
     }
     else if (Left(line, 6) == "TOAST ")
     {
-        // Generic cosmetic toast from the client: DeathLink in/out, player
-        // Join/Part, Goal achieved by another slot, AP server disconnect.
-        // Text is the full literal already formatted client-side. Drop on
-        // the floor if no toast actor (no toast queue mid-Entry).
-        HandleToast(Mid(line, 6));
+        // Generic cosmetic toast in HP2's yellow system voice: DeathLink out,
+        // AP server disconnect, randomizer-applied notices. Text is the full
+        // literal formatted client-side. Drop on the floor if no toast actor.
+        HandleToast(Mid(line, 6), 0);
+    }
+    else if (Left(line, 7) == "TOASTW ")
+    {
+        // White lifecycle toast: another slot joined/left/finished, inbound
+        // DeathLink. Mirrors how AP clients render these in neutral text.
+        HandleToast(Mid(line, 7), 1);
     }
     else if (Left(line, 8) == "GOALCFG ")
     {
@@ -549,7 +554,8 @@ function HandleHint(string Body)
     class'APCardWatcher'.static.SetVendorHintItemName(locId, itemName);
 }
 
-function HandleToast(string Body)
+// `code` is the toast colour: 0 yellow (system), 1 white (lifecycle).
+function HandleToast(string Body, optional byte code)
 {
     local APHUDToast toast;
 
@@ -557,43 +563,22 @@ function HandleToast(string Body)
     toast = class'APHUDToast'.static.GetInstance();
     if (toast != None)
     {
-        toast.EnqueueToast(Body);
+        toast.EnqueuePlainToast(Body, code);
     }
 }
 
+// Body is the client-built colourised segment record for an item we sent to
+// another slot. EnqueueSegmentToast parses it into the toast's segment pool.
 function HandleSent(string Body)
 {
-    local string ItemName, Receiver, toastText;
-    local int pipeIdx;
     local APHUDToast toast;
 
-    pipeIdx = InStr(Body, "|");
-    if (pipeIdx >= 0)
-    {
-        ItemName = Left(Body, pipeIdx);
-        Receiver = Mid(Body, pipeIdx + 1);
-    }
-    else
-    {
-        ItemName = Body;
-        Receiver = "";
-    }
-
-    if (Receiver != "")
-    {
-        toastText = "Sent " $ ItemName $ " to " $ Receiver;
-    }
-    else
-    {
-        toastText = "Sent " $ ItemName;
-    }
-
-    Log("[Archipelago] APIPCActor.HandleSent: " $ toastText);
-
+    if (Body == "") return;
+    Log("[Archipelago] APIPCActor.HandleSent: segrecord len " $ Len(Body));
     toast = class'APHUDToast'.static.GetInstance();
     if (toast != None)
     {
-        toast.EnqueueToast(toastText);
+        toast.EnqueueSegmentToast(Body);
     }
 }
 

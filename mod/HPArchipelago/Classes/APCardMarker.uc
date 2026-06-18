@@ -36,9 +36,9 @@ var bool bIsLooseSpawn;
 var string MarkerTier;
 
 // AP item display name (e.g. "Silver Card - Duke"), set per generated subclass
-// from items.yaml's `name` field. APGameInfo.FormatGrantText reads this so the
-// HUD toast shows the real AP name instead of synthesising "Received silver
-// card Duke" from class + MarkerTier.
+// from items.yaml's `name` field. Generated metadata only: the HUD toast now
+// takes the display name from the client's datapackage (carried in the
+// colourised GRANT segment record), so nothing reads this at runtime.
 var string DisplayName;
 
 // Set True for cards the level designer placed mid-air

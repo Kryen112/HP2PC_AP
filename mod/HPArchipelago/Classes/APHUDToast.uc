@@ -1,5 +1,7 @@
-// On-screen "Received: <item>" notification for AP grants. Spawned per level
-// from APGameInfo.InitGame; registers with HPHud's propArray so its RenderHud
+// On-screen AP toasts: colourised multi-segment item lines ("X sent Y to Z",
+// "X found their Y" with the location on a second line) plus single-colour
+// system/lifecycle lines. Spawned per level from APGameInfo.InitGame; registers
+// with HPHud's propArray so its RenderHud
 // gets called every frame the HUD draws (including during cutscenes — vanilla
 // only suppresses propArray rendering when the in-game menu is up).
 //
@@ -15,22 +17,39 @@
 // on save-load) spawns a fresh one. Class-default `LatestInstance` lets
 // APGameInfo.ApplyGrant reach the active toast via GetInstance().
 //
-// Queue: parallel arrays. When full, drops the OLDEST toast to make room for
-// a new one — newer info matters more during a resync flood. Entries decay
-// over `TOAST_DURATION` then auto-remove.
+// Queue: a flat segment pool plus parallel per-toast arrays (see ToastSegs).
+// When full, drops the OLDEST toast to make room for a new one. Newer info
+// matters more during a resync flood. Entries decay over `TOAST_DURATION` then
+// auto-remove.
 class APHUDToast extends HProp;
 
 const MAX_QUEUE = 8;
+const STRIDE = 10;        // max segments one toast can hold (richest line is 9)
 const TOAST_DURATION = 5.0;
 const TICK_INTERVAL = 0.1;
 
-// transient: the queue is per-session UI, never part of the .usa save. Without
-// this, a SaveGame fired during a "Received: <item>" toast would persist the
-// queue into the save; the next load deserializes a toast actor carrying the
-// stale entry, and a fresh "Connected to <server>" toast from the client lands
-// underneath it. Marking the queue transient drops it from serialization so a
-// deserialized toast starts empty and only the freshly-arriving toasts show.
-var transient string ToastText[8];
+// Segment colour codes. The client sends a role letter per segment; the mod
+// resolves it to one of these and maps it to an RGB in RoleColor. NEWLINE is a
+// layout marker (empty text) that breaks to the next rendered line.
+//   0 yellow (system)  1 white (connective/brackets/lifecycle)  2 self slot
+//   3 other slot  4 progression  5 useful  6 trap  7 filler  8 location
+//   9 newline
+const COL_YELLOW = 0;
+const COL_WHITE = 1;
+const COL_NEWLINE = 9;
+
+struct ToastSeg
+{
+    var string Text;
+    var byte ColorCode;
+};
+
+// Flat segment pool: toast i owns segments [i*STRIDE .. i*STRIDE+ToastSegN[i]).
+// 80 = MAX_QUEUE * STRIDE (the array dim must be an integer literal in M212).
+// transient: per-session UI, never part of the .usa save. All value types with
+// no actor refs, so the save graph stays clean even where M212 ignores transient.
+var transient ToastSeg ToastSegs[80];
+var transient int ToastSegN[8];
 var transient float ToastRemaining[8];
 var transient int ToastCount;
 // HPHud we're currently registered with. `transient` so a saved-state
@@ -155,35 +174,68 @@ function bool TryRegisterWithHUD()
     return True;
 }
 
-// `overrideSound` (optional) plays in place of the default vendor-whoosh —
-// caller passes per-item flavor (e.g. chocolate frog ribbit for the Chocolate
-// Frog grant) without losing the toast's HUD-level audio cue. Null override
-// falls back to ToastSound.
-function EnqueueToast(string text, optional Sound overrideSound)
+// Shift the toast at `idx` out of the queue, sliding every later toast (and its
+// segment block) down one slot. Backs both expiry and the queue-full drop.
+function RemoveToastAt(int idx)
 {
-    local int i;
-    local harry h;
-    local Sound soundToPlay;
+    local int j, k;
 
-    if (text == "") return;
+    for (j = idx; j < ToastCount - 1; j++)
+    {
+        ToastSegN[j] = ToastSegN[j + 1];
+        ToastRemaining[j] = ToastRemaining[j + 1];
+        for (k = 0; k < STRIDE; k++)
+        {
+            ToastSegs[j * STRIDE + k] = ToastSegs[(j + 1) * STRIDE + k];
+        }
+    }
+    ToastSegN[ToastCount - 1] = 0;
+    ToastRemaining[ToastCount - 1] = 0.0;
+    ToastCount--;
+}
+
+// Reserve the next queue slot (dropping the oldest when full) and return its
+// index. The caller fills segments via AddSeg, then finalizes with CommitToast.
+// Not visible to RenderHud/Timer until CommitToast bumps ToastCount; safe
+// because the whole build runs synchronously within one enqueue call.
+function int BeginToast()
+{
+    local int idx;
 
     if (ToastCount >= MAX_QUEUE)
     {
-        // Queue full: drop oldest (index 0), shift everything down.
-        for (i = 0; i < MAX_QUEUE - 1; i++)
-        {
-            ToastText[i] = ToastText[i + 1];
-            ToastRemaining[i] = ToastRemaining[i + 1];
-        }
-        ToastCount = MAX_QUEUE - 1;
+        RemoveToastAt(0);
     }
-    ToastText[ToastCount] = text;
-    ToastRemaining[ToastCount] = TOAST_DURATION;
-    ToastCount++;
-    Log("[Archipelago] APHUDToast.EnqueueToast: '" $ text $ "' (queue=" $ ToastCount $ ")");
+    idx = ToastCount;
+    ToastSegN[idx] = 0;
+    ToastRemaining[idx] = TOAST_DURATION;
+    return idx;
+}
 
-    // Audio feedback. Play through harry so it's at the camera (UI-loud)
-    // rather than from this hidden actor's world position.
+// Append one segment to the in-progress toast. Silently drops overflow past
+// STRIDE so a malformed long record can never scribble into the next toast.
+function AddSeg(int toastIdx, string text, byte code)
+{
+    local int n;
+
+    n = ToastSegN[toastIdx];
+    if (n >= STRIDE) return;
+    ToastSegs[toastIdx * STRIDE + n].Text = text;
+    ToastSegs[toastIdx * STRIDE + n].ColorCode = code;
+    ToastSegN[toastIdx] = n + 1;
+}
+
+// Finalize the in-progress toast: make it visible and play the cue. Play
+// through harry so it's at the camera (UI-loud), not this hidden actor's world
+// position. `overrideSound` (e.g. the chocolate-frog ribbit) plays in place of
+// the default vendor-whoosh; None falls back to ToastSound.
+function CommitToast(optional Sound overrideSound)
+{
+    local harry h;
+    local Sound soundToPlay;
+
+    ToastCount++;
+
     if (overrideSound != None)
     {
         soundToPlay = overrideSound;
@@ -202,9 +254,77 @@ function EnqueueToast(string text, optional Sound overrideSound)
     }
 }
 
+// Single-colour, single-line toast (HP2 system status in yellow, multiworld
+// lifecycle in white).
+function EnqueuePlainToast(string text, byte code, optional Sound overrideSound)
+{
+    local int idx;
+
+    if (text == "") return;
+    idx = BeginToast();
+    AddSeg(idx, text, code);
+    Log("[Archipelago] APHUDToast plain toast: '" $ text $ "'");
+    CommitToast(overrideSound);
+}
+
+// Back-compat: a bare toast is a yellow system line.
+function EnqueueToast(string text, optional Sound overrideSound)
+{
+    EnqueuePlainToast(text, COL_YELLOW, overrideSound);
+}
+
+// Colourised multi-segment toast. `record` is the client-built segment record:
+// `<roleChar><text>` segments joined by Chr(30). The role letter resolves to a
+// colour code; an "n" role is a line break (empty text). Parsed once into the
+// segment pool here, never re-parsed at render time.
+function EnqueueSegmentToast(string record, optional Sound overrideSound)
+{
+    local int idx, sepIdx;
+    local string seg, rest;
+
+    if (record == "") return;
+    idx = BeginToast();
+
+    rest = record;
+    while (rest != "")
+    {
+        sepIdx = InStr(rest, Chr(30));
+        if (sepIdx < 0)
+        {
+            seg = rest;
+            rest = "";
+        }
+        else
+        {
+            seg = Left(rest, sepIdx);
+            rest = Mid(rest, sepIdx + 1);
+        }
+        if (seg == "") continue;
+        AddSeg(idx, Mid(seg, 1), RoleCharToCode(Left(seg, 1)));
+    }
+
+    Log("[Archipelago] APHUDToast segment toast (segs=" $ ToastSegN[idx] $ ")");
+    CommitToast(overrideSound);
+}
+
+// Map a client role letter to a stored colour code (see the legend up top).
+function byte RoleCharToCode(string ch)
+{
+    if (ch == "w") return 1;
+    if (ch == "s") return 2;
+    if (ch == "o") return 3;
+    if (ch == "g") return 4;
+    if (ch == "u") return 5;
+    if (ch == "t") return 6;
+    if (ch == "f") return 7;
+    if (ch == "l") return 8;
+    if (ch == "n") return 9;
+    return 0;
+}
+
 event Timer()
 {
-    local int i, j;
+    local int i;
 
     // Save-graph hygiene — the instance copy of LatestInstance must never hold
     // a real ref (see the comment above the field declaration). A deserialized
@@ -235,15 +355,7 @@ event Timer()
         ToastRemaining[i] -= TICK_INTERVAL;
         if (ToastRemaining[i] <= 0)
         {
-            // Expired: shift everything after [i] down one slot.
-            for (j = i; j < ToastCount - 1; j++)
-            {
-                ToastText[j] = ToastText[j + 1];
-                ToastRemaining[j] = ToastRemaining[j + 1];
-            }
-            ToastText[ToastCount - 1] = "";
-            ToastRemaining[ToastCount - 1] = 0.0;
-            ToastCount--;
+            RemoveToastAt(i);
         }
         else
         {
@@ -252,16 +364,72 @@ event Timer()
     }
 }
 
+// Map a stored colour code to its RGB (legend at the top of the class).
+// NEWLINE never reaches here (RenderHud handles it as a layout break).
+function Color RoleColor(byte code)
+{
+    local Color c;
+
+    switch (code)
+    {
+        case 1: c.R = 230; c.G = 230; c.B = 230; break;   // white
+        case 2: c.R = 238; c.G = 0;   c.B = 238; break;   // self slot (magenta)
+        case 3: c.R = 238; c.G = 232; c.B = 205; break;   // other slot (cream)
+        case 4: c.R = 159; c.G = 121; c.B = 238; break;   // progression
+        case 5: c.R = 79;  c.G = 148; c.B = 205; break;   // useful
+        case 6: c.R = 237; c.G = 123; c.B = 110; break;   // trap
+        case 7: c.R = 9;   c.G = 203; c.B = 203; break;   // filler
+        case 8: c.R = 50;  c.G = 205; c.B = 50;  break;   // location (green)
+        default: c.R = 255; c.G = 220; c.B = 100; break;  // yellow (system)
+    }
+    return c;
+}
+
+// Measure toast `toastIdx`: its widest rendered line and its line count (split
+// on NEWLINE segments). Each line is measured as one concatenated string so the
+// width matches what DrawShadowText actually renders. TextSize is exact per
+// string, but summing it per segment drifts and spreads the words apart.
+function ComputeToastDims(Canvas C, int toastIdx, out float maxW, out int lineCount)
+{
+    local int j, n, baseIdx;
+    local float w, h;
+    local string lineText;
+
+    n = ToastSegN[toastIdx];
+    baseIdx = toastIdx * STRIDE;
+    maxW = 0.0;
+    lineCount = 1;
+    lineText = "";
+
+    for (j = 0; j < n; j++)
+    {
+        if (ToastSegs[baseIdx + j].ColorCode == COL_NEWLINE)
+        {
+            C.TextSize(lineText, w, h);
+            if (w > maxW) maxW = w;
+            lineText = "";
+            lineCount++;
+        }
+        else
+        {
+            lineText = lineText $ ToastSegs[baseIdx + j].Text;
+        }
+    }
+    C.TextSize(lineText, w, h);
+    if (w > maxW) maxW = w;
+}
+
 function RenderHud(Canvas C)
 {
-    local int i;
+    local int i, j, n, baseIdx, lineCount;
     local float baseY, lineHeight, scale, marginX, padX, padY;
-    local float textW, textH;
-    local float boxX, boxY, boxW, boxH;
-    local Color colorText, colorShadow, colorSave;
+    local float maxLineW, prefixW, prefixH, tmpW;
+    local float boxX, boxY, boxW, boxH, curX, curY, runningY;
+    local Color colorShadow, colorSave, segColor;
     local int styleSave;
     local harry h;
-    local string s;
+    local string txt, lineText;
+    local byte code;
 
     if (C == None) return;
 
@@ -276,38 +444,41 @@ function RenderHud(Canvas C)
     if (h == None || h.Player == None) return;
 
     scale = C.GetHudScaleFactor();
-    lineHeight = 28 * scale;
     baseY = 90 * scale;
     marginX = 16 * scale;
     padX = 8 * scale;
     padY = 4 * scale;
 
-    C.Font = baseConsole(h.Player.Console).LocalMedFont;
+    C.Font = baseConsole(h.Player.Console).LocalBigFont;
 
-    // Archipelago-yellow text on black shadow.
-    colorText.R = 255;
-    colorText.G = 220;
-    colorText.B = 100;
+    // Line height comes from the font's own pixel height (LocalBigFont is a
+    // fixed-size font, NOT scaled by GetHudScaleFactor) plus a little leading.
+    // A scale-derived constant here is what blew the toast up vertically.
+    C.TextSize("Ay", tmpW, lineHeight);
+    lineHeight = lineHeight * 1.2;
+
     colorShadow.R = 0;
     colorShadow.G = 0;
     colorShadow.B = 0;
 
     colorSave = C.DrawColor;
     styleSave = C.Style;
+    runningY = baseY;
 
     for (i = 0; i < ToastCount; i++)
     {
-        s = ToastText[i];
-        if (s == "") continue;
-        C.TextSize(s, textW, textH);
+        n = ToastSegN[i];
+        if (n <= 0) continue;
+        baseIdx = i * STRIDE;
 
-        boxW = textW + padX * 2;
-        boxH = textH + padY * 2;
+        ComputeToastDims(C, i, maxLineW, lineCount);
+
+        boxW = maxLineW + padX * 2;
+        boxH = lineCount * lineHeight + padY * 2;
         boxX = C.SizeX - boxW - marginX;
-        boxY = baseY + (i * lineHeight);
+        boxY = runningY;
 
-        // Background panel — translucent, slightly dimmed via DrawColor so
-        // the text reads cleanly on top.
+        // Translucent background panel spanning every line of this toast.
         if (ToastBackground != None)
         {
             C.Style = 2; // STY_Translucent (matches CutSceneManager border draw)
@@ -318,11 +489,42 @@ function RenderHud(Canvas C)
             C.DrawTile(ToastBackground, boxW, boxH, 0.0, 0.0, ToastBackground.USize, ToastBackground.VSize);
         }
 
-        // Text on top of the panel.
+        // Segments on top. Each segment's X is the measured width of the line
+        // text drawn before it (one TextSize on the running prefix), so spacing
+        // matches a single-string render exactly and never accumulates drift.
         C.Style = styleSave;
         C.DrawColor = colorSave;
-        C.SetPos(boxX + padX, boxY + padY);
-        C.DrawShadowText(s, colorText, colorShadow);
+        curY = boxY + padY;
+        lineText = "";
+        for (j = 0; j < n; j++)
+        {
+            code = ToastSegs[baseIdx + j].ColorCode;
+            if (code == COL_NEWLINE)
+            {
+                curY += lineHeight;
+                lineText = "";
+                continue;
+            }
+            txt = ToastSegs[baseIdx + j].Text;
+            if (lineText == "")
+            {
+                prefixW = 0.0;
+            }
+            else
+            {
+                C.TextSize(lineText, prefixW, prefixH);
+            }
+            curX = boxX + padX + prefixW;
+            if (txt != "")
+            {
+                segColor = RoleColor(code);
+                C.SetPos(curX, curY);
+                C.DrawShadowText(txt, segColor, colorShadow);
+            }
+            lineText = lineText $ txt;
+        }
+
+        runningY += boxH + (2 * scale);
     }
 
     C.DrawColor = colorSave;
