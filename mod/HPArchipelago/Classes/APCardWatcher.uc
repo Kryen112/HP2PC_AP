@@ -592,7 +592,14 @@ var byte bWandSizeTrapActive;
 // Polyjuice trap it lasts the rest of the level and the next level's fresh pawn
 // spawns upright, so TrapTick just clears the flag on a level change. The native
 // walking physics rights the pawn every frame, so the roll is re-pinned per
-// frame in event Tick (LevicorpusHold), not on the 0.25s Timer.
+// frame in event Tick (LevicorpusHold), not on the 0.25s Timer. The 180 roll
+// flips the right-axis the native PlayerMove strafes along, so the strafe keys
+// are rebound to inverted raw axis commands on activation (SwapStrafeKeys) and
+// reverted to the StrafeLeft/StrafeRight aliases on the level change
+// (RestoreStrafeKeys). Bindings persist in User.ini, so a save/quit while flipped
+// would otherwise strand the swap; the swapped binding is self-identifying (a raw
+// `Axis aStrafe` command, which the player config never uses), so HealOrphanedStrafe
+// reverts it on the first bind when no trap is live. No separate marker needed.
 var byte bLevicorpusTrapActive;
 
 // --- DeathLink state. All class-default + sticky: an induced kill runs
@@ -1470,8 +1477,11 @@ static function MarkConfundusTrapActive(harry h)
 // wants to stay flipped. Static + class-default like the others. Like Polyjuice
 // the effect lasts the rest of the level and reverts on the next level's fresh
 // upright pawn; event Tick (LevicorpusHold) re-pins the roll each frame and
-// TrapTick clears the flag on a level change. Stacking guard just re-applies
-// the flip (idempotent).
+// TrapTick clears the flag on a level change. The flip also inverts strafe (the
+// native PlayerMove builds movement from the rolled Rotation), so SwapStrafeKeys
+// rebinds the strafe keys to inverted raw axis commands on this fresh activation;
+// TrapTick reverts them on the level change. The stacking guard skips the second
+// flag-set (SwapStrafeKeys is itself a no-op once the keys are already raw).
 static function MarkLevicorpusTrapActive(harry h)
 {
     local Rotator R;
@@ -1491,7 +1501,114 @@ static function MarkLevicorpusTrapActive(harry h)
     }
     default.bLevicorpusTrapActive = 1;
     default.TrapLastLevelName     = h.Level.Outer.Name;
+    SwapStrafeKeys(h);
     Log("[Archipelago] APCardWatcher.MarkLevicorpusTrapActive: Harry flipped upside down (reverts on next level)");
+}
+
+// Invert strafe by rebinding the strafe keys. The Levicorpus 180 roll flips the
+// pawn's right-axis, and the native harry.PlayerMove strafes along
+// GetAxes(Rotation).Y, so strafe drives the wrong way while flipped. The watcher
+// Tick runs after PlayerMove each frame, too late to flip aStrafe before it is
+// read, so the correction lives one layer earlier in the input bindings. Strafe
+// here is keyboard-only (no analog/gamepad binding feeds aStrafe).
+//
+// Each key bound to the StrafeLeft alias is rebound to the raw StrafeRight axis
+// command and vice versa, so the net motion matches the upright direction. The
+// raw `Axis aStrafe` command (the same form the default config uses for MouseX
+// etc.) is a self-identifying marker: the player config only binds strafe to the
+// alias names, so a key carrying a raw aStrafe command can only be this swap.
+// RestoreStrafeKeys keys off that to revert it - including across a reboot, since
+// the binding persists in User.ini and reverting needs no separate state. Only
+// acts on alias-bound keys, so it is a no-op once the keys are already swapped.
+static function SwapStrafeKeys(harry h)
+{
+    local int i;
+    local string keyName, binding;
+
+    if (h == None)
+    {
+        return;
+    }
+    for (i = 0; i < 255; i++)
+    {
+        keyName = h.ConsoleCommand("KEYNAME " $ string(i));
+        if (keyName == "")
+        {
+            continue;
+        }
+        binding = h.ConsoleCommand("KEYBINDING " $ keyName);
+        if (Caps(binding) == "STRAFELEFT")
+        {
+            h.ConsoleCommand("SET Input " $ keyName $ " Axis aStrafe Speed=+300.0");
+        }
+        else if (Caps(binding) == "STRAFERIGHT")
+        {
+            h.ConsoleCommand("SET Input " $ keyName $ " Axis aStrafe Speed=-300.0");
+        }
+    }
+    h.SaveConfig();
+    Log("[Archipelago] APCardWatcher.SwapStrafeKeys: strafe keys rebound to inverted raw axis commands");
+}
+
+// Revert the strafe keys SwapStrafeKeys rebound. A swapped key carries a raw
+// `Axis aStrafe` command (which the normal config never uses), so it is
+// self-identifying: the negative one was the original StrafeRight, the positive
+// the original StrafeLeft. Keys off the `-` sign, which the negative axis command
+// always carries and the positive one never does, so it is robust to the engine
+// trimming a leading `+`. No-op when no key carries a raw aStrafe command, so it
+// is safe to call unconditionally (level change, first-bind heal).
+static function RestoreStrafeKeys(harry h)
+{
+    local int i;
+    local string keyName, binding;
+    local bool bAny;
+
+    if (h == None)
+    {
+        return;
+    }
+    for (i = 0; i < 255; i++)
+    {
+        keyName = h.ConsoleCommand("KEYNAME " $ string(i));
+        if (keyName == "")
+        {
+            continue;
+        }
+        binding = h.ConsoleCommand("KEYBINDING " $ keyName);
+        if (InStr(Caps(binding), "ASTRAFE") == -1)
+        {
+            continue;
+        }
+        bAny = True;
+        if (InStr(binding, "-") != -1)
+        {
+            h.ConsoleCommand("SET Input " $ keyName $ " StrafeRight");
+        }
+        else
+        {
+            h.ConsoleCommand("SET Input " $ keyName $ " StrafeLeft");
+        }
+    }
+    if (bAny)
+    {
+        h.SaveConfig();
+        Log("[Archipelago] APCardWatcher.RestoreStrafeKeys: strafe keys reverted to the StrafeLeft/StrafeRight aliases");
+    }
+}
+
+// First-bind heal for a strafe swap orphaned by a save/quit while flipped. The
+// swapped bindings persist in User.ini but bLevicorpusTrapActive reset to 0 on
+// reboot, so nothing would revert them. The swapped binding is self-identifying,
+// so just revert whenever no trap is live: RestoreStrafeKeys is a no-op on a clean
+// config, and the trap-active guard keeps a genuine mid-flip re-bind (e.g. an open
+// castle sublevel transition) from undoing a live swap.
+function HealOrphanedStrafe()
+{
+    if (HarryRef == None || default.bLevicorpusTrapActive == 1)
+    {
+        return;
+    }
+    RestoreStrafeKeys(HarryRef);
 }
 
 // Called once per Timer() tick (after Snapshot, HarryRef valid). Terminates
@@ -1586,11 +1703,13 @@ function TrapTick()
     if (default.bLevicorpusTrapActive == 1 && bLevelChanged)
     {
         // Lasts the rest of the level like Polyjuice; the fresh pawn spawns
-        // upright, so just clear the flag. The per-frame upside-down hold lives
-        // in event Tick (LevicorpusHold) - the 0.25s Timer is too coarse to
-        // fight the native walking physics that rights the pawn each frame.
+        // upright, so the roll needs no undo. The strafe bindings are global,
+        // though, so swap them back here (the swap is its own inverse). The
+        // per-frame upside-down hold lives in event Tick (LevicorpusHold) - the
+        // 0.25s Timer is too coarse to fight the walking physics each frame.
+        RestoreStrafeKeys(HarryRef);
         default.bLevicorpusTrapActive = 0;
-        Log("[Archipelago] APCardWatcher.TrapTick: Levicorpus trap cleared on level change (fresh pawn upright)");
+        Log("[Archipelago] APCardWatcher.TrapTick: Levicorpus trap cleared on level change (fresh pawn upright, strafe bindings restored)");
     }
 
     default.TrapLastLevelName = curLevel;
@@ -2837,10 +2956,9 @@ function LevicorpusHold()
         HarryRef.SetRotation(R);
     }
     HarryRef.DesiredRotation.Roll = 32768;
-    // The 180-degree roll flips the pawn's right-axis, which harry.PlayerMove
-    // derives from GetAxes(Rotation) - so strafe input drives Harry the wrong
-    // way. Negate aStrafe each frame to cancel that out while flipped.
-    HarryRef.aStrafe = -HarryRef.aStrafe;
+    // Strafe inversion from the flipped right-axis is handled in the input layer
+    // by SwapStrafeKeys, not here: this Tick runs after harry.PlayerMove has
+    // already consumed aStrafe, so a per-frame negate would land too late.
 }
 
 event Timer()
@@ -2881,6 +2999,9 @@ event Timer()
         }
         Snapshot();
         bSnapshotted = True;
+        // Heal a strafe swap orphaned by a prior save/quit while flipped: the
+        // bindings persist but the runtime trap flag reset on reboot.
+        HealOrphanedStrafe();
         // Run the trap lifetime check on this first post-Bind tick too, so a
         // level transition restores the Obliviate spellbook immediately
         // (HarryRef is valid here) instead of one tick later — and before the
