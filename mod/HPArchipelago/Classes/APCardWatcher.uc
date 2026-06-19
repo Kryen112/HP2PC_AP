@@ -2783,6 +2783,7 @@ static function int LevelObjectiveIndexFor(string CapsLevelName)
     if (CapsLevelName == "CH3DIFFINDO")      return 9;
     if (CapsLevelName == "CH4SPONGIFY")      return 10;
     if (CapsLevelName == "CH7GRYFFINDOR")    return 11;  // Gryffindor challenge
+    if (CapsLevelName == "CH6WIZARDCARD")    return 12;  // Gold Card Room (end trigger)
     return -1;
 }
 
@@ -2908,7 +2909,7 @@ static function bool IsBlockerKeyGranted(int i)
 static function int GetCheckedLevelObjectiveCount()
 {
     local int idx, slot, n;
-    for (idx = 0; idx < 12; idx++)
+    for (idx = 0; idx < 13; idx++)
     {
         if (((default.GoalLevelMask >> idx) & 1) == 0) continue;
         slot = (5760700 + idx) - LOC_BASE;
@@ -4646,6 +4647,10 @@ function Snapshot()
     // destroyed and ScanFinalStarCompletion's poll can never see it. No-op
     // outside CH7GRYFFINDOR.
     ReplaceGryffindorEndStar();
+    // Swap Ch6WizardCard's far-end TriggerChangeLevel (tag changelevel1) for an
+    // AP-aware trigger that credits clause-3 objective idx 12 before the stock
+    // reload. No-op outside CH6WIZARDCARD.
+    ReplaceGoldRoomEndTrigger();
     // Spawn the visible Slytherin Common Room end star here (post-Bind, so the
     // HProp's PreBeginPlay resolves a valid PlayerHarry) - APGameInfo.InitGame
     // runs before Harry exists, so a star spawned there has PlayerHarry==None
@@ -6197,6 +6202,59 @@ function ReplaceGryffindorEndStar()
     {
         Log("[Archipelago] APCardWatcher.ReplaceGryffindorEndStar: replaced " $ replaced
             $ " vanilla FinalStar(s) with AP end star in CH7GRYFFINDOR");
+    }
+}
+
+// Subclass-replace Ch6WizardCard's far-end TriggerChangeLevel (tag changelevel1)
+// with an APTriggerChangeLevel so reaching the end of the Gold Card Room credits
+// clause-3 objective idx 12 (the room's 13th level-completion). The room's OTHER
+// TriggerChangeLevel (tag TriggerChangeLevel, by the entrance) bails to the hub
+// and must stay vanilla, so we key on the tag, not the class. The end trigger
+// reloads the same level, so the exit-credit path never sees it; the AP subclass
+// fires the check before the stock reload. CollisionRadius/Height are copied so
+// the swapped-in volume covers the same spot. No-op outside CH6WIZARDCARD; runs
+// in both modes (the completion is a real AP location in vanilla too).
+function ReplaceGoldRoomEndTrigger()
+{
+    local TriggerChangeLevel tcl;
+    local APTriggerChangeLevel apTcl;
+    local Vector loc;
+    local Rotator rot;
+    local string mapName;
+    local float colRadius, colHeight;
+    local int replaced;
+
+    if (Caps(string(Level.Outer.Name)) != "CH6WIZARDCARD") return;
+
+    foreach AllActors(class'TriggerChangeLevel', tcl)
+    {
+        if (tcl == None || tcl.bDeleteMe) continue;
+        if (tcl.Tag != 'changelevel1') continue;  // end trigger only, not the entrance one
+        // Skip a replacement from a prior Snapshot this level so a second bind
+        // does not destroy+respawn the AP trigger.
+        if (ClassIsChildOf(tcl.Class, class'APTriggerChangeLevel')) continue;
+
+        loc = tcl.Location;
+        rot = tcl.Rotation;
+        mapName = tcl.NewMapName;
+        colRadius = tcl.CollisionRadius;
+        colHeight = tcl.CollisionHeight;
+        tcl.Destroy();
+        apTcl = Spawn(class'APTriggerChangeLevel', None, 'changelevel1', loc, rot);
+        if (apTcl == None)
+        {
+            Log("[Archipelago] APCardWatcher.ReplaceGoldRoomEndTrigger: Spawn returned None at "
+                $ string(loc));
+            continue;
+        }
+        apTcl.NewMapName = mapName;
+        apTcl.SetCollisionSize(colRadius, colHeight);
+        replaced++;
+    }
+    if (replaced > 0)
+    {
+        Log("[Archipelago] APCardWatcher.ReplaceGoldRoomEndTrigger: replaced " $ replaced
+            $ " end trigger(s) (tag changelevel1) with AP trigger in CH6WIZARDCARD");
     }
 }
 

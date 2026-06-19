@@ -591,6 +591,8 @@ locations:
     { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
   "Gold Card Room - Card Potter":
     { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
+  "Gold Card Room - Complete":
+    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
 
   # Duelling Club duels
   "Duelling Club - Duel Rank 1":

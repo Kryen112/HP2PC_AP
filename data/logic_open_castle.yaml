@@ -553,6 +553,8 @@ locations:
     { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
   "Gold Card Room - Card Slytherin":
     { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }
+  "Gold Card Room - Complete":
+    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
 
   # Gryffindor Challenge
   "Gryffindor Challenge - Challenge Star 1": { requires: "true" }

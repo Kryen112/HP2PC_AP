@@ -18,7 +18,7 @@ import settings
 from BaseClasses import (CollectionState, Item, ItemClassification, Location,
                          LocationProgressType, Region)
 from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
-                     OptionError, OptionGroup, OptionSet, PerGameCommonOptions,
+                     OptionGroup, OptionSet, PerGameCommonOptions,
                      Range, StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
@@ -29,6 +29,7 @@ from .items import (FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
                     ITEM_NAME_TO_ID, TRAP_NAMES)
 from .locations import BASE_ID as LOCATION_BASE_ID
 from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
+                        CARD_ITEM_NAME_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                         MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS)
@@ -170,7 +171,11 @@ class StartingSpells(OptionSet):
 
 
 class EnableWizardCards(DefaultOnToggle):
-    """If true, the 101 wizard cards become AP locations.
+    """Card shuffle. The 101 wizard cards are always AP locations; this only
+    chooses how the card items are placed. On (default): cards are shuffled into
+    the multiworld pool. Off: each card is locked to its own original spot, so
+    the silver-card gate on the Gold Card Room stays honest (you still collect
+    silvers from their real locations).
     """
     display_name = "Enable Wizard Cards"
 
@@ -298,13 +303,13 @@ class OpenCastleGoalSpells(NamedRange):
 
 class OpenCastleGoalLevels(NamedRange):
     """Open castle only. Level objectives finished to open the Great Hall. 0
-    disables. 12 objectives, fixed: 3 key-item levels + 2 bosses + 2 story
-    levels + 5 challenges."""
+    disables. 13 objectives, fixed: 3 key-item levels + 2 bosses + 2 story
+    levels + 5 challenges + the Gold Card Room (needs 20 silver cards)."""
     display_name = "Open castle goal: level objectives"
     range_start = 0
-    range_end = 12
-    default = 12
-    special_range_names = {"none": 0, "all": 12}
+    range_end = 13
+    default = 13
+    special_range_names = {"none": 0, "all": 13}
 
 
 class OpenCastleGoalDuels(Toggle):
@@ -597,15 +602,9 @@ class HP2World(World):
             current.update({"Lumos", "Flipendo"})
             self.options.starting_spells.value = frozenset(current)
             return
-        # Reject contradictory open castle yaml combos before fill, with a
-        # message that names the fix rather than silently degrading the goal.
-        if int(self.options.open_castle_goal_cards.value) > 0 and not self.options.enable_wizard_cards:
-            raise OptionError(
-                "Harry Potter 2 PC: open_castle_goal_cards > 0 requires "
-                "enable_wizard_cards: true (the Great Hall cards clause would "
-                "gate on cards the seed never places). Set open_castle_goal_cards: 0 "
-                "or enable_wizard_cards: true."
-            )
+        # No open-castle card/goal contradiction to reject: wizard cards always
+        # exist (enable_wizard_cards only picks shuffle vs locked-vanilla), so a
+        # cards goal clause is always satisfiable.
 
     def create_item(self, name: str) -> HP2Item:
         classification = ITEM_CLASSIFICATIONS[name]
@@ -632,7 +631,6 @@ class HP2World(World):
     # 4 checks are unreachable in open castle and get dropped entirely (their
     # spells stay in the pool, placed elsewhere).
     _LOC_GROUP_TO_OPT: dict[str, str] = {
-        "CardLocations":      "enable_wizard_cards",
         "Secrets":            "enable_secrets",
         "ChallengeStars":     "enable_challenge_stars",
         "QuidditchPurchases": "enable_quidditch_upgrades",
@@ -642,20 +640,22 @@ class HP2World(World):
         # Tradersanity is a Choice, not a Toggle: _location_enabled treats any
         # non-off value (price_vanilla/random/low) as enabled via .value.
         "Tradersanity":       "tradersanity",
-        # LevelCompletions has no opt: the 12 "X Level - Complete" spots are
+        # CardLocations has no opt: wizard cards are always real locations.
+        # enable_wizard_cards selects shuffle (cards enter the multiworld pool)
+        # vs locked-vanilla (each card pinned to its own spot in create_items),
+        # so the silver-card gate (Gold Card Room) stays honest either way.
+        # LevelCompletions has no opt: the 13 "X Level - Complete" spots are
         # always real checks. The open castle levels clause gates on their
         # reachability, so they must always exist; open_castle_goal_levels
-        # (0..12) is the only knob over how many count toward the Great Hall.
+        # (0..13) is the only knob over how many count toward the Great Hall.
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
-    # Spells / Key Items / Filler aren't listed — always in the pool. Traps
-    # aren't here either: they're a per-type OptionSet (not a single toggle)
-    # and are handled by name in _item_enabled. They're also excluded from
-    # non_filler in create_items (drawn only via the filler-delta partition).
+    # Spells / Key Items / Filler aren't listed — always in the pool. Cards
+    # aren't here either: they always exist, and enable_wizard_cards only picks
+    # shuffle vs locked-vanilla placement (handled in create_items). Traps are
+    # a per-type OptionSet handled by name in _item_enabled, and are excluded
+    # from non_filler in create_items (drawn only via the filler-delta partition).
     _ITEM_GROUP_TO_OPT: dict[str, str] = {
-        "Cards (Bronze)": "enable_wizard_cards",
-        "Cards (Silver)": "enable_wizard_cards",
-        "Cards (Gold)":   "enable_wizard_cards",
         "Equipment":      "enable_quidditch_upgrades",
     }
 
@@ -837,10 +837,24 @@ class HP2World(World):
             name for name in non_filler
             if name not in starters
         ]
+        # Card shuffle off: pin each card to its own spot instead of shuffling
+        # it into the multiworld, so the silver-card gate (Gold Card Room) stays
+        # honest. The card still counts in placeable_non_filler above and the
+        # locked placement consumes exactly the spot it would have filled if
+        # shuffled, so the filler delta below is unchanged. A card whose own spot
+        # isn't created this seed (e.g. an open-castle-only region in vanilla)
+        # falls through to the pool like any other item.
+        cards_locked = not self.options.enable_wizard_cards
         for name in non_filler:
             if name in starters:
                 self.multiworld.push_precollected(self.create_item(name))
                 continue
+            if cards_locked and name in CARD_ITEM_NAMES:
+                own_loc = CARD_ITEM_NAME_TO_LOCATION_NAME.get(name)
+                if own_loc is not None and self._location_enabled(own_loc):
+                    loc = self.multiworld.get_location(own_loc, self.player)
+                    loc.place_locked_item(self.create_item(name))
+                    continue
             self.multiworld.itempool.append(self.create_item(name))
 
         # delta uses the FILTERED location count, not the full id-space size,
@@ -945,13 +959,13 @@ class HP2World(World):
         # cards/spells are has-counts (the same items the mod counts; cards
         # are promoted to progression_skip_balancing in create_item for open
         # castle so AP guarantees them reachable). The levels clause gates on
-        # the reachability of the 11 "X Level - Complete" locations — completing
+        # the reachability of the 13 "X Level - Complete" locations — completing
         # a level, not merely owning its key (owning 'Boomslang Level Key' is
         # not the same as finishing Boomslang, which also needs Diffindo).
         # duels/quidditch gate on the key that opens that bookcase. Same
         # _open_castle_goal_config the mod gets via fill_slot_data. The
         # GoldCardRoom key/spell placement exclusion below stops AP shoving a
-        # goal-required key behind the 40-silver wall.
+        # goal-required key behind the silver-card wall.
         if self._is_open_castle():
             keys_and_spells = frozenset(
                 ITEM_GROUPS.get("Blocker Keys", []) + ITEM_GROUPS.get("Spells", []))
@@ -972,7 +986,7 @@ class HP2World(World):
             spell_items = ITEM_GROUPS.get("Spells", [])
             duel_key = "Duelling Key"
             quidditch_key = "Quidditch Key"
-            # The 11 level-completion locations. Always created (no toggle),
+            # The 13 level-completion locations. Always created (no toggle),
             # so this set is stable; each one's reachability already folds in
             # its region entry plus any per-completion `requires:` on the
             # level_completions rows. Counting reachable completions is the
@@ -1043,9 +1057,10 @@ class HP2World(World):
             "open_castle_goal_duels": duels,
             "open_castle_goal_quidditch": quidditch,
             # Bit i set => level objective i counts toward
-            # open_castle_goal_levels. All 12 in scope. Field exists so a future
-            # "which objectives" option needs no slot_data schema bump.
-            "open_castle_level_mask": (1 << 12) - 1,
+            # open_castle_goal_levels. All 13 in scope (idx 12 = Gold Card Room).
+            # Field exists so a future "which objectives" option needs no
+            # slot_data schema bump.
+            "open_castle_level_mask": (1 << 13) - 1,
         }
 
     def _tradersanity_rolled_factors(self) -> list[list[int]]:

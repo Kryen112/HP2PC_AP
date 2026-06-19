@@ -477,7 +477,7 @@ challenge_stars:
   - { id_offset: 552, name: "Gryffindor Challenge - Challenge Star 5", level: Ch7Gryffindor, marker: ChallengeStar10, tag: ChallengeStar, loc: "(1072.48, -1726.51, 3288.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
   - { id_offset: 553, name: "Gryffindor Challenge - Challenge Star 10", level: Ch7Gryffindor, marker: ChallengeStar11, tag: ChallengeStar, loc: "(2637.92, -3127.11, 2730.00)", missable: false, region: GryffindorChallenge, group: ChallengeStars }
 
-# 12 "X Level Complete" locations (Heretic-AP model). One per level / challenge
+# 13 "X Level Complete" locations (Heretic-AP model). One per level / challenge
 # / boss; reaching the end IS the check. AP id = base 5760000 + id_offset, so
 # id_offset = 700 + idx where idx is the clause-3 objective index the mod's
 # APCardWatcher.NotifyLevelObjective fires CHECK_LOCID (5760700+idx) for.
@@ -487,12 +487,14 @@ challenge_stars:
 #   idx 4    Mechanism B  ADV12CHAMBER Basilisk.bBasilFinishedForGood
 #   idx 5-6  Mechanism C  left the level (watcher per-level bind history)
 #   idx 7-10 Mechanism D  left the terminal challenge level (CheckExitedLevelObjective); FinalStar NOT replaced
+#   idx 11   Mechanism D  CH7GRYFFINDOR FinalStar replaced with APGryffindorEndStar (credits in EndState)
+#   idx 12   Mechanism E  CH6WIZARDCARD end trigger (TriggerChangeLevel tag changelevel1) replaced with APTriggerChangeLevel
 # `level`/`idx` are documentation only — the generator uses name/id_offset/
 # region/group (emit_locations generic loop). Region = the level's existing
 # logic region (must exist in BOTH logic_vanilla.yaml and logic_open_castle.yaml).
 # Always real AP checks (no enable toggle): the open castle Great Hall levels
 # clause gates on the reachability of these locations, so they must always
-# exist. open_castle_goal_levels (0..12) is the only knob over how many count.
+# exist. open_castle_goal_levels (0..13) is the only knob over how many count.
 # These are NOT open-castle-only: in vanilla they are ordinary progress checks;
 # the Great Hall clause-3 gate uses the same detector but only in open castle mode.
 level_completions:
@@ -508,6 +510,7 @@ level_completions:
   - { id_offset: 709, idx: 9,  level: Ch3Diffindo,     name: "Diffindo Challenge - Complete",     region: DiffindoChallenge, group: LevelCompletions }
   - { id_offset: 710, idx: 10, level: Ch4Spongify,     name: "Spongify Challenge - Complete",     region: SpongifyChallenge, group: LevelCompletions }
   - { id_offset: 711, idx: 11, level: Ch7Gryffindor,   name: "Gryffindor Challenge - Complete",   region: GryffindorChallenge, group: LevelCompletions }
+  - { id_offset: 712, idx: 12, level: Ch6WizardCard,   name: "Gold Card Room - Complete",         region: GoldCardRoom,      group: LevelCompletions, notes: "Reached the end trigger (changelevel1) at the top of the room." }
 
 # 13 Tradersanity vendor locations. Every
 # non-Weasley card vendor (Sells_BronzeCards/SilverCards) and ingredient

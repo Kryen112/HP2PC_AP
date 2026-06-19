@@ -104,7 +104,7 @@ If you're playing solo (just you, no other AP slots):
 
    | Toggle                         | Default | What it enables                                                                                            |
    | ------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------- |
-   | `enable_wizard_cards`          | on      | 101 wizard cards as checks AND in the multiworld item pool (tier-prefixed: `Bronze/Silver/Gold Card - X`). |
+   | `enable_wizard_cards`          | on      | Card shuffle. The 101 wizard cards are always checks; **on** shuffles the card items into the multiworld pool (tier-prefixed: `Bronze/Silver/Gold Card - X`), **off** locks each card to its own spot (keeps the Gold Card Room's silver gate honest). |
    | `enable_secrets`               | on      | 109 secret-area pickups across all levels (open castle adds 9 in the Gryffindor challenge, 118 total).                                                                 |
    | `enable_challenge_stars`       | on      | 44 challenge stars across the 4 spell-challenge levels (open castle adds 10 in the Gryffindor challenge, 54 total). |
    | `enable_duelling`              | off     | 10 Duelling Club ranked-duel wins.                                                                         |
@@ -130,7 +130,7 @@ If you're playing solo (just you, no other AP slots):
    | ---------------------------- | ------ | ------- | ------------------------------------------------------------------------ |
    | `open_castle_goal_cards`     | 0-101  | 50      | that many wizard cards (named anchors: `none`/`few`/`half`/`most`/`all`) |
    | `open_castle_goal_spells`    | 0-7    | 7       | that many spells                                                         |
-   | `open_castle_goal_levels`    | 0-12   | 12      | that many of the 12 level objectives finished                            |
+   | `open_castle_goal_levels`    | 0-13   | 13      | that many of the 13 level objectives finished (incl. the Gold Card Room, which needs 20 silver cards) |
    | `open_castle_goal_duels`     | off/on | off     | won all 10 Duelling Club duels                                           |
    | `open_castle_goal_quidditch` | off/on | off     | won all 6 Quidditch matches                                              |
 

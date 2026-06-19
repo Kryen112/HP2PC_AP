@@ -708,14 +708,34 @@ def emit_locations(locations: dict, items: dict) -> str:
         lines.append(f"    {game_id}: {loc_name!r},")
     lines.append("}")
     lines.append("")
+    # Map each wizard-card item name → its own card location. When card shuffle
+    # is off, HP2World locks every card at its own spot using this, so the
+    # silver-card gate (Gold Card Room) stays honest. card_class -> location is
+    # the bridge; every card item carries its class in items.yaml.
+    card_item_to_loc: list[tuple[str, str]] = []
+    for tier in ("cards_bronze", "cards_silver", "cards_gold"):
+        for entry in items.get(tier, []):
+            loc_name = class_to_loc.get(entry["class"])
+            if loc_name is None:
+                raise ValueError(
+                    f"{tier} class {entry['class']!r} has no card location in locations.yaml"
+                )
+            card_item_to_loc.append((entry["name"], loc_name))
+    lines.append("CARD_ITEM_NAME_TO_LOCATION_NAME: dict[str, str] = {")
+    for item_name, loc_name in card_item_to_loc:
+        lines.append(f"    {item_name!r}: {loc_name!r},")
+    lines.append("}")
+    lines.append("")
 
-    # Gold-card vault location set, derived from the items.yaml gold tier
-    # classification (cards_gold) via the card_class -> location map. Single
-    # source of truth for the GoldCardRoom placement exclusions in
+    # Gold-card vault location set: the GoldCardRoom placement exclusions in
     # HP2World.set_rules (no silver may be placed here in any mode; no key or
-    # spell may be placed here in open castle). validate() already enforces
-    # items-vs-locations card-class parity, so every gold class resolves.
-    gold_loc_names: list[str] = []
+    # spell may be placed here in open castle). Every location in the
+    # GoldCardRoom region sits behind the silver-card wall, so derive from
+    # region — that is the 11 gold cards plus the "Gold Card Room - Complete"
+    # level-completion. The gold-tier classification is still walked first so
+    # validate()'s items-vs-locations card-class parity check applies and every
+    # gold class is guaranteed a location.
+    goldroom_names: set[str] = set()
     for entry in items.get("cards_gold", []):
         ucls = entry["class"]
         loc_name = class_to_loc.get(ucls)
@@ -723,9 +743,10 @@ def emit_locations(locations: dict, items: dict) -> str:
             raise ValueError(
                 f"cards_gold class {ucls!r} has no card location in locations.yaml"
             )
-        gold_loc_names.append(loc_name)
+        goldroom_names.add(loc_name)
+    goldroom_names.update(name for name, region in region_pairs if region == "GoldCardRoom")
     lines.append("GOLD_CARD_ROOM_LOCATIONS: frozenset = frozenset({")
-    for n in sorted(gold_loc_names):
+    for n in sorted(goldroom_names):
         lines.append(f"    {n!r},")
     lines.append("})")
     lines.append("")
