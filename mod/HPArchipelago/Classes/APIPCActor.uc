@@ -376,6 +376,14 @@ function HandleLine(string line)
         // on the watcher; resent every HELLO.
         class'APCardWatcher'.static.SetQuidditchUpgrades(byte(int(Mid(line, 19))));
     }
+    else if (Left(line, 14) == "RUNNING_LOGIC ")
+    {
+        // Running-in-logic flag from the apworld slot_data: when 1 the seed put
+        // the Running logic flag in logic, so shift-to-run is made free (no bean
+        // drain, no >0-bean gate) to keep that assumption sound. Sticky byte on
+        // the watcher; resent every HELLO.
+        class'APCardWatcher'.static.SetAllowRunningLogic(byte(int(Mid(line, 14))));
+    }
     else if (Left(line, 5) == "HINT ")
     {
         // Tradersanity vendor hint payload: "HINT <locId> <item_name>".

@@ -629,6 +629,11 @@ class HP2Context(CommonContext):
         # icon / banner / hint. Parsed from slot_data on Connected, re-sent
         # QUIDDITCH_UPGRADES <0|1> on every HELLO.
         self.quidditch_upgrades: bool = False
+        # When true the seed put the Running logic flag in logic, so the mod
+        # makes shift-to-run free (no bean drain, no >0-bean gate) to keep that
+        # assumption sound. Parsed from slot_data on Connected, re-sent
+        # RUNNING_LOGIC <0|1> on every HELLO.
+        self.allow_running_logic: bool = False
         # Per-seed sticky set of Tradersanity location ids the client has
         # already published a broadcast hint for, loaded from AP server Data
         # Storage on Connected and written back on each new hint so a
@@ -875,6 +880,9 @@ class HP2Context(CommonContext):
             self.quidditch_upgrades = bool(sd.get("enable_quidditch_upgrades"))
             self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
             logger.info(f"Quidditch upgrades {'enabled' if self.quidditch_upgrades else 'disabled'}")
+            self.allow_running_logic = bool(sd.get("allow_running_logic"))
+            self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
+            logger.info(f"Running in logic {'enabled (sprint is free)' if self.allow_running_logic else 'disabled'}")
             self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
             self.hinted_vendor_locs = set()
             if self.tradersanity_hint_on_open:
@@ -1814,6 +1822,9 @@ class HP2Context(CommonContext):
             # icon + banner + hint only when their two locations exist as
             # AP checks for this seed.
             self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
+            # Re-arm running-in-logic so a fresh launch / reconnect keeps the
+            # sprint free when the seed put Running in logic.
+            self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
             # Re-push Tradersanity vendor hint item names to the mod. Sticky +
             # idempotent mod-side (cached per-slot on APCardWatcher), so
             # resending every HELLO covers fresh launches / reconnects.

@@ -114,6 +114,14 @@ var byte bSkipVendorVoices;
 // the two locations do not exist in the seed and the brothers fall back to
 // their vanilla trade UX.
 var byte bQuidditchUpgrades;
+// Running-in-logic flag from the apworld slot_data (RUNNING_LOGIC IPC). When 1,
+// generation precollected the Running logic flag and assumes Running-tagged
+// locations are reachable by sprinting, so shift-to-run is made free: SprintTick
+// skips the bean drain and SprintContext drops its >0-bean availability gate, so
+// the sprint stays usable even at 0 beans and the logic assumption holds. When 0
+// (default) the sprint costs SPRINT_BEAN_COST beans per tick and needs beans to
+// engage. Sticky byte; resent every HELLO.
+var byte bAllowRunningLogic;
 // Lazy-loaded AP logo texture used by TradersanityIconSwapPass to replace the
 // trade UI's wiggentree-bark / flobberworm-mucous / card icon on Tradersanity
 // vendors with an "Archipelago Item" plate before purchase. Class default so
@@ -1738,7 +1746,10 @@ function bool SprintContext()
     return console != None
         && console.bShiftDown
         && (HarryRef.Physics == PHYS_Walking || HarryRef.Physics == PHYS_Falling)
-        && HarryRef.managerStatus.GetBeanCount() > 0
+        // Running-in-logic makes the sprint free, so it must engage at 0 beans
+        // too; otherwise the bean count gates a movement the seed's logic assumes
+        // is always available.
+        && (default.bAllowRunningLogic == 1 || HarryRef.managerStatus.GetBeanCount() > 0)
         && string(HarryRef.GetStateName()) == "PlayerWalking"
         && !HarryRef.bIsCaptured
         && !HarryRef.bKeepStationary
@@ -1890,10 +1901,11 @@ function SprintApply()
 // MutateBeansNoBroadcast) so APIPCActor.TickRingLink picks up the delta and
 // mirrors it to RingLink. AddBeans floors at 0, so the drain self-stops when
 // beans run out (WantSprint then returns False and SprintApply restores the caps
-// within a frame).
+// within a frame). When running-in-logic is on the sprint is free, so the drain
+// is suppressed (the speed-cap pin in SprintApply still runs).
 function SprintTick()
 {
-    if (WantSprint())
+    if (WantSprint() && default.bAllowRunningLogic == 0)
     {
         HarryRef.managerStatus.AddBeans(-SPRINT_BEAN_COST);
     }
@@ -2024,6 +2036,16 @@ static function SetQuidditchUpgrades(byte v)
 {
     default.bQuidditchUpgrades = v;
     Log("[Archipelago] APCardWatcher.SetQuidditchUpgrades: enabled=" $ string(default.bQuidditchUpgrades));
+}
+
+// Running-in-logic flag from the apworld slot_data (RUNNING_LOGIC IPC).
+// Class-default + sticky. SprintTick reads it to suppress the shift-to-run bean
+// drain and SprintContext reads it to drop the >0-bean availability gate, so the
+// sprint is free and always usable when the seed put Running in logic.
+static function SetAllowRunningLogic(byte v)
+{
+    default.bAllowRunningLogic = v;
+    Log("[Archipelago] APCardWatcher.SetAllowRunningLogic: enabled=" $ string(default.bAllowRunningLogic));
 }
 
 // Resolve the AP location id for a vendor Characters actor IF that vendor is

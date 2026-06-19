@@ -212,9 +212,10 @@ class AllowRunningLogic(Toggle):
     Additive only: it never removes a requirement, so a seed solvable with it
     off stays solvable with it on. `Running` is a logic flag, not an item: when
     this is on the world precollects it so the `... | Running` clauses in
-    data/logic_*.yaml pass. Off by default — the standard logic expects the
-    spell. The mod always lets the player run regardless of this option; it only
-    governs what generation assumes.
+    data/logic_*.yaml pass. Off by default. The standard logic expects the
+    spell. The shift-to-run sprint is always available regardless of this option;
+    with it on the mod also makes that sprint free (no bean cost, and usable at
+    0 beans) so the running this logic relies on is genuinely always available.
     """
     display_name = "Allow Running logic"
 
@@ -1096,9 +1097,12 @@ class HP2World(World):
             "enable_spell_challenge_times": bool(self.options.enable_spell_challenge_times.value),
             "vanilla_gate_levels": bool(self.options.vanilla_gate_levels.value),
             "enable_traps": bool(self.options.traps.value and self.options.trap_fill_percent.value > 0),
-            # Logic-flag toggles. The mod ignores these (running/glitching is
-            # always physically possible); the tracker reads them to flip its
-            # matching setting marker so its reachability matches the seed.
+            # Logic-flag toggles. The tracker reads both to flip its matching
+            # setting marker so its reachability matches the seed.
+            # allow_running_logic also reaches the mod (RUNNING_LOGIC IPC): when on
+            # it makes the shift-to-run sprint free so the always-available running
+            # the logic assumes is sound. allow_glitched_logic is mod-irrelevant
+            # (glitching is always physically possible).
             "allow_running_logic": bool(self.options.allow_running_logic.value),
             "allow_glitched_logic": bool(self.options.allow_glitched_logic.value),
         }
