@@ -2353,6 +2353,11 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //                   strafe key bindings so the flipped right-axis does not reverse
 //                   strafing; the next level's fresh pawn spawns upright and the
 //                   bindings are swapped back, like the Polyjuice trap.
+//   Jelly-Legs    - hijacks jumping for ~20s: APCardWatcher pins
+//                   harry.bCorraledByMover so manual and auto jump are both
+//                   blocked (DoJump gates on it) and injects random jumps itself.
+//                   Tick-countdown duration and a first-bind gate heal make it
+//                   reload-safe; the next level ends it early like the timed traps.
 //
 // Spider Swarm and Peeves are not implemented: they require an ad-hoc visible
 // world actor spawned mid-level, and this open castle build does not render actors
@@ -2478,6 +2483,18 @@ function bool TryApplyTrap(string Name, harry h)
         // strafing, and the next level's fresh pawn spawns upright.
         class'APCardWatcher'.static.MarkLevicorpusTrapActive(h);
         Log("[Archipelago] ApplyGrant: Levicorpus Trap - Harry flipped upside down (reverts on next level)");
+        return True;
+    }
+
+    if (Name == "Jelly-Legs Jinx Trap")
+    {
+        // Hijack jumping for ~20s. The watcher pins harry.bCorraledByMover so
+        // both manual and auto jump are blocked (DoJump gates on it) and injects
+        // random jumps of its own. The duration is a tick countdown (not the
+        // level clock, which resets on reload) and a first-bind heal clears the
+        // gate if a save/quit orphans it; the next level ends it early.
+        class'APCardWatcher'.static.MarkJellyLegsTrapActive(h);
+        Log("[Archipelago] ApplyGrant: Jelly-Legs Jinx Trap - jump hijacked for ~20s (random jumps, reverts on timer or next level)");
         return True;
     }
 

@@ -615,6 +615,23 @@ var byte bWandSizeTrapActive;
 // `Axis aStrafe` command, which the player config never uses), so HealOrphanedStrafe
 // reverts it on the first bind when no trap is live. No separate marker needed.
 var byte bLevicorpusTrapActive;
+// Jelly-Legs Jinx Trap: bJellyLegsTrapActive==1 while jumping is hijacked. Manual
+// and auto jump are both suppressed by pinning harry.bCorraledByMover (the only
+// DoJump gate with no movement side effects), re-pinned each frame in event Tick
+// (JellyLegsHold) so a stray mover write cannot lift it for long. The watcher
+// injects its own random jumps via JellyLegsTick, momentarily lifting the gate so
+// the forced DoJump lands. Duration and jump cadence are TICK countdowns, never
+// Level.TimeSeconds, so a reload that resets the level clock cannot strand the
+// trap far-future. On a full quit the class-default flag resets to 0, so
+// HealOrphanedJellyLegs clears the orphaned gate on the first bind, mirroring
+// HealOrphanedStrafe. JellyLegsTicksLeft counts the ~20s lifetime; NextJumpTicksLeft
+// counts down to each forced jump, reseeded to a random interval after one fires.
+const JELLYLEGS_TRAP_TICKS     = 80;   // ~20s at 0.25s per Timer tick
+const JELLYLEGS_JUMP_MIN_TICKS = 6;    // ~1.5s, shortest gap between forced jumps
+const JELLYLEGS_JUMP_MAX_TICKS = 14;   // ~3.5s, longest gap between forced jumps
+var byte bJellyLegsTrapActive;
+var int JellyLegsTicksLeft;
+var int NextJumpTicksLeft;
 
 // --- DeathLink state. All class-default + sticky: an induced kill runs
 // GotoState('stateDead') → ConsoleCommand("LoadGame 0"), which destroys the
@@ -1519,6 +1536,117 @@ static function MarkLevicorpusTrapActive(harry h)
     Log("[Archipelago] APCardWatcher.MarkLevicorpusTrapActive: Harry flipped upside down (reverts on next level)");
 }
 
+// Jelly-Legs Jinx Trap entry point (called from APGameInfo.TryApplyTrap). Pins
+// harry.bCorraledByMover so DoJump no-ops (blocks manual and, if it routes through
+// DoJump, auto jump) and arms the tick countdowns. Static + class-default like the
+// others. The stacking guard refreshes the lifetime without re-seeding the jump
+// schedule, so a second Jelly-Legs simply extends the hijack.
+static function MarkJellyLegsTrapActive(harry h)
+{
+    if (h == None)
+    {
+        return;
+    }
+    h.bCorraledByMover = True;
+    if (default.bJellyLegsTrapActive == 1)
+    {
+        default.JellyLegsTicksLeft = JELLYLEGS_TRAP_TICKS;
+        Log("[Archipelago] APCardWatcher.MarkJellyLegsTrapActive: already active - lifetime refreshed");
+        return;
+    }
+    default.bJellyLegsTrapActive = 1;
+    default.JellyLegsTicksLeft   = JELLYLEGS_TRAP_TICKS;
+    default.NextJumpTicksLeft    = JELLYLEGS_JUMP_MIN_TICKS + Rand(JELLYLEGS_JUMP_MAX_TICKS - JELLYLEGS_JUMP_MIN_TICKS + 1);
+    default.TrapLastLevelName    = h.Level.Outer.Name;
+    Log("[Archipelago] APCardWatcher.MarkJellyLegsTrapActive: jump hijacked for " $ string(JELLYLEGS_TRAP_TICKS) $ " ticks, random jumps armed");
+}
+
+// End the Jelly-Legs trap and restore normal jumping. Clears the bCorraledByMover
+// gate on the bound pawn (a no-op on a fresh level-change pawn, which spawns
+// un-corralled) and zeroes the countdowns. Called from TrapTick on a level change
+// and from JellyLegsTick when the lifetime runs out.
+function EndJellyLegsTrap()
+{
+    if (HarryRef != None)
+    {
+        HarryRef.bCorraledByMover = False;
+    }
+    default.bJellyLegsTrapActive = 0;
+    default.JellyLegsTicksLeft   = 0;
+    default.NextJumpTicksLeft    = 0;
+}
+
+// First-bind heal for a jump-suppression gate orphaned by a save/quit while the
+// trap was active. The grant drain saves right after a trap applies, so a reload
+// can restore a pawn with bCorraledByMover set, but the class-default trap flag
+// resets to 0 on the relaunch, so nothing in TrapTick would clear it. Mirrors
+// HealOrphanedStrafe: revert whenever no trap is live. A legit mover-corral
+// re-asserts itself within a frame, so clearing here is safe.
+function HealOrphanedJellyLegs()
+{
+    if (HarryRef == None || default.bJellyLegsTrapActive == 1)
+    {
+        return;
+    }
+    if (HarryRef.bCorraledByMover)
+    {
+        HarryRef.bCorraledByMover = False;
+        Log("[Archipelago] APCardWatcher.HealOrphanedJellyLegs: cleared orphaned jump-suppression gate (no trap live)");
+    }
+}
+
+// Per-frame re-pin of the jump-suppression gate (event Tick, like LevicorpusHold).
+// A mover could write bCorraledByMover during the frame; re-asserting it each frame
+// keeps DoJump blocked. Only acts while the trap is active and Harry is bound.
+function JellyLegsHold()
+{
+    if (default.bJellyLegsTrapActive == 0 || HarryRef == None)
+    {
+        return;
+    }
+    HarryRef.bCorraledByMover = True;
+}
+
+// Inject one forced jump, bypassing our own gate. DoJump checks bCorraledByMover,
+// so lift it for this single call and re-assert immediately (event Tick re-pins it
+// too). Only fires from PHYS_Walking: DoJump's own guards no-op a mid-air or
+// cutscene call, but checking here avoids wasting a scheduled jump.
+function ForceJellyJump()
+{
+    if (HarryRef == None || HarryRef.Physics != PHYS_Walking)
+    {
+        return;
+    }
+    HarryRef.bCorraledByMover = False;
+    HarryRef.DoJump();
+    HarryRef.bCorraledByMover = True;
+}
+
+// Per-Timer-tick driver for the Jelly-Legs trap (called from the main Timer body,
+// not the first-bind path, so a reload tick never forces a jump). Counts the
+// lifetime down and ends the trap at zero, and counts down to each random jump,
+// firing only when grounded so a pending jump lands the moment Harry touches down.
+function JellyLegsTick()
+{
+    if (default.bJellyLegsTrapActive != 1)
+    {
+        return;
+    }
+    default.JellyLegsTicksLeft -= 1;
+    if (default.JellyLegsTicksLeft <= 0)
+    {
+        EndJellyLegsTrap();
+        Log("[Archipelago] APCardWatcher.JellyLegsTick: Jelly-Legs trap ended on lifetime countdown - jump restored");
+        return;
+    }
+    default.NextJumpTicksLeft -= 1;
+    if (default.NextJumpTicksLeft <= 0 && HarryRef != None && HarryRef.Physics == PHYS_Walking)
+    {
+        ForceJellyJump();
+        default.NextJumpTicksLeft = JELLYLEGS_JUMP_MIN_TICKS + Rand(JELLYLEGS_JUMP_MAX_TICKS - JELLYLEGS_JUMP_MIN_TICKS + 1);
+    }
+}
+
 // Invert strafe by rebinding the strafe keys. The Levicorpus 180 roll flips the
 // pawn's right-axis, and the native harry.PlayerMove strafes along
 // GetAxes(Rotation).Y, so strafe drives the wrong way while flipped. The watcher
@@ -1724,6 +1852,15 @@ function TrapTick()
         RestoreStrafeKeys(HarryRef);
         default.bLevicorpusTrapActive = 0;
         Log("[Archipelago] APCardWatcher.TrapTick: Levicorpus trap cleared on level change (fresh pawn upright, strafe bindings restored)");
+    }
+
+    if (default.bJellyLegsTrapActive == 1 && bLevelChanged)
+    {
+        // A level change ends the hijack early like the other timed traps. The
+        // lifetime countdown in JellyLegsTick handles the same-level timeout; the
+        // fresh pawn spawns un-corralled, so clearing the gate here is harmless.
+        EndJellyLegsTrap();
+        Log("[Archipelago] APCardWatcher.TrapTick: Jelly-Legs trap cleared on level change (jump restored)");
     }
 
     default.TrapLastLevelName = curLevel;
@@ -3003,6 +3140,7 @@ event Tick(float DeltaTime)
     SprintApply();
     SlowdownClamp();
     LevicorpusHold();
+    JellyLegsHold();
 }
 
 // Per-frame upside-down hold for the Levicorpus Trap. The native PlayerWalking
@@ -3070,6 +3208,10 @@ event Timer()
         // Heal a strafe swap orphaned by a prior save/quit while flipped: the
         // bindings persist but the runtime trap flag reset on reboot.
         HealOrphanedStrafe();
+        // Same for a Jelly-Legs jump-suppression gate orphaned by a save/quit
+        // while the trap was active: the gate may be restored from the save but
+        // the runtime trap flag reset on reboot, so clear it when no trap is live.
+        HealOrphanedJellyLegs();
         // Run the trap lifetime check on this first post-Bind tick too, so a
         // level transition restores the Obliviate spellbook immediately
         // (HarryRef is valid here) instead of one tick later — and before the
@@ -3111,6 +3253,9 @@ event Timer()
 
     // Shift-to-run upkeep: scale GroundSpeed + drain beans while sprinting.
     SprintTick();
+
+    // Jelly-Legs Jinx upkeep: count the hijack down and inject random jumps.
+    JellyLegsTick();
 
     // Free pixies from the 3s fly-in invulnerability the moment a cutscene ends.
     PixieCutsceneTick();
