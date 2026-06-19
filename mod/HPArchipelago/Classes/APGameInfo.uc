@@ -962,9 +962,10 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
     // BlockerClass overrides the default mesh; the Whomping Willow site passes
     // APFordAngliaBlocker so the chokepoint reads as a crashed car instead of
     // a stack of bookcases outdoors. All other sites fall through to the
-    // bookcase default. Tag-based unlock and the encroachment retry below
-    // work the same regardless of class.
-    if (BlockerClass == None) BlockerClass = class'BookcaseGlassDoors';
+    // APBookcaseBlocker default. Both carry the bumped-subtitle reminder; the
+    // Tag-based unlock and the encroachment retry below work the same
+    // regardless of class.
+    if (BlockerClass == None) BlockerClass = class'APBookcaseBlocker';
 
     blocker = Spawn(BlockerClass, None, Tag, Loc, Rot);
     if (blocker == None)
@@ -979,6 +980,12 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
     }
     if (blocker != None)
     {
+        // Tell the player which key clears this one when they bump it. Silent
+        // for an unrecognised Tag (BlockerMessageForTag returns "").
+        if (APBookcaseBlocker(blocker) != None)
+        {
+            APBookcaseBlocker(blocker).BlockMessage = BlockerMessageForTag(Tag);
+        }
         Log("[Archipelago] " $ string(Tag) $ ": spawned at " $ string(Loc) $ " Rotation=" $ string(Rot));
     }
     else
@@ -986,6 +993,31 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
         Log("[Archipelago] " $ string(Tag) $ ": Spawn returned None at " $ string(Loc) $ " (encroachment persists after clearing pawns; coords may need a tweak)");
     }
     return blocker;
+}
+
+// Subtitle a blocker shows when Harry bumps it, keyed by the spawn Tag. One
+// place for every level/challenge/ending line. Key names mirror
+// APCardWatcher.BlockerKeyNames; keep them in sync. The Great Hall gate has no
+// key (goal-evaluated), so it gets its own line. Empty for an unknown Tag,
+// which keeps that blocker silent.
+function string BlockerMessageForTag(name Tag)
+{
+    if (Tag == 'APOpenCastleChamberBlocker')         return "I'll need the Chamber of Secrets Key first.";
+    if (Tag == 'APOpenCastleSpongifyBlocker')        return "I'll need the Spongify Challenge Key first.";
+    if (Tag == 'APOpenCastleSkurgeBlocker')          return "I'll need the Skurge Challenge Key first.";
+    if (Tag == 'APOpenCastleRictusempraBlocker')     return "I'll need the Rictusempra Challenge Key first.";
+    if (Tag == 'APOpenCastleDiffindoBlocker')        return "I'll need the Diffindo Challenge Key first.";
+    if (Tag == 'APOpenCastleBoomslangBlocker')       return "I'll need the Boomslang Level Key first.";
+    if (Tag == 'APOpenCastleWillowBlocker')          return "I'll need the Whomping Willow Key first.";
+    if (Tag == 'APOpenCastleForbiddenForestBlocker') return "I'll need the Forbidden Forest Key first.";
+    if (Tag == 'APOpenCastleSlytherinBlocker')       return "I'll need the Slytherin Common Room Key first.";
+    if (Tag == 'APOpenCastleGoyleBlocker')           return "I'll need the Goyle Level Key first.";
+    if (Tag == 'APOpenCastleBicornBlocker')          return "I'll need the Bicorn Level Key first.";
+    if (Tag == 'APOpenCastleDuellingBlocker')        return "I'll need the Duelling Key first.";
+    if (Tag == 'APOpenCastleQuidditchBlocker')       return "I'll need the Quidditch Key first.";
+    if (Tag == 'APOpenCastleGryffindorBlocker')      return "I'll need the Gryffindor Challenge Key first.";
+    if (Tag == 'APOpenCastleGreatHallBlocker')       return "I'll have to reach my goal first.";
+    return "";
 }
 
 function DestroyTaggedOpenCastleBlockers(name Tag)
@@ -2317,8 +2349,10 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //                   the level and reverts when APCardWatcher sees the next level
 //                   change, like the Polyjuice trap.
 //   Levicorpus    - flips Harry upside down (Roll 32768) for the rest of the
-//                   level; APCardWatcher holds the roll each tick and the next
-//                   level's fresh pawn spawns upright, like the Polyjuice trap.
+//                   level; APCardWatcher holds the roll each tick and swaps the
+//                   strafe key bindings so the flipped right-axis does not reverse
+//                   strafing; the next level's fresh pawn spawns upright and the
+//                   bindings are swapped back, like the Polyjuice trap.
 //
 // Spider Swarm and Peeves are not implemented: they require an ad-hoc visible
 // world actor spawned mid-level, and this open castle build does not render actors
@@ -2440,7 +2474,8 @@ function bool TryApplyTrap(string Name, harry h)
     {
         // Flip Harry upside down (180 degree roll) for the rest of the level.
         // The watcher re-applies the roll each tick so walking physics can't
-        // right him, and the next level's fresh pawn spawns upright.
+        // right him, swaps the strafe bindings so the flip doesn't reverse
+        // strafing, and the next level's fresh pawn spawns upright.
         class'APCardWatcher'.static.MarkLevicorpusTrapActive(h);
         Log("[Archipelago] ApplyGrant: Levicorpus Trap - Harry flipped upside down (reverts on next level)");
         return True;
