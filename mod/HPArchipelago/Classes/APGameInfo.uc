@@ -2542,10 +2542,10 @@ function ApplyGrant(string Body)
     }
     Log("[Archipelago] ApplyGrant: targeting harry=" $ string(h) $ " managerStatus=" $ string(h.managerStatus));
 
-    // HUD toast feedback. Fires once per successful grant arrival — past
+    // HUD toast feedback. Fires once per successful grant arrival, past
     // FindGrantReadyHarry means delivery is happening (or about to). The grant
-    // queue's drain spacing (0.75s) prevents toast flooding. Chocolate Frog
-    // gets a per-item override sound (the frog ribbit) over the vendor whoosh.
+    // queue's drain spacing (0.75s) prevents toast flooding. GetGrantSoundForItem
+    // picks a per-type sound so each item kind is audibly distinct.
     toast = class'APHUDToast'.static.GetInstance();
     if (toast != None)
     {
@@ -2708,16 +2708,82 @@ function ApplyGrant(string Body)
     Log("[Archipelago] ApplyGrant: unknown item " $ ItemName);
 }
 
-// Returns a per-item toast sound override so audible feedback matches the
-// granted item's flavor instead of the generic vendor whoosh. None for items
-// without a flavor sound — the toast falls back to its default ToastSound.
+// Returns a per-item toast sound override so each item type sounds distinct
+// instead of all sharing the generic vendor whoosh. Returns None for anything
+// unmapped, which leaves the toast on its default ToastSound. Branch order is
+// load-bearing: "Bean Thief Trap" must hit the trap branch before the bean one.
 function Sound GetGrantSoundForItem(string ItemName)
 {
-    if (ItemName == "Chocolate Frog")
+    local string soundPath;
+    local int nameLen;
+
+    nameLen = Len(ItemName);
+
+    // Traps: Peeves' cackle, randomized across his six laugh takes. These live
+    // in AllDialog (loaded the way HPawn.PlayDialog resolves dialog), so the
+    // first trap in a level may page that package in.
+    if (nameLen >= 5 && Right(ItemName, 5) == " Trap")
     {
-        return Sound(DynamicLoadObject("HPSounds.Critters_sfx.pickup_frog", class'Sound'));
+        return Sound(DynamicLoadObject("AllDialog.PC_PVS_happy0" $ string(Rand(6) + 1) $ "fx", class'Sound'));
     }
-    return None;
+
+    // Spells: the spell-lesson reward jingle that plays after finishing a round
+    // of arrow casting. Played one-shot here so it overlays the current music.
+    if (IsKnownSpellName(ItemName))
+    {
+        soundPath = "HPSounds.Music_Events.sm_bur_PlayfulReward_01";
+    }
+    // Keys (blocker/level/challenge): the "house points awarded" reward sting.
+    else if (nameLen >= 4 && Right(ItemName, 4) == " Key")
+    {
+        soundPath = "HPSounds.Music_Events.sm_ent_HousePointGood_01";
+    }
+    // Quidditch equipment: a short crowd cheer.
+    else if (ItemName == "Nimbus 2001" || ItemName == "Quidditch Armour")
+    {
+        soundPath = "HPSounds.Quidditch_sfx.SS_QUID_Bigcheer_short_01";
+    }
+    // Cards: the native per-tier card pickup chimes.
+    else if (Left(ItemName, 11) == "Bronze Card")
+    {
+        soundPath = "HPSounds.Magic_sfx.pickup_WC_bronze";
+    }
+    else if (Left(ItemName, 11) == "Silver Card")
+    {
+        soundPath = "HPSounds.Magic_sfx.pickup_WC_silver";
+    }
+    else if (Left(ItemName, 9) == "Gold Card")
+    {
+        soundPath = "HPSounds.Magic_sfx.pickup_WC_gold";
+    }
+    // Brewing and ingredient filler: each keeps its own native sound.
+    else if (ItemName == "Wiggenweld Potion")
+    {
+        soundPath = "HPSounds.Magic_sfx.Potion_complete";
+    }
+    else if (ItemName == "Wiggentree Bark")
+    {
+        soundPath = "HPSounds.Magic_sfx.pickup_wig_bark";
+    }
+    else if (ItemName == "Flobberworm Mucous")
+    {
+        soundPath = "HPSounds.Magic_sfx.pickup_flob_mucus";
+    }
+    else if (ItemName == "Chocolate Frog")
+    {
+        soundPath = "HPSounds.Critters_sfx.pickup_frog";
+    }
+    // Bean jars and loose beans: the jellybean pickup sound.
+    else if (InStr(ItemName, "Bean") >= 0)
+    {
+        soundPath = "HPSounds.Magic_sfx.pickup11";
+    }
+    else
+    {
+        return None;
+    }
+
+    return Sound(DynamicLoadObject(soundPath, class'Sound'));
 }
 
 defaultproperties
