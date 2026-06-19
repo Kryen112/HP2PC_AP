@@ -243,6 +243,12 @@ var StatusItemWizardCards siGold;
 var byte WasOwnedByHarry[102];
 var bool bSnapshotted;
 
+// HarryRef.bIsCaptured from the previous Timer tick. Its falling edge (a
+// cutscene / player-capture just ended) is when harry.PlayerCutRelease re-arms
+// every pixie's 3s fly-in window. Instance state: resets with each per-level
+// watcher, which is correct since capture is level-local.
+var byte bWasCapturedPrev;
+
 // Folio emptiness sampled at Snapshot entry, BEFORE ReassertAPGrantedCards
 // re-asserts this slot's AP cards. A genuine new game binds with an empty
 // folio; a loaded save binds with its .usa folio already restored. The live
@@ -1911,6 +1917,45 @@ function SprintTick()
     }
 }
 
+// Collapse the post-cutscene pixie dead-zone. When a cutscene or player-capture
+// ends, harry.PlayerCutRelease throws every CornishPixie back into
+// stateLoopSplinePath, which re-arms a 3s StayOnSpline fly-in: eVulnerableToSpell
+// is SPELL_None for the duration and SpellCursor refuses the pixie as a lock-on
+// target, so Rictusempra appears unresponsive. On the capture-release edge,
+// zero that timer on any pixie still flying in so it is castable at once. Only
+// StayOnSpline is touched: the pixie's own Tick flips eVulnerableToSpell back
+// once StayOnSpline reads negative, leaving stunned / hit / run-away states and
+// the normal between-hits recovery window alone.
+function PixieCutsceneTick()
+{
+    local CornishPixie p;
+    local bool capturedNow;
+
+    if (HarryRef == None)
+    {
+        return;
+    }
+    capturedNow = HarryRef.bIsCaptured;
+    if (bWasCapturedPrev == 1 && !capturedNow)
+    {
+        foreach HarryRef.AllActors(class'CornishPixie', p)
+        {
+            if (p.IsInState('stateLoopSplinePath') && p.StayOnSpline > 0.0)
+            {
+                p.StayOnSpline = -1.0;
+            }
+        }
+    }
+    if (capturedNow)
+    {
+        bWasCapturedPrev = 1;
+    }
+    else
+    {
+        bWasCapturedPrev = 0;
+    }
+}
+
 // True while any game slowdown is lowering GroundSpeed: the Drowsiness Draught
 // Trap / organic pixie-dust sleepy effect (iSleepyAnimTimer), Skurge ectoplasm
 // (iEctoRefCount), or a spider web (iWebAnimRefCount). Each drives its own field
@@ -3066,6 +3111,9 @@ event Timer()
 
     // Shift-to-run upkeep: scale GroundSpeed + drain beans while sprinting.
     SprintTick();
+
+    // Free pixies from the 3s fly-in invulnerability the moment a cutscene ends.
+    PixieCutsceneTick();
 
     for (id = 1; id <= MAX_CARD_ID; id++)
     {
