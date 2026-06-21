@@ -44,3 +44,6 @@ tools/*.png
 # Local configs
 .env
 *.local.yaml
+
+# containersanity census draft (intermediate; folded into data/locations.yaml)
+tools/containers_census_out.yaml

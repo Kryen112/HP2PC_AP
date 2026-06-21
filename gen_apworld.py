@@ -61,6 +61,7 @@ LOCATION_CATEGORIES = (
     "challenge_stars",
     "level_completions",
     "tradersanity",
+    "containers",
 )
 
 # Non-card-location dedupe window. Mirrors `NONCARD_LOC_WINDOW` in
@@ -68,8 +69,10 @@ LOCATION_CATEGORIES = (
 # value. A non-card location whose id_offset >= this falls outside the mod's
 # NonCardLocationChecked[] array, so its dedupe is silently skipped and the
 # check re-fires on level re-entry / save-load. Card-location and item offsets
-# are deliberately NOT gated.
-NONCARD_LOC_WINDOW = 1024
+# are deliberately NOT gated. Widened to 2048 to hold the containersanity band
+# (offsets 1024+, 274 containers); the APCardWatcher.uc / APVendorMarker_Trader.uc
+# / APContainerMarker.uc array dims + consts were widened to the same value.
+NONCARD_LOC_WINDOW = 2048
 CARD_LOCATION_CATEGORY = "cards"
 
 
@@ -887,8 +890,22 @@ def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dic
         "# Per-location additional rules (on top of region entry).",
         "# Mode-dependent: HP2World selects vanilla or open castle at gen time.",
     ]
-    lines += _emit_location_table("LOCATION_RULES_VANILLA", logic_vanilla.get("locations") or {})
-    lines += _emit_location_table("LOCATION_RULES_OPEN_CASTLE", logic_open_castle.get("locations") or {})
+    # Container baseline rules: each container's requirement is just its opening
+    # spell (the `spell` field on the data/locations.yaml `containers` rows), so
+    # the rows need no hand-authored logic entry. setdefault means an explicit
+    # entry in logic_*.yaml `locations:` for the same name WINS — that is the
+    # refine-by-hand path (add `'<name>': { requires: "<spell> & ..." }`).
+    # BeanRewardRoom rows carry mode: open_castle, so they get an open-castle
+    # rule only (vanilla disables them via OPEN_CASTLE_ONLY_REGIONS).
+    van_locs = dict(logic_vanilla.get("locations") or {})
+    oc_locs = dict(logic_open_castle.get("locations") or {})
+    for row in locations.get("containers", []):
+        baseline = {"requires": row["spell"]}
+        oc_locs.setdefault(row["name"], baseline)
+        if row.get("mode") != "open_castle":
+            van_locs.setdefault(row["name"], baseline)
+    lines += _emit_location_table("LOCATION_RULES_VANILLA", van_locs)
+    lines += _emit_location_table("LOCATION_RULES_OPEN_CASTLE", oc_locs)
 
     lines.append("# goal_name -> direct item/logic rule for victory generation.")
     lines.append("# Vanilla only: open castle sets completion_condition from")
@@ -961,6 +978,16 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
         for lvl in expand_levels(row["level"]):
             vendor_sells_entries.append((lvl.upper(), row["vendor_name"], code))
 
+    # containersanity: (level, actor Name) -> AP id for every bean container.
+    # The mod's bring-up swap iterates the container families and uses this to
+    # tell which placed instances are AP locations (returns 0 for non-locations
+    # like card chests / decorative cauldrons, which it then leaves alone).
+    container_entries: list[tuple[str, str, int]] = []
+    for row in locations.get("containers", []):
+        ap_id = base_id + row["id_offset"]
+        for lvl in expand_levels(row["level"]):
+            container_entries.append((lvl.upper(), row["marker"], ap_id))
+
     def emit_lookup(fn_name: str, entries: list[tuple[str, str, int]]) -> list[str]:
         by_level: dict[str, list[tuple[str, int]]] = {}
         for lvl, marker, ap_id in entries:
@@ -988,7 +1015,7 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
     out_path = MOD_CLASSES_DIR / "APLocationRegistry.uc"
     lines = [
         "// Auto-generated. Do not edit by hand; regenerate from",
-        "// data/locations.yaml (secrets + challenge_stars + tradersanity sections).",
+        "// data/locations.yaml (secrets + challenge_stars + tradersanity + containers sections).",
         "class APLocationRegistry extends Object;",
         "",
     ]
@@ -1000,8 +1027,10 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
     lines.append("")
     lines += emit_lookup("GetVendorSells", vendor_sells_entries)
     lines.append("")
+    lines += emit_lookup("GetContainerLocationId", container_entries)
+    lines.append("")
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    return len(secret_entries) + len(star_entries) + len(vendor_entries)
+    return len(secret_entries) + len(star_entries) + len(vendor_entries) + len(container_entries)
 
 
 def emit_card_appearance_registry(locations: dict, base_id: int) -> int:
@@ -1155,6 +1184,145 @@ def emit_card_markers(items: dict) -> int:
     return written
 
 
+# containersanity container classes whose AP token is INJECTED into the
+# existing actor's eject set (chests/cauldrons, which spawn EjectedObjects on
+# open). Everything else in `containers` is a GenericSpawner leaf that gets
+# SWAPPED for an APContainerSpawner_<Leaf> subclass. Matched case-insensitively
+# against the row `class`.
+CONTAINER_INJECT_CLASSES = frozenset({
+    "chestbronze", "chestwood", "chestgold", "chestiron", "bronzecauldron",
+})
+
+
+def _spawner_subclass_text(leaf: str) -> str:
+    """A thin GenericSpawner-leaf subclass that ejects the stamped AP token once,
+    from inside the goodie-spawn loop (SpawnObject) so it pops out with the beans
+    at the right time/place, then defers to the parent. Identical body per leaf
+    (only the parent differs); APCardWatcher.SwapContainerSpawner stamps
+    CheckLocationId."""
+    return (
+        "// Auto-generated. Do not edit by hand; regenerate from\n"
+        "// data/locations.yaml (containers) via gen_apworld.py.\n"
+        f"// Bring-up swap target for {leaf} containers: ejects the stamped AP\n"
+        "// token once from inside the goodie loop (so it pops with the beans),\n"
+        "// then behaves exactly like its parent.\n"
+        f"class APContainerSpawner_{leaf} extends {leaf};\n"
+        "\n"
+        "var int CheckLocationId;\n"
+        "var bool bAPTokenEjected;\n"
+        "\n"
+        "// Hook the goodie spawn, not HandleSpell*: SpawnObject runs after the\n"
+        "// open animation, once per ejected goodie, so the token appears with the\n"
+        "// beans (right timing + position) and on the FIRST hit no matter how many\n"
+        "// lives the box has.\n"
+        "function SpawnObject(int Index)\n"
+        "{\n"
+        "    Super.SpawnObject(Index);\n"
+        "    if (bAPTokenEjected) return;\n"
+        "    bAPTokenEjected = True;\n"
+        "    Log(\"[Archipelago] APContainerSpawner.SpawnObject: first goodie, CheckLocationId=\" $ string(CheckLocationId));\n"
+        "    if (CheckLocationId > 0)\n"
+        "    {\n"
+        "        EjectAPToken();\n"
+        "    }\n"
+        "}\n"
+        "\n"
+        "function EjectAPToken()\n"
+        "{\n"
+        "    local APContainerMarker m;\n"
+        "    local Vector dir, vel;\n"
+        "    local float angle;\n"
+        "\n"
+        "    dir = StartPos >> Rotation;\n"
+        "    dir = dir + Location;\n"
+        "    m = Spawn(class'APContainerMarker', , , dir);\n"
+        "    if (m == None)\n"
+        "    {\n"
+        "        dir = Location;\n"
+        "        dir.Z += 24.0;\n"
+        "        m = Spawn(class'APContainerMarker', , , dir);\n"
+        "    }\n"
+        "    if (m == None)\n"
+        "    {\n"
+        "        Log(\"[Archipelago] APContainerSpawner.EjectAPToken: Spawn FAILED for loc \" $ string(CheckLocationId));\n"
+        "        return;\n"
+        "    }\n"
+        "    m.CheckLocationId = CheckLocationId;\n"
+        "    angle = FRand() * 6.2831853;\n"
+        "    vel.X = 70.0 * Cos(angle);\n"
+        "    vel.Y = 70.0 * Sin(angle);\n"
+        "    vel.Z = 100.0 + FRand() * 80.0;\n"
+        "    m.Velocity = vel;\n"
+        "    m.SetPhysics(PHYS_Falling);\n"
+        "    m.ApplyAPAppearance();\n"
+        "    Log(\"[Archipelago] APContainerSpawner: ejected AP token for loc \" $ string(CheckLocationId));\n"
+        "}\n"
+    )
+
+
+def emit_container_classes(locations: dict, base_id: int) -> tuple[int, int]:
+    """Emit the generated mod classes for containersanity:
+      - per-location APContainerMarker_<offset>.uc for INJECT containers
+        (chests/cauldrons), CheckLocationId baked into defaults; the runtime
+        loads them by name "APContainerMarker_<apId - LOC_BASE>".
+      - one APContainerSpawner_<Leaf>.uc per distinct SWAP leaf (GenericSpawner
+        family); the runtime loads them by name "APContainerSpawner_<class>".
+    Stale generated files are removed first so a census change leaves no orphans.
+    Returns (inject_count, swap_leaf_count)."""
+    for old in MOD_CLASSES_DIR.glob("APContainerMarker_*.uc"):
+        old.unlink()
+    for old in MOD_CLASSES_DIR.glob("APContainerSpawner_*.uc"):
+        old.unlink()
+
+    inject_n = 0
+    swap_leaves: set[str] = set()
+    for row in locations.get("containers", []):
+        cls = row["class"]
+        if cls.lower() in CONTAINER_INJECT_CLASSES:
+            offset = row["id_offset"]
+            ap_id = base_id + offset
+            (MOD_CLASSES_DIR / f"APContainerMarker_{offset}.uc").write_text(
+                "// Auto-generated. Do not edit by hand; regenerate from\n"
+                "// data/locations.yaml (containers) via gen_apworld.py.\n"
+                f"class APContainerMarker_{offset} extends APContainerMarker;\n"
+                "\n"
+                "defaultproperties\n"
+                "{\n"
+                f"    CheckLocationId={ap_id}\n"
+                "}\n",
+                encoding="utf-8",
+            )
+            inject_n += 1
+        else:
+            swap_leaves.add(cls)
+
+    for leaf in sorted(swap_leaves):
+        (MOD_CLASSES_DIR / f"APContainerSpawner_{leaf}.uc").write_text(
+            _spawner_subclass_text(leaf), encoding="utf-8")
+
+    # Reliable CheckLocationId stamp: SetPropertyText proved unreliable across
+    # the subclasses, so APCardWatcher.SwapContainerSpawner stamps via this
+    # generated cast-chain (one downcast per swap leaf, direct property set).
+    stamp = [
+        "// Auto-generated. Do not edit by hand; regenerate from",
+        "// data/locations.yaml (containers) via gen_apworld.py.",
+        "class APContainerStamp extends Object;",
+        "",
+        "// Set CheckLocationId on a freshly-swapped container spawner. Returns",
+        "// False if the actor is not a known APContainerSpawner_<Leaf>.",
+        "static function bool Stamp(Actor a, int apId)",
+        "{",
+    ]
+    for leaf in sorted(swap_leaves):
+        stamp.append(
+            f"    if (APContainerSpawner_{leaf}(a) != None)"
+            f" {{ APContainerSpawner_{leaf}(a).CheckLocationId = apId; return True; }}")
+    stamp += ["    return False;", "}", ""]
+    (MOD_CLASSES_DIR / "APContainerStamp.uc").write_text("\n".join(stamp), encoding="utf-8")
+
+    return inject_n, len(swap_leaves)
+
+
 def build_apworld_zip() -> Path | None:
     """Invoke AP's native `Build APWorlds` Launcher component to package the
     apworld dir into a cross-platform `.apworld` zip — the dev loop's junction
@@ -1218,6 +1386,7 @@ def main() -> int:
     n_secrets = len(locations.get("secrets", []))
     n_stars = len(locations.get("challenge_stars", []))
     n_tradersanity = len(locations.get("tradersanity", []))
+    n_containers = len(locations.get("containers", []))
     known_items = collect_known_items(items)
     try:
         validate(items, locations)
@@ -1285,6 +1454,7 @@ def main() -> int:
     n_markers = emit_card_markers(items)
     n_registry = emit_location_registry(locations, locations["base_id"])
     n_appearance = emit_card_appearance_registry(locations, locations["base_id"])
+    n_cont_inject, n_cont_swap = emit_container_classes(locations, locations["base_id"])
 
     n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "blocker_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
@@ -1292,12 +1462,13 @@ def main() -> int:
     n_loc_rules_v = sum(1 for m in (logic_vanilla.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     n_loc_rules_oc = sum(1 for m in (logic_open_castle.get("locations") or {}).values() if (m or {}).get("requires", "true") not in ("true", ""))
     print(f"Wrote {items_py} ({n_items} items)")
-    print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars + {n_tradersanity} tradersanity)")
+    print(f"Wrote {locations_py} ({n_locs} locations: {n_secrets} secrets + {n_stars} stars + {n_tradersanity} tradersanity + {n_containers} containers)")
     print(f"Wrote {regions_py} ({n_regions} regions, start={start_region!r})")
     print(f"Wrote {rules_py} (vanilla: {n_loc_rules_v} per-loc rules, {len(logic_vanilla.get('goal') or {})} goal(s); open castle: {n_loc_rules_oc}, {len(logic_open_castle.get('goal') or {})})")
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
-    print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star+vendor registrations)")
+    print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star+vendor+container registrations)")
     print(f"Wrote APCardAppearance.uc ({n_appearance} card id registrations)")
+    print(f"Wrote {n_cont_inject} APContainerMarker_<offset>.uc + {n_cont_swap} APContainerSpawner_<Leaf>.uc files in {MOD_CLASSES_DIR}")
 
     zip_path = build_apworld_zip()
     if zip_path is not None:

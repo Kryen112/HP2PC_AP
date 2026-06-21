@@ -1,5 +1,5 @@
 // Auto-generated. Do not edit by hand; regenerate from
-// data/locations.yaml (secrets + challenge_stars + tradersanity sections).
+// data/locations.yaml (secrets + challenge_stars + tradersanity + containers sections).
 class APLocationRegistry extends Object;
 
 static function int GetSecretLocationId(string LevelName, string MarkerName)
@@ -310,6 +310,337 @@ static function int GetVendorSells(string LevelName, string MarkerName)
         if (MarkerName == "GFemSly4") return 5;
         if (MarkerName == "GMaleGry2") return 3;
         if (MarkerName == "GMaleGry3") return 4;
+    }
+    return 0;
+}
+
+static function int GetContainerLocationId(string LevelName, string MarkerName)
+{
+    LevelName = Caps(LevelName);
+    if (LevelName == "ADV11ACORRIDOR")
+    {
+        if (MarkerName == "BarkSpawn0") return 5761024;
+        if (MarkerName == "ChestGold0") return 5761025;
+        if (MarkerName == "ChestGold1") return 5761026;
+        if (MarkerName == "ChestGold2") return 5761027;
+        if (MarkerName == "ChestGold3") return 5761028;
+        if (MarkerName == "ChestIron0") return 5761029;
+        if (MarkerName == "ChestIron1") return 5761030;
+        if (MarkerName == "MucusSpawn0") return 5761031;
+        if (MarkerName == "bronzecauldron0") return 5761032;
+        if (MarkerName == "bronzecauldron1") return 5761033;
+        if (MarkerName == "bronzecauldron2") return 5761034;
+        if (MarkerName == "bronzecauldron3") return 5761035;
+        if (MarkerName == "bronzecauldron4") return 5761036;
+        if (MarkerName == "bronzecauldron5") return 5761037;
+        if (MarkerName == "bronzecauldron6") return 5761038;
+    }
+    else if (LevelName == "ADV11BSECRETS")
+    {
+        if (MarkerName == "BarkSpawn0") return 5761039;
+        if (MarkerName == "BarkSpawn3") return 5761040;
+        if (MarkerName == "ChestGold0") return 5761041;
+        if (MarkerName == "MucusSpawn0") return 5761042;
+        if (MarkerName == "MucusSpawn3") return 5761043;
+        if (MarkerName == "bronzecauldron0") return 5761044;
+        if (MarkerName == "bronzecauldron1") return 5761045;
+        if (MarkerName == "bronzecauldron8") return 5761046;
+    }
+    else if (LevelName == "ADV1WILLOW")
+    {
+        if (MarkerName == "ChestWood1") return 5761047;
+        if (MarkerName == "ChestWood2") return 5761048;
+        if (MarkerName == "ChestWood4") return 5761049;
+        if (MarkerName == "ChestWood5") return 5761050;
+        if (MarkerName == "ChestWood6") return 5761051;
+        if (MarkerName == "Knightspawn2") return 5761052;
+        if (MarkerName == "Knightspawn3") return 5761053;
+    }
+    else if (LevelName == "ADV3DUNGEONQUEST")
+    {
+        if (MarkerName == "BarkSpawn4") return 5761054;
+        if (MarkerName == "BarkSpawn5") return 5761055;
+        if (MarkerName == "ChestGold0") return 5761056;
+        if (MarkerName == "ChestIron0") return 5761057;
+        if (MarkerName == "ChestIron3") return 5761058;
+        if (MarkerName == "ChestIron4") return 5761059;
+        if (MarkerName == "ChestIron5") return 5761060;
+        if (MarkerName == "ChestIron6") return 5761061;
+        if (MarkerName == "ChestIron7") return 5761062;
+        if (MarkerName == "ChestIron8") return 5761063;
+        if (MarkerName == "ChestIron9") return 5761064;
+        if (MarkerName == "MucusSpawn0") return 5761065;
+        if (MarkerName == "MucusSpawn2") return 5761066;
+        if (MarkerName == "bronzecauldron0") return 5761067;
+        if (MarkerName == "bronzecauldron1") return 5761068;
+        if (MarkerName == "bronzecauldron2") return 5761069;
+        if (MarkerName == "bronzecauldron3") return 5761070;
+        if (MarkerName == "bronzecauldron4") return 5761071;
+        if (MarkerName == "bronzecauldron5") return 5761072;
+    }
+    else if (LevelName == "ADV4GREENHOUSE")
+    {
+        if (MarkerName == "ChestWood0") return 5761073;
+        if (MarkerName == "MucusSpawn1") return 5761074;
+        if (MarkerName == "OilCanSpawn0") return 5761075;
+        if (MarkerName == "OilCanSpawn2") return 5761076;
+        if (MarkerName == "OilCanSpawn3") return 5761077;
+        if (MarkerName == "PlantPotSpawn0") return 5761078;
+        if (MarkerName == "PlantPotSpawn1") return 5761079;
+        if (MarkerName == "PlantPotSpawn2") return 5761080;
+        if (MarkerName == "PlantPotSpawn3") return 5761081;
+        if (MarkerName == "PlantPotSpawn4") return 5761082;
+        if (MarkerName == "PlantPotSpawn5") return 5761083;
+    }
+    else if (LevelName == "ADV6GOYLE")
+    {
+        if (MarkerName == "ChestIron0") return 5761084;
+        if (MarkerName == "ChestIron1") return 5761085;
+        if (MarkerName == "ChestIron10") return 5761086;
+        if (MarkerName == "ChestIron4") return 5761087;
+        if (MarkerName == "ChestIron5") return 5761088;
+        if (MarkerName == "ChestIron7") return 5761089;
+        if (MarkerName == "ChestIron9") return 5761090;
+        if (MarkerName == "ChestWood0") return 5761091;
+        if (MarkerName == "ChestWood3") return 5761092;
+        if (MarkerName == "ChestWood5") return 5761093;
+        if (MarkerName == "ChestWood6") return 5761094;
+        if (MarkerName == "MucusSpawn0") return 5761095;
+        if (MarkerName == "bronzecauldron1") return 5761096;
+        if (MarkerName == "bronzecauldron2") return 5761097;
+        if (MarkerName == "bronzecauldron3") return 5761098;
+        if (MarkerName == "bronzecauldron4") return 5761099;
+    }
+    else if (LevelName == "ADV7SLYTHCOMROOM")
+    {
+        if (MarkerName == "BarkSpawn1") return 5761100;
+        if (MarkerName == "ChestIron0") return 5761101;
+        if (MarkerName == "ChestWood0") return 5761102;
+        if (MarkerName == "ChestWood1") return 5761103;
+        if (MarkerName == "Knightspawn0") return 5761104;
+        if (MarkerName == "Knightspawn1") return 5761105;
+        if (MarkerName == "Knightspawn2") return 5761106;
+        if (MarkerName == "Knightspawn3") return 5761107;
+        if (MarkerName == "Knightspawn4") return 5761108;
+        if (MarkerName == "Knightspawn5") return 5761109;
+        if (MarkerName == "Knightspawn6") return 5761110;
+        if (MarkerName == "MucusSpawn1") return 5761111;
+        if (MarkerName == "bronzecauldron0") return 5761112;
+        if (MarkerName == "bronzecauldron1") return 5761113;
+        if (MarkerName == "chestbronze2") return 5761114;
+    }
+    else if (LevelName == "ADV8FOREST")
+    {
+        if (MarkerName == "ChestGold0") return 5761115;
+        if (MarkerName == "ChestWood0") return 5761116;
+        if (MarkerName == "GenericSpawner0") return 5761117;
+        if (MarkerName == "MucusSpawn0") return 5761118;
+        if (MarkerName == "MucusSpawn1") return 5761119;
+    }
+    else if (LevelName == "BEANREWARDROOM")
+    {
+        if (MarkerName == "ChestGold0") return 5761120;
+        if (MarkerName == "ChestGold1") return 5761121;
+        if (MarkerName == "ChestGold2") return 5761122;
+        if (MarkerName == "ChestGold3") return 5761123;
+        if (MarkerName == "ChestGold4") return 5761124;
+        if (MarkerName == "ChestGold5") return 5761125;
+        if (MarkerName == "GenericSpawner0") return 5761126;
+    }
+    else if (LevelName == "CH1RICTUSEMPRA")
+    {
+        if (MarkerName == "ChestGold0") return 5761127;
+        if (MarkerName == "ChestGold3") return 5761128;
+        if (MarkerName == "ChestGold4") return 5761129;
+        if (MarkerName == "ChestGold6") return 5761130;
+        if (MarkerName == "ChestIron2") return 5761131;
+        if (MarkerName == "ChestIron3") return 5761132;
+        if (MarkerName == "bronzecauldron0") return 5761133;
+        if (MarkerName == "bronzecauldron1") return 5761134;
+        if (MarkerName == "bronzecauldron2") return 5761135;
+        if (MarkerName == "bronzecauldron3") return 5761136;
+        if (MarkerName == "bronzecauldron4") return 5761137;
+    }
+    else if (LevelName == "CH2SKURGE")
+    {
+        if (MarkerName == "BarkSpawn1") return 5761138;
+        if (MarkerName == "ChestGold0") return 5761139;
+        if (MarkerName == "ChestGold4") return 5761140;
+        if (MarkerName == "ChestGold6") return 5761141;
+        if (MarkerName == "ChestGold7") return 5761142;
+        if (MarkerName == "CigarBoxSpawn0") return 5761143;
+        if (MarkerName == "DecanterSpawn0") return 5761144;
+        if (MarkerName == "DecanterSpawn1") return 5761145;
+        if (MarkerName == "JewelBoxSpawn1") return 5761146;
+        if (MarkerName == "Knightspawn0") return 5761147;
+        if (MarkerName == "Knightspawn1") return 5761148;
+        if (MarkerName == "MucusSpawn2") return 5761149;
+        if (MarkerName == "MusicBoxSpawn0") return 5761150;
+        if (MarkerName == "bronzecauldron0") return 5761151;
+        if (MarkerName == "bronzecauldron1") return 5761152;
+        if (MarkerName == "bronzecauldron10") return 5761153;
+        if (MarkerName == "bronzecauldron11") return 5761154;
+        if (MarkerName == "bronzecauldron12") return 5761155;
+        if (MarkerName == "bronzecauldron13") return 5761156;
+        if (MarkerName == "bronzecauldron14") return 5761157;
+        if (MarkerName == "bronzecauldron15") return 5761158;
+        if (MarkerName == "bronzecauldron2") return 5761159;
+        if (MarkerName == "bronzecauldron5") return 5761160;
+        if (MarkerName == "bronzecauldron8") return 5761161;
+        if (MarkerName == "chestbronze1") return 5761162;
+        if (MarkerName == "chestbronze7") return 5761163;
+    }
+    else if (LevelName == "CH3DIFFINDO")
+    {
+        if (MarkerName == "ChestWood0") return 5761164;
+        if (MarkerName == "ChestWood11") return 5761165;
+        if (MarkerName == "ChestWood12") return 5761166;
+        if (MarkerName == "ChestWood13") return 5761167;
+        if (MarkerName == "ChestWood2") return 5761168;
+        if (MarkerName == "ChestWood6") return 5761169;
+        if (MarkerName == "JewelBoxSpawn0") return 5761170;
+        if (MarkerName == "Knightspawn0") return 5761171;
+        if (MarkerName == "Knightspawn1") return 5761172;
+        if (MarkerName == "MucusSpawn0") return 5761173;
+        if (MarkerName == "MucusSpawn2") return 5761174;
+        if (MarkerName == "MucusSpawn5") return 5761175;
+        if (MarkerName == "MucusSpawn6") return 5761176;
+        if (MarkerName == "OilCanSpawn0") return 5761177;
+        if (MarkerName == "OilCanSpawn1") return 5761178;
+        if (MarkerName == "OilCanSpawn2") return 5761179;
+        if (MarkerName == "OilCanSpawn3") return 5761180;
+        if (MarkerName == "PlantPotSpawn0") return 5761181;
+        if (MarkerName == "PlantPotSpawn1") return 5761182;
+        if (MarkerName == "PlantPotSpawn10") return 5761183;
+        if (MarkerName == "PlantPotSpawn2") return 5761184;
+        if (MarkerName == "PlantPotSpawn3") return 5761185;
+        if (MarkerName == "PlantPotSpawn4") return 5761186;
+        if (MarkerName == "PlantPotSpawn5") return 5761187;
+        if (MarkerName == "PlantPotSpawn6") return 5761188;
+        if (MarkerName == "PlantPotSpawn7") return 5761189;
+        if (MarkerName == "PlantPotSpawn8") return 5761190;
+        if (MarkerName == "PlantPotSpawn9") return 5761191;
+        if (MarkerName == "bronzecauldron0") return 5761192;
+        if (MarkerName == "bronzecauldron1") return 5761193;
+        if (MarkerName == "bronzecauldron2") return 5761194;
+        if (MarkerName == "bronzecauldron3") return 5761195;
+        if (MarkerName == "bronzecauldron5") return 5761196;
+        if (MarkerName == "bronzecauldron6") return 5761197;
+        if (MarkerName == "bronzecauldron7") return 5761198;
+    }
+    else if (LevelName == "CH4SPONGIFY")
+    {
+        if (MarkerName == "BarkSpawn2") return 5761199;
+        if (MarkerName == "BarkSpawn4") return 5761200;
+        if (MarkerName == "BarkSpawn5") return 5761201;
+        if (MarkerName == "ChestGold0") return 5761202;
+        if (MarkerName == "ChestGold1") return 5761203;
+        if (MarkerName == "ChestGold2") return 5761204;
+        if (MarkerName == "ChestIron4") return 5761205;
+        if (MarkerName == "ChestWood0") return 5761206;
+        if (MarkerName == "ChestWood2") return 5761207;
+        if (MarkerName == "ChestWood3") return 5761208;
+        if (MarkerName == "ChestWood5") return 5761209;
+        if (MarkerName == "ChestWood8") return 5761210;
+        if (MarkerName == "CigarBoxSpawn1") return 5761211;
+        if (MarkerName == "DecanterSpawn0") return 5761212;
+        if (MarkerName == "DecanterSpawn1") return 5761213;
+        if (MarkerName == "MucusSpawn0") return 5761214;
+        if (MarkerName == "MucusSpawn3") return 5761215;
+        if (MarkerName == "MucusSpawn5") return 5761216;
+        if (MarkerName == "MusicBoxSpawn0") return 5761217;
+        if (MarkerName == "bronzecauldron0") return 5761218;
+        if (MarkerName == "bronzecauldron1") return 5761219;
+        if (MarkerName == "bronzecauldron6") return 5761220;
+        if (MarkerName == "bronzecauldron7") return 5761221;
+    }
+    else if (LevelName == "CH7GRYFFINDOR")
+    {
+        if (MarkerName == "bronzecauldron0") return 5761222;
+        if (MarkerName == "bronzecauldron1") return 5761223;
+        if (MarkerName == "bronzecauldron2") return 5761224;
+        if (MarkerName == "bronzecauldron3") return 5761225;
+        if (MarkerName == "bronzecauldron7") return 5761226;
+        if (MarkerName == "chestbronze0") return 5761227;
+        if (MarkerName == "chestbronze1") return 5761228;
+        if (MarkerName == "chestbronze10") return 5761229;
+        if (MarkerName == "chestbronze11") return 5761230;
+        if (MarkerName == "chestbronze12") return 5761231;
+        if (MarkerName == "chestbronze13") return 5761232;
+        if (MarkerName == "chestbronze14") return 5761233;
+        if (MarkerName == "chestbronze15") return 5761234;
+        if (MarkerName == "chestbronze16") return 5761235;
+        if (MarkerName == "chestbronze18") return 5761236;
+        if (MarkerName == "chestbronze19") return 5761237;
+        if (MarkerName == "chestbronze2") return 5761238;
+        if (MarkerName == "chestbronze22") return 5761239;
+        if (MarkerName == "chestbronze23") return 5761240;
+        if (MarkerName == "chestbronze24") return 5761241;
+        if (MarkerName == "chestbronze25") return 5761242;
+        if (MarkerName == "chestbronze3") return 5761243;
+        if (MarkerName == "chestbronze4") return 5761244;
+        if (MarkerName == "chestbronze5") return 5761245;
+        if (MarkerName == "chestbronze6") return 5761246;
+        if (MarkerName == "chestbronze7") return 5761247;
+        if (MarkerName == "chestbronze9") return 5761248;
+    }
+    else if (LevelName == "ENTRYHALL_HUB")
+    {
+        if (MarkerName == "BarkSpawn0") return 5761249;
+        if (MarkerName == "ChestGold0") return 5761250;
+        if (MarkerName == "ChestWood10") return 5761251;
+        if (MarkerName == "ChestWood11") return 5761252;
+        if (MarkerName == "ChestWood12") return 5761253;
+        if (MarkerName == "ChestWood2") return 5761254;
+        if (MarkerName == "ChestWood5") return 5761255;
+        if (MarkerName == "ChestWood9") return 5761256;
+        if (MarkerName == "GenericSpawner0") return 5761257;
+        if (MarkerName == "Knightspawn0") return 5761258;
+        if (MarkerName == "Knightspawn1") return 5761259;
+        if (MarkerName == "Knightspawn2") return 5761260;
+        if (MarkerName == "Knightspawn3") return 5761261;
+        if (MarkerName == "MucusSpawn0") return 5761262;
+    }
+    else if (LevelName == "GRANDSTAIRCASE_HUB")
+    {
+        if (MarkerName == "ChestIron0") return 5761263;
+        if (MarkerName == "ChestWood10") return 5761264;
+        if (MarkerName == "ChestWood11") return 5761265;
+        if (MarkerName == "ChestWood12") return 5761266;
+        if (MarkerName == "ChestWood13") return 5761267;
+        if (MarkerName == "ChestWood7") return 5761268;
+        if (MarkerName == "ChestWood8") return 5761269;
+        if (MarkerName == "ChestWood9") return 5761270;
+        if (MarkerName == "CigarBoxSpawn0") return 5761271;
+        if (MarkerName == "CigarBoxSpawn1") return 5761272;
+        if (MarkerName == "CigarBoxSpawn2") return 5761273;
+        if (MarkerName == "DecanterSpawn0") return 5761274;
+        if (MarkerName == "DecanterSpawn1") return 5761275;
+        if (MarkerName == "DecanterSpawn2") return 5761276;
+        if (MarkerName == "JewelBoxSpawn0") return 5761277;
+        if (MarkerName == "JewelBoxSpawn1") return 5761278;
+        if (MarkerName == "Knightspawn0") return 5761279;
+        if (MarkerName == "MusicBoxSpawn0") return 5761280;
+        if (MarkerName == "bronzecauldron0") return 5761281;
+        if (MarkerName == "bronzecauldron1") return 5761282;
+        if (MarkerName == "bronzecauldron2") return 5761283;
+        if (MarkerName == "bronzecauldron3") return 5761284;
+        if (MarkerName == "bronzecauldron4") return 5761285;
+        if (MarkerName == "bronzecauldron5") return 5761286;
+        if (MarkerName == "bronzecauldron6") return 5761287;
+        if (MarkerName == "bronzecauldron7") return 5761288;
+    }
+    else if (LevelName == "GROUNDS_HUB")
+    {
+        if (MarkerName == "ChestWood10") return 5761289;
+        if (MarkerName == "ChestWood11") return 5761290;
+        if (MarkerName == "ChestWood12") return 5761291;
+        if (MarkerName == "ChestWood13") return 5761292;
+        if (MarkerName == "ChestWood14") return 5761293;
+        if (MarkerName == "ChestWood3") return 5761294;
+        if (MarkerName == "ChestWood7") return 5761295;
+        if (MarkerName == "ChestWood8") return 5761296;
+        if (MarkerName == "ChestWood9") return 5761297;
     }
     return 0;
 }

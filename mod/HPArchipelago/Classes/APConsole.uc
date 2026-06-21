@@ -109,6 +109,147 @@ exec function DumpActors(optional string Filter)
     DevPrint("DumpActors: " $ n $ " actor(s) logged");
 }
 
+// containersanity census. Log every in-scope bean-dropping container in the
+// current level with the fields the codegen needs: level, family, class,
+// Name (the stable key the runtime resolves via GetContainerLocationId), tag,
+// opening spell (eVulnerableToSpell ordinal: 0=None, 1=Alohomora, 13=Flipendo),
+// lives, whether it already hosts a wizard card, the classes it ejects, and
+// location. The parser keeps only true bean-droppers: it drops hascard=1 (those
+// stay CARD locations), spell=0 (decorative props that can't be opened), and
+// non-bean spawners (ingredient Bark/Mucus, etc.) by inspecting drops=. Per-
+// container lines go to Game.log; the header/footer echo to chat. Run once on
+// fresh entry to each level (walk the whole castle to cover every map;
+// GenericSpawner toggles its own spell mid-hit, so a fresh level reads the true
+// opening spell):
+//   DumpContainers
+exec function DumpContainers()
+{
+    local chestbronze chest;
+    local BronzeCauldron bcaul;
+    local HCauldron hcaul;
+    local GenericSpawner gs;
+    local HFlipendo vase;
+    local string lvl, cn, drops;
+    local int n, hasCard;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        Log("[Archipelago] APConsole.DumpContainers: no Viewport.Actor");
+        return;
+    }
+    lvl = Caps(string(Viewport.Actor.Level.Outer.Name));
+    DevPrint("DumpContainers Level=" $ lvl $ " - see Game.log");
+
+    // chestbronze covers ChestGold/Iron/Wood; BronzeCauldron and HCauldron
+    // (CauldronSmall/Student/Teacher) are sibling cauldron trees; GenericSpawner
+    // covers cigar/decanter/jewel/music/oil can/plant pot AND non-bean spawners
+    // (Bark/Mucus/Invisible/Knight) the parser filters on drops=; HFlipendo
+    // covers the vases. Only BronzeCauldron/chestbronze host cards.
+    foreach Viewport.Actor.AllActors(class'chestbronze', chest)
+    {
+        drops = EjectorDrops_Chest(chest, hasCard);
+        LogContainer(lvl, "chest", chest, hasCard, 1, drops);
+        n++;
+    }
+    foreach Viewport.Actor.AllActors(class'BronzeCauldron', bcaul)
+    {
+        drops = EjectorDrops_Cauldron(bcaul, hasCard);
+        LogContainer(lvl, "cauldron", bcaul, hasCard, 1, drops);
+        n++;
+    }
+    foreach Viewport.Actor.AllActors(class'HCauldron', hcaul)
+    {
+        LogContainer(lvl, "cauldron", hcaul, 0, 1, "");
+        n++;
+    }
+    foreach Viewport.Actor.AllActors(class'GenericSpawner', gs)
+    {
+        drops = EjectorDrops_Spawner(gs);
+        LogContainer(lvl, "spawner", gs, 0, gs.Lives, drops);
+        n++;
+    }
+    foreach Viewport.Actor.AllActors(class'HFlipendo', vase)
+    {
+        cn = Caps(string(vase.Class.Name));
+        if (InStr(cn, "BROKEN") >= 0 || InStr(cn, "SHARD") >= 0)
+        {
+            continue;  // post-break debris, not an openable container
+        }
+        LogContainer(lvl, "vase", vase, 0, 1, "");
+        n++;
+    }
+    DevPrint("DumpContainers: " $ n $ " container(s) logged (see Game.log)");
+}
+
+// One parseable census line per container. `name=` is the engine actor Name
+// the runtime watcher resolves via APLocationRegistry.GetContainerLocationId;
+// `spell=` reads the Pawn eVulnerableToSpell ordinal every family inherits;
+// `drops=` is the de-duplicated list of ejected classes so the parser keeps
+// only bean-droppers.
+function LogContainer(string lvl, string fam, Actor c, int hasCard, int lives, string drops)
+{
+    Log("[Archipelago]   container level=" $ lvl
+        $ " family=" $ fam
+        $ " class=" $ string(c.Class.Name)
+        $ " name=" $ string(c.Name)
+        $ " tag=" $ string(c.Tag)
+        $ " spell=" $ string(HPawn(c).eVulnerableToSpell)
+        $ " lives=" $ string(lives)
+        $ " hascard=" $ string(hasCard)
+        $ " drops=" $ drops
+        $ " loc=" $ string(c.Location));
+}
+
+// Distinct ejected classes of a chest; sets hasCard if any slot is a
+// WizardCardIcon child. The AP card markers are WizardCardIcon subclasses, so
+// this stays true after ReplaceCardChests swaps the slot — card chests are
+// reliably flagged whether or not the swap has run yet.
+function string EjectorDrops_Chest(chestbronze chest, out int hasCard)
+{
+    local int i;
+    local string s, cn;
+
+    hasCard = 0;
+    for (i = 0; i < ArrayCount(chest.EjectedObjects); i++)
+    {
+        if (chest.EjectedObjects[i] == None) continue;
+        if (ClassIsChildOf(chest.EjectedObjects[i], class'WizardCardIcon')) hasCard = 1;
+        cn = string(chest.EjectedObjects[i]);
+        if (InStr(s, cn) < 0) s = s $ cn $ ";";
+    }
+    return s;
+}
+
+function string EjectorDrops_Cauldron(BronzeCauldron caul, out int hasCard)
+{
+    local int i;
+    local string s, cn;
+
+    hasCard = 0;
+    for (i = 0; i < ArrayCount(caul.EjectedObjects); i++)
+    {
+        if (caul.EjectedObjects[i] == None) continue;
+        if (ClassIsChildOf(caul.EjectedObjects[i], class'WizardCardIcon')) hasCard = 1;
+        cn = string(caul.EjectedObjects[i]);
+        if (InStr(s, cn) < 0) s = s $ cn $ ";";
+    }
+    return s;
+}
+
+function string EjectorDrops_Spawner(GenericSpawner gs)
+{
+    local int i;
+    local string s, cn;
+
+    for (i = 0; i < ArrayCount(gs.GoodieToSpawn); i++)
+    {
+        if (gs.GoodieToSpawn[i] == None) continue;
+        cn = string(gs.GoodieToSpawn[i]);
+        if (InStr(s, cn) < 0) s = s $ cn $ ";";
+    }
+    return s;
+}
+
 exec function PlaceBookcase(optional float Forward)
 {
     local Vector loc, fwd;
