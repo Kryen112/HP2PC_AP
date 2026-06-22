@@ -164,7 +164,7 @@ const TRADER_PRICE_RAND_HI    = 250;
 // survives both level transitions (class-default carries cross-level in
 // session) and save/exit (re-armed from slot_data on the next HELLO).
 // Replaces a per-level RandRange that re-rolled on every hub re-entry.
-// Dimension MUST be the integer literal 1024 (== NONCARD_LOC_WINDOW); M212
+// Dimension MUST be the integer literal 2048 (== NONCARD_LOC_WINDOW); M212
 // array dims take an integer literal, not a const.
 var byte TraderRolledFactor[2048];
 // A freshly-sold item spawns within ~CollisionRadius+10 of its vendor and is
@@ -2245,13 +2245,14 @@ static function SetContainersanity(byte v)
     Log("[Archipelago] APCardWatcher.SetContainersanity: enabled=" $ string(default.bContainersanity));
 }
 
-// containersanity: turn every catalogued bean container in this level into its
-// AP check. Chests/cauldrons keep their actor and get a per-location marker
-// injected into EjectedObjects (the container ejects it through its own open
-// animation, like a card). GenericSpawner-family boxes are swapped for a thin
-// APContainerSpawner_<Leaf> subclass that ejects the stamped token once on its
-// first hit. GetContainerLocationId returns 0 for everything that is not a
-// container location (card chests, decorative cauldrons), so those are skipped.
+// containersanity: arm every catalogued bean container in this level. Chests and
+// cauldrons are modified IN PLACE (the baked AP marker is injected as the first
+// item of the native actor's own eject queue) -- never destroyed -- so they
+// survive hub SaveGame/restore exactly like the card system's chests, and a tall
+// cauldron never floats from a respawn. GenericSpawner boxes are swapped for an
+// APContainerSpawner_<Leaf> (they reload fresh in hubs, so a swap is safe and is
+// the only way to hook their random eject). GetContainerLocationId returns 0 for
+// non-location actors (card chests, decorative cauldrons), so those are skipped.
 // Run once per level from Timer, gated on bContainersanity.
 function ReplaceContainers()
 {
@@ -2289,46 +2290,54 @@ function ReplaceContainers()
             continue;
         }
         apId = class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(spawner.Name));
-        Log("[Archipelago] ReplaceContainers: spawner class=" $ string(spawner.Class.Name)
-            $ " name=" $ string(spawner.Name) $ " -> apId " $ apId);
         if (apId > 0)
         {
             SwapContainerSpawner(spawner, apId);
             n++;
         }
     }
-    Log("[Archipelago] APCardWatcher.ReplaceContainers: " $ lvl $ " - processed " $ n $ " container location(s)");
+    Log("[Archipelago] APCardWatcher.ReplaceContainers: " $ lvl $ " - armed " $ n $ " container location(s)");
 }
 
-// Inject the per-location marker (APContainerMarker_<offset>, baked id) into a
-// chest so it flies out on Alohomora. bRandomBeans is frozen off so
-// SetupRandomBeans can't overwrite the marker slot; the marker is appended past
-// the beans when a slot is free, else it replaces the last bean.
+// Inject the per-location baked-id marker (APContainerMarker_<offset>) as the
+// FIRST item of a chest's own EjectedObjects, IN PLACE on the native actor (no
+// destroy/respawn). The chest's eject loop then spits it out first with bean
+// velocity and the inter-bean delay. Roll the beans now (the chest's own random
+// roll, incl. the live-health ChocolateFrog) then freeze bRandomBeans so the
+// open-time re-roll can't clobber the marker slot. Skipped entirely when the
+// location is already collected (no phantom drop on a level re-clear) or already
+// injected (hub re-entry restores the modified chest -- do not double-inject).
 function InjectContainerMarkerChest(chestbronze chest, int apId)
 {
     local class<Actor> markerCls;
-    local int i, maxN;
+    local int i, maxN, slot;
 
+    slot = apId - LOC_BASE;
+    if (slot >= 0 && slot < NONCARD_LOC_WINDOW
+        && default.NonCardLocationChecked[slot] == 1)
+    {
+        return;  // already collected -> leave the chest 100% vanilla
+    }
     for (i = 0; i < ArrayCount(chest.EjectedObjects); i++)
     {
         if (chest.EjectedObjects[i] != None
             && ClassIsChildOf(chest.EjectedObjects[i], class'APContainerMarker'))
         {
-            return;  // already injected this level
+            return;  // already injected this level (incl. restored hub state)
         }
     }
     markerCls = class<Actor>(DynamicLoadObject(
-        "HPArchipelago.APContainerMarker_" $ string(apId - LOC_BASE), class'Class'));
+        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
     if (markerCls == None)
     {
         return;
     }
-    // Freeze the bean roll so SetupRandomBeans can't overwrite the marker slot.
+    if (chest.bRandomBeans)
+    {
+        chest.SetupRandomBeans();
+    }
     chest.bRandomBeans = False;
     maxN = ArrayCount(chest.EjectedObjects);
-    // Eject the AP token FIRST: shift beans up one slot to free slot 0 (keeps
-    // them all when there is room), then drop the marker into slot 0. If the
-    // array is already full, slot 0 is overwritten (one bean replaced).
     if (chest.iNumberOfBeans < maxN)
     {
         for (i = chest.iNumberOfBeans; i > 0; i--)
@@ -2338,15 +2347,23 @@ function InjectContainerMarkerChest(chestbronze chest, int apId)
         chest.iNumberOfBeans = chest.iNumberOfBeans + 1;
     }
     chest.EjectedObjects[0] = markerCls;
+    Log("[Archipelago] APCardWatcher.InjectContainerMarkerChest: " $ string(chest.Name)
+        $ " (apId " $ apId $ ", beans " $ string(chest.iNumberOfBeans) $ ")");
 }
 
-// Cauldron variant: bronzecauldron has only 3 eject slots and uses bRandomBean
-// (singular), so the marker usually replaces the last bean.
+// Cauldron variant: bronzecauldron has 3 eject slots and the singular bRandomBean
+// flag. Same in-place injection as InjectContainerMarkerChest.
 function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
 {
     local class<Actor> markerCls;
-    local int i, maxN;
+    local int i, maxN, slot;
 
+    slot = apId - LOC_BASE;
+    if (slot >= 0 && slot < NONCARD_LOC_WINDOW
+        && default.NonCardLocationChecked[slot] == 1)
+    {
+        return;
+    }
     for (i = 0; i < ArrayCount(caul.EjectedObjects); i++)
     {
         if (caul.EjectedObjects[i] != None
@@ -2356,16 +2373,17 @@ function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
         }
     }
     markerCls = class<Actor>(DynamicLoadObject(
-        "HPArchipelago.APContainerMarker_" $ string(apId - LOC_BASE), class'Class'));
+        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
     if (markerCls == None)
     {
         return;
     }
+    if (caul.bRandomBean)
+    {
+        caul.SetupRandomBeans();
+    }
     caul.bRandomBean = False;
     maxN = ArrayCount(caul.EjectedObjects);
-    // Eject the AP token FIRST (see InjectContainerMarkerChest). bronzecauldron
-    // has only 3 slots and is usually full, so the marker replaces the first
-    // bean rather than shifting.
     if (caul.iNumberOfBeans < maxN)
     {
         for (i = caul.iNumberOfBeans; i > 0; i--)
@@ -2375,22 +2393,42 @@ function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
         caul.iNumberOfBeans = caul.iNumberOfBeans + 1;
     }
     caul.EjectedObjects[0] = markerCls;
+    Log("[Archipelago] APCardWatcher.InjectContainerMarkerCauldron: " $ string(caul.Name)
+        $ " (apId " $ apId $ ", beans " $ string(caul.iNumberOfBeans) $ ")");
 }
 
 // Swap a GenericSpawner-family box for its APContainerSpawner_<Leaf> subclass,
-// carrying the level-set fields the leaf default lacks and stamping the AP
-// location id (SetPropertyText: the generated subclasses each declare
-// CheckLocationId but share no base type to cast to here). The original is
-// destroyed first so the replacement spawns in its place without encroaching.
+// CLONING the placed instance's spawn config so the swap is behaviourally
+// identical to the original. The eject count comes from per-instance Limits /
+// GoodiesNumber, which the leaf class defaults do NOT carry, so reverting to
+// class defaults would randomise it (and break exact-count boxes). The original
+// is destroyed first so the replacement spawns in its place without encroaching,
+// so its config is saved to locals beforehand. After copying GoodieToSpawn /
+// GoodiesNumber / Lives, the engine's cached init (HowManyObjectsToSpawn,
+// bSpawnExactNumbers) is re-derived exactly as GenericSpawner.PostBeginPlay does.
+// CheckLocationId is stamped via APContainerStamp (the generated subclasses each
+// declare it but share no base type to cast to here).
 function SwapContainerSpawner(GenericSpawner old, int apId)
 {
     local class<GenericSpawner> swapCls;
     local GenericSpawner nw;
     local Actor spawned;
-    local Vector savedLoc;
+    local Vector savedLoc, savedStartPos, savedStartVel;
     local Rotator savedRot;
-    local name savedTag, savedEvent, savedEventName;
-    local int savedLives;
+    local name savedTag, savedEvent, savedEventName, savedStartBone;
+    local int savedLives, savedLimMax, savedLimMin, i, howMany, slot;
+    local bool savedPersist, exact;
+    local class<Actor> savedGoodie[8];
+    local int savedNum[8];
+
+    // Already collected -> leave the spawner 100% vanilla (no swap, no extra
+    // eject slot), so a re-clear drops no phantom AP token.
+    slot = apId - LOC_BASE;
+    if (slot >= 0 && slot < NONCARD_LOC_WINDOW
+        && default.NonCardLocationChecked[slot] == 1)
+    {
+        return;
+    }
 
     swapCls = class<GenericSpawner>(DynamicLoadObject(
         "HPArchipelago.APContainerSpawner_" $ string(old.Class.Name), class'Class'));
@@ -2404,6 +2442,17 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     savedEvent = old.Event;
     savedEventName = old.EventName;
     savedLives = old.Lives;
+    savedLimMax = old.Limits.Max;
+    savedLimMin = old.Limits.Min;
+    savedPersist = old.bMakeSpawnPersistent;
+    savedStartPos = old.StartPos;
+    savedStartVel = old.StartVel;
+    savedStartBone = old.StartBone;
+    for (i = 0; i < 8; i++)
+    {
+        savedGoodie[i] = old.GoodieToSpawn[i];
+        savedNum[i]    = old.GoodiesNumber[i];
+    }
     old.Destroy();
 
     spawned = Spawn(swapCls, , savedTag, savedLoc, savedRot);
@@ -2415,12 +2464,42 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     nw.Event = savedEvent;
     nw.EventName = savedEventName;
     nw.Lives = savedLives;
+    // +1 buys one extra eject iteration on the first hit for the AP token; the
+    // subclass's first SpawnObject undoes this so multi-life re-hits stay vanilla.
+    nw.Limits.Max = savedLimMax + 1;
+    nw.Limits.Min = savedLimMin + 1;
+    nw.bMakeSpawnPersistent = savedPersist;
+    nw.StartPos = savedStartPos;
+    nw.StartVel = savedStartVel;
+    nw.StartBone = savedStartBone;
+    exact = False;
+    for (i = 0; i < 8; i++)
+    {
+        nw.GoodieToSpawn[i]  = savedGoodie[i];
+        nw.GoodiesNumber[i]  = savedNum[i];
+        if (savedNum[i] != 0)
+        {
+            exact = True;
+        }
+    }
+    // Re-derive the engine's cached init (GenericSpawner.PostBeginPlay already
+    // ran at Spawn with the leaf defaults; redo it now the real config is in).
+    howMany = 0;
+    for (i = 0; i < 8; i++)
+    {
+        if (savedGoodie[i] == None) break;
+        howMany++;
+    }
+    if (savedLives <= 0) howMany = 0;
+    nw.HowManyObjectsToSpawn = howMany;
+    nw.bSpawnExactNumbers = exact;
+
     if (!class'APContainerStamp'.static.Stamp(nw, apId))
     {
         Log("[Archipelago] APCardWatcher.SwapContainerSpawner: Stamp FAILED (unknown subclass) for " $ string(nw.Class.Name));
     }
     Log("[Archipelago] APCardWatcher.SwapContainerSpawner: swapped " $ string(nw.Class.Name)
-        $ " (apId " $ apId $ ")");
+        $ " (apId " $ apId $ ", lives " $ string(savedLives) $ ")");
 }
 
 // Resolve the AP location id for a vendor Characters actor IF that vendor is

@@ -1,56 +1,54 @@
 // Auto-generated. Do not edit by hand; regenerate from
 // data/locations.yaml (containers) via gen_apworld.py.
-// Bring-up swap target for BarkSpawn containers: ejects the stamped AP
-// token once from inside the goodie loop (so it pops with the beans),
-// then behaves exactly like its parent.
+// Swap target for BarkSpawn containers: ejects the AP token as its own
+// sequential goodie (bean velocity / bounce / delay), then the box's own
+// goodies. SwapContainerSpawner copies the instance spawn config + bumps
+// Limits by 1 for the extra slot.
 class APContainerSpawner_BarkSpawn extends BarkSpawn;
 
+const LOC_BASE = 5760000;
 var int CheckLocationId;
 var bool bAPTokenEjected;
 
-// Hook the goodie spawn, not HandleSpell*: SpawnObject runs after the
-// open animation, once per ejected goodie, so the token appears with the
-// beans (right timing + position) and on the FIRST hit no matter how many
-// lives the box has.
+// SpawnObject runs once per ejected goodie. On the first call (the extra
+// iteration the +1 Limits bump bought) eject the token THROUGH the parent
+// goodie spawn -- temporarily point this slot at the baked marker class so
+// Super.SpawnObject gives it the same arc/velocity/bounce/persist a bean
+// gets -- then return (this slot was the token). Undo the Limits bump so a
+// multi-life box's later hits eject the vanilla goodie count.
 function SpawnObject(int Index)
 {
-    Super.SpawnObject(Index);
-    if (bAPTokenEjected) return;
-    bAPTokenEjected = True;
-    Log("[Archipelago] APContainerSpawner.SpawnObject: first goodie, CheckLocationId=" $ string(CheckLocationId));
-    if (CheckLocationId > 0)
+    local class<Actor> markerCls, saved;
+    local int useIdx;
+
+    if (!bAPTokenEjected)
     {
-        EjectAPToken();
+        bAPTokenEjected = True;
+        Limits.Min -= 1;
+        Limits.Max -= 1;
+        if (CheckLocationId > 0)
+        {
+            markerCls = class<Actor>(DynamicLoadObject(
+                "HPArchipelago.APContainerMarker_" $ string(CheckLocationId - LOC_BASE), class'Class'));
+            if (markerCls != None)
+            {
+                useIdx = Index;
+                if (useIdx < 0) { useIdx = 0; }
+                saved = GoodieToSpawn[useIdx];
+                GoodieToSpawn[useIdx] = markerCls;
+                Super.SpawnObject(useIdx);
+                GoodieToSpawn[useIdx] = saved;
+                Log("[Archipelago] APContainerSpawner: ejected AP token for loc " $ string(CheckLocationId));
+                return;
+            }
+        }
     }
+    Super.SpawnObject(Index);
 }
 
-function EjectAPToken()
+defaultproperties
 {
-    local APContainerMarker m;
-    local Vector dir, vel;
-    local float angle;
-
-    dir = StartPos >> Rotation;
-    dir = dir + Location;
-    m = Spawn(class'APContainerMarker', , , dir);
-    if (m == None)
-    {
-        dir = Location;
-        dir.Z += 24.0;
-        m = Spawn(class'APContainerMarker', , , dir);
-    }
-    if (m == None)
-    {
-        Log("[Archipelago] APContainerSpawner.EjectAPToken: Spawn FAILED for loc " $ string(CheckLocationId));
-        return;
-    }
-    m.CheckLocationId = CheckLocationId;
-    angle = FRand() * 6.2831853;
-    vel.X = 70.0 * Cos(angle);
-    vel.Y = 70.0 * Sin(angle);
-    vel.Z = 100.0 + FRand() * 80.0;
-    m.Velocity = vel;
-    m.SetPhysics(PHYS_Falling);
-    m.ApplyAPAppearance();
-    Log("[Archipelago] APContainerSpawner: ejected AP token for loc " $ string(CheckLocationId));
+    // Spawn at the exact saved transform on swap (no FindSpot nudge that
+    // would float a tall box); runtime collision is unaffected.
+    bCollideWhenPlacing=False
 }

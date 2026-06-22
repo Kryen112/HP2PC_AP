@@ -1,25 +1,24 @@
 // AP token for a containersanity location (a bean / ingredient / Peeves / gnome
-// container). One class, two spawn paths:
+// container). Two eject paths:
 //
-//   INJECT (chests/cauldrons): gen_apworld emits a per-location subclass
-//   APContainerMarker_<offset> with CheckLocationId baked into defaults;
-//   APCardWatcher.ReplaceContainers injects that class into the container's
-//   EjectedObjects, so the container ejects it through its own open animation
-//   (immediate, like a card flying out of a chest).
+//   QUEUE (chests/cauldrons): gen_apworld emits a per-location subclass
+//   APContainerMarker_<offset> with CheckLocationId baked into defaults. The
+//   swapped APContainerChest_<Leaf> injects that class as the first item in the
+//   container's own eject queue, so the container's loop spits it out first with
+//   bean velocity and the inter-bean delay. The baked id is known in
+//   PostBeginPlay, so this BASE class self-registers its appearance there.
 //
 //   SWAP (GenericSpawner family): the APContainerSpawner_<Leaf> subclass spawns
-//   this BASE class on first hit and stamps CheckLocationId on the instance.
+//   this BASE class (CheckLocationId 0 at spawn) on the opening hit and stamps +
+//   appearance-applies it right after Spawn.
 //
 // Either way Touch fires CHECK_LOCID (a non-card AP location) and dedupes via
 // APCardWatcher.NonCardLocationChecked[], exactly like APVendorMarker_Trader.
 //
-// Extends HProp (the prop/pickup base), NOT WizardCardIcon: a WizardCardIcon is
-// routed through the containers' card-eject branch (cauldrons double its
-// velocity, chests teleport + arc it at Harry), which reads wrong beside the
-// beans. As a plain HProp the container ejects it as ordinary loot (normal bean
-// velocity), and vanilla card-management sweeps (which only touch
-// WizardCardIcon) ignore it, so no Id sentinel is needed. The appearance sweep
-// morphs it to the placed item's look (it only touches Actor-level draw fields).
+// Extends HProp (the prop/pickup base), NOT WizardCardIcon: vanilla card-
+// management sweeps only touch WizardCardIcon, so as a plain HProp this marker is
+// ignored by them and no Id sentinel is needed. The appearance sweep morphs it to
+// the placed item's look (it only touches Actor-level draw fields).
 class APContainerMarker extends HProp;
 
 const LOC_BASE = 5760000;
@@ -37,12 +36,11 @@ function PostBeginPlay()
 
     Super.PostBeginPlay();
 
-    // Inject path: the per-location subclass carries CheckLocationId in its
-    // default, so it is known here -- self-destroy a stale already-checked ghost
-    // and opt into the appearance sweep. Swap path leaves CheckLocationId at 0
-    // here (the ejector stamps it right after Spawn, then calls
-    // ApplyAPAppearance itself), so this block no-ops for it; the watcher sweep
-    // is the authoritative re-stamp for both.
+    // Both eject paths spawn a per-location APContainerMarker_<offset> subclass
+    // with CheckLocationId baked into its default, so it is known here -- the
+    // chest/cauldron queue and the spawner goodie-slot both DynamicLoadObject it
+    // by offset. Self-destroy a stale already-checked ghost, then register for
+    // the appearance sweep and apply the placed item's look.
     if (CheckLocationId > LOC_BASE)
     {
         slot = CheckLocationId - LOC_BASE;
@@ -60,17 +58,9 @@ function PostBeginPlay()
         ApplyAPAppearance();
     }
 
-    // Defer bPersistent=False to next tick: a chest's generateobject stamps
-    // newSpawn.bPersistent AFTER PostBeginPlay returns, so setting it here would
-    // be overridden. Effect: an opened-but-uncollected token is gone on level
-    // re-entry instead of stacking into intangible duplicates.
-    SetTimer(0.05, false);
-}
-
-event Timer()
-{
-    bPersistent = False;
-    SetTimer(0.0, false);
+    // bPersistent is left as the container set it (newSpawn.bPersistent =
+    // bMakeSpawnPersistent, True for every bean container), so an uncollected
+    // token survives a hub leave/re-enter exactly like the beans beside it.
 }
 
 // Eject behaviour mirrors a wizard card: drop with PHYS_Falling, bounce off
@@ -195,10 +185,13 @@ defaultproperties
     classStatusGroup=None
     classStatusItem=None
     bCollideWhenPlacing=False
+    // Distinctive AP pickup cue: the wizard-card collect sound, not the bean
+    // sound, so grabbing an AP item reads clearly.
+    soundPickup=Sound'HPSounds.Magic_sfx.pickup_WC_bronze'
     // Pickup collision + look copied from WizardCardIcon (same HProp parent): a
     // small cylinder that does NOT block the player (so Harry overlaps it ->
-    // Touch fires) and does not block the camera. bBlockActors stays inherited
-    // and bCollideWorld stays True, so it still falls and lands on the floor.
+    // Touch fires) and does not block the camera. bCollideWorld stays True, so it
+    // still falls and lands on the floor.
     Mesh=SkeletalMesh'HProps.skWizardCardIconMesh'
     DrawScale=2.00
     AmbientGlow=250
@@ -206,6 +199,13 @@ defaultproperties
     // and still touches Harry; bRotateToDesired=False frees the Tick spin.
     CollisionRadius=8.00
     CollisionHeight=12.00
+    // bBlockActors=False is REQUIRED, not cosmetic: HProp/HPawn default it True,
+    // and a blocking actor spawned inside the container's own collision cylinder
+    // fails the engine encroachment check (Spawn returns None) even with
+    // bCollideWhenPlacing=False. A real bean (Jellybean) ships bBlockActors=False
+    // for exactly this reason, so the marker must too or tall/low-eject containers
+    // (cauldrons, knights, cigar/music boxes, decanters) never eject a token.
+    bBlockActors=False
     bBlockPlayers=False
     bBlockCamera=False
     bCantStandOnMe=True

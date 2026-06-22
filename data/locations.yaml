@@ -566,11 +566,12 @@ tradersanity:
 # a stamped AP token (immediate, like a card flying out of a chest) and fires
 # CHECK_LOCID on pickup. Locations-only (filler pads the pool).
 #
-# Sourced from the in-game DumpContainers census (logs in tools/census_logs/);
-# regenerate this block with:
-#   py -3.12 tools/parse_container_census.py tools/census_logs
-# Card-bearing chests (already card locations), spell=None decorative props, and
-# invisible/no-mesh spawners are excluded by the parser.
+# Sourced once from the in-game DumpContainers console command (one census line
+# per container in Game.log per level), then hand-folded into this block. To
+# refresh after a census re-run, walk every level with DumpContainers and update
+# the rows from the logged level/name/spell/lives/class fields. Card-bearing
+# chests (already card locations), spell=None decorative props, and
+# invisible/no-mesh spawners are left out (drop hascard=1 / spell=0 rows).
 #
 # Fields: `marker` is the engine actor Name the runtime resolves via
 # APLocationRegistry.GetContainerLocationId(level, marker). `spell` is the
@@ -847,12 +848,12 @@ containers:
   - { id_offset: 1286, name: "Grand Staircase - Cauldron 6", level: Grandstaircase_hub, marker: bronzecauldron5, class: BronzeCauldron, spell: Flipendo, lives: 1, loc: "(179.90, -3177.62, 1407.74)", region: GrandStaircase, group: Containers, notes: "drops HGame.Jellybean" }
   - { id_offset: 1287, name: "Grand Staircase - Cauldron 7", level: Grandstaircase_hub, marker: bronzecauldron6, class: BronzeCauldron, spell: Flipendo, lives: 1, loc: "(-982.19, -6801.99, 1409.09)", region: GrandStaircase, group: Containers, notes: "drops HGame.Jellybean" }
   - { id_offset: 1288, name: "Grand Staircase - Cauldron 8", level: Grandstaircase_hub, marker: bronzecauldron7, class: BronzeCauldron, spell: Flipendo, lives: 1, loc: "(-855.70, -7663.44, 1152.94)", region: GrandStaircase, group: Containers, notes: "drops HGame.Jellybean" }
-  - { id_offset: 1289, name: "Castle Exterior - Chest 1", level: Grounds_hub, marker: ChestWood10, class: ChestWood, spell: Alohomora, lives: 1, loc: "(2905.61, 3807.47, -229.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
-  - { id_offset: 1290, name: "Castle Exterior - Chest 2", level: Grounds_hub, marker: ChestWood11, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-2535.24, -2558.98, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
-  - { id_offset: 1291, name: "Castle Exterior - Chest 3", level: Grounds_hub, marker: ChestWood12, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-3824.56, -617.04, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
-  - { id_offset: 1292, name: "Castle Exterior - Chest 4", level: Grounds_hub, marker: ChestWood13, class: ChestWood, spell: Alohomora, lives: 1, loc: "(676.97, -247.83, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
-  - { id_offset: 1293, name: "Castle Exterior - Chest 5", level: Grounds_hub, marker: ChestWood14, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1876.12, -1535.30, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
-  - { id_offset: 1294, name: "Castle Exterior - Chest 6", level: Grounds_hub, marker: ChestWood3, class: ChestWood, spell: Alohomora, lives: 1, loc: "(894.40, -2239.13, 154.60)", region: CastleExterior, group: Containers, notes: "drops HGame.Jellybean" }
-  - { id_offset: 1295, name: "Castle Exterior - Chest 7", level: Grounds_hub, marker: ChestWood7, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1569.52, -660.97, 26.60)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
-  - { id_offset: 1296, name: "Castle Exterior - Chest 8", level: Grounds_hub, marker: ChestWood8, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1023.57, -2240.85, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
-  - { id_offset: 1297, name: "Castle Exterior - Chest 9", level: Grounds_hub, marker: ChestWood9, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1457.75, -991.25, -229.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1289, name: "Castle Exterior - Chest 1", level: [Grounds_hub, Grounds_Night], marker: ChestWood10, class: ChestWood, spell: Alohomora, lives: 1, loc: "(2905.61, 3807.47, -229.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1290, name: "Castle Exterior - Chest 2", level: [Grounds_hub, Grounds_Night], marker: ChestWood11, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-2535.24, -2558.98, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1291, name: "Castle Exterior - Chest 3", level: [Grounds_hub, Grounds_Night], marker: ChestWood12, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-3824.56, -617.04, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1292, name: "Castle Exterior - Chest 4", level: [Grounds_hub, Grounds_Night], marker: ChestWood13, class: ChestWood, spell: Alohomora, lives: 1, loc: "(676.97, -247.83, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1293, name: "Castle Exterior - Chest 5", level: [Grounds_hub, Grounds_Night], marker: ChestWood14, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1876.12, -1535.30, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1294, name: "Castle Exterior - Chest 6", level: [Grounds_hub, Grounds_Night], marker: ChestWood3, class: ChestWood, spell: Alohomora, lives: 1, loc: "(894.40, -2239.13, 154.60)", region: CastleExterior, group: Containers, notes: "drops HGame.Jellybean" }
+  - { id_offset: 1295, name: "Castle Exterior - Chest 7", level: [Grounds_hub, Grounds_Night], marker: ChestWood7, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1569.52, -660.97, 26.60)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1296, name: "Castle Exterior - Chest 8", level: [Grounds_hub, Grounds_Night], marker: ChestWood8, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1023.57, -2240.85, 26.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }
+  - { id_offset: 1297, name: "Castle Exterior - Chest 9", level: [Grounds_hub, Grounds_Night], marker: ChestWood9, class: ChestWood, spell: Alohomora, lives: 1, loc: "(-1457.75, -991.25, -229.50)", region: CastleExterior, group: Containers, notes: "drops HGame.SpottedJellyBean;HGame.BlueJellyBean;HGame.Jellybean" }

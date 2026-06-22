@@ -642,6 +642,18 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
         if (MarkerName == "ChestWood8") return 5761296;
         if (MarkerName == "ChestWood9") return 5761297;
     }
+    else if (LevelName == "GROUNDS_NIGHT")
+    {
+        if (MarkerName == "ChestWood10") return 5761289;
+        if (MarkerName == "ChestWood11") return 5761290;
+        if (MarkerName == "ChestWood12") return 5761291;
+        if (MarkerName == "ChestWood13") return 5761292;
+        if (MarkerName == "ChestWood14") return 5761293;
+        if (MarkerName == "ChestWood3") return 5761294;
+        if (MarkerName == "ChestWood7") return 5761295;
+        if (MarkerName == "ChestWood8") return 5761296;
+        if (MarkerName == "ChestWood9") return 5761297;
+    }
     return 0;
 }
 

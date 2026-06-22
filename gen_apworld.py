@@ -1221,125 +1221,131 @@ def emit_card_markers(items: dict) -> int:
     return written
 
 
-# containersanity container classes whose AP token is INJECTED into the
-# existing actor's eject set (chests/cauldrons, which spawn EjectedObjects on
-# open). Everything else in `containers` is a GenericSpawner leaf that gets
-# SWAPPED for an APContainerSpawner_<Leaf> subclass. Matched case-insensitively
-# against the row `class`.
-CONTAINER_INJECT_CLASSES = frozenset({
+# containersanity chest/cauldron families. APCardWatcher injects the baked AP
+# marker into the NATIVE actor's EjectedObjects IN PLACE (no swap/destroy), so it
+# pops first from the container's own eject queue with bean velocity and the
+# inter-bean delay. In-place is mandatory: these actors persist in hub levels via
+# SaveGame, and a destroyed-and-respawned cross-package subclass does not survive
+# the restore (it vanishes). Matched case-insensitively against the row `class`.
+CONTAINER_CHEST_CLASSES = frozenset({
     "chestbronze", "chestwood", "chestgold", "chestiron", "bronzecauldron",
 })
 
 
 def _spawner_subclass_text(leaf: str) -> str:
-    """A thin GenericSpawner-leaf subclass that ejects the stamped AP token once,
-    from inside the goodie-spawn loop (SpawnObject) so it pops out with the beans
-    at the right time/place, then defers to the parent. Identical body per leaf
-    (only the parent differs); APCardWatcher.SwapContainerSpawner stamps
-    CheckLocationId."""
+    """A thin GenericSpawner-leaf subclass that ejects the per-location baked-id
+    marker as its OWN sequential eject -- not alongside a bean -- so it pops with
+    the exact same velocity, bounce, and timing as a goodie. SwapContainerSpawner
+    bumps Limits by +1 to buy one extra eject iteration for the token and stamps
+    CheckLocationId; the first SpawnObject undoes that +1 (so multi-life re-hits
+    eject vanilla counts) and routes the token through the parent's goodie spawn
+    by briefly pointing a GoodieToSpawn slot at the baked marker class."""
     return (
         "// Auto-generated. Do not edit by hand; regenerate from\n"
         "// data/locations.yaml (containers) via gen_apworld.py.\n"
-        f"// Bring-up swap target for {leaf} containers: ejects the stamped AP\n"
-        "// token once from inside the goodie loop (so it pops with the beans),\n"
-        "// then behaves exactly like its parent.\n"
+        f"// Swap target for {leaf} containers: ejects the AP token as its own\n"
+        "// sequential goodie (bean velocity / bounce / delay), then the box's own\n"
+        "// goodies. SwapContainerSpawner copies the instance spawn config + bumps\n"
+        "// Limits by 1 for the extra slot.\n"
         f"class APContainerSpawner_{leaf} extends {leaf};\n"
         "\n"
+        "const LOC_BASE = 5760000;\n"
         "var int CheckLocationId;\n"
         "var bool bAPTokenEjected;\n"
         "\n"
-        "// Hook the goodie spawn, not HandleSpell*: SpawnObject runs after the\n"
-        "// open animation, once per ejected goodie, so the token appears with the\n"
-        "// beans (right timing + position) and on the FIRST hit no matter how many\n"
-        "// lives the box has.\n"
+        "// SpawnObject runs once per ejected goodie. On the first call (the extra\n"
+        "// iteration the +1 Limits bump bought) eject the token THROUGH the parent\n"
+        "// goodie spawn -- temporarily point this slot at the baked marker class so\n"
+        "// Super.SpawnObject gives it the same arc/velocity/bounce/persist a bean\n"
+        "// gets -- then return (this slot was the token). Undo the Limits bump so a\n"
+        "// multi-life box's later hits eject the vanilla goodie count.\n"
         "function SpawnObject(int Index)\n"
         "{\n"
-        "    Super.SpawnObject(Index);\n"
-        "    if (bAPTokenEjected) return;\n"
-        "    bAPTokenEjected = True;\n"
-        "    Log(\"[Archipelago] APContainerSpawner.SpawnObject: first goodie, CheckLocationId=\" $ string(CheckLocationId));\n"
-        "    if (CheckLocationId > 0)\n"
+        "    local class<Actor> markerCls, saved;\n"
+        "    local int useIdx;\n"
+        "\n"
+        "    if (!bAPTokenEjected)\n"
         "    {\n"
-        "        EjectAPToken();\n"
+        "        bAPTokenEjected = True;\n"
+        "        Limits.Min -= 1;\n"
+        "        Limits.Max -= 1;\n"
+        "        if (CheckLocationId > 0)\n"
+        "        {\n"
+        "            markerCls = class<Actor>(DynamicLoadObject(\n"
+        "                \"HPArchipelago.APContainerMarker_\" $ string(CheckLocationId - LOC_BASE), class'Class'));\n"
+        "            if (markerCls != None)\n"
+        "            {\n"
+        "                useIdx = Index;\n"
+        "                if (useIdx < 0) { useIdx = 0; }\n"
+        "                saved = GoodieToSpawn[useIdx];\n"
+        "                GoodieToSpawn[useIdx] = markerCls;\n"
+        "                Super.SpawnObject(useIdx);\n"
+        "                GoodieToSpawn[useIdx] = saved;\n"
+        "                Log(\"[Archipelago] APContainerSpawner: ejected AP token for loc \" $ string(CheckLocationId));\n"
+        "                return;\n"
+        "            }\n"
+        "        }\n"
         "    }\n"
+        "    Super.SpawnObject(Index);\n"
         "}\n"
         "\n"
-        "function EjectAPToken()\n"
+        "defaultproperties\n"
         "{\n"
-        "    local APContainerMarker m;\n"
-        "    local Vector dir, vel;\n"
-        "    local float angle;\n"
-        "\n"
-        "    dir = StartPos >> Rotation;\n"
-        "    dir = dir + Location;\n"
-        "    m = Spawn(class'APContainerMarker', , , dir);\n"
-        "    if (m == None)\n"
-        "    {\n"
-        "        dir = Location;\n"
-        "        dir.Z += 24.0;\n"
-        "        m = Spawn(class'APContainerMarker', , , dir);\n"
-        "    }\n"
-        "    if (m == None)\n"
-        "    {\n"
-        "        Log(\"[Archipelago] APContainerSpawner.EjectAPToken: Spawn FAILED for loc \" $ string(CheckLocationId));\n"
-        "        return;\n"
-        "    }\n"
-        "    m.CheckLocationId = CheckLocationId;\n"
-        "    angle = FRand() * 6.2831853;\n"
-        "    vel.X = 70.0 * Cos(angle);\n"
-        "    vel.Y = 70.0 * Sin(angle);\n"
-        "    vel.Z = 100.0 + FRand() * 80.0;\n"
-        "    m.Velocity = vel;\n"
-        "    m.SetPhysics(PHYS_Falling);\n"
-        "    m.ApplyAPAppearance();\n"
-        "    Log(\"[Archipelago] APContainerSpawner: ejected AP token for loc \" $ string(CheckLocationId));\n"
+        "    // Spawn at the exact saved transform on swap (no FindSpot nudge that\n"
+        "    // would float a tall box); runtime collision is unaffected.\n"
+        "    bCollideWhenPlacing=False\n"
         "}\n"
     )
 
 
 def emit_container_classes(locations: dict, base_id: int) -> tuple[int, int]:
     """Emit the generated mod classes for containersanity:
-      - per-location APContainerMarker_<offset>.uc for INJECT containers
-        (chests/cauldrons), CheckLocationId baked into defaults; the runtime
-        loads them by name "APContainerMarker_<apId - LOC_BASE>".
-      - one APContainerSpawner_<Leaf>.uc per distinct SWAP leaf (GenericSpawner
-        family); the runtime loads them by name "APContainerSpawner_<class>".
-    Stale generated files are removed first so a census change leaves no orphans.
-    Returns (inject_count, swap_leaf_count)."""
+      - per-location APContainerMarker_<offset>.uc (baked CheckLocationId) for
+        EVERY container row; both the chest eject queue and the spawner goodie
+        slot spawn it by name (resolved from CheckLocationId at runtime).
+      - one APContainerSpawner_<Leaf>.uc per distinct GenericSpawner leaf (the
+        sequential-eject swap target) + APContainerStamp.uc (its cast-chain).
+    Chests/cauldrons need NO generated subclass: APCardWatcher injects the baked
+    marker into the NATIVE actor's EjectedObjects in place (like the card system),
+    which survives hub SaveGame/restore -- a swapped cross-package actor does not.
+    Stale generated files (including the obsolete chest swap subclasses + stamp
+    from the destroy/respawn design) are removed first so no orphans linger.
+    Returns (baked_marker_count, swap_leaf_count)."""
     for old in MOD_CLASSES_DIR.glob("APContainerMarker_*.uc"):
+        old.unlink()
+    for old in MOD_CLASSES_DIR.glob("APContainerChest_*.uc"):
         old.unlink()
     for old in MOD_CLASSES_DIR.glob("APContainerSpawner_*.uc"):
         old.unlink()
+    (MOD_CLASSES_DIR / "APContainerChestStamp.uc").unlink(missing_ok=True)
 
-    inject_n = 0
+    marker_n = 0
     swap_leaves: set[str] = set()
     for row in locations.get("containers", []):
-        cls = row["class"]
-        if cls.lower() in CONTAINER_INJECT_CLASSES:
-            offset = row["id_offset"]
-            ap_id = base_id + offset
-            (MOD_CLASSES_DIR / f"APContainerMarker_{offset}.uc").write_text(
-                "// Auto-generated. Do not edit by hand; regenerate from\n"
-                "// data/locations.yaml (containers) via gen_apworld.py.\n"
-                f"class APContainerMarker_{offset} extends APContainerMarker;\n"
-                "\n"
-                "defaultproperties\n"
-                "{\n"
-                f"    CheckLocationId={ap_id}\n"
-                "}\n",
-                encoding="utf-8",
-            )
-            inject_n += 1
-        else:
-            swap_leaves.add(cls)
+        offset = row["id_offset"]
+        ap_id = base_id + offset
+        (MOD_CLASSES_DIR / f"APContainerMarker_{offset}.uc").write_text(
+            "// Auto-generated. Do not edit by hand; regenerate from\n"
+            "// data/locations.yaml (containers) via gen_apworld.py.\n"
+            f"class APContainerMarker_{offset} extends APContainerMarker;\n"
+            "\n"
+            "defaultproperties\n"
+            "{\n"
+            f"    CheckLocationId={ap_id}\n"
+            "}\n",
+            encoding="utf-8",
+        )
+        marker_n += 1
+        if row["class"].lower() not in CONTAINER_CHEST_CLASSES:
+            swap_leaves.add(row["class"])
 
     for leaf in sorted(swap_leaves):
         (MOD_CLASSES_DIR / f"APContainerSpawner_{leaf}.uc").write_text(
             _spawner_subclass_text(leaf), encoding="utf-8")
 
-    # Reliable CheckLocationId stamp: SetPropertyText proved unreliable across
-    # the subclasses, so APCardWatcher.SwapContainerSpawner stamps via this
-    # generated cast-chain (one downcast per swap leaf, direct property set).
+    # Spawner stamp: cast-chain that sets CheckLocationId on a freshly-swapped
+    # GenericSpawner subclass (the generated subclasses share no base type to
+    # cast to from APCardWatcher, so a downcast per leaf does the direct set).
     stamp = [
         "// Auto-generated. Do not edit by hand; regenerate from",
         "// data/locations.yaml (containers) via gen_apworld.py.",
@@ -1357,7 +1363,7 @@ def emit_container_classes(locations: dict, base_id: int) -> tuple[int, int]:
     stamp += ["    return False;", "}", ""]
     (MOD_CLASSES_DIR / "APContainerStamp.uc").write_text("\n".join(stamp), encoding="utf-8")
 
-    return inject_n, len(swap_leaves)
+    return marker_n, len(swap_leaves)
 
 
 def build_apworld_zip() -> Path | None:
@@ -1491,7 +1497,7 @@ def main() -> int:
     n_markers = emit_card_markers(items)
     n_registry = emit_location_registry(locations, locations["base_id"])
     n_appearance = emit_card_appearance_registry(locations, locations["base_id"])
-    n_cont_inject, n_cont_swap = emit_container_classes(locations, locations["base_id"])
+    n_cont_marker, n_cont_swap = emit_container_classes(locations, locations["base_id"])
 
     n_items = sum(len(items.get(c, [])) for c in ("spells", "key_items", "blocker_keys", "equipment", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"))
     n_locs = sum(len(locations.get(c, [])) for c in LOCATION_CATEGORIES)
@@ -1505,7 +1511,7 @@ def main() -> int:
     print(f"Wrote {n_markers} APCardMarker_<X>.uc files in {MOD_CLASSES_DIR}")
     print(f"Wrote APLocationRegistry.uc ({n_registry} secret+star+vendor+container registrations)")
     print(f"Wrote APCardAppearance.uc ({n_appearance} card id registrations)")
-    print(f"Wrote {n_cont_inject} APContainerMarker_<offset>.uc + {n_cont_swap} APContainerSpawner_<Leaf>.uc files in {MOD_CLASSES_DIR}")
+    print(f"Containersanity: {n_cont_marker} APContainerMarker_<offset>.uc baked markers + {n_cont_swap} APContainerSpawner_<Leaf>.uc swap subclasses (chests/cauldrons injected in place) in {MOD_CLASSES_DIR}")
 
     zip_path = build_apworld_zip()
     if zip_path is not None:
