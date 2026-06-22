@@ -30,7 +30,7 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 | `mod/HPArchipelago/Classes/` | UnrealScript mod source, compiled with `ucc make`                                          |
 | `data/items.yaml`            | Item catalog, user-authored source of truth                                                |
 | `data/locations.yaml`        | Location catalog, user-authored source of truth                                            |
-| `data/logic.yaml`            | Per-location access rules, user-authored source of truth                                   |
+| `data/logic_*.yaml`          | Access rules: `logic_levels` (shared level interiors) + `logic_vanilla`/`logic_open_castle` (region entries + castle hubs, per mode) |
 | `../DESIGN.md`               | Design decisions, with v1.1 parking lot                                                    |
 | `docs/PLAYER_SETUP.md`       | Install + first-run guide for end users                                                    |
 | `docs/DEV_SETUP.md`          | Dev environment + UScript build loop                                                       |
