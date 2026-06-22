@@ -79,17 +79,17 @@ locations:
   "Rictusempra Challenge - Complete": { requires: "Flipendo & Rictusempra" }
   "Rictusempra Challenge - Beat Par Time":
     { requires: "Rictusempra & Flipendo & Alohomora & Lumos" }
-  "Rictusempra Challenge - Chest 1": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 2": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 3": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 4": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 5": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 6": { requires: "Alohomora" }
-  "Rictusempra Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 4": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 5": { requires: "Flipendo" }
+  "Rictusempra Challenge - Chest 1": { requires: "Rictusempra & Flipendo & Alohomora" }
+  "Rictusempra Challenge - Chest 2": { requires: "Rictusempra & Flipendo & Alohomora" }
+  "Rictusempra Challenge - Chest 3": { requires: "Rictusempra & Flipendo & Alohomora" }
+  "Rictusempra Challenge - Chest 4": { requires: "Rictusempra & Flipendo & Alohomora" }
+  "Rictusempra Challenge - Chest 5": { requires: "Rictusempra & Flipendo & Alohomora" }
+  "Rictusempra Challenge - Chest 6": { requires: "Rictusempra & Flipendo & Alohomora" }
+  "Rictusempra Challenge - Cauldron 1": { requires: "Rictusempra & Flipendo" }
+  "Rictusempra Challenge - Cauldron 2": { requires: "Rictusempra & Flipendo" }
+  "Rictusempra Challenge - Cauldron 3": { requires: "Rictusempra & Flipendo" }
+  "Rictusempra Challenge - Cauldron 4": { requires: "Rictusempra & Flipendo" }
+  "Rictusempra Challenge - Cauldron 5": { requires: "Rictusempra & Flipendo" }
 
   # Skurge Challenge
   "Skurge Challenge - Card Belby":
@@ -140,32 +140,32 @@ locations:
   "Skurge Challenge - Complete": { requires: "Skurge & Flipendo & Lumos" }
   "Skurge Challenge - Beat Par Time":
     { requires: "Skurge & Flipendo & Lumos & Alohomora" }
-  "Skurge Challenge - Bark Spawner 1": { requires: "Flipendo" }
-  "Skurge Challenge - Chest 1": { requires: "Alohomora" }
-  "Skurge Challenge - Chest 2": { requires: "Alohomora" }
-  "Skurge Challenge - Chest 3": { requires: "Alohomora" }
-  "Skurge Challenge - Peeves Chest 1": { requires: "Alohomora" }
-  "Skurge Challenge - Cigar Box 1": { requires: "Alohomora" }
-  "Skurge Challenge - Decanter 1": { requires: "Flipendo" }
-  "Skurge Challenge - Decanter 2": { requires: "Flipendo" }
-  "Skurge Challenge - Jewel Box 1": { requires: "Alohomora" }
+  "Skurge Challenge - Bark Spawner 1": { requires: Skurge & Flipendo & Lumos & Alohomora" }
+  "Skurge Challenge - Chest 1": { requires: "Skurge & Alohomora & (Flipendo | Running)" }
+  "Skurge Challenge - Chest 2": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
+  "Skurge Challenge - Chest 3": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
+  "Skurge Challenge - Peeves Chest 1": { requires: "Skurge & Alohomora" }
+  "Skurge Challenge - Cigar Box 1": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
+  "Skurge Challenge - Decanter 1": { requires: "Skurge & Flipendo" }
+  "Skurge Challenge - Decanter 2": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Jewel Box 1": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
   "Skurge Challenge - Knight 1": { requires: "Flipendo" }
   "Skurge Challenge - Knight 2": { requires: "Flipendo" }
-  "Skurge Challenge - Mucus Spawner 1": { requires: "Flipendo" }
-  "Skurge Challenge - Music Box 1": { requires: "Alohomora" }
-  "Skurge Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 4": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 5": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 6": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 7": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 8": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 9": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 10": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 11": { requires: "Flipendo" }
-  "Skurge Challenge - Chest 4": { requires: "Alohomora" }
-  "Skurge Challenge - Chest 5": { requires: "Alohomora" }
+  "Skurge Challenge - Mucus Spawner 1": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Music Box 1": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
+  "Skurge Challenge - Cauldron 1": { requires: "Skurge & Flipendo" }
+  "Skurge Challenge - Cauldron 2": { requires: "Skurge & Flipendo" }
+  "Skurge Challenge - Cauldron 3": { requires: "Skurge & Flipendo" }
+  "Skurge Challenge - Cauldron 4": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Cauldron 5": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Cauldron 6": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Cauldron 7": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Cauldron 8": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Cauldron 9": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Cauldron 10": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Cauldron 11": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Chest 4": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
+  "Skurge Challenge - Chest 5": { requires: "Skurge & Alohomora" }
 
   # Bicorn Level
   "Bicorn Level - Card Agrippa":
@@ -344,17 +344,17 @@ locations:
   "Boomslang Level - Secret 2": { requires: "Diffindo & Flipendo & Lumos" }
   "Boomslang Level - Secret 3": { requires: "Diffindo & Alohomora" }
   "Boomslang Level - Complete": { requires: "Diffindo" }
-  "Boomslang Level - Chest 1": { requires: "Alohomora" }
-  "Boomslang Level - Mucus Spawner 1": { requires: "Flipendo" }
-  "Boomslang Level - Oil Can 1": { requires: "Flipendo" }
-  "Boomslang Level - Oil Can 2": { requires: "Flipendo" }
-  "Boomslang Level - Oil Can 3": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 1": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 2": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 3": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 4": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 5": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 6": { requires: "Flipendo" }
+  "Boomslang Level - Chest 1": { requires: "Diffindo & Alohomora" }
+  "Boomslang Level - Mucus Spawner 1": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Oil Can 1": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Oil Can 2": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Oil Can 3": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Plant Pot 1": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Plant Pot 2": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Plant Pot 3": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Plant Pot 4": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Plant Pot 5": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Plant Pot 6": { requires: "Diffindo & Flipendo" }
 
   # Goyle Level
   "Goyle Level - Card Bloxam":
