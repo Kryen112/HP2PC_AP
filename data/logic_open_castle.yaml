@@ -184,10 +184,8 @@ locations:
   "Grand Staircase - Chest 8": { requires: "Alohomora" }
   "Grand Staircase - Cigar Box 1": { requires: "Alohomora" }
   "Grand Staircase - Cigar Box 2": { requires: "Alohomora" }
-  "Grand Staircase - Cigar Box 3": { requires: "Alohomora" }
   "Grand Staircase - Decanter 1": { requires: "Flipendo" }
   "Grand Staircase - Decanter 2": { requires: "Flipendo" }
-  "Grand Staircase - Decanter 3": { requires: "Flipendo" }
   "Grand Staircase - Jewel Box 1": { requires: "Alohomora" }
   "Grand Staircase - Jewel Box 2": { requires: "Alohomora" }
   "Grand Staircase - Knight 1": { requires: "Flipendo" }
@@ -203,6 +201,8 @@ locations:
   "Dumbledore's Study - Card Beamish": { requires: "Alohomora & Flipendo" }
   "Dumbledore's Study - Card Muldoon": { requires: "Alohomora" }
   "Dumbledore's Study - Secret": { requires: "Alohomora & Flipendo" }
+  "Dumbledore's Study - Cigar Box": { requires: "Alohomora" }
+  "Dumbledore's Study - Decanter": { requires: "Flipendo" }
 
   # Castle Exterior
   "Castle Exterior - Card Marjoribanks": { requires: "Diffindo & Alohomora" }

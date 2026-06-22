@@ -348,7 +348,6 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
     }
     else if (LevelName == "ADV1WILLOW")
     {
-        if (MarkerName == "ChestWood1") return 5761047;
         if (MarkerName == "ChestWood2") return 5761048;
         if (MarkerName == "ChestWood4") return 5761049;
         if (MarkerName == "ChestWood5") return 5761050;

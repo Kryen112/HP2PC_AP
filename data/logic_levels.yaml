@@ -22,7 +22,6 @@ locations:
   "Whomping Willow - Chest 2": { requires: "Alohomora" }
   "Whomping Willow - Chest 3": { requires: "Alohomora" }
   "Whomping Willow - Chest 4": { requires: "Alohomora" }
-  "Whomping Willow - Chest 5": { requires: "Alohomora" }
   "Whomping Willow - Knight 1": { requires: "Flipendo" }
   "Whomping Willow - Knight 2": { requires: "Flipendo" }
 

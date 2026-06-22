@@ -247,10 +247,8 @@ locations:
   "Grand Staircase - Chest 8": { requires: "Alohomora" }
   "Grand Staircase - Cigar Box 1": { requires: "Alohomora" }
   "Grand Staircase - Cigar Box 2": { requires: "Alohomora" }
-  "Grand Staircase - Cigar Box 3": { requires: "Alohomora" }
   "Grand Staircase - Decanter 1": { requires: "Flipendo" }
   "Grand Staircase - Decanter 2": { requires: "Flipendo" }
-  "Grand Staircase - Decanter 3": { requires: "Flipendo" }
   "Grand Staircase - Jewel Box 1": { requires: "Alohomora" }
   "Grand Staircase - Jewel Box 2": { requires: "Alohomora" }
   "Grand Staircase - Knight 1": { requires: "Flipendo" }
@@ -274,6 +272,14 @@ locations:
       requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'",
     }
   "Dumbledore's Study - Secret":
+    {
+      requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'",
+    }
+  "Dumbledore's Study - Cigar Box":
+    {
+      requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'",
+    }
+  "Dumbledore's Study - Decanter":
     {
       requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'",
     }
