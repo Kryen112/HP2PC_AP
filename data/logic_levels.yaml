@@ -18,6 +18,13 @@ locations:
   "Whomping Willow - Secret 1": { requires: "Lumos & Alohomora" }
   "Whomping Willow - Secret 2": { requires: "Lumos & Flipendo & Alohomora" }
   "Whomping Willow - Complete": { requires: "Lumos & Flipendo" }
+  "Whomping Willow - Chest 1": { requires: "Alohomora" }
+  "Whomping Willow - Chest 2": { requires: "Alohomora" }
+  "Whomping Willow - Chest 3": { requires: "Alohomora" }
+  "Whomping Willow - Chest 4": { requires: "Alohomora" }
+  "Whomping Willow - Chest 5": { requires: "Alohomora" }
+  "Whomping Willow - Knight 1": { requires: "Flipendo" }
+  "Whomping Willow - Knight 2": { requires: "Flipendo" }
 
   # Rictusempra Challenge
   "Rictusempra Challenge - Card Barbary":
@@ -73,6 +80,17 @@ locations:
   "Rictusempra Challenge - Complete": { requires: "Flipendo & Rictusempra" }
   "Rictusempra Challenge - Beat Par Time":
     { requires: "Rictusempra & Flipendo & Alohomora & Lumos" }
+  "Rictusempra Challenge - Chest 1": { requires: "Alohomora" }
+  "Rictusempra Challenge - Chest 2": { requires: "Alohomora" }
+  "Rictusempra Challenge - Chest 3": { requires: "Alohomora" }
+  "Rictusempra Challenge - Chest 4": { requires: "Alohomora" }
+  "Rictusempra Challenge - Chest 5": { requires: "Alohomora" }
+  "Rictusempra Challenge - Chest 6": { requires: "Alohomora" }
+  "Rictusempra Challenge - Cauldron 1": { requires: "Flipendo" }
+  "Rictusempra Challenge - Cauldron 2": { requires: "Flipendo" }
+  "Rictusempra Challenge - Cauldron 3": { requires: "Flipendo" }
+  "Rictusempra Challenge - Cauldron 4": { requires: "Flipendo" }
+  "Rictusempra Challenge - Cauldron 5": { requires: "Flipendo" }
 
   # Skurge Challenge
   "Skurge Challenge - Card Belby":
@@ -123,6 +141,32 @@ locations:
   "Skurge Challenge - Complete": { requires: "Skurge & Flipendo & Lumos" }
   "Skurge Challenge - Beat Par Time":
     { requires: "Skurge & Flipendo & Lumos & Alohomora" }
+  "Skurge Challenge - Bark Spawner 1": { requires: "Flipendo" }
+  "Skurge Challenge - Chest 1": { requires: "Alohomora" }
+  "Skurge Challenge - Chest 2": { requires: "Alohomora" }
+  "Skurge Challenge - Chest 3": { requires: "Alohomora" }
+  "Skurge Challenge - Peeves Chest 1": { requires: "Alohomora" }
+  "Skurge Challenge - Cigar Box 1": { requires: "Alohomora" }
+  "Skurge Challenge - Decanter 1": { requires: "Flipendo" }
+  "Skurge Challenge - Decanter 2": { requires: "Flipendo" }
+  "Skurge Challenge - Jewel Box 1": { requires: "Alohomora" }
+  "Skurge Challenge - Knight 1": { requires: "Flipendo" }
+  "Skurge Challenge - Knight 2": { requires: "Flipendo" }
+  "Skurge Challenge - Mucus Spawner 1": { requires: "Flipendo" }
+  "Skurge Challenge - Music Box 1": { requires: "Alohomora" }
+  "Skurge Challenge - Cauldron 1": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 2": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 3": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 4": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 5": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 6": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 7": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 8": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 9": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 10": { requires: "Flipendo" }
+  "Skurge Challenge - Cauldron 11": { requires: "Flipendo" }
+  "Skurge Challenge - Chest 4": { requires: "Alohomora" }
+  "Skurge Challenge - Chest 5": { requires: "Alohomora" }
 
   # Bicorn Level
   "Bicorn Level - Card Agrippa":
@@ -153,6 +197,25 @@ locations:
     { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
   "Bicorn Level - Complete":
     { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
+  "Bicorn Level - Bark Spawner 1": { requires: "Flipendo" }
+  "Bicorn Level - Bark Spawner 2": { requires: "Flipendo" }
+  "Bicorn Level - Chest 1": { requires: "Alohomora" }
+  "Bicorn Level - Peeves Chest 1": { requires: "Alohomora" }
+  "Bicorn Level - Chest 2": { requires: "Alohomora" }
+  "Bicorn Level - Chest 3": { requires: "Alohomora" }
+  "Bicorn Level - Chest 4": { requires: "Alohomora" }
+  "Bicorn Level - Chest 5": { requires: "Alohomora" }
+  "Bicorn Level - Chest 6": { requires: "Alohomora" }
+  "Bicorn Level - Chest 7": { requires: "Alohomora" }
+  "Bicorn Level - Chest 8": { requires: "Alohomora" }
+  "Bicorn Level - Mucus Spawner 1": { requires: "Flipendo" }
+  "Bicorn Level - Mucus Spawner 2": { requires: "Flipendo" }
+  "Bicorn Level - Cauldron 1": { requires: "Flipendo" }
+  "Bicorn Level - Cauldron 2": { requires: "Flipendo" }
+  "Bicorn Level - Cauldron 3": { requires: "Flipendo" }
+  "Bicorn Level - Cauldron 4": { requires: "Flipendo" }
+  "Bicorn Level - Cauldron 5": { requires: "Flipendo" }
+  "Bicorn Level - Cauldron 6": { requires: "Flipendo" }
 
   # Diffindo Challenge
   "Diffindo Challenge - Card Ketteridge":
@@ -238,6 +301,41 @@ locations:
     {
       requires: "Diffindo & Rictusempra & Flipendo & Lumos & Skurge & Alohomora",
     }
+  "Diffindo Challenge - Chest 1": { requires: "Alohomora" }
+  "Diffindo Challenge - Chest 2": { requires: "Alohomora" }
+  "Diffindo Challenge - Chest 3": { requires: "Alohomora" }
+  "Diffindo Challenge - Chest 4": { requires: "Alohomora" }
+  "Diffindo Challenge - Chest 5": { requires: "Alohomora" }
+  "Diffindo Challenge - Peeves Chest 1": { requires: "Alohomora" }
+  "Diffindo Challenge - Jewel Box 1": { requires: "Alohomora" }
+  "Diffindo Challenge - Knight 1": { requires: "Flipendo" }
+  "Diffindo Challenge - Knight 2": { requires: "Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 1": { requires: "Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 2": { requires: "Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 3": { requires: "Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 4": { requires: "Flipendo" }
+  "Diffindo Challenge - Oil Can 1": { requires: "Flipendo" }
+  "Diffindo Challenge - Oil Can 2": { requires: "Flipendo" }
+  "Diffindo Challenge - Oil Can 3": { requires: "Flipendo" }
+  "Diffindo Challenge - Oil Can 4": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 1": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 2": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 3": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 4": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 5": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 6": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 7": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 8": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 9": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 10": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 11": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 1": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 2": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 3": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 4": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 5": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 6": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 7": { requires: "Flipendo" }
 
   # Boomslang Level
   "Boomslang Level - Card Toke": { requires: "Diffindo & Alohomora" }
@@ -247,6 +345,17 @@ locations:
   "Boomslang Level - Secret 2": { requires: "Diffindo & Flipendo & Lumos" }
   "Boomslang Level - Secret 3": { requires: "Diffindo & Alohomora" }
   "Boomslang Level - Complete": { requires: "Diffindo" }
+  "Boomslang Level - Chest 1": { requires: "Alohomora" }
+  "Boomslang Level - Mucus Spawner 1": { requires: "Flipendo" }
+  "Boomslang Level - Oil Can 1": { requires: "Flipendo" }
+  "Boomslang Level - Oil Can 2": { requires: "Flipendo" }
+  "Boomslang Level - Oil Can 3": { requires: "Flipendo" }
+  "Boomslang Level - Plant Pot 1": { requires: "Flipendo" }
+  "Boomslang Level - Plant Pot 2": { requires: "Flipendo" }
+  "Boomslang Level - Plant Pot 3": { requires: "Flipendo" }
+  "Boomslang Level - Plant Pot 4": { requires: "Flipendo" }
+  "Boomslang Level - Plant Pot 5": { requires: "Flipendo" }
+  "Boomslang Level - Plant Pot 6": { requires: "Flipendo" }
 
   # Goyle Level
   "Goyle Level - Card Bloxam":
@@ -275,6 +384,22 @@ locations:
     { requires: "Diffindo & Rictusempra & Flipendo & Alohomora & Lumos" }
   "Goyle Level - Complete":
     { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Peeves Chest 1": { requires: "Alohomora" }
+  "Goyle Level - Chest 1": { requires: "Alohomora" }
+  "Goyle Level - Chest 2": { requires: "Alohomora" }
+  "Goyle Level - Chest 3": { requires: "Alohomora" }
+  "Goyle Level - Chest 4": { requires: "Alohomora" }
+  "Goyle Level - Chest 5": { requires: "Alohomora" }
+  "Goyle Level - Chest 6": { requires: "Alohomora" }
+  "Goyle Level - Chest 7": { requires: "Alohomora" }
+  "Goyle Level - Chest 8": { requires: "Alohomora" }
+  "Goyle Level - Chest 9": { requires: "Alohomora" }
+  "Goyle Level - Chest 10": { requires: "Alohomora" }
+  "Goyle Level - Mucus Spawner 1": { requires: "Flipendo" }
+  "Goyle Level - Cauldron 1": { requires: "Flipendo" }
+  "Goyle Level - Cauldron 2": { requires: "Flipendo" }
+  "Goyle Level - Cauldron 3": { requires: "Flipendo" }
+  "Goyle Level - Cauldron 4": { requires: "Flipendo" }
 
   # Slytherin Common Room
   "Slytherin Common Room - Card Pilliwickle":
@@ -304,6 +429,21 @@ locations:
     { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
   "Slytherin Common Room - Complete":
     { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Bark Spawner 1": { requires: "Flipendo" }
+  "Slytherin Common Room - Chest 1": { requires: "Alohomora" }
+  "Slytherin Common Room - Chest 2": { requires: "Alohomora" }
+  "Slytherin Common Room - Chest 3": { requires: "Alohomora" }
+  "Slytherin Common Room - Knight 1": { requires: "Flipendo" }
+  "Slytherin Common Room - Knight 2": { requires: "Flipendo" }
+  "Slytherin Common Room - Knight 3": { requires: "Flipendo" }
+  "Slytherin Common Room - Knight 4": { requires: "Flipendo" }
+  "Slytherin Common Room - Knight 5": { requires: "Flipendo" }
+  "Slytherin Common Room - Knight 6": { requires: "Flipendo" }
+  "Slytherin Common Room - Knight 7": { requires: "Flipendo" }
+  "Slytherin Common Room - Mucus Spawner 1": { requires: "Flipendo" }
+  "Slytherin Common Room - Cauldron 1": { requires: "Flipendo" }
+  "Slytherin Common Room - Cauldron 2": { requires: "Flipendo" }
+  "Slytherin Common Room - Chest 4": { requires: "Alohomora" }
 
   # Spongify Challenge
   "Spongify Challenge - Card Merlin":
@@ -362,6 +502,29 @@ locations:
   "Spongify Challenge - Complete": { requires: "Spongify & Skurge & Flipendo" }
   "Spongify Challenge - Beat Par Time":
     { requires: "Spongify & Skurge & Flipendo & Alohomora & Lumos" }
+  "Spongify Challenge - Bark Spawner 1": { requires: "Flipendo" }
+  "Spongify Challenge - Bark Spawner 2": { requires: "Flipendo" }
+  "Spongify Challenge - Bark Spawner 3": { requires: "Flipendo" }
+  "Spongify Challenge - Chest 1": { requires: "Alohomora" }
+  "Spongify Challenge - Chest 2": { requires: "Alohomora" }
+  "Spongify Challenge - Chest 3": { requires: "Alohomora" }
+  "Spongify Challenge - Peeves Chest 1": { requires: "Alohomora" }
+  "Spongify Challenge - Chest 4": { requires: "Alohomora" }
+  "Spongify Challenge - Chest 5": { requires: "Alohomora" }
+  "Spongify Challenge - Chest 6": { requires: "Alohomora" }
+  "Spongify Challenge - Chest 7": { requires: "Alohomora" }
+  "Spongify Challenge - Chest 8": { requires: "Alohomora" }
+  "Spongify Challenge - Cigar Box 1": { requires: "Alohomora" }
+  "Spongify Challenge - Decanter 1": { requires: "Flipendo" }
+  "Spongify Challenge - Decanter 2": { requires: "Flipendo" }
+  "Spongify Challenge - Mucus Spawner 1": { requires: "Flipendo" }
+  "Spongify Challenge - Mucus Spawner 2": { requires: "Flipendo" }
+  "Spongify Challenge - Mucus Spawner 3": { requires: "Flipendo" }
+  "Spongify Challenge - Music Box 1": { requires: "Alohomora" }
+  "Spongify Challenge - Cauldron 1": { requires: "Flipendo" }
+  "Spongify Challenge - Cauldron 2": { requires: "Flipendo" }
+  "Spongify Challenge - Cauldron 3": { requires: "Flipendo" }
+  "Spongify Challenge - Cauldron 4": { requires: "Flipendo" }
 
   # Forbidden Forest
   "Forbidden Forest - Card Fancourt":
@@ -384,6 +547,11 @@ locations:
   "Forbidden Forest - Secret 4": { requires: "Lumos & Spongify & Diffindo" }
   "Forbidden Forest - Complete":
     { requires: "Lumos & Spongify & Diffindo & Flipendo & Rictusempra" }
+  "Forbidden Forest - Chest 1": { requires: "Alohomora" }
+  "Forbidden Forest - Chest 2": { requires: "Alohomora" }
+  "Forbidden Forest - Spawner 1": { requires: "Alohomora" }
+  "Forbidden Forest - Mucus Spawner 1": { requires: "Flipendo" }
+  "Forbidden Forest - Mucus Spawner 2": { requires: "Flipendo" }
 
   # Chamber Of Secrets
   "Chamber of Secrets - Card Elphick":
@@ -402,6 +570,29 @@ locations:
     { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
   "Chamber of Secrets - Complete":
     { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
+  "Chamber of Secrets - Bark Spawner 1": { requires: "Flipendo" }
+  "Chamber of Secrets - Chest 1": { requires: "Alohomora" }
+  "Chamber of Secrets - Chest 2": { requires: "Alohomora" }
+  "Chamber of Secrets - Chest 3": { requires: "Alohomora" }
+  "Chamber of Secrets - Chest 4": { requires: "Alohomora" }
+  "Chamber of Secrets - Chest 5": { requires: "Alohomora" }
+  "Chamber of Secrets - Chest 6": { requires: "Alohomora" }
+  "Chamber of Secrets - Mucus Spawner 1": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 1": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 2": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 3": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 4": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 5": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 6": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 7": { requires: "Flipendo" }
+  "Chamber of Secrets - Bark Spawner 2": { requires: "Flipendo" }
+  "Chamber of Secrets - Bark Spawner 3": { requires: "Flipendo" }
+  "Chamber of Secrets - Chest 7": { requires: "Alohomora" }
+  "Chamber of Secrets - Mucus Spawner 2": { requires: "Flipendo" }
+  "Chamber of Secrets - Mucus Spawner 3": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 8": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 9": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 10": { requires: "Flipendo" }
 
   # Gold Card Room
   "Gold Card Room - Card Bott": { requires: "Rictusempra | Spongify" }
@@ -468,224 +659,6 @@ locations:
     { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Complete":
     { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
-
-  # Containersanity containers (level interiors, shared by both modes).
-  # Seeded with each container's opening spell, the gen_apworld baseline.
-  # Refine each requires with the in-level reachability combo.
-  # Whomping Willow
-  "Whomping Willow - Chest 1": { requires: "Alohomora" }
-  "Whomping Willow - Chest 2": { requires: "Alohomora" }
-  "Whomping Willow - Chest 3": { requires: "Alohomora" }
-  "Whomping Willow - Chest 4": { requires: "Alohomora" }
-  "Whomping Willow - Chest 5": { requires: "Alohomora" }
-  "Whomping Willow - Knight 1": { requires: "Flipendo" }
-  "Whomping Willow - Knight 2": { requires: "Flipendo" }
-
-  # Rictusempra Challenge
-  "Rictusempra Challenge - Chest 1": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 2": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 3": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 4": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 5": { requires: "Alohomora" }
-  "Rictusempra Challenge - Chest 6": { requires: "Alohomora" }
-  "Rictusempra Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 4": { requires: "Flipendo" }
-  "Rictusempra Challenge - Cauldron 5": { requires: "Flipendo" }
-
-  # Skurge Challenge
-  "Skurge Challenge - Bark Spawner 1": { requires: "Flipendo" }
-  "Skurge Challenge - Chest 1": { requires: "Alohomora" }
-  "Skurge Challenge - Chest 2": { requires: "Alohomora" }
-  "Skurge Challenge - Chest 3": { requires: "Alohomora" }
-  "Skurge Challenge - Peeves Chest 1": { requires: "Alohomora" }
-  "Skurge Challenge - Cigar Box 1": { requires: "Alohomora" }
-  "Skurge Challenge - Decanter 1": { requires: "Flipendo" }
-  "Skurge Challenge - Decanter 2": { requires: "Flipendo" }
-  "Skurge Challenge - Jewel Box 1": { requires: "Alohomora" }
-  "Skurge Challenge - Knight 1": { requires: "Flipendo" }
-  "Skurge Challenge - Knight 2": { requires: "Flipendo" }
-  "Skurge Challenge - Mucus Spawner 1": { requires: "Flipendo" }
-  "Skurge Challenge - Music Box 1": { requires: "Alohomora" }
-  "Skurge Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 4": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 5": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 6": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 7": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 8": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 9": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 10": { requires: "Flipendo" }
-  "Skurge Challenge - Cauldron 11": { requires: "Flipendo" }
-  "Skurge Challenge - Chest 4": { requires: "Alohomora" }
-  "Skurge Challenge - Chest 5": { requires: "Alohomora" }
-
-  # Bicorn Level
-  "Bicorn Level - Bark Spawner 1": { requires: "Flipendo" }
-  "Bicorn Level - Bark Spawner 2": { requires: "Flipendo" }
-  "Bicorn Level - Chest 1": { requires: "Alohomora" }
-  "Bicorn Level - Peeves Chest 1": { requires: "Alohomora" }
-  "Bicorn Level - Chest 2": { requires: "Alohomora" }
-  "Bicorn Level - Chest 3": { requires: "Alohomora" }
-  "Bicorn Level - Chest 4": { requires: "Alohomora" }
-  "Bicorn Level - Chest 5": { requires: "Alohomora" }
-  "Bicorn Level - Chest 6": { requires: "Alohomora" }
-  "Bicorn Level - Chest 7": { requires: "Alohomora" }
-  "Bicorn Level - Chest 8": { requires: "Alohomora" }
-  "Bicorn Level - Mucus Spawner 1": { requires: "Flipendo" }
-  "Bicorn Level - Mucus Spawner 2": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 1": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 2": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 3": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 4": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 5": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 6": { requires: "Flipendo" }
-
-  # Diffindo Challenge
-  "Diffindo Challenge - Chest 1": { requires: "Alohomora" }
-  "Diffindo Challenge - Chest 2": { requires: "Alohomora" }
-  "Diffindo Challenge - Chest 3": { requires: "Alohomora" }
-  "Diffindo Challenge - Chest 4": { requires: "Alohomora" }
-  "Diffindo Challenge - Chest 5": { requires: "Alohomora" }
-  "Diffindo Challenge - Peeves Chest 1": { requires: "Alohomora" }
-  "Diffindo Challenge - Jewel Box 1": { requires: "Alohomora" }
-  "Diffindo Challenge - Knight 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Knight 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 4": { requires: "Flipendo" }
-  "Diffindo Challenge - Oil Can 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Oil Can 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Oil Can 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Oil Can 4": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 4": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 5": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 6": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 7": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 8": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 9": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 10": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 11": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 4": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 5": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 6": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 7": { requires: "Flipendo" }
-
-  # Boomslang Level
-  "Boomslang Level - Chest 1": { requires: "Alohomora" }
-  "Boomslang Level - Mucus Spawner 1": { requires: "Flipendo" }
-  "Boomslang Level - Oil Can 1": { requires: "Flipendo" }
-  "Boomslang Level - Oil Can 2": { requires: "Flipendo" }
-  "Boomslang Level - Oil Can 3": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 1": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 2": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 3": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 4": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 5": { requires: "Flipendo" }
-  "Boomslang Level - Plant Pot 6": { requires: "Flipendo" }
-
-  # Goyle Level
-  "Goyle Level - Peeves Chest 1": { requires: "Alohomora" }
-  "Goyle Level - Chest 1": { requires: "Alohomora" }
-  "Goyle Level - Chest 2": { requires: "Alohomora" }
-  "Goyle Level - Chest 3": { requires: "Alohomora" }
-  "Goyle Level - Chest 4": { requires: "Alohomora" }
-  "Goyle Level - Chest 5": { requires: "Alohomora" }
-  "Goyle Level - Chest 6": { requires: "Alohomora" }
-  "Goyle Level - Chest 7": { requires: "Alohomora" }
-  "Goyle Level - Chest 8": { requires: "Alohomora" }
-  "Goyle Level - Chest 9": { requires: "Alohomora" }
-  "Goyle Level - Chest 10": { requires: "Alohomora" }
-  "Goyle Level - Mucus Spawner 1": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 1": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 2": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 3": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 4": { requires: "Flipendo" }
-
-  # Slytherin Common Room
-  "Slytherin Common Room - Bark Spawner 1": { requires: "Flipendo" }
-  "Slytherin Common Room - Chest 1": { requires: "Alohomora" }
-  "Slytherin Common Room - Chest 2": { requires: "Alohomora" }
-  "Slytherin Common Room - Chest 3": { requires: "Alohomora" }
-  "Slytherin Common Room - Knight 1": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 2": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 3": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 4": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 5": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 6": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 7": { requires: "Flipendo" }
-  "Slytherin Common Room - Mucus Spawner 1": { requires: "Flipendo" }
-  "Slytherin Common Room - Cauldron 1": { requires: "Flipendo" }
-  "Slytherin Common Room - Cauldron 2": { requires: "Flipendo" }
-  "Slytherin Common Room - Chest 4": { requires: "Alohomora" }
-
-  # Spongify Challenge
-  "Spongify Challenge - Bark Spawner 1": { requires: "Flipendo" }
-  "Spongify Challenge - Bark Spawner 2": { requires: "Flipendo" }
-  "Spongify Challenge - Bark Spawner 3": { requires: "Flipendo" }
-  "Spongify Challenge - Chest 1": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 2": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 3": { requires: "Alohomora" }
-  "Spongify Challenge - Peeves Chest 1": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 4": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 5": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 6": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 7": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 8": { requires: "Alohomora" }
-  "Spongify Challenge - Cigar Box 1": { requires: "Alohomora" }
-  "Spongify Challenge - Decanter 1": { requires: "Flipendo" }
-  "Spongify Challenge - Decanter 2": { requires: "Flipendo" }
-  "Spongify Challenge - Mucus Spawner 1": { requires: "Flipendo" }
-  "Spongify Challenge - Mucus Spawner 2": { requires: "Flipendo" }
-  "Spongify Challenge - Mucus Spawner 3": { requires: "Flipendo" }
-  "Spongify Challenge - Music Box 1": { requires: "Alohomora" }
-  "Spongify Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Spongify Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Spongify Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Spongify Challenge - Cauldron 4": { requires: "Flipendo" }
-
-  # Forbidden Forest
-  "Forbidden Forest - Chest 1": { requires: "Alohomora" }
-  "Forbidden Forest - Chest 2": { requires: "Alohomora" }
-  "Forbidden Forest - Spawner 1": { requires: "Alohomora" }
-  "Forbidden Forest - Mucus Spawner 1": { requires: "Flipendo" }
-  "Forbidden Forest - Mucus Spawner 2": { requires: "Flipendo" }
-
-  # Chamber of Secrets
-  "Chamber of Secrets - Bark Spawner 1": { requires: "Flipendo" }
-  "Chamber of Secrets - Chest 1": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 2": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 3": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 4": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 5": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 6": { requires: "Alohomora" }
-  "Chamber of Secrets - Mucus Spawner 1": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 1": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 2": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 3": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 4": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 5": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 6": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 7": { requires: "Flipendo" }
-  "Chamber of Secrets - Bark Spawner 2": { requires: "Flipendo" }
-  "Chamber of Secrets - Bark Spawner 3": { requires: "Flipendo" }
-  "Chamber of Secrets - Chest 7": { requires: "Alohomora" }
-  "Chamber of Secrets - Mucus Spawner 2": { requires: "Flipendo" }
-  "Chamber of Secrets - Mucus Spawner 3": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 8": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 9": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 10": { requires: "Flipendo" }
-
-  # Gryffindor Challenge
   "Gryffindor Challenge - Cauldron 1": { requires: "Flipendo" }
   "Gryffindor Challenge - Cauldron 2": { requires: "Flipendo" }
   "Gryffindor Challenge - Cauldron 3": { requires: "Flipendo" }

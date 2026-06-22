@@ -162,6 +162,15 @@ locations:
   "Castle Exterior - Secret 8": { requires: "Alohomora" }
   "Castle Exterior - Nimbus 2001": { requires: "Rictusempra" }
   "Castle Exterior - Quidditch Armour": { requires: "Rictusempra" }
+  "Castle Exterior - Chest 1": { requires: "Alohomora" }
+  "Castle Exterior - Chest 2": { requires: "Alohomora" }
+  "Castle Exterior - Chest 3": { requires: "Alohomora" }
+  "Castle Exterior - Chest 4": { requires: "Alohomora" }
+  "Castle Exterior - Chest 5": { requires: "Alohomora" }
+  "Castle Exterior - Chest 6": { requires: "Alohomora" }
+  "Castle Exterior - Chest 7": { requires: "Alohomora" }
+  "Castle Exterior - Chest 8": { requires: "Alohomora" }
+  "Castle Exterior - Chest 9": { requires: "Alohomora" }
 
   # Entry Hall (region entry: Lumos & Flipendo)
   "Entry Hall - Card Alderton": { requires: "Alohomora & Spongify" }
@@ -191,6 +200,20 @@ locations:
   "Entry Hall - Secret 10": { requires: "Flipendo" }
   "Entry Hall - Secret 11": { requires: "Alohomora" }
   "Entry Hall - Secret 12": { requires: "Spongify" }
+  "Entry Hall - Bark Spawner 1": { requires: "Flipendo" }
+  "Entry Hall - Chest 1": { requires: "Alohomora" }
+  "Entry Hall - Chest 2": { requires: "Alohomora" }
+  "Entry Hall - Chest 3": { requires: "Alohomora" }
+  "Entry Hall - Chest 4": { requires: "Alohomora" }
+  "Entry Hall - Chest 5": { requires: "Alohomora" }
+  "Entry Hall - Chest 6": { requires: "Alohomora" }
+  "Entry Hall - Chest 7": { requires: "Alohomora" }
+  "Entry Hall - Spawner 1": { requires: "Alohomora" }
+  "Entry Hall - Knight 1": { requires: "Flipendo" }
+  "Entry Hall - Knight 2": { requires: "Flipendo" }
+  "Entry Hall - Knight 3": { requires: "Flipendo" }
+  "Entry Hall - Knight 4": { requires: "Flipendo" }
+  "Entry Hall - Mucus Spawner 1": { requires: "Flipendo" }
 
   # Grand Staircase (region entry: Lumos & Flipendo)
   "Grand Staircase - Card Barkwith": { requires: "Alohomora & Rictusempra" }
@@ -214,6 +237,32 @@ locations:
   "Grand Staircase - Secret 7": { requires: "true" }
   "Grand Staircase - Secret 8": { requires: "Alohomora" }
   "Grand Staircase - Secret 9": { requires: "Alohomora" }
+  "Grand Staircase - Chest 1": { requires: "Alohomora" }
+  "Grand Staircase - Chest 2": { requires: "Alohomora" }
+  "Grand Staircase - Chest 3": { requires: "Alohomora" }
+  "Grand Staircase - Chest 4": { requires: "Alohomora" }
+  "Grand Staircase - Chest 5": { requires: "Alohomora" }
+  "Grand Staircase - Chest 6": { requires: "Alohomora" }
+  "Grand Staircase - Chest 7": { requires: "Alohomora" }
+  "Grand Staircase - Chest 8": { requires: "Alohomora" }
+  "Grand Staircase - Cigar Box 1": { requires: "Alohomora" }
+  "Grand Staircase - Cigar Box 2": { requires: "Alohomora" }
+  "Grand Staircase - Cigar Box 3": { requires: "Alohomora" }
+  "Grand Staircase - Decanter 1": { requires: "Flipendo" }
+  "Grand Staircase - Decanter 2": { requires: "Flipendo" }
+  "Grand Staircase - Decanter 3": { requires: "Flipendo" }
+  "Grand Staircase - Jewel Box 1": { requires: "Alohomora" }
+  "Grand Staircase - Jewel Box 2": { requires: "Alohomora" }
+  "Grand Staircase - Knight 1": { requires: "Flipendo" }
+  "Grand Staircase - Music Box 1": { requires: "Alohomora" }
+  "Grand Staircase - Cauldron 1": { requires: "Flipendo" }
+  "Grand Staircase - Cauldron 2": { requires: "Flipendo" }
+  "Grand Staircase - Cauldron 3": { requires: "Flipendo" }
+  "Grand Staircase - Cauldron 4": { requires: "Flipendo" }
+  "Grand Staircase - Cauldron 5": { requires: "Flipendo" }
+  "Grand Staircase - Cauldron 6": { requires: "Flipendo" }
+  "Grand Staircase - Cauldron 7": { requires: "Flipendo" }
+  "Grand Staircase - Cauldron 8": { requires: "Flipendo" }
 
   # Dumbledore's Study (region entry: Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key')
   "Dumbledore's Study - Card Beamish":
@@ -264,64 +313,6 @@ locations:
   "Castle Exterior - Card Vendor 2": { requires: "true" }
   "Castle Exterior - Ingredient Vendor 1": { requires: "true" }
   "Castle Exterior - Ingredient Vendor 2": { requires: "true" }
-
-  # Containersanity containers (castle hubs, mode-specific).
-  # Seeded with each container's opening spell, the gen_apworld baseline.
-  # Refine each requires with the in-hub reachability combo.
-  # Entry Hall
-  "Entry Hall - Bark Spawner 1": { requires: "Flipendo" }
-  "Entry Hall - Chest 1": { requires: "Alohomora" }
-  "Entry Hall - Chest 2": { requires: "Alohomora" }
-  "Entry Hall - Chest 3": { requires: "Alohomora" }
-  "Entry Hall - Chest 4": { requires: "Alohomora" }
-  "Entry Hall - Chest 5": { requires: "Alohomora" }
-  "Entry Hall - Chest 6": { requires: "Alohomora" }
-  "Entry Hall - Chest 7": { requires: "Alohomora" }
-  "Entry Hall - Spawner 1": { requires: "Alohomora" }
-  "Entry Hall - Knight 1": { requires: "Flipendo" }
-  "Entry Hall - Knight 2": { requires: "Flipendo" }
-  "Entry Hall - Knight 3": { requires: "Flipendo" }
-  "Entry Hall - Knight 4": { requires: "Flipendo" }
-  "Entry Hall - Mucus Spawner 1": { requires: "Flipendo" }
-
-  # Grand Staircase
-  "Grand Staircase - Chest 1": { requires: "Alohomora" }
-  "Grand Staircase - Chest 2": { requires: "Alohomora" }
-  "Grand Staircase - Chest 3": { requires: "Alohomora" }
-  "Grand Staircase - Chest 4": { requires: "Alohomora" }
-  "Grand Staircase - Chest 5": { requires: "Alohomora" }
-  "Grand Staircase - Chest 6": { requires: "Alohomora" }
-  "Grand Staircase - Chest 7": { requires: "Alohomora" }
-  "Grand Staircase - Chest 8": { requires: "Alohomora" }
-  "Grand Staircase - Cigar Box 1": { requires: "Alohomora" }
-  "Grand Staircase - Cigar Box 2": { requires: "Alohomora" }
-  "Grand Staircase - Cigar Box 3": { requires: "Alohomora" }
-  "Grand Staircase - Decanter 1": { requires: "Flipendo" }
-  "Grand Staircase - Decanter 2": { requires: "Flipendo" }
-  "Grand Staircase - Decanter 3": { requires: "Flipendo" }
-  "Grand Staircase - Jewel Box 1": { requires: "Alohomora" }
-  "Grand Staircase - Jewel Box 2": { requires: "Alohomora" }
-  "Grand Staircase - Knight 1": { requires: "Flipendo" }
-  "Grand Staircase - Music Box 1": { requires: "Alohomora" }
-  "Grand Staircase - Cauldron 1": { requires: "Flipendo" }
-  "Grand Staircase - Cauldron 2": { requires: "Flipendo" }
-  "Grand Staircase - Cauldron 3": { requires: "Flipendo" }
-  "Grand Staircase - Cauldron 4": { requires: "Flipendo" }
-  "Grand Staircase - Cauldron 5": { requires: "Flipendo" }
-  "Grand Staircase - Cauldron 6": { requires: "Flipendo" }
-  "Grand Staircase - Cauldron 7": { requires: "Flipendo" }
-  "Grand Staircase - Cauldron 8": { requires: "Flipendo" }
-
-  # Castle Exterior
-  "Castle Exterior - Chest 1": { requires: "Alohomora" }
-  "Castle Exterior - Chest 2": { requires: "Alohomora" }
-  "Castle Exterior - Chest 3": { requires: "Alohomora" }
-  "Castle Exterior - Chest 4": { requires: "Alohomora" }
-  "Castle Exterior - Chest 5": { requires: "Alohomora" }
-  "Castle Exterior - Chest 6": { requires: "Alohomora" }
-  "Castle Exterior - Chest 7": { requires: "Alohomora" }
-  "Castle Exterior - Chest 8": { requires: "Alohomora" }
-  "Castle Exterior - Chest 9": { requires: "Alohomora" }
 
 # Goal definition.
 goal:

@@ -138,6 +138,20 @@ locations:
   "Entry Hall - Secret 10": { requires: "Flipendo" }
   "Entry Hall - Secret 11": { requires: "Alohomora" }
   "Entry Hall - Secret 12": { requires: "Spongify" }
+  "Entry Hall - Bark Spawner 1": { requires: "Flipendo" }
+  "Entry Hall - Chest 1": { requires: "Alohomora" }
+  "Entry Hall - Chest 2": { requires: "Alohomora" }
+  "Entry Hall - Chest 3": { requires: "Alohomora" }
+  "Entry Hall - Chest 4": { requires: "Alohomora" }
+  "Entry Hall - Chest 5": { requires: "Alohomora" }
+  "Entry Hall - Chest 6": { requires: "Alohomora" }
+  "Entry Hall - Chest 7": { requires: "Alohomora" }
+  "Entry Hall - Spawner 1": { requires: "Alohomora" }
+  "Entry Hall - Knight 1": { requires: "Flipendo" }
+  "Entry Hall - Knight 2": { requires: "Flipendo" }
+  "Entry Hall - Knight 3": { requires: "Flipendo" }
+  "Entry Hall - Knight 4": { requires: "Flipendo" }
+  "Entry Hall - Mucus Spawner 1": { requires: "Flipendo" }
 
   # Grand Staircase
   "Grand Staircase - Card Barkwith": { requires: "Alohomora" }
@@ -160,70 +174,6 @@ locations:
   "Grand Staircase - Secret 7": { requires: "true" }
   "Grand Staircase - Secret 8": { requires: "Alohomora" }
   "Grand Staircase - Secret 9": { requires: "Alohomora" }
-  "Dumbledore's Study - Card Beamish": { requires: "Alohomora & Flipendo" }
-  "Dumbledore's Study - Card Muldoon": { requires: "Alohomora" }
-  "Dumbledore's Study - Secret": { requires: "Alohomora & Flipendo" }
-
-  # Castle Exterior
-  "Castle Exterior - Card Marjoribanks": { requires: "Diffindo & Alohomora" }
-  "Castle Exterior - Card Pokeby": { requires: "Alohomora" }
-  "Castle Exterior - Card Sweeting": { requires: "true" }
-  "Castle Exterior - Card Sykes": { requires: "Spongify" }
-  "Castle Exterior - Card Twonk": { requires: "Alohomora & Diffindo" }
-  "Castle Exterior - Card Oglethorpe":
-    { requires: "Alohomora & Diffindo & Lumos & Spongify" }
-  "Castle Exterior - Card Plunkett":
-    { requires: "Alohomora & Diffindo & Lumos" }
-  "Castle Exterior - Card Wadcock": { requires: "Alohomora" }
-  "Castle Exterior - Card Youdle":
-    { requires: "(Flipendo | Spongify | Running) & Alohomora" }
-  "Castle Exterior - Secret 1": { requires: "Alohomora & Diffindo" }
-  "Castle Exterior - Secret 2": { requires: "Alohomora" }
-  "Castle Exterior - Secret 3": { requires: "Alohomora & Diffindo & Lumos" }
-  "Castle Exterior - Secret 4":
-    { requires: "Alohomora & Diffindo & Lumos & Spongify" }
-  "Castle Exterior - Secret 5": { requires: "Spongify" }
-  "Castle Exterior - Secret 6": { requires: "Flipendo | Spongify | Running" }
-  "Castle Exterior - Secret 7": { requires: "Diffindo" }
-  "Castle Exterior - Secret 8": { requires: "Alohomora" }
-  "Castle Exterior - Nimbus 2001": { requires: "true" }
-  "Castle Exterior - Quidditch Armour": { requires: "true" }
-
-  # Tradersanity vendors
-  "Entry Hall - Card Vendor 1": { requires: "true" }
-  "Entry Hall - Card Vendor 2": { requires: "true" }
-  "Entry Hall - Card Vendor 3": { requires: "true" }
-  "Entry Hall - Ingredient Vendor 1": { requires: "true" }
-  "Entry Hall - Ingredient Vendor 2": { requires: "true" }
-  "Entry Hall - Ingredient Vendor 3": { requires: "true" }
-  "Grand Staircase - Card Vendor 1": { requires: "true" }
-  "Grand Staircase - Card Vendor 2": { requires: "true" }
-  "Grand Staircase - Ingredient Vendor 1": { requires: "true" }
-  "Castle Exterior - Card Vendor 1": { requires: "true" }
-  "Castle Exterior - Card Vendor 2": { requires: "true" }
-  "Castle Exterior - Ingredient Vendor 1": { requires: "true" }
-  "Castle Exterior - Ingredient Vendor 2": { requires: "true" }
-
-  # Containersanity containers (castle hubs, mode-specific).
-  # Seeded with each container's opening spell, the gen_apworld baseline.
-  # Refine each requires with the in-hub reachability combo.
-  # Entry Hall
-  "Entry Hall - Bark Spawner 1": { requires: "Flipendo" }
-  "Entry Hall - Chest 1": { requires: "Alohomora" }
-  "Entry Hall - Chest 2": { requires: "Alohomora" }
-  "Entry Hall - Chest 3": { requires: "Alohomora" }
-  "Entry Hall - Chest 4": { requires: "Alohomora" }
-  "Entry Hall - Chest 5": { requires: "Alohomora" }
-  "Entry Hall - Chest 6": { requires: "Alohomora" }
-  "Entry Hall - Chest 7": { requires: "Alohomora" }
-  "Entry Hall - Spawner 1": { requires: "Alohomora" }
-  "Entry Hall - Knight 1": { requires: "Flipendo" }
-  "Entry Hall - Knight 2": { requires: "Flipendo" }
-  "Entry Hall - Knight 3": { requires: "Flipendo" }
-  "Entry Hall - Knight 4": { requires: "Flipendo" }
-  "Entry Hall - Mucus Spawner 1": { requires: "Flipendo" }
-
-  # Grand Staircase
   "Grand Staircase - Chest 1": { requires: "Alohomora" }
   "Grand Staircase - Chest 2": { requires: "Alohomora" }
   "Grand Staircase - Chest 3": { requires: "Alohomora" }
@@ -250,8 +200,32 @@ locations:
   "Grand Staircase - Cauldron 6": { requires: "Flipendo" }
   "Grand Staircase - Cauldron 7": { requires: "Flipendo" }
   "Grand Staircase - Cauldron 8": { requires: "Flipendo" }
+  "Dumbledore's Study - Card Beamish": { requires: "Alohomora & Flipendo" }
+  "Dumbledore's Study - Card Muldoon": { requires: "Alohomora" }
+  "Dumbledore's Study - Secret": { requires: "Alohomora & Flipendo" }
 
   # Castle Exterior
+  "Castle Exterior - Card Marjoribanks": { requires: "Diffindo & Alohomora" }
+  "Castle Exterior - Card Pokeby": { requires: "Alohomora" }
+  "Castle Exterior - Card Sweeting": { requires: "true" }
+  "Castle Exterior - Card Sykes": { requires: "Spongify" }
+  "Castle Exterior - Card Twonk": { requires: "Alohomora & Diffindo" }
+  "Castle Exterior - Card Oglethorpe":
+    { requires: "Alohomora & Diffindo & Lumos & Spongify" }
+  "Castle Exterior - Card Plunkett":
+    { requires: "Alohomora & Diffindo & Lumos" }
+  "Castle Exterior - Card Wadcock": { requires: "Alohomora" }
+  "Castle Exterior - Card Youdle":
+    { requires: "(Flipendo | Spongify | Running) & Alohomora" }
+  "Castle Exterior - Secret 1": { requires: "Alohomora & Diffindo" }
+  "Castle Exterior - Secret 2": { requires: "Alohomora" }
+  "Castle Exterior - Secret 3": { requires: "Alohomora & Diffindo & Lumos" }
+  "Castle Exterior - Secret 4":
+    { requires: "Alohomora & Diffindo & Lumos & Spongify" }
+  "Castle Exterior - Secret 5": { requires: "Spongify" }
+  "Castle Exterior - Secret 6": { requires: "Flipendo | Spongify | Running" }
+  "Castle Exterior - Secret 7": { requires: "Diffindo" }
+  "Castle Exterior - Secret 8": { requires: "Alohomora" }
   "Castle Exterior - Chest 1": { requires: "Alohomora" }
   "Castle Exterior - Chest 2": { requires: "Alohomora" }
   "Castle Exterior - Chest 3": { requires: "Alohomora" }
@@ -261,6 +235,23 @@ locations:
   "Castle Exterior - Chest 7": { requires: "Alohomora" }
   "Castle Exterior - Chest 8": { requires: "Alohomora" }
   "Castle Exterior - Chest 9": { requires: "Alohomora" }
+  "Castle Exterior - Nimbus 2001": { requires: "true" }
+  "Castle Exterior - Quidditch Armour": { requires: "true" }
+
+  # Tradersanity vendors
+  "Entry Hall - Card Vendor 1": { requires: "true" }
+  "Entry Hall - Card Vendor 2": { requires: "true" }
+  "Entry Hall - Card Vendor 3": { requires: "true" }
+  "Entry Hall - Ingredient Vendor 1": { requires: "true" }
+  "Entry Hall - Ingredient Vendor 2": { requires: "true" }
+  "Entry Hall - Ingredient Vendor 3": { requires: "true" }
+  "Grand Staircase - Card Vendor 1": { requires: "true" }
+  "Grand Staircase - Card Vendor 2": { requires: "true" }
+  "Grand Staircase - Ingredient Vendor 1": { requires: "true" }
+  "Castle Exterior - Card Vendor 1": { requires: "true" }
+  "Castle Exterior - Card Vendor 2": { requires: "true" }
+  "Castle Exterior - Ingredient Vendor 1": { requires: "true" }
+  "Castle Exterior - Ingredient Vendor 2": { requires: "true" }
 
   # Bean Reward Room
   "Bean Reward Room - Chest 1": { requires: "Alohomora" }
