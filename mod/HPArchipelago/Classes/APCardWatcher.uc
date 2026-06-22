@@ -35,7 +35,7 @@ const LOC_BASE = 5760000;
 // below. Mirrors `NONCARD_LOC_WINDOW` in gen_apworld.py — the two MUST hold
 // the same value; gen_apworld.py fails generation if any non-card location
 // id_offset >= this. Sized generously to cover every band with headroom.
-const NONCARD_LOC_WINDOW = 1024;
+const NONCARD_LOC_WINDOW = 2048;
 // Class-default dedup for non-card AP locations (secrets, stars, vendors,
 // duels, matches, level completions). Indexed by `apId - LOC_BASE`.
 // Class-default so it persists across level transitions in a session, like
@@ -43,7 +43,7 @@ const NONCARD_LOC_WINDOW = 1024;
 // M212 UnrealScript array dimensions take an integer literal, not a const
 // (no vanilla array in the decompiled retail source uses a const/enum dim),
 // so the constant cannot be referenced here directly.
-var byte NonCardLocationChecked[1024];
+var byte NonCardLocationChecked[2048];
 
 // #3 marker-appearance subsystem. Per-AP-location appearance code, indexed by
 // `apId - LOC_BASE` exactly like NonCardLocationChecked[] (same dedupe-window
@@ -56,7 +56,7 @@ var byte NonCardLocationChecked[1024];
 // filler/useful (AP-logo plain); 9001 = foreign progression/trap (AP-logo
 // arrow). Dimension literal MUST equal NONCARD_LOC_WINDOW (M212 array dims
 // take an integer literal, not a const — see NonCardLocationChecked[] above).
-var int AppearanceCode[1024];
+var int AppearanceCode[2048];
 // Set once SetAppearanceCSV has ingested a table this process. The sweep and
 // every marker self-apply early-return until then so a pre-table marker keeps
 // its native look instead of going blank.
@@ -65,6 +65,10 @@ var byte bAppearanceReceived;
 // exactly once after the table is present in a given level; resets with each
 // fresh per-level watcher instance.
 var byte bAppearanceRestampedThisLevel;
+// Per-level (instance) one-shot guard: ReplaceContainers runs once per level,
+// on the first tick after the containersanity flag is present. Resets with each
+// fresh per-level watcher instance.
+var byte bContainersReplacedThisLevel;
 
 // Morphable-marker registry (the #3 capability contract). A marker opts in by
 // calling RegisterMorphMarker(self, apId) on the live per-level watcher when
@@ -122,6 +126,10 @@ var byte bQuidditchUpgrades;
 // (default) the sprint costs SPRINT_BEAN_COST beans per tick and needs beans to
 // engage. Sticky byte; resent every HELLO.
 var byte bAllowRunningLogic;
+// containersanity flag from the apworld slot_data (CONTAINERSANITY IPC).
+// Class-default + sticky; resent every HELLO. When 1, ReplaceContainers swaps/
+// injects the bean-container AP tokens once per level; 0 leaves containers vanilla.
+var byte bContainersanity;
 // Lazy-loaded AP logo texture used by TradersanityIconSwapPass to replace the
 // trade UI's wiggentree-bark / flobberworm-mucous / card icon on Tradersanity
 // vendors with an "Archipelago Item" plate before purchase. Class default so
@@ -134,12 +142,12 @@ var Texture CachedAPItemTexture;
 // CHECK_LOCID + rainbow burst + drop sound still happen on the marker's
 // Touch as vanilla, preserving the cosmetic drop flow the player expects.
 // Indexed by `locId - LOC_BASE`. Dimension MUST equal NONCARD_LOC_WINDOW.
-var byte TraderPurchased[1024];
+var byte TraderPurchased[2048];
 // Per-Tradersanity-location cached item name from the apworld's scout
 // response, delivered via the HINT IPC line. Empty if hint-on-open is off
 // for this seed; the label falls back to the generic "Archipelago Item"
 // text in that case.
-var string TraderHintItemName[1024];
+var string TraderHintItemName[2048];
 // Price constants for the non-vanilla modes (retune freely). price_low clamps
 // to a flat value; price_random blends a per-vendor factor (TraderRolledFactor
 // below) across [LO, HI]; price_vanilla on a card vendor blends the SAME
@@ -158,7 +166,7 @@ const TRADER_PRICE_RAND_HI    = 250;
 // Replaces a per-level RandRange that re-rolled on every hub re-entry.
 // Dimension MUST be the integer literal 1024 (== NONCARD_LOC_WINDOW); M212
 // array dims take an integer literal, not a const.
-var byte TraderRolledFactor[1024];
+var byte TraderRolledFactor[2048];
 // A freshly-sold item spawns within ~CollisionRadius+10 of its vendor and is
 // caught within ≤0.25s, so it is always far nearer its own vendor than the
 // closest neighbouring vendor (census min separation ≈ 210uu). Match the
@@ -2229,6 +2237,191 @@ static function SetAllowRunningLogic(byte v)
     default.bAllowRunningLogic = v;
     Log("[Archipelago] APCardWatcher.SetAllowRunningLogic: enabled=" $ string(default.bAllowRunningLogic));
 }
+// containersanity flag from the apworld slot_data (CONTAINERSANITY IPC). Sticky
+// class-default; resent every HELLO. ReplaceContainers gates on it per level.
+static function SetContainersanity(byte v)
+{
+    default.bContainersanity = v;
+    Log("[Archipelago] APCardWatcher.SetContainersanity: enabled=" $ string(default.bContainersanity));
+}
+
+// containersanity: turn every catalogued bean container in this level into its
+// AP check. Chests/cauldrons keep their actor and get a per-location marker
+// injected into EjectedObjects (the container ejects it through its own open
+// animation, like a card). GenericSpawner-family boxes are swapped for a thin
+// APContainerSpawner_<Leaf> subclass that ejects the stamped token once on its
+// first hit. GetContainerLocationId returns 0 for everything that is not a
+// container location (card chests, decorative cauldrons), so those are skipped.
+// Run once per level from Timer, gated on bContainersanity.
+function ReplaceContainers()
+{
+    local chestbronze chest;
+    local bronzecauldron caul;
+    local GenericSpawner spawner;
+    local string lvl;
+    local int apId, n;
+
+    lvl = Caps(string(Level.Outer.Name));
+
+    foreach AllActors(class'chestbronze', chest)
+    {
+        apId = class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(chest.Name));
+        if (apId > 0)
+        {
+            InjectContainerMarkerChest(chest, apId);
+            n++;
+        }
+    }
+    foreach AllActors(class'bronzecauldron', caul)
+    {
+        apId = class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(caul.Name));
+        if (apId > 0)
+        {
+            InjectContainerMarkerCauldron(caul, apId);
+            n++;
+        }
+    }
+    foreach AllActors(class'GenericSpawner', spawner)
+    {
+        // Skip our own swapped subclasses so a re-run can't double-swap.
+        if (Left(string(spawner.Class.Name), 19) == "APContainerSpawner_")
+        {
+            continue;
+        }
+        apId = class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(spawner.Name));
+        Log("[Archipelago] ReplaceContainers: spawner class=" $ string(spawner.Class.Name)
+            $ " name=" $ string(spawner.Name) $ " -> apId " $ apId);
+        if (apId > 0)
+        {
+            SwapContainerSpawner(spawner, apId);
+            n++;
+        }
+    }
+    Log("[Archipelago] APCardWatcher.ReplaceContainers: " $ lvl $ " - processed " $ n $ " container location(s)");
+}
+
+// Inject the per-location marker (APContainerMarker_<offset>, baked id) into a
+// chest so it flies out on Alohomora. bRandomBeans is frozen off so
+// SetupRandomBeans can't overwrite the marker slot; the marker is appended past
+// the beans when a slot is free, else it replaces the last bean.
+function InjectContainerMarkerChest(chestbronze chest, int apId)
+{
+    local class<Actor> markerCls;
+    local int i, maxN;
+
+    for (i = 0; i < ArrayCount(chest.EjectedObjects); i++)
+    {
+        if (chest.EjectedObjects[i] != None
+            && ClassIsChildOf(chest.EjectedObjects[i], class'APContainerMarker'))
+        {
+            return;  // already injected this level
+        }
+    }
+    markerCls = class<Actor>(DynamicLoadObject(
+        "HPArchipelago.APContainerMarker_" $ string(apId - LOC_BASE), class'Class'));
+    if (markerCls == None)
+    {
+        return;
+    }
+    // Freeze the bean roll so SetupRandomBeans can't overwrite the marker slot.
+    chest.bRandomBeans = False;
+    maxN = ArrayCount(chest.EjectedObjects);
+    // Eject the AP token FIRST: shift beans up one slot to free slot 0 (keeps
+    // them all when there is room), then drop the marker into slot 0. If the
+    // array is already full, slot 0 is overwritten (one bean replaced).
+    if (chest.iNumberOfBeans < maxN)
+    {
+        for (i = chest.iNumberOfBeans; i > 0; i--)
+        {
+            chest.EjectedObjects[i] = chest.EjectedObjects[i - 1];
+        }
+        chest.iNumberOfBeans = chest.iNumberOfBeans + 1;
+    }
+    chest.EjectedObjects[0] = markerCls;
+}
+
+// Cauldron variant: bronzecauldron has only 3 eject slots and uses bRandomBean
+// (singular), so the marker usually replaces the last bean.
+function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
+{
+    local class<Actor> markerCls;
+    local int i, maxN;
+
+    for (i = 0; i < ArrayCount(caul.EjectedObjects); i++)
+    {
+        if (caul.EjectedObjects[i] != None
+            && ClassIsChildOf(caul.EjectedObjects[i], class'APContainerMarker'))
+        {
+            return;
+        }
+    }
+    markerCls = class<Actor>(DynamicLoadObject(
+        "HPArchipelago.APContainerMarker_" $ string(apId - LOC_BASE), class'Class'));
+    if (markerCls == None)
+    {
+        return;
+    }
+    caul.bRandomBean = False;
+    maxN = ArrayCount(caul.EjectedObjects);
+    // Eject the AP token FIRST (see InjectContainerMarkerChest). bronzecauldron
+    // has only 3 slots and is usually full, so the marker replaces the first
+    // bean rather than shifting.
+    if (caul.iNumberOfBeans < maxN)
+    {
+        for (i = caul.iNumberOfBeans; i > 0; i--)
+        {
+            caul.EjectedObjects[i] = caul.EjectedObjects[i - 1];
+        }
+        caul.iNumberOfBeans = caul.iNumberOfBeans + 1;
+    }
+    caul.EjectedObjects[0] = markerCls;
+}
+
+// Swap a GenericSpawner-family box for its APContainerSpawner_<Leaf> subclass,
+// carrying the level-set fields the leaf default lacks and stamping the AP
+// location id (SetPropertyText: the generated subclasses each declare
+// CheckLocationId but share no base type to cast to here). The original is
+// destroyed first so the replacement spawns in its place without encroaching.
+function SwapContainerSpawner(GenericSpawner old, int apId)
+{
+    local class<GenericSpawner> swapCls;
+    local GenericSpawner nw;
+    local Actor spawned;
+    local Vector savedLoc;
+    local Rotator savedRot;
+    local name savedTag, savedEvent, savedEventName;
+    local int savedLives;
+
+    swapCls = class<GenericSpawner>(DynamicLoadObject(
+        "HPArchipelago.APContainerSpawner_" $ string(old.Class.Name), class'Class'));
+    if (swapCls == None)
+    {
+        return;
+    }
+    savedLoc = old.Location;
+    savedRot = old.Rotation;
+    savedTag = old.Tag;
+    savedEvent = old.Event;
+    savedEventName = old.EventName;
+    savedLives = old.Lives;
+    old.Destroy();
+
+    spawned = Spawn(swapCls, , savedTag, savedLoc, savedRot);
+    nw = GenericSpawner(spawned);
+    if (nw == None)
+    {
+        return;
+    }
+    nw.Event = savedEvent;
+    nw.EventName = savedEventName;
+    nw.Lives = savedLives;
+    if (!class'APContainerStamp'.static.Stamp(nw, apId))
+    {
+        Log("[Archipelago] APCardWatcher.SwapContainerSpawner: Stamp FAILED (unknown subclass) for " $ string(nw.Class.Name));
+    }
+    Log("[Archipelago] APCardWatcher.SwapContainerSpawner: swapped " $ string(nw.Class.Name)
+        $ " (apId " $ apId $ ")");
+}
 
 // Resolve the AP location id for a vendor Characters actor IF that vendor is
 // an AP check in the current seed. Two paths:
@@ -3245,6 +3438,15 @@ event Timer()
 
     // Cheap once-per-process patch (no-op after the first successful inject).
     EnsureHomeMenuInjected();
+
+    // containersanity: swap/inject the bean-container AP tokens once per level,
+    // as soon as the option flag has arrived from slot_data (it can land a tick
+    // or two after level load, so this is a per-tick gate that fires once).
+    if (default.bContainersanity == 1 && bContainersReplacedThisLevel == 0)
+    {
+        bContainersReplacedThisLevel = 1;
+        ReplaceContainers();
+    }
 
     // Terminate the Polyjuice / Obliviate traps on their timer or the level
     // change. Runs before the spell-revert loop so a same-tick restore is

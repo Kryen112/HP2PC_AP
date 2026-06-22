@@ -90,7 +90,7 @@ VANILLA_BLOCKED_KEY_NAMES: set[str] = {
 # The region name itself still appears in BOTH logic files because gen_apworld
 # requires the vanilla and open-castle region SETS to be identical; in vanilla
 # the region is inert (entry false, zero locations attached).
-OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge"}
+OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge", "BeanRewardRoom"}
 
 
 def launch_client(*args: str) -> None:
@@ -266,6 +266,17 @@ class EnableSpellChallengeTimes(Toggle):
     location.
     """
     display_name = "Enable Spell Challenge times"
+
+
+class Containersanity(Toggle):
+    """If true, ~274 in-world containers (chests without cards, cauldrons,
+    cigar / jewel / music boxes, decanters, oil cans, plant pots, vases,
+    knights, and ingredient spawners) each become a location: opening one with
+    its spell (Alohomora or Flipendo) ejects an AP token. A big check-count
+    increase, so off by default. The 7 in the open-castle bean reward room exist
+    only in open castle. Locations-only (filler pads the pool).
+    """
+    display_name = "Containersanity"
 
 
 class EnableQuidditchUpgrades(Toggle):
@@ -502,6 +513,7 @@ class HP2Options(PerGameCommonOptions):
     enable_duelling: EnableDuelling
     enable_quidditch_matches: EnableQuidditchMatches
     enable_spell_challenge_times: EnableSpellChallengeTimes
+    containersanity: Containersanity
     ring_link: RingLink
     # AP Bounce-channel option (Toggle, default off). Pure runtime channel —
     # no fill/logic impact; the client reads it from slot_data on Connected,
@@ -638,6 +650,7 @@ class HP2World(World):
         "Duels":              "enable_duelling",
         "QuidditchMatches":   "enable_quidditch_matches",
         "SpellChallengeTimes": "enable_spell_challenge_times",
+        "Containers":          "containersanity",
         # Tradersanity is a Choice, not a Toggle: _location_enabled treats any
         # non-off value (price_vanilla/random/low) as enabled via .value.
         "Tradersanity":       "tradersanity",
@@ -1111,6 +1124,7 @@ class HP2World(World):
             "enable_duelling": bool(self.options.enable_duelling.value),
             "enable_quidditch_matches": bool(self.options.enable_quidditch_matches.value),
             "enable_spell_challenge_times": bool(self.options.enable_spell_challenge_times.value),
+            "containersanity": bool(self.options.containersanity.value),
             "vanilla_gate_levels": bool(self.options.vanilla_gate_levels.value),
             "enable_traps": bool(self.options.traps.value and self.options.trap_fill_percent.value > 0),
             # Logic-flag toggles. The tracker reads both to flip its matching

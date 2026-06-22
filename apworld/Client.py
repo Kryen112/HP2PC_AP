@@ -84,11 +84,11 @@ from CommonClient import (ClientCommandProcessor, CommonContext,
 from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, music_patch, sound_patch
-from .ue1_package import PatchError
 from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
 from .locations import (CARD_CLASS_TO_LOCATION_NAME,
                         CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID)
+from .ue1_package import PatchError
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 
@@ -634,6 +634,9 @@ class HP2Context(CommonContext):
         # assumption sound. Parsed from slot_data on Connected, re-sent
         # RUNNING_LOGIC <0|1> on every HELLO.
         self.allow_running_logic: bool = False
+        # When true, the mod swaps/injects bean-container AP tokens per level.
+        # Parsed from slot_data on Connected; re-sent CONTAINERSANITY <0|1> on HELLO.
+        self.containersanity: bool = False
         # Per-seed sticky set of Tradersanity location ids the client has
         # already published a broadcast hint for, loaded from AP server Data
         # Storage on Connected and written back on each new hint so a
@@ -883,6 +886,9 @@ class HP2Context(CommonContext):
             self.allow_running_logic = bool(sd.get("allow_running_logic"))
             self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
             logger.info(f"Running in logic {'enabled (sprint is free)' if self.allow_running_logic else 'disabled'}")
+            self.containersanity = bool(sd.get("containersanity"))
+            self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
+            logger.info(f"Containersanity {'enabled' if self.containersanity else 'disabled'}")
             self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
             self.hinted_vendor_locs = set()
             if self.tradersanity_hint_on_open:
@@ -1825,6 +1831,7 @@ class HP2Context(CommonContext):
             # Re-arm running-in-logic so a fresh launch / reconnect keeps the
             # sprint free when the seed put Running in logic.
             self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
+            self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
             # Re-push Tradersanity vendor hint item names to the mod. Sticky +
             # idempotent mod-side (cached per-slot on APCardWatcher), so
             # resending every HELLO covers fresh launches / reconnects.

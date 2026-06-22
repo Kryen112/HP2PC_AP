@@ -99,6 +99,12 @@ regions:
   GryffindorChallenge:
     entry: "'Gryffindor Challenge Key'"
 
+  # Open-castle bonus bean room, reached via the mod-spawned bean-room entry.
+  # Baseline entry true (refine later); in OPEN_CASTLE_ONLY_REGIONS so it is
+  # vanilla-disabled. Its containers gate on their opening spell per-row.
+  BeanRewardRoom:
+    entry: "true"
+
 # Per-location rules. KEY = location.name from locations.yaml.
 # Listed only when an extra requirement applies beyond region entry; every
 # other location in a region is implicitly "true" (region access suffices).

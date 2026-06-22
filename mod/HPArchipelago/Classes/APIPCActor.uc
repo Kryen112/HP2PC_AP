@@ -384,6 +384,13 @@ function HandleLine(string line)
         // the watcher; resent every HELLO.
         class'APCardWatcher'.static.SetAllowRunningLogic(byte(int(Mid(line, 14))));
     }
+    else if (Left(line, 16) == "CONTAINERSANITY ")
+    {
+        // containersanity option from slot_data. When 1, the watcher swaps/
+        // injects the bean-container AP tokens per level. Sticky byte; resent
+        // every HELLO.
+        class'APCardWatcher'.static.SetContainersanity(byte(int(Mid(line, 16))));
+    }
     else if (Left(line, 5) == "HINT ")
     {
         // Tradersanity vendor hint payload: "HINT <locId> <item_name>".

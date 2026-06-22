@@ -97,6 +97,11 @@ regions:
   GryffindorChallenge:
     entry: "false"
 
+  # Open-castle-only bonus bean room (mod-spawned entry). Inert in vanilla:
+  # entry false + in OPEN_CASTLE_ONLY_REGIONS, so its containers aren't created.
+  BeanRewardRoom:
+    entry: "false"
+
 # Per-location rules. KEY = location.name from locations.yaml.
 # A location's effective rule is: region.entry AND location.requires.
 # Many locations are "true" implicitly (just region access); only listed
