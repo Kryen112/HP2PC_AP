@@ -769,23 +769,24 @@ def emit_locations(locations: dict, items: dict) -> str:
         lines.append(f"    {n!r},")
     lines.append("})")
     lines.append("")
-    lines.append("# Secrets in one-way (un-replayable) levels: permanently lost once")
-    lines.append("# the level is left behind. HP2World keeps these filler-only unless")
-    lines.append("# allow_secrets_progression is set AND every item they depend on is")
-    lines.append("# precollected (so the player is guaranteed to hold it while passing")
+    lines.append("# Locations in one-way (un-replayable) levels: permanently lost once")
+    lines.append("# the level is left behind. Secrets flagged missable, plus every")
+    lines.append("# container in a one-way story region. HP2World keeps these filler-only")
+    lines.append("# unless allow_missable_progression is set AND every item they depend on")
+    lines.append("# is precollected (so the player is guaranteed to hold it while passing")
     lines.append("# through the level the one time it is reachable).")
-    lines.append("MISSABLE_SECRETS: frozenset = frozenset({")
-    for n in locations.get("missable_secrets", []):
+    lines.append("MISSABLE_LOCATIONS: frozenset = frozenset({")
+    for n in locations.get("missable_locations", []):
         lines.append(f"    {n!r},")
     lines.append("})")
     lines.append("")
-    lines.append("# Item names appearing in (region entry AND location requires)")
-    lines.append("# for each missable secret. Vanilla-only: the missable system is")
-    lines.append("# a vanilla concept (open castle replays every level), so there is")
-    lines.append("# no open castle dependency table. A subset of the precollected")
-    lines.append("# starting inventory means the secret is reachable from the start.")
-    lines.append("MISSABLE_SECRET_DEPS_VANILLA: dict[str, list[str]] = {")
-    for n, deps in locations.get("missable_secret_deps_vanilla", {}).items():
+    lines.append("# Item names appearing in (region entry AND location requires) for")
+    lines.append("# each missable location. Vanilla-only: the missable system is a")
+    lines.append("# vanilla concept (open castle replays every level), so there is no")
+    lines.append("# open castle dependency table. A subset of the precollected starting")
+    lines.append("# inventory means the location is reachable from the start.")
+    lines.append("MISSABLE_LOCATION_DEPS_VANILLA: dict[str, list[str]] = {")
+    for n, deps in locations.get("missable_location_deps_vanilla", {}).items():
         lines.append(f"    {n!r}: {deps!r},")
     lines.append("}")
     lines.append("")
@@ -1457,24 +1458,34 @@ def main() -> int:
     # seed on a location the one-way level makes permanently unreachable.
     # Open castle skips this entirely (every level is infinitely replayable).
     secrets_rows = locations.get("secrets", [])
+    container_rows = locations.get("containers", [])
+    # A region is one-way iff it holds at least one missable secret. Every
+    # container in such a region is just as missable in vanilla as those secrets
+    # (the level is left behind for good), so it gets the same filler-only
+    # treatment. Hub regions (CastleExterior, GrandStaircase, EntryHall) and the
+    # replayable challenges have no missable secret, so their containers stay
+    # eligible for progression. Region keys the derivation, not level: e.g. the
+    # one missable secret in the Grand Staircase level is in DumbledoreStudy, so
+    # GrandStaircase (the revisitable hub, with 26 containers) stays eligible.
+    missable_regions = {r["region"] for r in secrets_rows if r.get("missable")}
+    missable_rows = (
+        [r for r in secrets_rows if r.get("missable")]
+        + [r for r in container_rows if r.get("region") in missable_regions]
+    )
 
     def _missable_deps(logic: dict) -> dict[str, list[str]]:
         rgns = logic.get("regions") or {}
         locs = logic.get("locations") or {}
         result: dict[str, list[str]] = {}
-        for r in secrets_rows:
-            if not r.get("missable"):
-                continue
+        for r in missable_rows:
             name = r["name"]
             entry = (rgns.get(r.get("region", "TBD")) or {}).get("entry", "true")
             req = (locs.get(name) or {}).get("requires", "true")
             result[name] = sorted(rule_idents(entry) | rule_idents(req))
         return result
 
-    locations["missable_secrets"] = sorted(
-        r["name"] for r in secrets_rows if r.get("missable")
-    )
-    locations["missable_secret_deps_vanilla"] = _missable_deps(logic_vanilla)
+    locations["missable_locations"] = sorted(r["name"] for r in missable_rows)
+    locations["missable_location_deps_vanilla"] = _missable_deps(logic_vanilla)
 
     items_py = APWORLD_DIR / "items.py"
     locations_py = APWORLD_DIR / "locations.py"

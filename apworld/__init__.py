@@ -32,7 +32,7 @@ from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
                         CARD_ITEM_NAME_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
-                        MISSABLE_SECRET_DEPS_VANILLA, MISSABLE_SECRETS)
+                        MISSABLE_LOCATION_DEPS_VANILLA, MISSABLE_LOCATIONS)
 from .regions import (REGION_ENTRY_RULES_OPEN_CASTLE,
                       REGION_ENTRY_RULES_VANILLA, REGION_NAMES, START_REGION)
 from .rules import (GOAL_LOCATION_REQUIREMENTS_VANILLA, GOAL_RULES_VANILLA,
@@ -184,29 +184,29 @@ class EnableSecrets(DefaultOnToggle):
     """If true, the 109 Secrets become AP locations, plus open castle's 9 in
     the Gryffindor challenge (118 total in open castle).
 
-    The `allow_secrets_progression` missable-vs-replayable split is
+    The `allow_missable_progression` missable-vs-replayable split is
     vanilla-only. In open castle every level is infinitely replayable, so all
     enabled secrets follow normal region-entry logic.
     """
     display_name = "Enable Secrets"
 
 
-class AllowSecretsProgression(Toggle):
-    """Vanilla-only (ignored in open castle). If true (and `enable_secrets` is
-    true), missable secrets in un-replayable vanilla levels (Willow, Bicorn,
-    Boomslang, Goyle, Slytherin Common, Forest, Chamber) are allowed to hold
-    progression items.
+class AllowMissableProgression(Toggle):
+    """Vanilla-only (ignored in open castle). If true, missable locations in
+    un-replayable vanilla levels (Willow, Bicorn, Boomslang, Goyle, Slytherin
+    Common, Forest, Chamber) are allowed to hold progression items. This covers
+    missable secrets (when `enable_secrets` is true) and, when `containersanity`
+    is on, the containers in those same one-way regions.
 
-    If false, missable secrets are filler-only, which is safer because the
-    player can't soft-lock by missing a story-replay secret. Replayable
-    secrets (Hogwarts, Castle Exterior, the 4 spell challenges) always allow
-    progression regardless of this setting; this flag only gates the
-    un-replayable subset.
+    If false, those missable locations are filler-only, which is safer because
+    the player can't soft-lock by missing a one-way check. Locations in
+    replayable areas (hubs, the spell challenges) always allow progression
+    regardless of this setting; this flag only gates the un-replayable subset.
 
     Open castle makes every level infinitely replayable, so nothing is
     missable there and this option has no effect.
     """
-    display_name = "Allow Secrets progression"
+    display_name = "Allow Missable Progression"
 
 
 class AllowRunningLogic(Toggle):
@@ -507,7 +507,7 @@ class HP2Options(PerGameCommonOptions):
     # classrooms and 4 non-starter spells.
     enable_wizard_cards: EnableWizardCards
     enable_secrets: EnableSecrets
-    allow_secrets_progression: AllowSecretsProgression
+    allow_missable_progression: AllowMissableProgression
     enable_challenge_stars: EnableChallengeStars
     enable_quidditch_upgrades: EnableQuidditchUpgrades
     enable_duelling: EnableDuelling
@@ -552,7 +552,7 @@ class HP2WebWorld(WebWorld):
     """
     option_groups = [
         OptionGroup("           VANILLA           ", [
-            VanillaGateLevels, AllowSecretsProgression,
+            VanillaGateLevels, AllowMissableProgression,
         ]),
         OptionGroup("         OPEN CASTLE         ", [
             OpenCastleGoalCards, OpenCastleGoalSpells, OpenCastleGoalLevels,
@@ -791,24 +791,26 @@ class HP2World(World):
         return spells | keys
 
     def _apply_missable_exclusions(self) -> None:
-        # Vanilla-only. A missable secret lives in a one-way level: reachable
+        # Vanilla-only. A missable location lives in a one-way level: reachable
         # only while the player is passing through that level the single time.
-        # It is safe to hold progression only if guaranteed reachable then —
-        # i.e. allow_secrets_progression is on AND every item it depends on
-        # (region entry AND its own requires) is precollected. Otherwise force
-        # it filler-only so AP fill never gates the seed on a location the
-        # level makes permanently unreachable.
+        # This covers secrets flagged missable AND every container in a one-way
+        # story region (chests/cauldrons/spawners there are gone for good once
+        # the level is left). It is safe to hold progression only if guaranteed
+        # reachable then — i.e. allow_missable_progression is on AND every item it
+        # depends on (region entry AND its own requires) is precollected.
+        # Otherwise force it filler-only so AP fill never gates the seed on a
+        # location the level makes permanently unreachable.
         #
-        # Open castle has no missable secrets: every level is infinitely
+        # Open castle has no missable locations: every level is infinitely
         # replayable, so nothing is ever truly missed. The whole system is a
-        # vanilla concept; allow_secrets_progression is ignored in open castle
-        # and normal region-entry logic governs these secrets.
+        # vanilla concept; allow_missable_progression is ignored in open castle
+        # and normal region-entry logic governs these locations.
         if self._is_open_castle():
             return
         precollected = self._starter_names()
-        deps_map = MISSABLE_SECRET_DEPS_VANILLA
-        allow_prog = bool(self.options.allow_secrets_progression)
-        for name in MISSABLE_SECRETS:
+        deps_map = MISSABLE_LOCATION_DEPS_VANILLA
+        allow_prog = bool(self.options.allow_missable_progression)
+        for name in MISSABLE_LOCATIONS:
             if not self._location_enabled(name):
                 continue
             deps = set(deps_map.get(name, []))
@@ -1119,7 +1121,7 @@ class HP2World(World):
             # non-zero.
             "enable_wizard_cards": bool(self.options.enable_wizard_cards.value),
             "enable_secrets": bool(self.options.enable_secrets.value),
-            "allow_secrets_progression": bool(self.options.allow_secrets_progression.value),
+            "allow_missable_progression": bool(self.options.allow_missable_progression.value),
             "enable_challenge_stars": bool(self.options.enable_challenge_stars.value),
             "enable_duelling": bool(self.options.enable_duelling.value),
             "enable_quidditch_matches": bool(self.options.enable_quidditch_matches.value),

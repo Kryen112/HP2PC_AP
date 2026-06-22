@@ -112,7 +112,7 @@ If you're playing solo (just you, no other AP slots):
    | `enable_spell_challenge_times` | off     | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.                |
    | `enable_quidditch_upgrades`    | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
 
-   The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_secrets_progression` (default off) controls whether progression items may be placed at missable secrets in un-replayable levels; safe default keeps those filler-only.
+   The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_missable_progression` (default off) controls whether progression items may be placed at missable locations in un-replayable levels (missable secrets, plus `containersanity` containers in those levels); safe default keeps those filler-only.
 
    **Game mode**: one extra setting selects the install layout your seed targets:
 
