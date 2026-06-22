@@ -54,7 +54,7 @@ REGION_ENTRY_RULES_OPEN_CASTLE: dict[str, Callable[[CollectionState, int], bool]
     'GoyleLevel': lambda state, player: state.has('Goyle Level Key', player),
     'GrandStaircase': lambda state, player: True,
     'GryffindorChallenge': lambda state, player: state.has('Gryffindor Challenge Key', player),
-    'Quidditch': lambda state, player: state.has('Quidditch Key', player),
+    'Quidditch': lambda state, player: state.has('Quidditch Key', player)  or  state.has('Running', player),
     'RictusempraChallenge': lambda state, player: state.has('Rictusempra Challenge Key', player),
     'SkurgeChallenge': lambda state, player: state.has('Skurge Challenge Key', player)  and  state.has('Skurge', player),
     'SlytherinCommon': lambda state, player: state.has('Slytherin Common Room Key', player),

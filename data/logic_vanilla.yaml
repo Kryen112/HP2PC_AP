@@ -1,7 +1,12 @@
-# HP2PC_AP per-location access rules — source of truth.
+# HP2PC_AP VANILLA region entries + castle-hub location rules.
 #
-# Every location in data/locations.yaml gets exactly one rule entry here.
-# Rules express: "you can reach this location if you have these items."
+# Shared level-interior location rules live in data/logic_levels.yaml and are
+# merged into this file by gen_apworld.py at gen time. This file holds every
+# region's entry rule, plus the per-location rules that are mode-specific:
+# the castle hubs (Entry Hall / Grand Staircase / Dumbledore's office /
+# Castle Exterior), the classroom spell-learning checks, and Quidditch (whose
+# match progression is vanilla-only). A location lives here OR in logic_levels,
+# never both. Rules express: "you can reach this location if you have these items."
 #
 # Schema:
 #   <LocationName>:
@@ -111,17 +116,13 @@ locations:
   "Learned Rictusempra": { requires: "Rictusempra" }
   "Learned Skurge": { requires: "Rictusempra & Skurge" }
   "Learned Diffindo":
-    { requires: "Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key'" }
+    {
+      requires: "Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key'",
+    }
   "Learned Spongify":
     {
       requires: "Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
     }
-
-  # Whomping Willow
-  "Whomping Willow - Card Starkey": { requires: "Lumos & Flipendo" }
-  "Whomping Willow - Secret 1": { requires: "Alohomora & Lumos" }
-  "Whomping Willow - Secret 2": { requires: "Alohomora & Lumos & Flipendo" }
-  "Whomping Willow - Complete": { requires: "Lumos & Flipendo" }
 
   # Castle Exterior (region entry: Lumos & Flipendo)
   "Castle Exterior - Card Sweeting": { requires: "true" }
@@ -131,12 +132,16 @@ locations:
   "Castle Exterior - Card Plunkett":
     { requires: "Alohomora & Diffindo & Lumos" }
   "Castle Exterior - Card Pokeby":
-    { requires: "Alohomora & Rictusempra & Skurge & 'Bicorn Level Key'" }
+    {
+      requires: "Alohomora & ((Rictusempra & Skurge & 'Bicorn Level Key') | Running)",
+    }
   "Castle Exterior - Card Youdle":
-    { requires: "Alohomora & Rictusempra & Skurge & Flipendo & Spongify" }
+    {
+      requires: "Alohomora & ((Rictusempra & Skurge & Flipendo & Spongify & 'Bicorn Level Key') | Running)",
+    }
   "Castle Exterior - Card Marjoribanks":
     {
-      requires: "Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key'",
+      requires: "Alohomora & ((Rictusempra & Skurge & Diffindo & 'Bicorn Level Key') | Running)",
     }
   "Castle Exterior - Card Oglethorpe":
     { requires: "Alohomora & Spongify & Diffindo & Lumos" }
@@ -148,46 +153,35 @@ locations:
   "Castle Exterior - Secret 5": { requires: "Spongify" }
   "Castle Exterior - Secret 6":
     {
-      requires: "Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key'",
+      requires: "(Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key') | Running",
     }
   "Castle Exterior - Secret 7":
     {
-      requires: "Alohomora & Skurge & Rictusempra & Diffindo & 'Bicorn Level Key'",
+      requires: "Alohomora & ((Skurge & Rictusempra & Diffindo & 'Bicorn Level Key') | Running)",
     }
   "Castle Exterior - Secret 8": { requires: "Alohomora" }
   "Castle Exterior - Nimbus 2001": { requires: "Rictusempra" }
   "Castle Exterior - Quidditch Armour": { requires: "Rictusempra" }
 
-  # Entry Hall + Grand Staircase (region entry: Lumos & Flipendo)
-  "Entry Hall - Card Sawbridge": { requires: "Alohomora" }
+  # Entry Hall (region entry: Lumos & Flipendo)
+  "Entry Hall - Card Alderton": { requires: "Alohomora & Spongify" }
   "Entry Hall - Card Andros": { requires: "Alohomora & Flipendo" }
   "Entry Hall - Card Dodderidge": { requires: "Alohomora" }
-  "Grand Staircase - Card Ethelred": { requires: "Alohomora" }
-  "Grand Staircase - Card Maeve": { requires: "Alohomora & Flipendo" }
-  "Grand Staircase - Card Hipworth": { requires: "Alohomora" }
-  "Grand Staircase - Card Bonham": { requires: "Alohomora" }
-  "Entry Hall - Card Wright": { requires: "Alohomora & Diffindo" }
-  "Grand Staircase - Card Barkwith": { requires: "Alohomora & Rictusempra" }
-  "Grand Staircase - Card Blane": { requires: "Alohomora & Rictusempra & Skurge" }
-  "Grand Staircase - Card Vablatsky": { requires: "Alohomora & Rictusempra & Skurge" }
-  "Entry Hall - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
-  "Entry Hall - Card Alderton": { requires: "Alohomora & Spongify" }
-  "Grand Staircase - Card Lufkin":
-    { requires: "Alohomora & Skurge & Diffindo & Spongify" }
-  "Grand Staircase - Card Toothill": { requires: "Spongify" }
-  "Grand Staircase - Card Oldridge": { requires: "Spongify & Alohomora" }
-  "Entry Hall - Card Jones": { requires: "Alohomora & Diffindo & Flipendo" }
   "Entry Hall - Card Gunhilda": { requires: "Alohomora & Rictusempra" }
-  "Entry Hall - Card Shingleton":
-    { requires: "Alohomora & Skurge & Rictusempra & Lumos" }
+  "Entry Hall - Card Jones": { requires: "Alohomora & Diffindo & Flipendo" }
   "Entry Hall - Card Montmorency":
     { requires: "Alohomora & Skurge & Rictusempra" }
+  "Entry Hall - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
+  "Entry Hall - Card Sawbridge": { requires: "Alohomora" }
+  "Entry Hall - Card Shingleton":
+    { requires: "Alohomora & Skurge & Rictusempra & Lumos" }
   "Entry Hall - Card Wendelin":
-    { requires: "Alohomora & Skurge & Diffindo & Rictusempra & Lumos" }
-  "Entry Hall - Secret 1":
-    { requires: "Rictusempra & Skurge & Alohomora & Lumos" }
+    { requires: "Alohomora & Diffindo & Rictusempra & Lumos" }
+  "Entry Hall - Card Wright": { requires: "Alohomora & Diffindo" }
+  "Entry Hall - Secret 1": { requires: "Rictusempra & Skurge & Lumos" }
   "Entry Hall - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Entry Hall - Secret 3": { requires: "Rictusempra & Skurge & Diffindo & Lumos" }
+  "Entry Hall - Secret 3":
+    { requires: "Rictusempra & (Skurge | Alohomora) & Diffindo & Lumos" }
   "Entry Hall - Secret 4": { requires: "Rictusempra & Alohomora" }
   "Entry Hall - Secret 5": { requires: "Alohomora" }
   "Entry Hall - Secret 6": { requires: "Alohomora" }
@@ -197,437 +191,53 @@ locations:
   "Entry Hall - Secret 10": { requires: "Flipendo" }
   "Entry Hall - Secret 11": { requires: "Alohomora" }
   "Entry Hall - Secret 12": { requires: "Spongify" }
+
+  # Grand Staircase (region entry: Lumos & Flipendo)
+  "Grand Staircase - Card Barkwith": { requires: "Alohomora & Rictusempra" }
+  "Grand Staircase - Card Blane":
+    { requires: "Alohomora & Rictusempra & Skurge" }
+  "Grand Staircase - Card Bonham": { requires: "Alohomora" }
+  "Grand Staircase - Card Ethelred": { requires: "Alohomora" }
+  "Grand Staircase - Card Hipworth": { requires: "Alohomora" }
+  "Grand Staircase - Card Lufkin": { requires: "Alohomora & Skurge & Diffindo" }
+  "Grand Staircase - Card Maeve": { requires: "Alohomora & Flipendo" }
+  "Grand Staircase - Card Oldridge": { requires: "Spongify & Alohomora" }
+  "Grand Staircase - Card Toothill": { requires: "Spongify" }
+  "Grand Staircase - Card Vablatsky":
+    { requires: "Alohomora & Rictusempra & Skurge" }
   "Grand Staircase - Secret 1": { requires: "Alohomora" }
   "Grand Staircase - Secret 2": { requires: "Alohomora" }
   "Grand Staircase - Secret 3": { requires: "Alohomora" }
   "Grand Staircase - Secret 4": { requires: "Flipendo" }
   "Grand Staircase - Secret 5": { requires: "Spongify" }
-  "Grand Staircase - Secret 6":
-    { requires: "Alohomora & Skurge & Diffindo & Spongify" }
+  "Grand Staircase - Secret 6": { requires: "Alohomora & Skurge & Diffindo" }
   "Grand Staircase - Secret 7": { requires: "true" }
   "Grand Staircase - Secret 8": { requires: "Alohomora" }
   "Grand Staircase - Secret 9": { requires: "Alohomora" }
-  "Dumbledore's Study - Card Muldoon":
+
+  # Dumbledore's Study (region entry: Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key')
+  "Dumbledore's Study - Card Beamish":
     {
       requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'",
     }
-  "Dumbledore's Study - Card Beamish":
+  "Dumbledore's Study - Card Muldoon":
     {
       requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'",
     }
   "Dumbledore's Study - Secret":
     {
-      requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'",
+      requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'",
     }
 
-  # Rictusempra challenge
-  "Rictusempra Challenge - Card Barbary":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Graves": { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Thruston":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Wagtail":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Wintringham":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Chittock":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Crumb": { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Duke": { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Card Tremlett":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Secret 1": { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Secret 2": { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Secret 3": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Secret 4": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Secret 5": { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Secret 6": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Secret 7": { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Challenge Star 1": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 2": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 3": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 4": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 5":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Challenge Star 6": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 7": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 8": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 9": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Challenge Star 10":
-    { requires: "Rictusempra & Alohomora" }
-  "Rictusempra Challenge - Complete": { requires: "Rictusempra" }
-  "Rictusempra Challenge - Beat Par Time":
-    { requires: "Rictusempra & Alohomora" }
-
-  # Skurge Challenge (region entry: Rictusempra & Skurge)
-  "Skurge Challenge - Card Gregory": { requires: "true" }
-  "Skurge Challenge - Card Wenlock": { requires: "Alohomora" }
-  "Skurge Challenge - Card Catchlove": { requires: "Alohomora" }
-  "Skurge Challenge - Card Belby": { requires: "Alohomora" }
-  "Skurge Challenge - Card Fulbert": { requires: "Alohomora" }
-  "Skurge Challenge - Card Kegg": { requires: "Alohomora" }
-  "Skurge Challenge - Secret 1":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Secret 2":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Secret 3": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Secret 4": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Secret 5":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Secret 6": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Secret 7":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Challenge Star 1": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Challenge Star 2": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Challenge Star 3":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Challenge Star 4": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Challenge Star 5": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Challenge Star 6":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Challenge Star 7": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Challenge Star 8": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Challenge Star 9": { requires: "Rictusempra & Skurge" }
-  "Skurge Challenge - Challenge Star 10":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Beat Par Time":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Skurge Challenge - Complete": { requires: "Skurge" }
-
-  # Bicorn level
-  "Bicorn Level - Card Agrippa":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Card Goshawk":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Card Peakes": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Card Stump": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Card Cronk": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Card Nutcombe":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Complete": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Secret 1": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Secret 3": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Secret 4": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Secret 5": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Secret 6": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Bicorn Level - Secret 7": { requires: "Rictusempra & Skurge & Alohomora" }
-
-  # Diffindo challenge
-  "Diffindo Challenge - Card Ketteridge":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Merwyn":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Ulric":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Withers":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Shimpling":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Smethwyck": { requires: "Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Stalk":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Card Thurkell":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 1": { requires: "Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 2": { requires: "Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 3":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 4":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 5":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 6":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 7":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 8":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 9":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 10":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Secret 11":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 1":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 2":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 3":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 4":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 5":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 6":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 7":
-    { requires: "Rictusempra & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 8":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 9":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 10":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 11":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 12":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 13":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Challenge Star 14":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Beat Par Time":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Diffindo Challenge - Complete":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-
-  # Boomslang level
-  "Boomslang Level - Card Toke":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Boomslang Level - Card Tugwood":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Boomslang Level - Secret 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Boomslang Level - Secret 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Boomslang Level - Secret 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Boomslang Level - Complete":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-
-  # Goyle level
-  "Goyle Level - Card Bloxam":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Card Plumpton":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Card Stroulger":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Card Whitehorn":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Card Circe":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Card Wildsmith":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 5":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 6":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 7":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Secret 8":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Goyle Level - Complete":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-
-  # Slytherin common room
-  "Slytherin Common Room - Card Pilliwickle":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Card Platt":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Card Waffling":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Card Clagg":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Card Fay":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 5":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 6":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 7":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Secret 8":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-  "Slytherin Common Room - Complete":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora" }
-
-  # Spongify challenge
-  "Spongify Challenge - Card Merlin":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Card Po":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Card Warbeck":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Card Woodcroft":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Card Furmage":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Card Grunnion":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Card Rastrick":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Card Summerbee":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 5":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 6":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 7":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 8":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 9":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 10":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 11":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 12":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 13":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 14":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 15":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Secret 16":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 5":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 6":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 7":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 8":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 9":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Challenge Star 10":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Beat Par Time":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Spongify Challenge - Complete":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-
-  # Forbidden Forest
-  "Forbidden Forest - Card Fancourt":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Card Ollerton":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Card Scamander":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Card Wellbeloved":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Card Cliodne":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Card Oliphant":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Complete":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Secret 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Secret 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Secret 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Forbidden Forest - Secret 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-
-  # Chamber of Secrets
-  "Chamber of Secrets - Card Elphick":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Chamber of Secrets - Secret 1":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Chamber of Secrets - Secret 2":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Chamber of Secrets - Secret 3":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Chamber of Secrets - Secret 4":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Chamber of Secrets - Secret 5":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Chamber of Secrets - Secret 6":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-  "Chamber of Secrets - Complete":
-    { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora" }
-
-  # Gold Card Room
-  "Gold Card Room - Card Bott": { requires: "Rictusempra | Spongify" }
-  "Gold Card Room - Card Dumbledore":
-    { requires: "Alohomora & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Gryffindor":
-    { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Herpo":
-    { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Slytherin":
-    { requires: "Alohomora & Diffindo & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Hufflepuff":
-    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Knightley":
-    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Paracelsus":
-    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Pinkstone":
-    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Ravenclaw":
-    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
-  "Gold Card Room - Card Potter":
-    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
-  "Gold Card Room - Complete":
-    { requires: "Alohomora & Diffindo & Skurge & (Rictusempra | Spongify)" }
-
-  # Duelling Club duels
-  "Duelling Club - Duel Rank 1":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 2":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 3":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 4":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 5":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 6":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 7":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 8":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 9":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Duelling Club - Duel Rank 10":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-
-  # Quidditch matches
+  # Quidditch matches (region entry: Lumos & Flipendo & Rictusempra & 'Quidditch Key')
   "Quidditch - Match 1 (Hufflepuff)": { requires: "Rictusempra" }
   "Quidditch - Match 2 (Ravenclaw)": { requires: "Rictusempra & Skurge" }
   "Quidditch - Match 3 (Slytherin)":
     { requires: "Rictusempra & Skurge & Alohomora" }
   "Quidditch - Match 4 (Hufflepuff)":
-    { requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key'" }
+    {
+      requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key'",
+    }
   "Quidditch - Match 5 (Ravenclaw)":
     {
       requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
@@ -649,7 +259,7 @@ locations:
   "Grand Staircase - Ingredient Vendor 1": { requires: "true" }
   "Castle Exterior - Card Vendor 1":
     {
-      requires: "Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key'",
+      requires: "(Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key') | Running",
     }
   "Castle Exterior - Card Vendor 2": { requires: "true" }
   "Castle Exterior - Ingredient Vendor 1": { requires: "true" }

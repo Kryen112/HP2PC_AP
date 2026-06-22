@@ -241,8 +241,24 @@ FLOATING_CARDS: set[str] = {
 def load_data() -> tuple[dict, dict, dict, dict]:
     items = yaml.safe_load((DATA_DIR / "items.yaml").read_text(encoding="utf-8"))
     locations = yaml.safe_load((DATA_DIR / "locations.yaml").read_text(encoding="utf-8"))
+    logic_levels = yaml.safe_load((DATA_DIR / "logic_levels.yaml").read_text(encoding="utf-8"))
     logic_vanilla = yaml.safe_load((DATA_DIR / "logic_vanilla.yaml").read_text(encoding="utf-8"))
     logic_open_castle = yaml.safe_load((DATA_DIR / "logic_open_castle.yaml").read_text(encoding="utf-8"))
+    # Shared level-interior location rules live in logic_levels.yaml and merge
+    # into both modes. Region entries + the castle-hub / Quidditch location rules
+    # stay mode-specific in the per-mode files. A location belongs to either the
+    # shared levels file or one mode file, never both — overlap is an authoring
+    # error, so flag it loudly rather than silently picking a winner.
+    shared = logic_levels.get("locations") or {}
+    for mode_logic, fname in ((logic_vanilla, "logic_vanilla.yaml"),
+                              (logic_open_castle, "logic_open_castle.yaml")):
+        mode_locs = mode_logic.setdefault("locations", {})
+        overlap = set(shared) & set(mode_locs)
+        if overlap:
+            raise ValueError(
+                f"{fname} and logic_levels.yaml both define location(s): {sorted(overlap)}"
+            )
+        mode_logic["locations"] = {**shared, **mode_locs}
     return items, locations, logic_vanilla, logic_open_castle
 
 
@@ -896,7 +912,7 @@ def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dic
     """Emit apworld/rules.py with both vanilla and open castle rule tables."""
     silver_names = [e["name"] for e in items.get("cards_silver", [])]
     lines: list[str] = [
-        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_vanilla.yaml + data/logic_open_castle.yaml."""',
+        '"""Auto-generated. Do not edit by hand; regenerate from data/logic_levels.yaml + data/logic_vanilla.yaml + data/logic_open_castle.yaml."""',
         "",
         "from typing import Callable",
         "",
