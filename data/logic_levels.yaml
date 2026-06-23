@@ -193,38 +193,37 @@ locations:
   "Diffindo Challenge - Chest 1": { requires: "Alohomora" }
   "Diffindo Challenge - Chest 2": { requires: "Alohomora" }
   "Diffindo Challenge - Chest 3": { requires: "Alohomora" }
-  "Diffindo Challenge - Chest 4": { requires: "Alohomora" }
-  "Diffindo Challenge - Chest 5": { requires: "Alohomora" }
-  "Diffindo Challenge - Peeves Chest 1": { requires: "Alohomora" }
-  "Diffindo Challenge - Jewel Box 1": { requires: "Alohomora" }
-  "Diffindo Challenge - Knight 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Knight 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Mucus Spawner 4": { requires: "Flipendo" }
+  "Diffindo Challenge - Chest 4": { requires: "Diffindo & Rictusempra & Flipendo & (Skurge | Running) & Alohomora" }
+  "Diffindo Challenge - Chest 5": { requires: "Diffindo & Rictusempra & Flipendo & Skurge & Lumos & Alohomora" }
+  "Diffindo Challenge - Peeves Chest 1": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Diffindo Challenge - Jewel Box 1": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Diffindo Challenge - Knight 1": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Knight 2": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 1": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 2": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Alohomora & Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 3": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Flipendo" }
+  "Diffindo Challenge - Mucus Spawner 4": { requires: "Diffindo & Rictusempra & Skurge & Lumos & Flipendo" }
   "Diffindo Challenge - Oil Can 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Oil Can 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Oil Can 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Oil Can 4": { requires: "Flipendo" }
+  "Diffindo Challenge - Oil Can 2": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Oil Can 3": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Flipendo" }
+  "Diffindo Challenge - Oil Can 4": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Flipendo" }
   "Diffindo Challenge - Plant Pot 1": { requires: "Flipendo" }
   "Diffindo Challenge - Plant Pot 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 4": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 5": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 6": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 7": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 8": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 9": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 10": { requires: "Flipendo" }
-  "Diffindo Challenge - Plant Pot 11": { requires: "Flipendo" }
+  "Diffindo Challenge - Plant Pot 3": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Plant Pot 4": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Plant Pot 5": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Alohomora & Flipendo" }
+  "Diffindo Challenge - Plant Pot 6": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Alohomora & Flipendo" }
+  "Diffindo Challenge - Plant Pot 7": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Flipendo" }
+  "Diffindo Challenge - Plant Pot 8": { requires: "Diffindo & Rictusempra & Skurge & Flipendo" }
+  "Diffindo Challenge - Plant Pot 9": { requires: "Diffindo & Rictusempra & Skurge & Lumos & Flipendo" }
+  "Diffindo Challenge - Plant Pot 10": { requires: "Diffindo & Rictusempra & Skurge & Lumos & Flipendo" }
   "Diffindo Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 4": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 5": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 6": { requires: "Flipendo" }
-  "Diffindo Challenge - Cauldron 7": { requires: "Flipendo" }
+  "Diffindo Challenge - Cauldron 2": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Cauldron 3": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Diffindo Challenge - Cauldron 4": { requires: "Diffindo & Rictusempra & (Skurge | Running) & Flipendo" }
+  "Diffindo Challenge - Cauldron 5": { requires: "Diffindo & Rictusempra & Skurge & Flipendo" }
+  "Diffindo Challenge - Cauldron 6": { requires: "Diffindo & Rictusempra & Skurge & Flipendo" }
+  "Diffindo Challenge - Cauldron 7": { requires: "Diffindo & Rictusempra & Skurge & Flipendo" }
 
   # Boomslang Level
   "Boomslang Level - Card Toke": { requires: "Diffindo & Alohomora" }
@@ -326,7 +325,7 @@ locations:
   "Spongify Challenge - Secret 6": { requires: "Spongify & Flipendo & Rictusempra" }
   "Spongify Challenge - Secret 7": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Secret 8": { requires: "Spongify & Flipendo & Skurge" }
-  "Spongify Challenge - Secret 9": { requires: "Spongify & Flipendo & Skurge & Alohomora & Lumos" }
+  "Spongify Challenge - Secret 9": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Secret 10": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Secret 11": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Secret 12": { requires: "Spongify & Flipendo & Skurge" }
@@ -339,36 +338,36 @@ locations:
   "Spongify Challenge - Challenge Star 3": { requires: "Spongify" }
   "Spongify Challenge - Challenge Star 4": { requires: "Spongify & (Flipendo | Running)" }
   "Spongify Challenge - Challenge Star 5": { requires: "Spongify & Flipendo" }
-  "Spongify Challenge - Challenge Star 6": { requires: "Spongify & Flipendo & Skurge & Alohomora & Lumos" }
+  "Spongify Challenge - Challenge Star 6": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Challenge Star 7": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Challenge Star 8": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Challenge Star 9": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Challenge Star 10": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Complete": { requires: "Spongify & Skurge & Flipendo" }
   "Spongify Challenge - Beat Par Time": { requires: "Spongify & Skurge & Flipendo & Alohomora & Lumos" }
-  "Spongify Challenge - Bark Spawner 1": { requires: "Flipendo" }
-  "Spongify Challenge - Bark Spawner 2": { requires: "Flipendo" }
-  "Spongify Challenge - Bark Spawner 3": { requires: "Flipendo" }
-  "Spongify Challenge - Chest 1": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 2": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 3": { requires: "Alohomora" }
-  "Spongify Challenge - Peeves Chest 1": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 4": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 5": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 6": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 7": { requires: "Alohomora" }
-  "Spongify Challenge - Chest 8": { requires: "Alohomora" }
-  "Spongify Challenge - Cigar Box 1": { requires: "Alohomora" }
-  "Spongify Challenge - Decanter 1": { requires: "Flipendo" }
-  "Spongify Challenge - Decanter 2": { requires: "Flipendo" }
-  "Spongify Challenge - Mucus Spawner 1": { requires: "Flipendo" }
-  "Spongify Challenge - Mucus Spawner 2": { requires: "Flipendo" }
-  "Spongify Challenge - Mucus Spawner 3": { requires: "Flipendo" }
-  "Spongify Challenge - Music Box 1": { requires: "Alohomora" }
+  "Spongify Challenge - Bark Spawner 1": { requires: "Spongify & Flipendo & Skurge" }
+  "Spongify Challenge - Bark Spawner 2": { requires: "Spongify & Flipendo & Skurge" }
+  "Spongify Challenge - Bark Spawner 3": { requires: "Spongify & Flipendo & Skurge" }
+  "Spongify Challenge - Chest 1": { requires: "Spongify & Flipendo & Alohomora" }
+  "Spongify Challenge - Chest 2": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Chest 3": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Peeves Chest 1": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Chest 4": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Chest 5": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Chest 6": { requires: "Spongify & Flipendo & Skurge & Lumos & Alohomora" }
+  "Spongify Challenge - Chest 7": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Chest 8": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Cigar Box 1": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Decanter 1": { requires: "Spongify & Flipendo" }
+  "Spongify Challenge - Decanter 2": { requires: "Spongify & Flipendo" }
+  "Spongify Challenge - Mucus Spawner 1": { requires: "Spongify & Flipendo & Skurge" }
+  "Spongify Challenge - Mucus Spawner 2": { requires: "Spongify & Flipendo & Skurge" }
+  "Spongify Challenge - Mucus Spawner 3": { requires: "Spongify & Flipendo & Skurge" }
+  "Spongify Challenge - Music Box 1": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Cauldron 1": { requires: "Flipendo" }
   "Spongify Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Spongify Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Spongify Challenge - Cauldron 4": { requires: "Flipendo" }
+  "Spongify Challenge - Cauldron 3": { requires: "Spongify & Flipendo & Skurge" }
+  "Spongify Challenge - Cauldron 4": { requires: "Spongify & Flipendo & Skurge" }
 
   # Forbidden Forest
   "Forbidden Forest - Card Fancourt": { requires: "Lumos & Spongify & Diffindo & Alohomora" }
@@ -397,28 +396,28 @@ locations:
   "Chamber of Secrets - Secret 5": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo & Lumos" }
   "Chamber of Secrets - Secret 6": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
   "Chamber of Secrets - Complete": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
-  "Chamber of Secrets - Bark Spawner 1": { requires: "Flipendo" }
-  "Chamber of Secrets - Chest 1": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 2": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 3": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 4": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 5": { requires: "Alohomora" }
-  "Chamber of Secrets - Chest 6": { requires: "Alohomora" }
-  "Chamber of Secrets - Mucus Spawner 1": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 1": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 2": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 3": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 4": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 5": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 6": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 7": { requires: "Flipendo" }
-  "Chamber of Secrets - Bark Spawner 2": { requires: "Flipendo" }
+  "Chamber of Secrets - Bark Spawner 1": { requires: "Spongify & Flipendo" }
+  "Chamber of Secrets - Chest 1": { requires: "Skurge & Lumos & Alohomora" }
+  "Chamber of Secrets - Chest 2": { requires: "Spongify & Alohomora" }
+  "Chamber of Secrets - Chest 3": { requires: "Spongify & Alohomora" }
+  "Chamber of Secrets - Chest 4": { requires: "Spongify & Diffindo & Skurge & Alohomora" }
+  "Chamber of Secrets - Chest 5": { requires: "Spongify & Diffindo & Skurge & Alohomora" }
+  "Chamber of Secrets - Chest 6": { requires: "Spongify & Diffindo & Skurge & (Flipendo | Running) & Alohomora" }
+  "Chamber of Secrets - Mucus Spawner 1": { requires: "Spongify & Flipendo" }
+  "Chamber of Secrets - Cauldron 1": { requires: "Spongify & Flipendo" }
+  "Chamber of Secrets - Cauldron 2": { requires: "Spongify & Flipendo" }
+  "Chamber of Secrets - Cauldron 3": { requires: "Spongify & Diffindo & Skurge & Flipendo" }
+  "Chamber of Secrets - Cauldron 4": { requires: "Spongify & Diffindo & Skurge & Flipendo" }
+  "Chamber of Secrets - Cauldron 5": { requires: "Spongify & Diffindo & Skurge & Flipendo" }
+  "Chamber of Secrets - Cauldron 6": { requires: "Spongify & Diffindo & Skurge & Flipendo" }
+  "Chamber of Secrets - Cauldron 7": { requires: "Spongify & Diffindo & Skurge & Flipendo" }
+  "Chamber of Secrets - Bark Spawner 2": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
   "Chamber of Secrets - Bark Spawner 3": { requires: "Flipendo" }
   "Chamber of Secrets - Chest 7": { requires: "Alohomora" }
-  "Chamber of Secrets - Mucus Spawner 2": { requires: "Flipendo" }
+  "Chamber of Secrets - Mucus Spawner 2": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
   "Chamber of Secrets - Mucus Spawner 3": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 8": { requires: "Flipendo" }
-  "Chamber of Secrets - Cauldron 9": { requires: "Flipendo" }
+  "Chamber of Secrets - Cauldron 8": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
+  "Chamber of Secrets - Cauldron 9": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
   "Chamber of Secrets - Cauldron 10": { requires: "Flipendo" }
 
   # Gold Card Room
@@ -437,7 +436,7 @@ locations:
 
   # Gryffindor Challenge
   "Gryffindor Challenge - Challenge Star 1": { requires: "true" }
-  "Gryffindor Challenge - Challenge Star 2": { requires: "(Diffindo| Running) & Spongify" }
+  "Gryffindor Challenge - Challenge Star 2": { requires: "(Diffindo | Running) & Spongify" }
   "Gryffindor Challenge - Challenge Star 3": { requires: "Diffindo & Spongify & Alohomora" }
   "Gryffindor Challenge - Challenge Star 4": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Challenge Star 5": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
@@ -446,8 +445,8 @@ locations:
   "Gryffindor Challenge - Challenge Star 8": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Challenge Star 9": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Challenge Star 10": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
-  "Gryffindor Challenge - Secret 1": { requires: "(Diffindo| Running) & Spongify & Alohomora" }
-  "Gryffindor Challenge - Secret 2": { requires: "(Diffindo| Running) & Spongify & Alohomora" }
+  "Gryffindor Challenge - Secret 1": { requires: "(Diffindo | Running) & Spongify & Alohomora" }
+  "Gryffindor Challenge - Secret 2": { requires: "(Diffindo | Running) & Spongify & Alohomora" }
   "Gryffindor Challenge - Secret 3": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Secret 4": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Secret 5": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
@@ -456,30 +455,30 @@ locations:
   "Gryffindor Challenge - Secret 8": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Secret 9": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
   "Gryffindor Challenge - Complete": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
-  "Gryffindor Challenge - Cauldron 1": { requires: "Flipendo" }
-  "Gryffindor Challenge - Cauldron 2": { requires: "Flipendo" }
-  "Gryffindor Challenge - Cauldron 3": { requires: "Flipendo" }
-  "Gryffindor Challenge - Cauldron 4": { requires: "Flipendo" }
-  "Gryffindor Challenge - Cauldron 5": { requires: "Flipendo" }
+  "Gryffindor Challenge - Cauldron 1": { requires: "(Diffindo | Running) & Spongify & Flipendo" }
+  "Gryffindor Challenge - Cauldron 2": { requires: "(Diffindo | Running) & Spongify & Flipendo" }
+  "Gryffindor Challenge - Cauldron 3": { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Cauldron 4": { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
+  "Gryffindor Challenge - Cauldron 5": { requires: "Diffindo & Spongify & Alohomora & Flipendo" }
   "Gryffindor Challenge - Chest 1": { requires: "Alohomora" }
   "Gryffindor Challenge - Chest 2": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 3": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 4": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 5": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 6": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 7": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 8": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 9": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 10": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 11": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 12": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 13": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 14": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 15": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 16": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 17": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 18": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 19": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 20": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 21": { requires: "Alohomora" }
-  "Gryffindor Challenge - Chest 22": { requires: "Alohomora" }
+  "Gryffindor Challenge - Chest 3": { requires: "(Diffindo | Running) & Alohomora" }
+  "Gryffindor Challenge - Chest 4": { requires: "(Diffindo | Running) & Spongify & Alohomora" }
+  "Gryffindor Challenge - Chest 5": { requires: "Diffindo & Spongify & Alohomora" }
+  "Gryffindor Challenge - Chest 6": { requires: "Diffindo & Spongify & Alohomora" }
+  "Gryffindor Challenge - Chest 7": { requires: "Diffindo & Spongify & Alohomora" }
+  "Gryffindor Challenge - Chest 8": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 9": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 10": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 11": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 12": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 13": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 14": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 15": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 16": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 17": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 18": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 19": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 20": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 21": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
+  "Gryffindor Challenge - Chest 22": { requires: "Diffindo & Spongify & Alohomora & (Flipendo | Running)" }
