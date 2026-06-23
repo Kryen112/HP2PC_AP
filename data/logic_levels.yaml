@@ -260,22 +260,22 @@ locations:
   "Goyle Level - Secret 7": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
   "Goyle Level - Secret 8": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora & Lumos" }
   "Goyle Level - Complete": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
-  "Goyle Level - Peeves Chest 1": { requires: "Alohomora" }
-  "Goyle Level - Chest 1": { requires: "Alohomora" }
-  "Goyle Level - Chest 2": { requires: "Alohomora" }
-  "Goyle Level - Chest 3": { requires: "Alohomora" }
-  "Goyle Level - Chest 4": { requires: "Alohomora" }
-  "Goyle Level - Chest 5": { requires: "Alohomora" }
-  "Goyle Level - Chest 6": { requires: "Alohomora" }
-  "Goyle Level - Chest 7": { requires: "Alohomora" }
-  "Goyle Level - Chest 8": { requires: "Alohomora" }
-  "Goyle Level - Chest 9": { requires: "Alohomora" }
-  "Goyle Level - Chest 10": { requires: "Alohomora" }
-  "Goyle Level - Mucus Spawner 1": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 1": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 2": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 3": { requires: "Flipendo" }
-  "Goyle Level - Cauldron 4": { requires: "Flipendo" }
+  "Goyle Level - Peeves Chest 1": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Chest 1": { requires: "Diffindo & Alohomora" }
+  "Goyle Level - Chest 2": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Chest 3": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Chest 4": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Chest 5": { requires: "Diffindo & Rictusempra & Flipendo & Lumos & Alohomora" }
+  "Goyle Level - Chest 6": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Chest 7": { requires: "Diffindo & Rictusempra & Flipendo & Lumos & Alohomora" }
+  "Goyle Level - Chest 8": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Chest 9": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Chest 10": { requires: "Diffindo & Rictusempra & Flipendo & Lumos & Alohomora" }
+  "Goyle Level - Mucus Spawner 1": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Goyle Level - Cauldron 1": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Goyle Level - Cauldron 2": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Goyle Level - Cauldron 3": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Cauldron 4": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
 
   # Slytherin Common Room
   "Slytherin Common Room - Card Pilliwickle": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
@@ -292,21 +292,21 @@ locations:
   "Slytherin Common Room - Secret 7": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
   "Slytherin Common Room - Secret 8": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
   "Slytherin Common Room - Complete": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
-  "Slytherin Common Room - Bark Spawner 1": { requires: "Flipendo" }
-  "Slytherin Common Room - Chest 1": { requires: "Alohomora" }
-  "Slytherin Common Room - Chest 2": { requires: "Alohomora" }
-  "Slytherin Common Room - Chest 3": { requires: "Alohomora" }
+  "Slytherin Common Room - Bark Spawner 1": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Chest 1": { requires: "Flipendo & Diffindo & Alohomora" }
+  "Slytherin Common Room - Chest 2": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
+  "Slytherin Common Room - Chest 3": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
   "Slytherin Common Room - Knight 1": { requires: "Flipendo" }
   "Slytherin Common Room - Knight 2": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 3": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 4": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 5": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 6": { requires: "Flipendo" }
-  "Slytherin Common Room - Knight 7": { requires: "Flipendo" }
-  "Slytherin Common Room - Mucus Spawner 1": { requires: "Flipendo" }
-  "Slytherin Common Room - Cauldron 1": { requires: "Flipendo" }
-  "Slytherin Common Room - Cauldron 2": { requires: "Flipendo" }
-  "Slytherin Common Room - Chest 4": { requires: "Alohomora" }
+  "Slytherin Common Room - Knight 3": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Knight 4": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Knight 5": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Knight 6": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Knight 7": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Mucus Spawner 1": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Cauldron 1": { requires: "Flipendo & Diffindo & (Skurge | Running)" }
+  "Slytherin Common Room - Cauldron 2": { requires: "Flipendo & Diffindo & (Skurge | Running)" }
+  "Slytherin Common Room - Chest 4": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
 
   # Spongify Challenge
   "Spongify Challenge - Card Merlin": { requires: "Spongify & Flipendo & Lumos & Alohomora" }
@@ -381,11 +381,11 @@ locations:
   "Forbidden Forest - Secret 3": { requires: "Lumos & Spongify & Diffindo" }
   "Forbidden Forest - Secret 4": { requires: "Lumos & Spongify & Diffindo" }
   "Forbidden Forest - Complete": { requires: "Lumos & Spongify & Diffindo & Flipendo & Rictusempra" }
-  "Forbidden Forest - Chest 1": { requires: "Alohomora" }
-  "Forbidden Forest - Chest 2": { requires: "Alohomora" }
-  "Forbidden Forest - Spawner 1": { requires: "Alohomora" }
-  "Forbidden Forest - Mucus Spawner 1": { requires: "Flipendo" }
-  "Forbidden Forest - Mucus Spawner 2": { requires: "Flipendo" }
+  "Forbidden Forest - Chest 1": { requires: "Lumos & Spongify & Diffindo & Alohomora" }
+  "Forbidden Forest - Chest 2": { requires: "Lumos & Spongify & Diffindo & Alohomora" }
+  "Forbidden Forest - Spawner 1": { requires: "Lumos & Spongify & Diffindo & Flipendo & Alohomora" }
+  "Forbidden Forest - Mucus Spawner 1": { requires: "Lumos & Spongify & Diffindo & Flipendo" }
+  "Forbidden Forest - Mucus Spawner 2": { requires: "Lumos & Spongify & Diffindo & Flipendo" }
 
   # Chamber Of Secrets
   "Chamber of Secrets - Card Elphick": { requires: "Spongify & Diffindo & Skurge & Rictusempra & Flipendo" }
