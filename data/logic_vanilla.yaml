@@ -115,50 +115,26 @@ locations:
   # Classrooms
   "Learned Rictusempra": { requires: "Rictusempra" }
   "Learned Skurge": { requires: "Rictusempra & Skurge" }
-  "Learned Diffindo":
-    {
-      requires: "Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key'",
-    }
-  "Learned Spongify":
-    {
-      requires: "Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
-    }
+  "Learned Diffindo": { requires: "Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key'" }
+  "Learned Spongify": { requires: "Alohomora & Rictusempra & Skurge & Diffindo & Spongify & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'" }
 
   # Castle Exterior (region entry: Lumos & Flipendo)
   "Castle Exterior - Card Sweeting": { requires: "true" }
   "Castle Exterior - Card Wadcock": { requires: "Alohomora" }
   "Castle Exterior - Card Sykes": { requires: "Spongify" }
   "Castle Exterior - Card Twonk": { requires: "Alohomora & Diffindo" }
-  "Castle Exterior - Card Plunkett":
-    { requires: "Alohomora & Diffindo & Lumos" }
-  "Castle Exterior - Card Pokeby":
-    {
-      requires: "Alohomora & ((Rictusempra & Skurge & 'Bicorn Level Key') | Running)",
-    }
-  "Castle Exterior - Card Youdle":
-    {
-      requires: "Alohomora & ((Rictusempra & Skurge & Flipendo & Spongify & 'Bicorn Level Key') | Running)",
-    }
-  "Castle Exterior - Card Marjoribanks":
-    {
-      requires: "Alohomora & ((Rictusempra & Skurge & Diffindo & 'Bicorn Level Key') | Running)",
-    }
-  "Castle Exterior - Card Oglethorpe":
-    { requires: "Alohomora & Spongify & Diffindo & Lumos" }
+  "Castle Exterior - Card Plunkett": { requires: "Alohomora & Diffindo & Lumos" }
+  "Castle Exterior - Card Pokeby": { requires: "Alohomora & ((Rictusempra & Skurge & 'Bicorn Level Key') | Running)" }
+  "Castle Exterior - Card Youdle": { requires: "Alohomora & ((Rictusempra & Skurge & Flipendo & Spongify & 'Bicorn Level Key') | Running)" }
+  "Castle Exterior - Card Marjoribanks": { requires: "Alohomora & ((Rictusempra & Skurge & Diffindo & 'Bicorn Level Key') | Running)" }
+  "Castle Exterior - Card Oglethorpe": { requires: "Alohomora & Spongify & Diffindo & Lumos" }
   "Castle Exterior - Secret 1": { requires: "Alohomora & Diffindo" }
   "Castle Exterior - Secret 2": { requires: "Alohomora" }
   "Castle Exterior - Secret 3": { requires: "Alohomora & Diffindo & Lumos" }
-  "Castle Exterior - Secret 4":
-    { requires: "Alohomora & Diffindo & Spongify & Lumos" }
+  "Castle Exterior - Secret 4": { requires: "Alohomora & Diffindo & Spongify & Lumos" }
   "Castle Exterior - Secret 5": { requires: "Spongify" }
-  "Castle Exterior - Secret 6":
-    {
-      requires: "(Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key') | Running",
-    }
-  "Castle Exterior - Secret 7":
-    {
-      requires: "Alohomora & ((Skurge & Rictusempra & Diffindo & 'Bicorn Level Key') | Running)",
-    }
+  "Castle Exterior - Secret 6": { requires: "(Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key') | Running" }
+  "Castle Exterior - Secret 7": { requires: "Alohomora & ((Skurge & Rictusempra & Diffindo & 'Bicorn Level Key') | Running)" }
   "Castle Exterior - Secret 8": { requires: "Alohomora" }
   "Castle Exterior - Nimbus 2001": { requires: "Rictusempra" }
   "Castle Exterior - Quidditch Armour": { requires: "Rictusempra" }
@@ -178,19 +154,15 @@ locations:
   "Entry Hall - Card Dodderidge": { requires: "Alohomora" }
   "Entry Hall - Card Gunhilda": { requires: "Alohomora & Rictusempra" }
   "Entry Hall - Card Jones": { requires: "Alohomora & Diffindo & Flipendo" }
-  "Entry Hall - Card Montmorency":
-    { requires: "Alohomora & Skurge & Rictusempra" }
+  "Entry Hall - Card Montmorency": { requires: "Alohomora & Skurge & Rictusempra" }
   "Entry Hall - Card Mopsus": { requires: "Alohomora & Skurge & Diffindo" }
   "Entry Hall - Card Sawbridge": { requires: "Alohomora" }
-  "Entry Hall - Card Shingleton":
-    { requires: "Alohomora & Skurge & Rictusempra & Lumos" }
-  "Entry Hall - Card Wendelin":
-    { requires: "Alohomora & Diffindo & Rictusempra & Lumos" }
+  "Entry Hall - Card Shingleton": { requires: "Alohomora & Skurge & Rictusempra & Lumos" }
+  "Entry Hall - Card Wendelin": { requires: "Alohomora & Diffindo & Rictusempra & Lumos" }
   "Entry Hall - Card Wright": { requires: "Alohomora & Diffindo" }
   "Entry Hall - Secret 1": { requires: "Rictusempra & Skurge & Lumos" }
   "Entry Hall - Secret 2": { requires: "Rictusempra & Skurge & Alohomora" }
-  "Entry Hall - Secret 3":
-    { requires: "Rictusempra & (Skurge | Alohomora) & Diffindo & Lumos" }
+  "Entry Hall - Secret 3": { requires: "Rictusempra & (Skurge | Alohomora) & Diffindo & Lumos" }
   "Entry Hall - Secret 4": { requires: "Rictusempra & Alohomora" }
   "Entry Hall - Secret 5": { requires: "Alohomora" }
   "Entry Hall - Secret 6": { requires: "Alohomora" }
@@ -217,8 +189,7 @@ locations:
 
   # Grand Staircase (region entry: Lumos & Flipendo)
   "Grand Staircase - Card Barkwith": { requires: "Alohomora & Rictusempra" }
-  "Grand Staircase - Card Blane":
-    { requires: "Alohomora & Rictusempra & Skurge" }
+  "Grand Staircase - Card Blane": { requires: "Alohomora & Rictusempra & Skurge" }
   "Grand Staircase - Card Bonham": { requires: "Alohomora" }
   "Grand Staircase - Card Ethelred": { requires: "Alohomora" }
   "Grand Staircase - Card Hipworth": { requires: "Alohomora" }
@@ -226,8 +197,7 @@ locations:
   "Grand Staircase - Card Maeve": { requires: "Alohomora & Flipendo" }
   "Grand Staircase - Card Oldridge": { requires: "Spongify & Alohomora" }
   "Grand Staircase - Card Toothill": { requires: "Spongify" }
-  "Grand Staircase - Card Vablatsky":
-    { requires: "Alohomora & Rictusempra & Skurge" }
+  "Grand Staircase - Card Vablatsky": { requires: "Alohomora & Rictusempra & Skurge" }
   "Grand Staircase - Secret 1": { requires: "Alohomora" }
   "Grand Staircase - Secret 2": { requires: "Alohomora" }
   "Grand Staircase - Secret 3": { requires: "Alohomora" }
@@ -263,44 +233,19 @@ locations:
   "Grand Staircase - Cauldron 8": { requires: "Flipendo" }
 
   # Dumbledore's Study (region entry: Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key')
-  "Dumbledore's Study - Card Beamish":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'",
-    }
-  "Dumbledore's Study - Card Muldoon":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'",
-    }
-  "Dumbledore's Study - Secret":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'",
-    }
-  "Dumbledore's Study - Cigar Box":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'",
-    }
-  "Dumbledore's Study - Decanter":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'",
-    }
+  "Dumbledore's Study - Card Beamish": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'" }
+  "Dumbledore's Study - Card Muldoon": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'" }
+  "Dumbledore's Study - Secret": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'" }
+  "Dumbledore's Study - Cigar Box": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'" }
+  "Dumbledore's Study - Decanter": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'" }
 
   # Quidditch matches (region entry: Lumos & Flipendo & Rictusempra & 'Quidditch Key')
   "Quidditch - Match 1 (Hufflepuff)": { requires: "Rictusempra" }
   "Quidditch - Match 2 (Ravenclaw)": { requires: "Rictusempra & Skurge" }
-  "Quidditch - Match 3 (Slytherin)":
-    { requires: "Rictusempra & Skurge & Alohomora" }
-  "Quidditch - Match 4 (Hufflepuff)":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key'",
-    }
-  "Quidditch - Match 5 (Ravenclaw)":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
-    }
-  "Quidditch - Match 6 (Slytherin)":
-    {
-      requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'",
-    }
+  "Quidditch - Match 3 (Slytherin)": { requires: "Rictusempra & Skurge & Alohomora" }
+  "Quidditch - Match 4 (Hufflepuff)": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key'" }
+  "Quidditch - Match 5 (Ravenclaw)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'" }
+  "Quidditch - Match 6 (Slytherin)": { requires: "Rictusempra & Skurge & Diffindo & Spongify & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key' & 'Goyle Level Key' & 'Slytherin Common Room Key'" }
 
   # Tradersanity vendors
   "Entry Hall - Card Vendor 1": { requires: "true" }
@@ -312,10 +257,7 @@ locations:
   "Grand Staircase - Card Vendor 1": { requires: "true" }
   "Grand Staircase - Card Vendor 2": { requires: "true" }
   "Grand Staircase - Ingredient Vendor 1": { requires: "true" }
-  "Castle Exterior - Card Vendor 1":
-    {
-      requires: "(Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key') | Running",
-    }
+  "Castle Exterior - Card Vendor 1": { requires: "(Alohomora & Skurge & Rictusempra & Flipendo & 'Bicorn Level Key') | Running" }
   "Castle Exterior - Card Vendor 2": { requires: "true" }
   "Castle Exterior - Ingredient Vendor 1": { requires: "true" }
   "Castle Exterior - Ingredient Vendor 2": { requires: "true" }

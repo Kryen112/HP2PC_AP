@@ -127,8 +127,7 @@ locations:
   "Entry Hall - Card Wright": { requires: "Diffindo & Alohomora" }
   "Entry Hall - Secret 1": { requires: "Lumos & Skurge" }
   "Entry Hall - Secret 2": { requires: "Alohomora & Skurge" }
-  "Entry Hall - Secret 3":
-    { requires: "(Skurge | Alohomora) & Lumos & Diffindo" }
+  "Entry Hall - Secret 3": { requires: "(Skurge | Alohomora) & Lumos & Diffindo" }
   "Entry Hall - Secret 4": { requires: "Alohomora" }
   "Entry Hall - Secret 5": { requires: "Alohomora" }
   "Entry Hall - Secret 6": { requires: "Alohomora" }
@@ -163,8 +162,7 @@ locations:
   "Grand Staircase - Card Maeve": { requires: "Flipendo & Alohomora" }
   "Grand Staircase - Card Oldridge": { requires: "Spongify & Alohomora" }
   "Grand Staircase - Card Toothill": { requires: "Spongify" }
-  "Grand Staircase - Card Vablatsky":
-    { requires: "'Chamber of Secrets Key' & Alohomora" }
+  "Grand Staircase - Card Vablatsky": { requires: "'Chamber of Secrets Key' & Alohomora" }
   "Grand Staircase - Secret 1": { requires: "Alohomora" }
   "Grand Staircase - Secret 2": { requires: "Alohomora" }
   "Grand Staircase - Secret 3": { requires: "Alohomora" }
@@ -210,18 +208,14 @@ locations:
   "Castle Exterior - Card Sweeting": { requires: "true" }
   "Castle Exterior - Card Sykes": { requires: "Spongify" }
   "Castle Exterior - Card Twonk": { requires: "Alohomora & Diffindo" }
-  "Castle Exterior - Card Oglethorpe":
-    { requires: "Alohomora & Diffindo & Lumos & Spongify" }
-  "Castle Exterior - Card Plunkett":
-    { requires: "Alohomora & Diffindo & Lumos" }
+  "Castle Exterior - Card Oglethorpe": { requires: "Alohomora & Diffindo & Lumos & Spongify" }
+  "Castle Exterior - Card Plunkett": { requires: "Alohomora & Diffindo & Lumos" }
   "Castle Exterior - Card Wadcock": { requires: "Alohomora" }
-  "Castle Exterior - Card Youdle":
-    { requires: "(Flipendo | Spongify | Running) & Alohomora" }
+  "Castle Exterior - Card Youdle": { requires: "(Flipendo | Spongify | Running) & Alohomora" }
   "Castle Exterior - Secret 1": { requires: "Alohomora & Diffindo" }
   "Castle Exterior - Secret 2": { requires: "Alohomora" }
   "Castle Exterior - Secret 3": { requires: "Alohomora & Diffindo & Lumos" }
-  "Castle Exterior - Secret 4":
-    { requires: "Alohomora & Diffindo & Lumos & Spongify" }
+  "Castle Exterior - Secret 4": { requires: "Alohomora & Diffindo & Lumos & Spongify" }
   "Castle Exterior - Secret 5": { requires: "Spongify" }
   "Castle Exterior - Secret 6": { requires: "Flipendo | Spongify | Running" }
   "Castle Exterior - Secret 7": { requires: "Diffindo" }
