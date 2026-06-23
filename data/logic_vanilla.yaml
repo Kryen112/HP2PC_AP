@@ -141,12 +141,12 @@ locations:
   "Castle Exterior - Chest 1": { requires: "Alohomora" }
   "Castle Exterior - Chest 2": { requires: "Alohomora" }
   "Castle Exterior - Chest 3": { requires: "Alohomora" }
-  "Castle Exterior - Chest 4": { requires: "Alohomora" }
+  "Castle Exterior - Chest 4": { requires: "Diffindo & Alohomora" }
   "Castle Exterior - Chest 5": { requires: "Alohomora" }
   "Castle Exterior - Chest 6": { requires: "Alohomora" }
   "Castle Exterior - Chest 7": { requires: "Alohomora" }
-  "Castle Exterior - Chest 8": { requires: "Alohomora" }
-  "Castle Exterior - Chest 9": { requires: "Alohomora" }
+  "Castle Exterior - Chest 8": { requires: "Alohomora & ((Skurge & Rictusempra & 'Bicorn Level Key') | Running)" }
+  "Castle Exterior - Chest 9": { requires: "Alohomora & ((Skurge & Rictusempra & Diffindo & 'Bicorn Level Key') | Running)" }
 
   # Entry Hall (region entry: Lumos & Flipendo)
   "Entry Hall - Card Alderton": { requires: "Alohomora & Spongify" }

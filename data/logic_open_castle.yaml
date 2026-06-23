@@ -223,7 +223,7 @@ locations:
   "Castle Exterior - Chest 1": { requires: "Alohomora" }
   "Castle Exterior - Chest 2": { requires: "Alohomora" }
   "Castle Exterior - Chest 3": { requires: "Alohomora" }
-  "Castle Exterior - Chest 4": { requires: "Alohomora" }
+  "Castle Exterior - Chest 4": { requires: "Diffindo & Alohomora" }
   "Castle Exterior - Chest 5": { requires: "Alohomora" }
   "Castle Exterior - Chest 6": { requires: "Alohomora" }
   "Castle Exterior - Chest 7": { requires: "Alohomora" }
