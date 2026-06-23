@@ -19,11 +19,11 @@ locations:
   "Whomping Willow - Secret 2": { requires: "Lumos & Flipendo & Alohomora" }
   "Whomping Willow - Complete": { requires: "Lumos & Flipendo" }
   "Whomping Willow - Chest 1": { requires: "Alohomora" }
-  "Whomping Willow - Chest 2": { requires: "Alohomora" }
-  "Whomping Willow - Chest 3": { requires: "Alohomora" }
-  "Whomping Willow - Chest 4": { requires: "Alohomora" }
-  "Whomping Willow - Knight 1": { requires: "Flipendo" }
-  "Whomping Willow - Knight 2": { requires: "Flipendo" }
+  "Whomping Willow - Chest 2": { requires: "Lumos & Alohomora" }
+  "Whomping Willow - Chest 3": { requires: "Lumos & Alohomora" }
+  "Whomping Willow - Chest 4": { requires: "Lumos & Flipendo & Alohomora" }
+  "Whomping Willow - Knight 1": { requires: "Lumos & Flipendo & Flipendo" }
+  "Whomping Willow - Knight 2": { requires: "Lumos & Flipendo & Flipendo" }
 
   # Rictusempra Challenge
   "Rictusempra Challenge - Card Barbary":
@@ -196,25 +196,38 @@ locations:
     { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
   "Bicorn Level - Complete":
     { requires: "Alohomora & Flipendo & Skurge & Rictusempra" }
-  "Bicorn Level - Bark Spawner 1": { requires: "Flipendo" }
-  "Bicorn Level - Bark Spawner 2": { requires: "Flipendo" }
-  "Bicorn Level - Chest 1": { requires: "Alohomora" }
-  "Bicorn Level - Peeves Chest 1": { requires: "Alohomora" }
-  "Bicorn Level - Chest 2": { requires: "Alohomora" }
-  "Bicorn Level - Chest 3": { requires: "Alohomora" }
-  "Bicorn Level - Chest 4": { requires: "Alohomora" }
-  "Bicorn Level - Chest 5": { requires: "Alohomora" }
-  "Bicorn Level - Chest 6": { requires: "Alohomora" }
-  "Bicorn Level - Chest 7": { requires: "Alohomora" }
-  "Bicorn Level - Chest 8": { requires: "Alohomora" }
-  "Bicorn Level - Mucus Spawner 1": { requires: "Flipendo" }
-  "Bicorn Level - Mucus Spawner 2": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 1": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 2": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 3": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 4": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 5": { requires: "Flipendo" }
-  "Bicorn Level - Cauldron 6": { requires: "Flipendo" }
+  "Bicorn Level - Bark Spawner 1": { requires: "Alohomora & Flipendo" }
+  "Bicorn Level - Bark Spawner 2":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Chest 1": { requires: "Alohomora & Flipendo & Skurge" }
+  "Bicorn Level - Peeves Chest 1":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Chest 2": { requires: "Alohomora & Flipendo & Skurge" }
+  "Bicorn Level - Chest 3": { requires: "Alohomora & Flipendo & Rictusempra" }
+  "Bicorn Level - Chest 4":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge & Lumos" }
+  "Bicorn Level - Chest 5":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Chest 6":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Chest 7":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Chest 8":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Mucus Spawner 1":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Mucus Spawner 2":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Cauldron 1": { requires: "Alohomora & Flipendo" }
+  "Bicorn Level - Cauldron 2": { requires: "Alohomora & Flipendo" }
+  "Bicorn Level - Cauldron 3":
+    { requires: "Alohomora & Flipendo & Rictusempra & Lumos" }
+  "Bicorn Level - Cauldron 4":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Cauldron 5":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Cauldron 6":
+    { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
 
   # Diffindo Challenge
   "Diffindo Challenge - Card Ketteridge":
