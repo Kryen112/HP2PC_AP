@@ -587,10 +587,12 @@ var byte bPolyjuiceTrapActive;
 // instance) is the discriminator so open
 // castle's streamed-sublevel watcher churn never false-triggers.
 var name TrapLastLevelName;
-// Engorgio / Reducio Traps: bSizeTrapActive==1 while harry.DrawScale is scaled
-// away from normal. Like the Polyjuice trap the effect lasts the rest of the
-// level; the next level loads a fresh pawn at its default DrawScale, so the
-// revert is automatic and TrapTick only has to clear the flag on a level change.
+// Engorgio / Reducio Traps: bSizeTrapActive==1 while harry.DrawScale and the
+// collision cylinder are scaled away from normal (JumpZ stays at its default so
+// the world-space jump apex is vanilla and level logic holds). Like the Polyjuice
+// trap the effect lasts the rest of the level; the next level loads a fresh pawn
+// at its default DrawScale and collision, so the revert is automatic and TrapTick
+// only has to clear the flag on a level change.
 var byte bSizeTrapActive;
 // Confundus Trap: bConfundusTrapActive==1 while harry.bInvertMouse is forced
 // on. bConfundusOrigInvertMouse holds the player's real setting so the restore
@@ -1418,26 +1420,56 @@ static function MarkPolyjuiceTrapActiveDefault(harry h)
 }
 
 // Engorgio / Reducio Trap entry point (called from APGameInfo.TryApplyTrap).
-// Scales the pawn and records the apply-level. Static + class-default so it
-// survives the per-level watcher respawn. Like Polyjuice the effect lasts the
-// rest of the level and reverts on the next level's fresh pawn; TrapTick() just
-// clears the flag. Stacking guard: a second size trap while one is active simply
-// applies the new scale (a later Reducio overrides an earlier Engorgio).
+// Scales the model and the collision cylinder together (the game's own
+// DrawScale-coupled SetCollisionSize idiom) so the hitbox always bounds the
+// visible mesh, then records the apply-level. JumpZ is left at its default on
+// purpose: the world-space jump apex must stay vanilla or level traversal logic
+// breaks, so a shrunk Harry only appears to out-jump his height and a giant to
+// under-jump it while both reach the same ledges as normal. Static + class-default
+// so it survives the per-level watcher respawn. Like Polyjuice the effect lasts
+// the rest of the level and reverts on the next level's fresh pawn (default
+// DrawScale and collision); TrapTick() just clears the flag. Stacking guard:
+// a second size trap while one is active simply re-applies the new scale, and
+// because radius/height derive from the pawn defaults a later Reducio cleanly
+// overrides an earlier Engorgio.
 static function MarkSizeTrapActive(harry h, float newScale)
 {
+    local float newRadius, newHeight, deltaHeight;
+    local vector lift;
+
     if (h == None)
     {
         return;
     }
+
     h.DrawScale = newScale;
+
+    newRadius   = h.Default.CollisionRadius * newScale;
+    newHeight   = h.Default.CollisionHeight * newScale;
+    deltaHeight = newHeight - h.CollisionHeight;
+    lift.Z      = deltaHeight;
+    if (deltaHeight >= 0.0)
+    {
+        // Grow: lift first so the taller cylinder grows up into open air, not
+        // down into the floor (SetCollisionSize refuses an encroaching resize).
+        h.Move(lift);
+        h.SetCollisionSize(newRadius, newHeight);
+    }
+    else
+    {
+        // Shrink: a smaller cylinder always fits, then drop the feet back down.
+        h.SetCollisionSize(newRadius, newHeight);
+        h.Move(lift);
+    }
+
     if (default.bSizeTrapActive == 1)
     {
-        Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: already active - DrawScale set to " $ string(newScale));
+        Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: already active - rescaled to DrawScale " $ string(newScale));
         return;
     }
     default.bSizeTrapActive   = 1;
     default.TrapLastLevelName = h.Level.Outer.Name;
-    Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: DrawScale -> " $ string(newScale) $ " (reverts on next level)");
+    Log("[Archipelago] APCardWatcher.MarkSizeTrapActive: DrawScale + hitbox -> " $ string(newScale) $ " (reverts on next level)");
 }
 
 // Overcompensation Trap entry point (called from APGameInfo.TryApplyTrap).
@@ -1813,7 +1845,7 @@ function TrapTick()
     if (default.bSizeTrapActive == 1 && bLevelChanged)
     {
         // Lasts the rest of the level like Polyjuice; the fresh pawn already
-        // loaded its default DrawScale, so just clear the flag.
+        // loaded its default DrawScale and collision, so just clear the flag.
         default.bSizeTrapActive = 0;
         Log("[Archipelago] APCardWatcher.TrapTick: size trap cleared on level change (pawn already at default scale)");
     }

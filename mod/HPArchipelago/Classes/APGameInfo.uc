@@ -2340,8 +2340,9 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //                   next level transition, whichever comes first.
 //   Drowsiness    - the game's own sleepy status effect; harry.Timer() counts
 //                   it back down once per second (self-reverting).
-//   Engorgio /    - DrawScale up / down for the rest of the level; reverts on
-//   Reducio         the next level's fresh pawn, like the Polyjuice trap.
+//   Engorgio /    - DrawScale and collision cylinder up / down for the rest of
+//   Reducio         the level (JumpZ untouched so the jump apex stays vanilla);
+//                   reverts on the next level's fresh pawn, like Polyjuice.
 //   Confundus     - forces harry.bInvertMouse; APCardWatcher restores the real
 //                   setting on a timer or the next level transition.
 //   Overcompensation - swaps the held wand to the enlarged APWandGiant mesh
@@ -2441,17 +2442,17 @@ function bool TryApplyTrap(string Name, harry h)
 
     if (Name == "Engorgio Trap")
     {
-        // Scale the pawn up for the rest of the level. Like Polyjuice it reverts
-        // on the next level's fresh pawn; the watcher just clears its flag.
+        // Scale the model and hitbox up for the rest of the level. Like Polyjuice
+        // it reverts on the next level's fresh pawn; the watcher just clears its flag.
         class'APCardWatcher'.static.MarkSizeTrapActive(h, 1.4);
-        Log("[Archipelago] ApplyGrant: Engorgio Trap - DrawScale up (reverts on next level)");
+        Log("[Archipelago] ApplyGrant: Engorgio Trap - DrawScale + hitbox up (reverts on next level)");
         return True;
     }
 
     if (Name == "Reducio Trap")
     {
         class'APCardWatcher'.static.MarkSizeTrapActive(h, 0.6);
-        Log("[Archipelago] ApplyGrant: Reducio Trap - DrawScale down (reverts on next level)");
+        Log("[Archipelago] ApplyGrant: Reducio Trap - DrawScale + hitbox down (reverts on next level)");
         return True;
     }
 
