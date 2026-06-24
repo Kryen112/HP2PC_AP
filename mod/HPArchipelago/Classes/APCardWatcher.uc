@@ -2523,6 +2523,12 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     local bool savedPersist, exact;
     local class<Actor> savedGoodie[8];
     local int savedNum[8];
+    local name savedClass;
+    local ESpellType savedVuln;
+    local Mesh savedMesh;
+    local float savedDrawScale;
+    local Vector savedPrePivot;
+    local float savedGoodieDelay, savedBaseDelay, savedColRadius, savedColHeight;
 
     // Already collected -> leave the spawner 100% vanilla (no swap, no extra
     // eject slot), so a re-clear drops no phantom AP token.
@@ -2551,6 +2557,29 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     savedStartPos = old.StartPos;
     savedStartVel = old.StartVel;
     savedStartBone = old.StartBone;
+    savedClass = old.Class.Name;
+    // Carry over the instance's open-spell. Without this the swap reverts to the
+    // GenericSpawner class default (Flipendo) and PostBeginPlay forces it to None
+    // (the leaf has no goodie defaults at Spawn), leaving the box unopenable.
+    savedVuln = old.eVulnerableToSpellSaved;
+    // Carry over the look too. The map actor overrides Mesh to a wooden chest at
+    // DrawScale 2; without this the swap reverts to the GenericSpawner default
+    // (skcigarboxMesh at DrawScale 1 = the tiny cigar box that broke this spot).
+    savedMesh = old.Mesh;
+    savedDrawScale = old.DrawScale;
+    // PrePivot is the mesh's seating offset; without it the taller chest floats.
+    savedPrePivot = old.PrePivot;
+    // Collision: copy the instance's cylinder so the Alohomora target matches the
+    // original chest, and so the PrePivot mesh-seating (below) uses the right height.
+    savedColRadius = old.CollisionRadius;
+    savedColHeight = old.CollisionHeight;
+    // Eject timing: GoodieDelay/BaseDelay are 0 by class default, so the goodies
+    // all spew in one frame instead of dribbling out like a bean chest.
+    savedGoodieDelay = old.GoodieDelay;
+    savedBaseDelay = old.BaseDelay;
+    // A zero GoodieDelay (e.g. the Forbidden Forest gnome chest) ejects every goodie
+    // in one frame; force a sequencing delay so the token + natives dribble out.
+    if (savedGoodieDelay <= 0.0) { savedGoodieDelay = 0.5; }
     for (i = 0; i < 8; i++)
     {
         savedGoodie[i] = old.GoodieToSpawn[i];
@@ -2585,6 +2614,17 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
             exact = True;
         }
     }
+    // Exact-count boxes drive eject from GoodiesNumber, not Limits, so the +1
+    // Limits bump above adds no extra eject -- the AP token would eat the first
+    // goodie's slot. Bump the first non-empty count by 1 so the token rides the
+    // extra iteration and every native goodie still drops.
+    if (exact)
+    {
+        for (i = 0; i < 8; i++)
+        {
+            if (nw.GoodiesNumber[i] > 0) { nw.GoodiesNumber[i] += 1; break; }
+        }
+    }
     // Re-derive the engine's cached init (GenericSpawner.PostBeginPlay already
     // ran at Spawn with the leaf defaults; redo it now the real config is in).
     howMany = 0;
@@ -2596,6 +2636,30 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     if (savedLives <= 0) howMany = 0;
     nw.HowManyObjectsToSpawn = howMany;
     nw.bSpawnExactNumbers = exact;
+    // Restore the open-spell preserved above (both fields: live + post-hit recovery).
+    nw.eVulnerableToSpell = savedVuln;
+    nw.eVulnerableToSpellSaved = savedVuln;
+    // Restore the wooden-chest mesh/scale/pivot preserved above.
+    nw.Mesh = savedMesh;
+    nw.DrawScale = savedDrawScale;
+    nw.PrePivot = savedPrePivot;
+    // The base GenericSpawner wood chests (Entry Hall, Forbidden Forest) use a
+    // ChestWood mesh whose origin is at its base. A Pawn rests with its origin
+    // CollisionHeight above the floor, so that mesh hangs in the air. PrePivot is
+    // ADDED to the draw position (+Z raises), so subtract CollisionHeight to drop
+    // the mesh onto the floor. Leaf spawners (Bark/Mucus/Knight) use Pawn-authored
+    // meshes that already sit, so leave their pivot alone.
+    if (savedClass == 'GenericSpawner')
+    {
+        nw.PrePivot.Z = savedPrePivot.Z - savedColHeight;
+    }
+    // Match the original's collision (Alohomora target) but pin it static -- a
+    // fresh PHYS_Walking pawn drifts off the floor. Restore the eject timing so
+    // goodies dribble out instead of spewing at once.
+    nw.SetCollisionSize(savedColRadius, savedColHeight);
+    nw.SetPhysics(PHYS_None);
+    nw.GoodieDelay = savedGoodieDelay;
+    nw.BaseDelay = savedBaseDelay;
 
     if (!class'APContainerStamp'.static.Stamp(nw, apId))
     {

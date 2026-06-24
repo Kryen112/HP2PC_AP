@@ -145,7 +145,6 @@ locations:
   "Entry Hall - Chest 5": { requires: "Alohomora" }
   "Entry Hall - Chest 6": { requires: "Alohomora" }
   "Entry Hall - Chest 7": { requires: "Alohomora" }
-  "Entry Hall - Spawner 1": { requires: "Alohomora" }
   "Entry Hall - Knight 1": { requires: "Flipendo" }
   "Entry Hall - Knight 2": { requires: "Flipendo" }
   "Entry Hall - Knight 3": { requires: "Flipendo" }

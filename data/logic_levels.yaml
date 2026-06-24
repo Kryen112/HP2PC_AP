@@ -383,7 +383,7 @@ locations:
   "Forbidden Forest - Complete": { requires: "Lumos & Spongify & Diffindo & Flipendo & Rictusempra" }
   "Forbidden Forest - Chest 1": { requires: "Lumos & Spongify & Diffindo & Alohomora" }
   "Forbidden Forest - Chest 2": { requires: "Lumos & Spongify & Diffindo & Alohomora" }
-  "Forbidden Forest - Spawner 1": { requires: "Lumos & Spongify & Diffindo & Flipendo & Alohomora" }
+  "Forbidden Forest - Chest 3": { requires: "Lumos & Spongify & Diffindo & Flipendo & Alohomora" }
   "Forbidden Forest - Mucus Spawner 1": { requires: "Lumos & Spongify & Diffindo & Flipendo" }
   "Forbidden Forest - Mucus Spawner 2": { requires: "Lumos & Spongify & Diffindo & Flipendo" }
 
