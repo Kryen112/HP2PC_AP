@@ -2295,6 +2295,16 @@ function ReplaceContainers()
         apId = class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(spawner.Name));
         if (apId > 0)
         {
+            // Bean-room spawners are ejected manually by ManageBeanDrops (it
+            // bursts the whole pool at once), so the native eject the swap exists
+            // to hook is never used here. Swapping would only strip the map
+            // actor's Alohomora targeting (the respawn reverts eVulnerableToSpell
+            // to the class default Flipendo), leaving no lock-on target. Leave it
+            // in place; ManageBeanDrops ejects its token by name lookup.
+            if (lvl == "BEANREWARDROOM")
+            {
+                continue;
+            }
             SwapContainerSpawner(spawner, apId);
             n++;
         }
@@ -4627,6 +4637,49 @@ function SpawnBurstBeans(Vector loc, int count)
     }
 }
 
+// Eject the containersanity AP token a bean-room dispenser would have dropped had
+// ManageBeanDrops not suppressed its native eject. The token is a separate
+// collectible (own mesh, fires the check on Touch), so it flings alongside the
+// bean burst. Velocity / PHYS_Falling / persist mirror SpawnBurstBeans and the
+// native eject. markerCls None (dispenser left vanilla because the location is
+// already collected) is a no-op; the marker's own PostBeginPlay self-destroys a
+// stale already-checked ghost.
+function SpawnContainerMarker(class<Actor> markerCls, Vector loc)
+{
+    local Actor m;
+    local Vector spawnAt, v;
+
+    if (markerCls == None) return;
+
+    spawnAt = loc;
+    spawnAt.Z += 40.0;
+    m = Spawn(markerCls, , , spawnAt);
+    if (m == None) return;
+    m.bPersistent = True;
+    v.X = -80 + Rand(160);
+    v.Y = -80 + Rand(160);
+    v.Z = 150 + Rand(120);
+    m.Velocity = v;
+    m.SetPhysics(PHYS_Falling);
+    Log("[Archipelago] ManageBeanDrops: ejected AP marker " $ string(markerCls.Name));
+}
+
+// The containersanity marker class for an apId, or None when the id is 0 (not a
+// check) or the location is already collected (no phantom token on re-clear).
+// Bean-room dispensers keep their map name (chests are injected in place, the
+// spawner is left unswapped), so GetContainerLocationId resolves them by name.
+function class<Actor> ContainerMarkerClass(int apId)
+{
+    local int slot;
+
+    if (apId <= 0) return None;
+    slot = apId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return None;
+    if (default.NonCardLocationChecked[slot] == 1) return None;
+    return class<Actor>(DynamicLoadObject(
+        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
+}
+
 // Destroy stray native beans within radius of a just-taken-over dispenser (the
 // few that can eject before the take-over fires). Floor beans ('APFloorBean')
 // and managed drop beans ('APDropBean') are left alone.
@@ -4711,6 +4764,11 @@ function ManageBeanDrops()
             if (!chest.IsInState('stillOpen')) chest.GotoState('stillOpen');
             DestroyLeakedDropBeans(chest.Location);
             SpawnBurstBeans(chest.Location, chest.iNumberOfBeans);
+            // The forced stillOpen above kills the native eject, so the
+            // containersanity token never drops on its own; eject it here.
+            SpawnContainerMarker(ContainerMarkerClass(
+                class'APLocationRegistry'.static.GetContainerLocationId(
+                    "BEANREWARDROOM", string(chest.Name))), chest.Location);
             Log("[Archipelago] ManageBeanDrops: ChestGold" $ idx $ " burst "
                 $ chest.iNumberOfBeans);
         }
@@ -4730,6 +4788,12 @@ function ManageBeanDrops()
             if (gcount <= 0) gcount = 6;   // fallback if Limits is unset
             DestroyLeakedDropBeans(garg.Location);
             SpawnBurstBeans(garg.Location, gcount);
+            // HowManyObjectsToSpawn=0 above suppresses the spawner's own eject,
+            // so eject its containersanity token here. The bean-room spawner is
+            // left unswapped, so it keeps its map name for the lookup.
+            SpawnContainerMarker(ContainerMarkerClass(
+                class'APLocationRegistry'.static.GetContainerLocationId(
+                    "BEANREWARDROOM", string(garg.Name))), garg.Location);
             Log("[Archipelago] ManageBeanDrops: gargoyle burst " $ gcount);
         }
         break;
