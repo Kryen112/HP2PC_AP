@@ -622,6 +622,9 @@ var byte bWandSizeTrapActive;
 // would otherwise strand the swap; the swapped binding is self-identifying (a raw
 // `Axis aStrafe` command, which the player config never uses), so HealOrphanedStrafe
 // reverts it on the first bind when no trap is live. No separate marker needed.
+// The roll also flips the root motion of a ledge pull-up, so LevicorpusHold
+// rights the pawn for the duration of the climb (Mounting/MountFinish) and
+// re-flips it afterwards.
 var byte bLevicorpusTrapActive;
 // Jelly-Legs Jinx Trap: bJellyLegsTrapActive==1 while jumping is hijacked. Manual
 // and auto jump are both suppressed by pinning harry.bCorraledByMover (the only
@@ -3418,22 +3421,36 @@ event Tick(float DeltaTime)
 // Per-frame upside-down hold for the Levicorpus Trap. The native PlayerWalking
 // physics rights the pawn (forces Roll toward 0) every frame, faster than the
 // 0.25s Timer can fight, so the roll is re-pinned here each frame like the
-// sprint speed caps. Only acts while the trap is active and Harry is bound.
+// sprint speed caps. The ledge pull-up is the exception: it moves Harry by
+// animation root motion in the pawn's local frame, which the 180 roll turns
+// upside down so the climb hauls him DOWN. Root motion is native, so the only
+// lever is the pawn rotation - right him for the duration of the climb
+// (Mounting/MountFinish) so the root motion plays world-up, then re-flip once
+// he is back on his feet. Only acts while the trap is active and Harry is bound.
 function LevicorpusHold()
 {
     local Rotator R;
+    local int wantRoll;
 
     if (default.bLevicorpusTrapActive == 0 || HarryRef == None)
     {
         return;
     }
-    if (HarryRef.Rotation.Roll != 32768)
+    if (HarryRef.IsInState('Mounting') || HarryRef.IsInState('MountFinish'))
+    {
+        wantRoll = 0;
+    }
+    else
+    {
+        wantRoll = 32768;
+    }
+    if (HarryRef.Rotation.Roll != wantRoll)
     {
         R = HarryRef.Rotation;
-        R.Roll = 32768;
+        R.Roll = wantRoll;
         HarryRef.SetRotation(R);
     }
-    HarryRef.DesiredRotation.Roll = 32768;
+    HarryRef.DesiredRotation.Roll = wantRoll;
     // Strafe inversion from the flipped right-axis is handled in the input layer
     // by SwapStrafeKeys, not here: this Tick runs after harry.PlayerMove has
     // already consumed aStrafe, so a per-frame negate would land too late.
