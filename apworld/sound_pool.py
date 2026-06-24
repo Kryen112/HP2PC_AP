@@ -1149,6 +1149,13 @@ BLACKLIST: set[tuple[str, str]] = {
     ("Magic_sfx", "pickup_WC_gold"),  # gold card pickup (APCardMarker.soundPickup)
     ("Magic_sfx", "vendor_spawn_WC"),  # AP toast whoosh (APHUDToast.ToastSound)
     ("Critters_sfx", "pickup_frog"),  # Chocolate Frog grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Music_Events", "sm_bur_PlayfulReward_01"),  # spell grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Music_Events", "sm_ent_HousePointGood_01"),  # key grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Quidditch_sfx", "SS_QUID_Bigcheer_short_01"),  # Quidditch gear grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Magic_sfx", "Potion_complete"),  # Wiggenweld Potion grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Magic_sfx", "pickup_wig_bark"),  # Wiggentree Bark grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Magic_sfx", "pickup_flob_mucus"),  # Flobberworm Mucous grant toast (APGameInfo.GetGrantSoundForItem)
+    ("Magic_sfx", "pickup11"),  # bean grant toast (APGameInfo.GetGrantSoundForItem)
     ("Magic_sfx", "pickup_wizardcard"),  # vanilla card pickup (kept for safety; AP markers use pickup_WC_*)
 }
 
