@@ -55,6 +55,14 @@ WHOMPING_WILLOW_ALOHOMORA_SECRETS: frozenset[str] = frozenset({
     'Whomping Willow - Secret 1',
     'Whomping Willow - Secret 2',
 })
+# Open-castle-only: these two Entry Hall chests sit past the ending cutscene's
+# point of no return, reachable only once the run has ended, so never
+# collectable. Dropped as locations entirely in open castle (the mirror of the
+# Classrooms exclusion); vanilla traverses the wing and keeps both checks.
+ENTRY_HALL_POST_ENDING_CHESTS: frozenset[str] = frozenset({
+    'Entry Hall - Chest 7',
+    'Entry Hall - Chest 8',
+})
 # All 101 wizard-card item names. In open castle these are upgraded to
 # progression_skip_balancing at create_item time so AP guarantees them
 # reachable (a card-count Great Hall goal needs that); vanilla keeps the
@@ -697,6 +705,9 @@ class HP2World(World):
     def _location_enabled(self, loc_name: str) -> bool:
         group = LOCATION_GROUPS.get(loc_name)
         if group == "Classrooms" and self._is_open_castle():
+            return False
+        # Entry Hall east-wing chests are stranded past the open castle ending.
+        if self._is_open_castle() and loc_name in ENTRY_HALL_POST_ENDING_CHESTS:
             return False
         # Open-castle-only regions (e.g. the Gryffindor challenge level): the
         # room is physically unreachable in vanilla, so its stars + completion
