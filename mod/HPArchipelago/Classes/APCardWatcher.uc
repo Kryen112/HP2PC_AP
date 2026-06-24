@@ -1501,6 +1501,11 @@ static function MarkWandSizeTrapActive(harry h)
     }
     wand.Mesh = giant;
     wand.ThirdPersonMesh = giant;
+    // The giant tip lands at 3x the retail 20-unit light offset, so the Lumos
+    // light and spell-charge glow would otherwise float a third of the way up the
+    // shaft. Swap in an APLumosLight that re-places them at the giant tip from
+    // inside baseWand's own per-frame UpdateLocation call (race-free).
+    SwapInWandTipLumosLight(wand);
     if (default.bWandSizeTrapActive == 1)
     {
         Log("[Archipelago] APCardWatcher.MarkWandSizeTrapActive: already active - wand kept enlarged");
@@ -1509,6 +1514,59 @@ static function MarkWandSizeTrapActive(harry h)
     default.bWandSizeTrapActive = 1;
     default.TrapLastLevelName    = h.Level.Outer.Name;
     Log("[Archipelago] APCardWatcher.MarkWandSizeTrapActive: wand enlarged (reverts on next level)");
+}
+
+// Swap the held wand's retail LumosLight for an APLumosLight, which re-places the
+// Lumos light (and the spell-charge glow) at the giant wand's tip via its
+// UpdateLocation override. Idempotent: a re-activation that already swapped is a
+// no-op. The old light is left orphaned and inert (turned off first if it was lit)
+// rather than destroyed, since retail LumosLight.Destroyed emits player-visible
+// debug text; the orphan dies at level unload. APLumosLight gates its rescale on
+// bWandSizeTrapActive, so the trap's level-change revert needs no swap-back.
+static function SwapInWandTipLumosLight(baseWand wand)
+{
+    local APLumosLight apLight;
+    local LumosLight old;
+    local bool wasOn, wasInfinite;
+
+    if (wand == None)
+    {
+        return;
+    }
+    old = wand.TheLumosLight;
+    if (old != None && old.IsA('APLumosLight'))
+    {
+        return;
+    }
+    if (old != None)
+    {
+        wasOn       = old.bLumosOn;
+        wasInfinite = old.bInfiniteLumos;
+        old.bUseDebugMode = False;
+        if (wasOn)
+        {
+            // Stop the orphan's dynamic light + particles before it goes inert.
+            old.TurnOff();
+        }
+    }
+    apLight = wand.Spawn(class'APLumosLight', wand, , wand.Location);
+    if (apLight == None)
+    {
+        // Spawn failed: keep the retail light, restoring its lit state if any.
+        if (old != None && wasOn)
+        {
+            old.bInfiniteLumos = wasInfinite;
+            old.TurnOn();
+        }
+        Log("[Archipelago] APCardWatcher.SwapInWandTipLumosLight: APLumosLight spawn failed - kept retail light");
+        return;
+    }
+    wand.TheLumosLight = apLight;
+    if (wasOn)
+    {
+        apLight.bInfiniteLumos = wasInfinite;
+        apLight.TurnOn();
+    }
 }
 
 // Confundus Trap entry point (called from APGameInfo.TryApplyTrap). Backs the
