@@ -92,7 +92,7 @@ locations:
   "Skurge Challenge - Challenge Star 10": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Complete": { requires: "Skurge & Flipendo & Lumos" }
   "Skurge Challenge - Beat Par Time": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
-  "Skurge Challenge - Bark Spawner 1": { requires: Skurge & Flipendo & Lumos & Alohomora" }
+  "Skurge Challenge - Bark Spawner 1": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Chest 1": { requires: "Skurge & Alohomora & (Flipendo | Running)" }
   "Skurge Challenge - Chest 2": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Chest 3": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
