@@ -235,8 +235,9 @@ function DrawProgressRow(Canvas C, float fScaleFactor, float hScale, int x, int 
 // down column 1; key slots fill the 2-wide block (columns 2-3) left-to-right,
 // top-to-bottom. Item textures and names are cached here by item index and are
 // assigned to slots later, in acquisition order, by ApplyUnlockedIconVisibility.
-// Coordinates are virtual 640x480 units (AT_Left), the same space
-// DrawGoalProgressPanel positions its text in.
+// Coordinates are virtual 640x480 units. The slots are APUnlockedSlotButtons,
+// which pin WinLeft to that raw design x and so skip the "Menu Centering" 4:3
+// correction, matching the canvas-drawn DrawGoalProgressPanel on the left.
 function BuildUnlockedPanel()
 {
     local int i;
@@ -253,7 +254,7 @@ function BuildUnlockedPanel()
     {
         spellTexCache[i] = SpellIconTexture(i);
         if (w != None) spellNameCache[i] = w.SpellNames[i];
-        SpellSlot[i] = HGameButton(CreateAlignedControl(Class'HGameButton', 508.0, 138.0 + i * 27.0, 32.0, 32.0, , AT_Left));
+        SpellSlot[i] = HGameButton(CreateControl(Class'APUnlockedSlotButton', 508.0, 138.0 + i * 27.0, 32.0, 32.0));
         SpellSlot[i].DownSound = None;
         SpellSlot[i].HideWindow();
     }
@@ -264,7 +265,7 @@ function BuildUnlockedPanel()
         else keyX = 588.0;
         keyY = 138.0 + (i / 2) * 27.0;
         if (w != None) keyNameCache[i] = w.BlockerKeyNames[i];
-        KeySlot[i] = HGameButton(CreateAlignedControl(Class'HGameButton', keyX, keyY, 32.0, 32.0, , AT_Left));
+        KeySlot[i] = HGameButton(CreateControl(Class'APUnlockedSlotButton', keyX, keyY, 32.0, 32.0));
         KeySlot[i].DownSound = None;
         KeySlot[i].HideWindow();
     }
@@ -396,12 +397,13 @@ function DrawUnlockedPanel(Canvas C)
     colorSave = C.DrawColor;
     styleSave = C.Style;
 
-    // Center each label over its column(s) using the buttons' real framework
-    // positions (WinLeft/WinWidth), which the FE framework has already aspect-
-    // corrected. A raw virtual-x would miss that correction and drift off-4:3.
-    // "Spells" centers on the spell column, "Keys" on the midpoint of the two key
-    // columns, "Unlocked" on the midpoint of the spell and right-key columns.
-    // Falls back to design-space centers if the slots are not built yet.
+    // Center each label over its column(s) using the buttons' live WinLeft/
+    // WinWidth. APUnlockedSlotButton pins WinLeft to the raw design x (no Menu
+    // Centering correction), so the labels track the icons and share the panel's
+    // pure-proportional, slider-immune placement. "Spells" centers on the spell
+    // column, "Keys" on the midpoint of the two key columns, "Unlocked" on the
+    // midpoint of the spell and right-key columns. Falls back to design-space
+    // centers if the slots are not built yet.
     if (SpellSlot[0] != None && KeySlot[0] != None && KeySlot[1] != None)
     {
         spellC    = SpellSlot[0].WinLeft + SpellSlot[0].WinWidth * 0.5;
