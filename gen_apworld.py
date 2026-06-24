@@ -1233,62 +1233,138 @@ CONTAINER_CHEST_CLASSES = frozenset({
 })
 
 
+# Single-content "jar" spawners whose whole vanilla payload is one ingredient
+# goodie. For these the AP token REPLACES that goodie (drops instead of it)
+# rather than being appended as an extra eject, so the jar yields only the AP
+# check. Matched against the row `class` by exact name (these are the precise
+# GenericSpawner leaf class names, not the case-folded chest keys above).
+CONTAINER_REPLACE_CLASSES = frozenset({
+    "BarkSpawn", "MucusSpawn",
+})
+
+
 def _spawner_subclass_text(leaf: str) -> str:
     """A thin GenericSpawner-leaf subclass that ejects the per-location baked-id
     marker as its OWN sequential eject -- not alongside a bean -- so it pops with
-    the exact same velocity, bounce, and timing as a goodie. SwapContainerSpawner
-    bumps Limits by +1 to buy one extra eject iteration for the token and stamps
-    CheckLocationId; the first SpawnObject undoes that +1 (so multi-life re-hits
-    eject vanilla counts) and routes the token through the parent's goodie spawn
-    by briefly pointing a GoodieToSpawn slot at the baked marker class."""
-    return (
+    the exact same velocity, bounce, and timing as a goodie.
+
+    Two flavours, keyed on CONTAINER_REPLACE_CLASSES:
+      - append (default): SwapContainerSpawner bumps Limits by +1 to buy one extra
+        eject iteration for the token; the first SpawnObject undoes that +1 (so
+        multi-life re-hits eject vanilla counts) then ejects the token, and the
+        box's own goodies still drop on the remaining iterations.
+      - replace (single-content jars, e.g. BarkSpawn/MucusSpawn): SwapContainerSpawner
+        does NOT bump Limits, so the native eject count is unchanged. The token
+        REPLACES the native goodie -- the first call ejects the token, every later
+        call is suppressed, and the native goodie never spawns.
+    Both route the token through the parent's goodie spawn by briefly pointing a
+    GoodieToSpawn slot at the baked marker class. CheckLocationId is stamped by
+    SwapContainerSpawner via APContainerStamp."""
+    replace = leaf in CONTAINER_REPLACE_CLASSES
+    header = (
         "// Auto-generated. Do not edit by hand; regenerate from\n"
         "// data/locations.yaml (containers) via gen_apworld.py.\n"
-        f"// Swap target for {leaf} containers: ejects the AP token as its own\n"
-        "// sequential goodie (bean velocity / bounce / delay), then the box's own\n"
-        "// goodies. SwapContainerSpawner copies the instance spawn config + bumps\n"
-        "// Limits by 1 for the extra slot.\n"
+    )
+    if replace:
+        header += (
+            f"// Swap target for {leaf} containers (single-content jars): the AP\n"
+            "// token REPLACES the native goodie -- it drops INSTEAD OF the bark/\n"
+            "// mucus, not alongside it. SwapContainerSpawner copies the instance\n"
+            "// spawn config and, for replace leaves, does NOT bump Limits.\n"
+        )
+    else:
+        header += (
+            f"// Swap target for {leaf} containers: ejects the AP token as its own\n"
+            "// sequential goodie (bean velocity / bounce / delay), then the box's own\n"
+            "// goodies. SwapContainerSpawner copies the instance spawn config + bumps\n"
+            "// Limits by 1 for the extra slot.\n"
+        )
+    decl = (
         f"class APContainerSpawner_{leaf} extends {leaf};\n"
         "\n"
         "const LOC_BASE = 5760000;\n"
         "var int CheckLocationId;\n"
         "var bool bAPTokenEjected;\n"
         "\n"
-        "// SpawnObject runs once per ejected goodie. On the first call (the extra\n"
-        "// iteration the +1 Limits bump bought) eject the token THROUGH the parent\n"
-        "// goodie spawn -- temporarily point this slot at the baked marker class so\n"
-        "// Super.SpawnObject gives it the same arc/velocity/bounce/persist a bean\n"
-        "// gets -- then return (this slot was the token). Undo the Limits bump so a\n"
-        "// multi-life box's later hits eject the vanilla goodie count.\n"
-        "function SpawnObject(int Index)\n"
-        "{\n"
-        "    local class<Actor> markerCls, saved;\n"
-        "    local int useIdx;\n"
-        "\n"
-        "    if (!bAPTokenEjected)\n"
-        "    {\n"
-        "        bAPTokenEjected = True;\n"
-        "        Limits.Min -= 1;\n"
-        "        Limits.Max -= 1;\n"
-        "        if (CheckLocationId > 0)\n"
-        "        {\n"
-        "            markerCls = class<Actor>(DynamicLoadObject(\n"
-        "                \"HPArchipelago.APContainerMarker_\" $ string(CheckLocationId - LOC_BASE), class'Class'));\n"
-        "            if (markerCls != None)\n"
-        "            {\n"
-        "                useIdx = Index;\n"
-        "                if (useIdx < 0) { useIdx = 0; }\n"
-        "                saved = GoodieToSpawn[useIdx];\n"
-        "                GoodieToSpawn[useIdx] = markerCls;\n"
-        "                Super.SpawnObject(useIdx);\n"
-        "                GoodieToSpawn[useIdx] = saved;\n"
-        "                Log(\"[Archipelago] APContainerSpawner: ejected AP token for loc \" $ string(CheckLocationId));\n"
-        "                return;\n"
-        "            }\n"
-        "        }\n"
-        "    }\n"
-        "    Super.SpawnObject(Index);\n"
-        "}\n"
+    )
+    if replace:
+        body = (
+            "// SpawnObject runs once per ejected goodie. With no Limits bump the\n"
+            "// native eject count is unchanged, so the first (and for a 1-goodie jar,\n"
+            "// only) call ejects the AP token THROUGH the parent goodie spawn --\n"
+            "// briefly pointing this slot at the baked marker class so it gets a\n"
+            "// goodie's arc/velocity/bounce/persist -- then returns. Every later call\n"
+            "// is suppressed, so the native goodie never spawns: the token replaces it.\n"
+            "function SpawnObject(int Index)\n"
+            "{\n"
+            "    local class<Actor> markerCls, saved;\n"
+            "    local int useIdx;\n"
+            "\n"
+            "    if (!bAPTokenEjected)\n"
+            "    {\n"
+            "        bAPTokenEjected = True;\n"
+            "        if (CheckLocationId > 0)\n"
+            "        {\n"
+            "            markerCls = class<Actor>(DynamicLoadObject(\n"
+            "                \"HPArchipelago.APContainerMarker_\" $ string(CheckLocationId - LOC_BASE), class'Class'));\n"
+            "            if (markerCls != None)\n"
+            "            {\n"
+            "                useIdx = Index;\n"
+            "                if (useIdx < 0) { useIdx = 0; }\n"
+            "                saved = GoodieToSpawn[useIdx];\n"
+            "                GoodieToSpawn[useIdx] = markerCls;\n"
+            "                Super.SpawnObject(useIdx);\n"
+            "                GoodieToSpawn[useIdx] = saved;\n"
+            "                Log(\"[Archipelago] APContainerSpawner: ejected AP token (replace) for loc \" $ string(CheckLocationId));\n"
+            "                return;\n"
+            "            }\n"
+            "        }\n"
+            "        // Token unavailable: drop the native goodie so the jar is never empty.\n"
+            "        Super.SpawnObject(Index);\n"
+            "        return;\n"
+            "    }\n"
+            "    // Replace mode: native goodie suppressed; only the AP token drops.\n"
+            "}\n"
+        )
+    else:
+        body = (
+            "// SpawnObject runs once per ejected goodie. On the first call (the extra\n"
+            "// iteration the +1 Limits bump bought) eject the token THROUGH the parent\n"
+            "// goodie spawn -- temporarily point this slot at the baked marker class so\n"
+            "// Super.SpawnObject gives it the same arc/velocity/bounce/persist a bean\n"
+            "// gets -- then return (this slot was the token). Undo the Limits bump so a\n"
+            "// multi-life box's later hits eject the vanilla goodie count.\n"
+            "function SpawnObject(int Index)\n"
+            "{\n"
+            "    local class<Actor> markerCls, saved;\n"
+            "    local int useIdx;\n"
+            "\n"
+            "    if (!bAPTokenEjected)\n"
+            "    {\n"
+            "        bAPTokenEjected = True;\n"
+            "        Limits.Min -= 1;\n"
+            "        Limits.Max -= 1;\n"
+            "        if (CheckLocationId > 0)\n"
+            "        {\n"
+            "            markerCls = class<Actor>(DynamicLoadObject(\n"
+            "                \"HPArchipelago.APContainerMarker_\" $ string(CheckLocationId - LOC_BASE), class'Class'));\n"
+            "            if (markerCls != None)\n"
+            "            {\n"
+            "                useIdx = Index;\n"
+            "                if (useIdx < 0) { useIdx = 0; }\n"
+            "                saved = GoodieToSpawn[useIdx];\n"
+            "                GoodieToSpawn[useIdx] = markerCls;\n"
+            "                Super.SpawnObject(useIdx);\n"
+            "                GoodieToSpawn[useIdx] = saved;\n"
+            "                Log(\"[Archipelago] APContainerSpawner: ejected AP token for loc \" $ string(CheckLocationId));\n"
+            "                return;\n"
+            "            }\n"
+            "        }\n"
+            "    }\n"
+            "    Super.SpawnObject(Index);\n"
+            "}\n"
+        )
+    footer = (
         "\n"
         "defaultproperties\n"
         "{\n"
@@ -1297,6 +1373,7 @@ def _spawner_subclass_text(leaf: str) -> str:
         "    bCollideWhenPlacing=False\n"
         "}\n"
     )
+    return header + decl + body + footer
 
 
 def emit_container_classes(locations: dict, base_id: int) -> tuple[int, int]:
@@ -1361,6 +1438,21 @@ def emit_container_classes(locations: dict, base_id: int) -> tuple[int, int]:
         stamp.append(
             f"    if (APContainerSpawner_{leaf}(a) != None)"
             f" {{ APContainerSpawner_{leaf}(a).CheckLocationId = apId; return True; }}")
+    stamp += ["    return False;", "}", ""]
+    # IsReplaceLeaf: True for swap subclasses whose native goodie is REPLACED by
+    # the AP token (single-content jars) rather than dropped alongside it, so
+    # SwapContainerSpawner skips the +1 eject-slot bump for them. Only lists
+    # replace leaves actually present in this seed's container set.
+    stamp += [
+        "// True if the spawner's native goodie is REPLACED by the AP token",
+        "// (single-content jars: the token drops instead of the bark/mucus).",
+        "static function bool IsReplaceLeaf(Actor a)",
+        "{",
+    ]
+    for leaf in sorted(swap_leaves):
+        if leaf in CONTAINER_REPLACE_CLASSES:
+            stamp.append(
+                f"    if (APContainerSpawner_{leaf}(a) != None) return True;")
     stamp += ["    return False;", "}", ""]
     (MOD_CLASSES_DIR / "APContainerStamp.uc").write_text("\n".join(stamp), encoding="utf-8")
 

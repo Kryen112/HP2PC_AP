@@ -1,21 +1,21 @@
 // Auto-generated. Do not edit by hand; regenerate from
 // data/locations.yaml (containers) via gen_apworld.py.
-// Swap target for BarkSpawn containers: ejects the AP token as its own
-// sequential goodie (bean velocity / bounce / delay), then the box's own
-// goodies. SwapContainerSpawner copies the instance spawn config + bumps
-// Limits by 1 for the extra slot.
+// Swap target for BarkSpawn containers (single-content jars): the AP
+// token REPLACES the native goodie -- it drops INSTEAD OF the bark/
+// mucus, not alongside it. SwapContainerSpawner copies the instance
+// spawn config and, for replace leaves, does NOT bump Limits.
 class APContainerSpawner_BarkSpawn extends BarkSpawn;
 
 const LOC_BASE = 5760000;
 var int CheckLocationId;
 var bool bAPTokenEjected;
 
-// SpawnObject runs once per ejected goodie. On the first call (the extra
-// iteration the +1 Limits bump bought) eject the token THROUGH the parent
-// goodie spawn -- temporarily point this slot at the baked marker class so
-// Super.SpawnObject gives it the same arc/velocity/bounce/persist a bean
-// gets -- then return (this slot was the token). Undo the Limits bump so a
-// multi-life box's later hits eject the vanilla goodie count.
+// SpawnObject runs once per ejected goodie. With no Limits bump the
+// native eject count is unchanged, so the first (and for a 1-goodie jar,
+// only) call ejects the AP token THROUGH the parent goodie spawn --
+// briefly pointing this slot at the baked marker class so it gets a
+// goodie's arc/velocity/bounce/persist -- then returns. Every later call
+// is suppressed, so the native goodie never spawns: the token replaces it.
 function SpawnObject(int Index)
 {
     local class<Actor> markerCls, saved;
@@ -24,8 +24,6 @@ function SpawnObject(int Index)
     if (!bAPTokenEjected)
     {
         bAPTokenEjected = True;
-        Limits.Min -= 1;
-        Limits.Max -= 1;
         if (CheckLocationId > 0)
         {
             markerCls = class<Actor>(DynamicLoadObject(
@@ -38,12 +36,15 @@ function SpawnObject(int Index)
                 GoodieToSpawn[useIdx] = markerCls;
                 Super.SpawnObject(useIdx);
                 GoodieToSpawn[useIdx] = saved;
-                Log("[Archipelago] APContainerSpawner: ejected AP token for loc " $ string(CheckLocationId));
+                Log("[Archipelago] APContainerSpawner: ejected AP token (replace) for loc " $ string(CheckLocationId));
                 return;
             }
         }
+        // Token unavailable: drop the native goodie so the jar is never empty.
+        Super.SpawnObject(Index);
+        return;
     }
-    Super.SpawnObject(Index);
+    // Replace mode: native goodie suppressed; only the AP token drops.
 }
 
 defaultproperties

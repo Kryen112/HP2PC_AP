@@ -2529,6 +2529,7 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     local float savedDrawScale;
     local Vector savedPrePivot;
     local float savedGoodieDelay, savedBaseDelay, savedColRadius, savedColHeight;
+    local bool bReplace;
 
     // Already collected -> leave the spawner 100% vanilla (no swap, no extra
     // eject slot), so a re-clear drops no phantom AP token.
@@ -2577,9 +2578,6 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     // all spew in one frame instead of dribbling out like a bean chest.
     savedGoodieDelay = old.GoodieDelay;
     savedBaseDelay = old.BaseDelay;
-    // A zero GoodieDelay (e.g. the Forbidden Forest gnome chest) ejects every goodie
-    // in one frame; force a sequencing delay so the token + natives dribble out.
-    if (savedGoodieDelay <= 0.0) { savedGoodieDelay = 0.5; }
     for (i = 0; i < 8; i++)
     {
         savedGoodie[i] = old.GoodieToSpawn[i];
@@ -2593,13 +2591,23 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     {
         return;
     }
+    // Replace leaves (single-content jars) have the AP token stand in for their
+    // native goodie, so they skip the +1 eject-slot bump below.
+    bReplace = class'APContainerStamp'.static.IsReplaceLeaf(nw);
     nw.Event = savedEvent;
     nw.EventName = savedEventName;
     nw.Lives = savedLives;
     // +1 buys one extra eject iteration on the first hit for the AP token; the
     // subclass's first SpawnObject undoes this so multi-life re-hits stay vanilla.
-    nw.Limits.Max = savedLimMax + 1;
-    nw.Limits.Min = savedLimMin + 1;
+    // Replace leaves skip the bump: the token replaces the native goodie rather
+    // than dropping alongside it, so the native eject count stays unchanged.
+    nw.Limits.Max = savedLimMax;
+    nw.Limits.Min = savedLimMin;
+    if (!bReplace)
+    {
+        nw.Limits.Max += 1;
+        nw.Limits.Min += 1;
+    }
     nw.bMakeSpawnPersistent = savedPersist;
     nw.StartPos = savedStartPos;
     nw.StartVel = savedStartVel;
@@ -2617,8 +2625,9 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     // Exact-count boxes drive eject from GoodiesNumber, not Limits, so the +1
     // Limits bump above adds no extra eject -- the AP token would eat the first
     // goodie's slot. Bump the first non-empty count by 1 so the token rides the
-    // extra iteration and every native goodie still drops.
-    if (exact)
+    // extra iteration and every native goodie still drops. Replace leaves skip
+    // this for the same reason they skip the Limits bump (token stands in).
+    if (exact && !bReplace)
     {
         for (i = 0; i < 8; i++)
         {
@@ -2658,7 +2667,12 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     // goodies dribble out instead of spewing at once.
     nw.SetCollisionSize(savedColRadius, savedColHeight);
     nw.SetPhysics(PHYS_None);
+    // Append leaves space the token + native goodies out so they dribble rather
+    // than spew in one frame, so a zero native GoodieDelay gets a 0.5s floor.
+    // Replace leaves eject a single token: keep the native timing (no floor) or
+    // the jar lags ~0.5s before breaking, which feels unresponsive to the spell.
     nw.GoodieDelay = savedGoodieDelay;
+    if (!bReplace && nw.GoodieDelay <= 0.0) { nw.GoodieDelay = 0.5; }
     nw.BaseDelay = savedBaseDelay;
 
     if (!class'APContainerStamp'.static.Stamp(nw, apId))

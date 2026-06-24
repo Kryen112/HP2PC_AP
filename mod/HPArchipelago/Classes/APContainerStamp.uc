@@ -18,3 +18,12 @@ static function bool Stamp(Actor a, int apId)
     if (APContainerSpawner_PlantPotSpawn(a) != None) { APContainerSpawner_PlantPotSpawn(a).CheckLocationId = apId; return True; }
     return False;
 }
+
+// True if the spawner's native goodie is REPLACED by the AP token
+// (single-content jars: the token drops instead of the bark/mucus).
+static function bool IsReplaceLeaf(Actor a)
+{
+    if (APContainerSpawner_BarkSpawn(a) != None) return True;
+    if (APContainerSpawner_MucusSpawn(a) != None) return True;
+    return False;
+}

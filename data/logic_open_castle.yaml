@@ -137,7 +137,7 @@ locations:
   "Entry Hall - Secret 10": { requires: "Flipendo" }
   "Entry Hall - Secret 11": { requires: "Alohomora" }
   "Entry Hall - Secret 12": { requires: "Spongify" }
-  "Entry Hall - Bark Spawner 1": { requires: "Flipendo" }
+  "Entry Hall - Wiggentree Bark Jar 1": { requires: "Flipendo" }
   "Entry Hall - Chest 1": { requires: "Alohomora" }
   "Entry Hall - Chest 2": { requires: "Alohomora" }
   "Entry Hall - Chest 3": { requires: "Alohomora" }
@@ -149,7 +149,7 @@ locations:
   "Entry Hall - Knight 2": { requires: "Flipendo" }
   "Entry Hall - Knight 3": { requires: "Flipendo" }
   "Entry Hall - Knight 4": { requires: "Flipendo" }
-  "Entry Hall - Mucus Spawner 1": { requires: "Flipendo" }
+  "Entry Hall - Flobberworm Mucous Jar 1": { requires: "Flipendo" }
 
   # Grand Staircase
   "Grand Staircase - Card Barkwith": { requires: "Alohomora" }
