@@ -231,12 +231,12 @@ locations:
   "Grand Staircase - Cauldron 8": { requires: "Flipendo" }
 
   # Dumbledore's Study (region entry: Lumos & Flipendo & Alohomora & Rictusempra & Skurge & Diffindo & 'Bicorn Level Key' & 'Boomslang Level Key')
-  "Dumbledore's Study - Card Beamish": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'" }
-  "Dumbledore's Study - Card Muldoon": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & 'Bicorn Level Key' & 'Boomslang Level Key'" }
-  "Dumbledore's Study - Secret": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'" }
+  "Dumbledore's Study - Card Beamish": { requires: "Flipendo" }
+  "Dumbledore's Study - Card Muldoon": { requires: "Alohomora" }
+  "Dumbledore's Study - Secret": { requires: "Flipendo" }
   "Dumbledore's Study - Chest": { requires: "Alohomora" }
-  "Dumbledore's Study - Cigar Box": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'" }
-  "Dumbledore's Study - Decanter": { requires: "Rictusempra & Skurge & Diffindo & Alohomora & Flipendo & 'Bicorn Level Key' & 'Boomslang Level Key'" }
+  "Dumbledore's Study - Cigar Box": { requires: "Alohomora" }
+  "Dumbledore's Study - Decanter": { requires: "Flipendo" }
 
   # Quidditch matches (region entry: Lumos & Flipendo & Rictusempra & 'Quidditch Key')
   "Quidditch - Match 1 (Hufflepuff)": { requires: "Rictusempra" }

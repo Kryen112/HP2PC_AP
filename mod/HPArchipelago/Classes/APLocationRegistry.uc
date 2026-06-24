@@ -512,7 +512,6 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
         if (MarkerName == "PlantPotSpawn1") return 5761182;
         if (MarkerName == "PlantPotSpawn10") return 5761183;
         if (MarkerName == "PlantPotSpawn2") return 5761184;
-        if (MarkerName == "PlantPotSpawn3") return 5761185;
         if (MarkerName == "PlantPotSpawn4") return 5761186;
         if (MarkerName == "PlantPotSpawn5") return 5761187;
         if (MarkerName == "PlantPotSpawn6") return 5761188;
