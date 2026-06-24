@@ -585,13 +585,13 @@ LOCATION_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = {
 }
 
 LOCATION_RULES_OPEN_CASTLE: dict[str, Callable[[CollectionState, int], bool]] = {
-    'Bean Reward Room - Chest 1': lambda state, player: state.has('Alohomora', player),
-    'Bean Reward Room - Chest 2': lambda state, player: state.has('Alohomora', player),
-    'Bean Reward Room - Chest 3': lambda state, player: state.has('Alohomora', player),
-    'Bean Reward Room - Chest 4': lambda state, player: state.has('Alohomora', player),
-    'Bean Reward Room - Chest 5': lambda state, player: state.has('Alohomora', player),
-    'Bean Reward Room - Chest 6': lambda state, player: state.has('Alohomora', player),
-    'Bean Reward Room - Spawner 1': lambda state, player: state.has('Alohomora', player),
+    'Bean Bonus Room - Chest 1': lambda state, player: state.has('Alohomora', player),
+    'Bean Bonus Room - Chest 2': lambda state, player: state.has('Alohomora', player),
+    'Bean Bonus Room - Chest 3': lambda state, player: state.has('Alohomora', player),
+    'Bean Bonus Room - Chest 4': lambda state, player: state.has('Alohomora', player),
+    'Bean Bonus Room - Chest 5': lambda state, player: state.has('Alohomora', player),
+    'Bean Bonus Room - Chest 6': lambda state, player: state.has('Alohomora', player),
+    'Bean Bonus Room - Spawner 1': lambda state, player: state.has('Alohomora', player),
     'Bicorn Level - Bark Spawner 1': lambda state, player: state.has('Flipendo', player),
     'Bicorn Level - Bark Spawner 2': lambda state, player: state.has('Flipendo', player),
     'Bicorn Level - Card Agrippa': lambda state, player: state.has('Alohomora', player)  and  state.has('Flipendo', player)  and  state.has('Skurge', player)  and  state.has('Rictusempra', player),

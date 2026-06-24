@@ -104,7 +104,7 @@ regions:
 
   # Open-castle-only bonus bean room (mod-spawned entry). Inert in vanilla:
   # entry false + in OPEN_CASTLE_ONLY_REGIONS, so its containers aren't created.
-  BeanRewardRoom:
+  BeanBonusRoom:
     entry: "false"
 
 # Per-location rules. KEY = location.name from locations.yaml.

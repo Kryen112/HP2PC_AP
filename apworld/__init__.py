@@ -90,7 +90,7 @@ VANILLA_BLOCKED_KEY_NAMES: set[str] = {
 # The region name itself still appears in BOTH logic files because gen_apworld
 # requires the vanilla and open-castle region SETS to be identical; in vanilla
 # the region is inert (entry false, zero locations attached).
-OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge", "BeanRewardRoom"}
+OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge", "BeanBonusRoom"}
 
 
 def launch_client(*args: str) -> None:

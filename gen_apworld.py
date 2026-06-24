@@ -933,7 +933,7 @@ def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dic
     # the rows need no hand-authored logic entry. setdefault means an explicit
     # entry in logic_*.yaml `locations:` for the same name WINS — that is the
     # refine-by-hand path (add `'<name>': { requires: "<spell> & ..." }`).
-    # BeanRewardRoom rows carry mode: open_castle, so they get an open-castle
+    # BeanBonusRoom rows carry mode: open_castle, so they get an open-castle
     # rule only (vanilla disables them via OPEN_CASTLE_ONLY_REGIONS).
     van_locs = dict(logic_vanilla.get("locations") or {})
     oc_locs = dict(logic_open_castle.get("locations") or {})

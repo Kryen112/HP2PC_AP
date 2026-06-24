@@ -6,7 +6,7 @@ from BaseClasses import CollectionState
 
 START_REGION: str = 'Menu'
 
-REGION_NAMES: list[str] = ['BeanRewardRoom', 'BicornLevel', 'BoomslangLevel', 'CastleExterior', 'ChamberOfSecrets', 'DiffindoChallenge', 'DuellingClub', 'DumbledoreStudy', 'EntryHall', 'ForbiddenForest', 'GoldCardRoom', 'GoyleLevel', 'GrandStaircase', 'GryffindorChallenge', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
+REGION_NAMES: list[str] = ['BeanBonusRoom', 'BicornLevel', 'BoomslangLevel', 'CastleExterior', 'ChamberOfSecrets', 'DiffindoChallenge', 'DuellingClub', 'DumbledoreStudy', 'EntryHall', 'ForbiddenForest', 'GoldCardRoom', 'GoyleLevel', 'GrandStaircase', 'GryffindorChallenge', 'Menu', 'Quidditch', 'RictusempraChallenge', 'SkurgeChallenge', 'SlytherinCommon', 'SpongifyChallenge', 'WhompingWillow']
 
 # Silver card item names. Referenced by the Gold Card Room gate in both
 # modes via has_from_list_unique (open castle needs 20, vanilla all of
@@ -17,7 +17,7 @@ _SILVER_CARD_NAMES: list[str] = ['Silver Card - Andros', 'Silver Card - Beamish'
 # region_name -> rule(state, player) -> bool. Mode-dependent: HP2World
 # selects vanilla or open castle at gen time via self.options.game_mode.
 REGION_ENTRY_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = {
-    'BeanRewardRoom': lambda state, player: False,
+    'BeanBonusRoom': lambda state, player: False,
     'BicornLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Bicorn Level Key', player),
     'BoomslangLevel': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player)  and  state.has('Alohomora', player)  and  state.has('Rictusempra', player)  and  state.has('Skurge', player)  and  state.has('Diffindo', player)  and  state.has('Bicorn Level Key', player)  and  state.has('Boomslang Level Key', player),
     'CastleExterior': lambda state, player: state.has('Lumos', player)  and  state.has('Flipendo', player),
@@ -40,7 +40,7 @@ REGION_ENTRY_RULES_VANILLA: dict[str, Callable[[CollectionState, int], bool]] = 
 }
 
 REGION_ENTRY_RULES_OPEN_CASTLE: dict[str, Callable[[CollectionState, int], bool]] = {
-    'BeanRewardRoom': lambda state, player: True,
+    'BeanBonusRoom': lambda state, player: True,
     'BicornLevel': lambda state, player: state.has('Bicorn Level Key', player)  and  state.has('Skurge', player),
     'BoomslangLevel': lambda state, player: state.has('Boomslang Level Key', player)  and  state.has('Diffindo', player),
     'CastleExterior': lambda state, player: True,

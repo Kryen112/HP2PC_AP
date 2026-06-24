@@ -106,7 +106,7 @@ regions:
   # Open-castle bonus bean room, reached via the mod-spawned bean-room entry.
   # Baseline entry true (refine later); in OPEN_CASTLE_ONLY_REGIONS so it is
   # vanilla-disabled. Its containers gate on their opening spell per-row.
-  BeanRewardRoom:
+  BeanBonusRoom:
     entry: "true"
 
 # Per-location rules. KEY = location.name from locations.yaml.
@@ -247,11 +247,11 @@ locations:
   "Castle Exterior - Ingredient Vendor 1": { requires: "true" }
   "Castle Exterior - Ingredient Vendor 2": { requires: "true" }
 
-  # Bean Reward Room
-  "Bean Reward Room - Chest 1": { requires: "Alohomora" }
-  "Bean Reward Room - Chest 2": { requires: "Alohomora" }
-  "Bean Reward Room - Chest 3": { requires: "Alohomora" }
-  "Bean Reward Room - Chest 4": { requires: "Alohomora" }
-  "Bean Reward Room - Chest 5": { requires: "Alohomora" }
-  "Bean Reward Room - Chest 6": { requires: "Alohomora" }
-  "Bean Reward Room - Spawner 1": { requires: "Alohomora" }
+  # Bean Bonus Room
+  "Bean Bonus Room - Chest 1": { requires: "Alohomora" }
+  "Bean Bonus Room - Chest 2": { requires: "Alohomora" }
+  "Bean Bonus Room - Chest 3": { requires: "Alohomora" }
+  "Bean Bonus Room - Chest 4": { requires: "Alohomora" }
+  "Bean Bonus Room - Chest 5": { requires: "Alohomora" }
+  "Bean Bonus Room - Chest 6": { requires: "Alohomora" }
+  "Bean Bonus Room - Spawner 1": { requires: "Alohomora" }
