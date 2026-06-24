@@ -656,10 +656,14 @@ class HP2Context(CommonContext):
         # Per-seed shuffle mode for the mode_aware kinds (sound: on / no_footsteps;
         # dialogue: within_actor / all_actors). None for music and for off kinds.
         self.audio_mode: dict[str, Optional[str]] = {kind: None for kind in _AUDIO_KINDS}
-        # Auto-launch: the matching install's Game.exe is started once per client
-        # session, after the audio randomizers settle (or when there is nothing to
-        # patch), so the game never boots while files are being rewritten. The task
-        # handle lets /play await an in-flight patch before launching.
+        # Auto-launch: the matching install's Game.exe is started after the audio
+        # randomizers settle (or when there is nothing to patch), so the game never
+        # boots while files are being rewritten. The task handle lets /play await an
+        # in-flight patch before launching. The flag means "a game we launched is
+        # live or still booting"; it is reset when the game disconnects from the
+        # bridge, so the next AP (re)connect auto-launches again. A game already
+        # bridged (game_writer live) suppresses the launch regardless, so a plain AP
+        # reconnect with the game still running never spawns a duplicate.
         self._game_launched: bool = False
         self._audio_task: Optional[asyncio.Task] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
@@ -1494,7 +1498,15 @@ class HP2Context(CommonContext):
         files are still being rewritten, and lets the launch reuse the folder the
         audio step already resolved, so the player is never asked twice."""
         safe, install = await self._apply_audio_randomizers(sd)
-        if not _auto_launch_enabled() or self._game_launched:
+        if not _auto_launch_enabled():
+            return
+        # Launch on every AP (re)connect, not just the first of the session, so a
+        # reconnect after the game closed re-opens it. Suppress only when a game is
+        # already up: game_writer live means a game (ours or one the player started
+        # by hand) is bridged; _game_launched means our own launch is still booting
+        # and has not bridged yet. Either way a second Game.exe would be a duplicate.
+        game_bridged = self.game_writer is not None and not self.game_writer.is_closing()
+        if self._game_launched or game_bridged:
             return
         if not safe:
             ui_logger.warning(
@@ -1539,8 +1551,8 @@ class HP2Context(CommonContext):
     def _launch_game(self, install: str) -> None:
         """Start Game.exe from the install's system folder. The UE1 engine needs
         its working directory to be that system folder, so the process is spawned
-        with cwd there. Sets the once-per-session guard so auto-launch will not
-        also fire."""
+        with cwd there. Marks a launch live so auto-launch will not also fire while
+        this game is booting or running; the bridge disconnect re-arms it."""
         system_dir = os.path.join(install, "system")
         exe = os.path.join(system_dir, "Game.exe")
         if not os.path.exists(exe):
@@ -1714,6 +1726,11 @@ class HP2Context(CommonContext):
             # connection until client restart.
             if self.game_writer is writer:
                 self.game_writer = None
+                # The game we launched (or the player started) is gone. Re-arm
+                # auto-launch so the next AP (re)connect opens it again. Guarded by
+                # the writer-identity check so a stale late-waking old game can't
+                # re-arm over a newer game that already replaced game_writer.
+                self._game_launched = False
             try:
                 writer.close()
             except Exception:
