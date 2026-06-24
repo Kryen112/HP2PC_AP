@@ -84,7 +84,8 @@ from CommonClient import (ClientCommandProcessor, CommonContext,
 from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, music_patch, sound_patch
-from .items import CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_GROUPS
+from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_CLASSIFICATIONS,
+                    ITEM_GROUPS)
 from .locations import (CARD_CLASS_TO_LOCATION_NAME,
                         CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID)
@@ -2343,10 +2344,23 @@ class HP2Context(CommonContext):
             self._send_to_game("RESYNC_CARDS")
 
     @staticmethod
-    def _item_role(flags: int) -> str:
+    def _item_role(flags: int, own_item_name: str = "") -> str:
         """AP classification flag -> toast role letter. Bit-priority: progression
         beats trap beats useful beats filler, so a progression+useful item reads
-        as progression rather than falling through to filler."""
+        as progression rather than falling through to filler.
+
+        own_item_name (set only for items WE receive) recovers the role for
+        cheat-sent items: server /send and the !getitem console build a
+        NetworkItem with no flags (default 0), so any of our items would
+        otherwise read as filler. ItemClassification shares the network flag bits
+        (progression=1, useful=2, trap=4), so the looked-up classification feeds
+        the same bit-priority below. Foreign items we route onward keep this
+        empty and rely solely on flags, since the name table is HP2's only.
+        Open castle promotes cards to progression at create_item time, which a
+        real receipt reflects in its flags; a cheat-sent card recovers only the
+        static useful here, an accepted cosmetic gap on the cheat path."""
+        if not (flags & 0b111) and own_item_name in ITEM_CLASSIFICATIONS:
+            flags = int(ITEM_CLASSIFICATIONS[own_item_name])
         if flags & 0b001:
             return "g"
         if flags & 0b100:
@@ -2365,7 +2379,10 @@ class HP2Context(CommonContext):
         pool. Roles: s=our slot, o=other slot, g/u/t/f=item by flag, l=location,
         w=white connective, n=line break. The location, when known, goes on a
         second line in parentheses."""
-        item_seg = self._item_role(flags) + item_name
+        # receiver_is_self => this is an item WE receive, so it is one of HP2's
+        # own items: pass its name so a cheat-sent (flags=0) trap still colours
+        # as a trap. The SENT path (foreign item) leaves the name out.
+        item_seg = self._item_role(flags, item_name if receiver_is_self else "") + item_name
         if sender_is_self and receiver_is_self:
             segs = ["s" + sender_name, "w found their ", item_seg]
         else:
