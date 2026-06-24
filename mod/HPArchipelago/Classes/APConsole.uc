@@ -30,12 +30,29 @@
 //   ClearBookcases  — destroys every APDebugBookcase-tagged actor in the level.
 //                     For wiping a misplaced preview before respawning.
 //
+// Freecam keys (debug mode on; Delete toggles the freecam):
+//   WASD: fly the freecam, mirroring the stock arrow keys. Forward follows where
+//     the camera looks, so mouse-aim plus WASD covers full movement. The arrow
+//     keys and numpad still work.
+//   Shift (hold): fly faster. Harry is frozen during freecam, so this never
+//     spends beans the way the in-game shift-to-run sprint does.
+//
 // Release builds ship with Default.ini's Console= line unchanged, so end users
 // never instantiate this subclass — the .u compiles it in but the engine picks
 // HGame.HPConsole and never sees these execs.
 //=============================================================================
 
 class APConsole extends HPConsole;
+
+// Shift-to-run speed multiplier for the freecam.
+const FREECAM_BOOST_MULTIPLIER = 3.0;
+
+// Pre-boost freecam move speed, captured when Shift goes down so the exact cruise
+// speed is restored on release (preserves any manual Cam_MoveSpeed tweak).
+var float FreeCamBaseSpeed;
+// 1 while the Shift speed boost is applied. Guards against re-capturing the
+// already-boosted speed on a repeated press.
+var byte bFreeCamBoosted;
 
 // Print a string to both Game.log AND the in-game chat overlay. Without the
 // ClientMessage path the player has no visible feedback from these execs —
@@ -47,6 +64,95 @@ function DevPrint(string msg)
     if (Viewport != None && Viewport.Actor != None)
     {
         Viewport.Actor.ClientMessage(msg);
+    }
+}
+
+// Freecam WASD + Shift-to-run. The stock freecam (Delete in debug mode) flies on
+// baseConsole's bForwardKeyDown / bBackKeyDown / bLeftKeyDown / bRightKeyDown
+// flags, which HPConsole only sets from the arrow keys and the numpad. Mirror
+// WASD onto the same four flags so the freecam also flies on WASD. The flags are
+// set unconditionally, exactly like the arrow keys: only StateFreeCam reads them,
+// so they stay inert outside the freecam. Shift raises the freecam speed while
+// held; the boost is gated to CM_Free so it cannot disturb any other camera mode.
+// Everything else defers to the parent, whose return value is passed through.
+event bool KeyEvent (EInputKey Key, EInputAction Action, float Delta)
+{
+    if (Action == IST_Press)
+    {
+        switch (Key)
+        {
+            case IK_W:      bForwardKeyDown = True;  break;
+            case IK_S:      bBackKeyDown    = True;  break;
+            case IK_A:      bLeftKeyDown    = True;  break;
+            case IK_D:      bRightKeyDown   = True;  break;
+            case IK_Shift:  ApplyFreeCamBoost();     break;
+        }
+    }
+    else if (Action == IST_Release)
+    {
+        switch (Key)
+        {
+            case IK_W:       bForwardKeyDown = False;  break;
+            case IK_S:       bBackKeyDown    = False;  break;
+            case IK_A:       bLeftKeyDown    = False;  break;
+            case IK_D:       bRightKeyDown   = False;  break;
+            case IK_Shift:   RemoveFreeCamBoost();     break;
+            // Toggling the freecam resets the boost latch so a held Shift can
+            // re-engage cleanly in the next freecam session.
+            case IK_Delete:  bFreeCamBoosted = 0;      break;
+        }
+    }
+    return Super.KeyEvent(Key, Action, Delta);
+}
+
+// Raise the freecam move speed while Shift is held. Captures the live speed first
+// so a manual Cam_MoveSpeed tweak survives the boost. No-op outside the freecam
+// or when the boost is already applied.
+function ApplyFreeCamBoost()
+{
+    local harry h;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        return;
+    }
+    h = harry(Viewport.Actor);
+    if (h == None || h.Cam == None)
+    {
+        return;
+    }
+    if (h.Cam.CameraMode != h.Cam.ECamMode.CM_Free || bFreeCamBoosted == 1)
+    {
+        return;
+    }
+    FreeCamBaseSpeed = h.Cam.CurrentSet.fMoveSpeed;
+    h.Cam.SetMoveSpeed(FreeCamBaseSpeed * FREECAM_BOOST_MULTIPLIER);
+    bFreeCamBoosted = 1;
+}
+
+// Restore the pre-boost freecam speed when Shift is released. Clears the latch
+// even if the camera already left the freecam, so a later Shift boosts again.
+function RemoveFreeCamBoost()
+{
+    local harry h;
+
+    if (bFreeCamBoosted == 0)
+    {
+        return;
+    }
+    bFreeCamBoosted = 0;
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        return;
+    }
+    h = harry(Viewport.Actor);
+    if (h == None || h.Cam == None)
+    {
+        return;
+    }
+    if (h.Cam.CameraMode == h.Cam.ECamMode.CM_Free)
+    {
+        h.Cam.SetMoveSpeed(FreeCamBaseSpeed);
     }
 }
 
