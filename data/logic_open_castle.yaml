@@ -137,7 +137,7 @@ locations:
   "Entry Hall - Secret 10": { requires: "Flipendo" }
   "Entry Hall - Secret 11": { requires: "Alohomora" }
   "Entry Hall - Secret 12": { requires: "Spongify" }
-  "Entry Hall - Wiggentree Bark Jar 1": { requires: "Flipendo" }
+  "Entry Hall - Wiggentree Bark Jar": { requires: "Flipendo" }
   "Entry Hall - Chest 1": { requires: "Alohomora" }
   "Entry Hall - Chest 2": { requires: "Alohomora" }
   "Entry Hall - Chest 3": { requires: "Alohomora" }
@@ -149,7 +149,7 @@ locations:
   "Entry Hall - Knight 2": { requires: "Flipendo" }
   "Entry Hall - Knight 3": { requires: "Flipendo" }
   "Entry Hall - Knight 4": { requires: "Flipendo" }
-  "Entry Hall - Flobberworm Mucous Jar 1": { requires: "Flipendo" }
+  "Entry Hall - Flobberworm Mucous Jar": { requires: "Flipendo" }
 
   # Grand Staircase
   "Grand Staircase - Card Barkwith": { requires: "Alohomora" }
@@ -184,8 +184,8 @@ locations:
   "Grand Staircase - Decanter 2": { requires: "Flipendo" }
   "Grand Staircase - Jewel Box 1": { requires: "Alohomora" }
   "Grand Staircase - Jewel Box 2": { requires: "Alohomora" }
-  "Grand Staircase - Knight 1": { requires: "Flipendo" }
-  "Grand Staircase - Music Box 1": { requires: "Alohomora" }
+  "Grand Staircase - Knight": { requires: "Flipendo" }
+  "Grand Staircase - Music Box": { requires: "Alohomora" }
   "Grand Staircase - Cauldron 1": { requires: "Flipendo" }
   "Grand Staircase - Cauldron 2": { requires: "Flipendo" }
   "Grand Staircase - Cauldron 3": { requires: "Flipendo" }
@@ -253,4 +253,4 @@ locations:
   "Bean Bonus Room - Chest 4": { requires: "Alohomora" }
   "Bean Bonus Room - Chest 5": { requires: "Alohomora" }
   "Bean Bonus Room - Chest 6": { requires: "Alohomora" }
-  "Bean Bonus Room - Spawner 1": { requires: "Alohomora" }
+  "Bean Bonus Room - Spawner": { requires: "Alohomora" }

@@ -92,19 +92,19 @@ locations:
   "Skurge Challenge - Challenge Star 10": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Complete": { requires: "Skurge & Flipendo & Lumos" }
   "Skurge Challenge - Beat Par Time": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
-  "Skurge Challenge - Wiggentree Bark Jar 1": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
+  "Skurge Challenge - Wiggentree Bark Jar": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Chest 1": { requires: "Skurge & Alohomora & (Flipendo | Running)" }
   "Skurge Challenge - Chest 2": { requires: "Skurge & Flipendo & Lumos & Alohomora" }
   "Skurge Challenge - Chest 3": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
-  "Skurge Challenge - Peeves Chest 1": { requires: "Skurge & Alohomora" }
-  "Skurge Challenge - Cigar Box 1": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
+  "Skurge Challenge - Peeves Chest": { requires: "Skurge & Alohomora" }
+  "Skurge Challenge - Cigar Box": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
   "Skurge Challenge - Decanter 1": { requires: "Skurge & Flipendo" }
   "Skurge Challenge - Decanter 2": { requires: "Skurge & Flipendo & (Lumos | Running)" }
-  "Skurge Challenge - Jewel Box 1": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
+  "Skurge Challenge - Jewel Box": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
   "Skurge Challenge - Knight 1": { requires: "Flipendo" }
   "Skurge Challenge - Knight 2": { requires: "Flipendo" }
-  "Skurge Challenge - Flobberworm Mucous Jar 1": { requires: "Skurge & Flipendo & (Lumos | Running)" }
-  "Skurge Challenge - Music Box 1": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
+  "Skurge Challenge - Flobberworm Mucous Jar": { requires: "Skurge & Flipendo & (Lumos | Running)" }
+  "Skurge Challenge - Music Box": { requires: "Skurge & Flipendo & (Lumos | Running) & Alohomora" }
   "Skurge Challenge - Cauldron 1": { requires: "Skurge & Flipendo" }
   "Skurge Challenge - Cauldron 2": { requires: "Skurge & Flipendo" }
   "Skurge Challenge - Cauldron 3": { requires: "Skurge & Flipendo" }
@@ -137,7 +137,7 @@ locations:
   "Bicorn Level - Wiggentree Bark Jar 1": { requires: "Alohomora & Flipendo" }
   "Bicorn Level - Wiggentree Bark Jar 2": { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
   "Bicorn Level - Chest 1": { requires: "Alohomora & Flipendo & Skurge" }
-  "Bicorn Level - Peeves Chest 1": { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
+  "Bicorn Level - Peeves Chest": { requires: "Alohomora & Flipendo & Rictusempra & Skurge" }
   "Bicorn Level - Chest 2": { requires: "Alohomora & Flipendo & Skurge" }
   "Bicorn Level - Chest 3": { requires: "Alohomora & Flipendo & Rictusempra" }
   "Bicorn Level - Chest 4": { requires: "Alohomora & Flipendo & Rictusempra & Skurge & Lumos" }
@@ -195,8 +195,8 @@ locations:
   "Diffindo Challenge - Chest 3": { requires: "Alohomora" }
   "Diffindo Challenge - Chest 4": { requires: "Diffindo & Rictusempra & Flipendo & (Skurge | Running) & Alohomora" }
   "Diffindo Challenge - Chest 5": { requires: "Diffindo & Rictusempra & Flipendo & Skurge & Lumos & Alohomora" }
-  "Diffindo Challenge - Peeves Chest 1": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
-  "Diffindo Challenge - Jewel Box 1": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Diffindo Challenge - Peeves Chest": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Diffindo Challenge - Jewel Box": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
   "Diffindo Challenge - Knight 1": { requires: "Diffindo & Rictusempra & Flipendo" }
   "Diffindo Challenge - Knight 2": { requires: "Diffindo & Rictusempra & Flipendo" }
   "Diffindo Challenge - Flobberworm Mucous Jar 1": { requires: "Diffindo & Rictusempra & Flipendo" }
@@ -232,8 +232,8 @@ locations:
   "Boomslang Level - Secret 2": { requires: "Diffindo & Flipendo & Lumos" }
   "Boomslang Level - Secret 3": { requires: "Diffindo & Alohomora" }
   "Boomslang Level - Complete": { requires: "Diffindo" }
-  "Boomslang Level - Chest 1": { requires: "Diffindo & Alohomora" }
-  "Boomslang Level - Flobberworm Mucous Jar 1": { requires: "Diffindo & Flipendo" }
+  "Boomslang Level - Chest": { requires: "Diffindo & Alohomora" }
+  "Boomslang Level - Flobberworm Mucous Jar": { requires: "Diffindo & Flipendo" }
   "Boomslang Level - Oil Can 1": { requires: "Diffindo & Flipendo" }
   "Boomslang Level - Oil Can 2": { requires: "Diffindo & Flipendo" }
   "Boomslang Level - Oil Can 3": { requires: "Diffindo & Flipendo" }
@@ -260,7 +260,7 @@ locations:
   "Goyle Level - Secret 7": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
   "Goyle Level - Secret 8": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora & Lumos" }
   "Goyle Level - Complete": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
-  "Goyle Level - Peeves Chest 1": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
+  "Goyle Level - Peeves Chest": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
   "Goyle Level - Chest 1": { requires: "Diffindo & Alohomora" }
   "Goyle Level - Chest 2": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
   "Goyle Level - Chest 3": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
@@ -271,7 +271,7 @@ locations:
   "Goyle Level - Chest 8": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
   "Goyle Level - Chest 9": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
   "Goyle Level - Chest 10": { requires: "Diffindo & Rictusempra & Flipendo & Lumos & Alohomora" }
-  "Goyle Level - Flobberworm Mucous Jar 1": { requires: "Diffindo & Rictusempra & Flipendo" }
+  "Goyle Level - Flobberworm Mucous Jar": { requires: "Diffindo & Rictusempra & Flipendo" }
   "Goyle Level - Cauldron 1": { requires: "Diffindo & Rictusempra & Flipendo" }
   "Goyle Level - Cauldron 2": { requires: "Diffindo & Rictusempra & Flipendo" }
   "Goyle Level - Cauldron 3": { requires: "Diffindo & Rictusempra & Flipendo & Alohomora" }
@@ -292,7 +292,7 @@ locations:
   "Slytherin Common Room - Secret 7": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
   "Slytherin Common Room - Secret 8": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
   "Slytherin Common Room - Complete": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
-  "Slytherin Common Room - Wiggentree Bark Jar 1": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Wiggentree Bark Jar": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
   "Slytherin Common Room - Chest 1": { requires: "Flipendo & Diffindo & Alohomora" }
   "Slytherin Common Room - Chest 2": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
   "Slytherin Common Room - Chest 3": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
@@ -303,7 +303,7 @@ locations:
   "Slytherin Common Room - Knight 5": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
   "Slytherin Common Room - Knight 6": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
   "Slytherin Common Room - Knight 7": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
-  "Slytherin Common Room - Flobberworm Mucous Jar 1": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
+  "Slytherin Common Room - Flobberworm Mucous Jar": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos" }
   "Slytherin Common Room - Cauldron 1": { requires: "Flipendo & Diffindo & (Skurge | Running)" }
   "Slytherin Common Room - Cauldron 2": { requires: "Flipendo & Diffindo & (Skurge | Running)" }
   "Slytherin Common Room - Chest 4": { requires: "Flipendo & Diffindo & (Skurge | Running) & Lumos & Alohomora" }
@@ -351,19 +351,19 @@ locations:
   "Spongify Challenge - Chest 1": { requires: "Spongify & Flipendo & Alohomora" }
   "Spongify Challenge - Chest 2": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Chest 3": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
-  "Spongify Challenge - Peeves Chest 1": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Peeves Chest": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Chest 4": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Chest 5": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Chest 6": { requires: "Spongify & Flipendo & Skurge & Lumos & Alohomora" }
   "Spongify Challenge - Chest 7": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Chest 8": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
-  "Spongify Challenge - Cigar Box 1": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Cigar Box": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Decanter 1": { requires: "Spongify & Flipendo" }
   "Spongify Challenge - Decanter 2": { requires: "Spongify & Flipendo" }
   "Spongify Challenge - Flobberworm Mucous Jar 1": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Flobberworm Mucous Jar 2": { requires: "Spongify & Flipendo & Skurge" }
   "Spongify Challenge - Flobberworm Mucous Jar 3": { requires: "Spongify & Flipendo & Skurge" }
-  "Spongify Challenge - Music Box 1": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
+  "Spongify Challenge - Music Box": { requires: "Spongify & Flipendo & Skurge & Alohomora" }
   "Spongify Challenge - Cauldron 1": { requires: "Flipendo" }
   "Spongify Challenge - Cauldron 2": { requires: "Flipendo" }
   "Spongify Challenge - Cauldron 3": { requires: "Spongify & Flipendo & Skurge" }
