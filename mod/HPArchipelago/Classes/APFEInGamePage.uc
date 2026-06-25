@@ -129,7 +129,7 @@ function DrawGoalProgressPanel(Canvas C)
     local int cards, spells, levels, duels, quid;
     local int cardsNeed, spellsNeed, levelsNeed, duelsNeed, quidNeed;
 
-    if (class'APCardWatcher'.default.bOpenCastleMode == 0) return;
+    if (class'APModeDetector'.default.bOpenCastleMode == 0) return;
     if (C == None || Root == None || Root.Console == None) return;
     if (Root.Console.Viewport == None || Root.Console.Viewport.Actor == None) return;
 
@@ -166,14 +166,14 @@ function DrawGoalProgressPanel(Canvas C)
     C.DrawShadowText("Goal progress:", colorWhite, colorShadow);
     yLine += lineH + 4;
 
-    cardsNeed  = class'APCardWatcher'.default.GoalCards;
-    spellsNeed = class'APCardWatcher'.default.GoalSpells;
-    levelsNeed = class'APCardWatcher'.default.GoalLevels;
+    cardsNeed  = class'APGoalTracker'.default.GoalCards;
+    spellsNeed = class'APGoalTracker'.default.GoalSpells;
+    levelsNeed = class'APGoalTracker'.default.GoalLevels;
     // GoalDuels / GoalQuidditch are 0/1 enable flags (the win condition is
     // "all duels" / "all matches"), so map an enabled flag to the full set
     // size for the have/need row: 10 duels, 6 Quidditch matches.
-    duelsNeed  = class'APCardWatcher'.default.GoalDuels;
-    quidNeed   = class'APCardWatcher'.default.GoalQuidditch;
+    duelsNeed  = class'APGoalTracker'.default.GoalDuels;
+    quidNeed   = class'APGoalTracker'.default.GoalQuidditch;
     if (duelsNeed > 0) duelsNeed = 10;
     if (quidNeed  > 0) quidNeed  = 6;
 
@@ -191,11 +191,11 @@ function DrawGoalProgressPanel(Canvas C)
         return;
     }
 
-    cards  = class'APCardWatcher'.static.GetOwnedCardCount();
-    spells = class'APCardWatcher'.static.GetGrantedSpellCount();
-    levels = class'APCardWatcher'.static.GetCheckedLevelObjectiveCount();
-    duels  = class'APCardWatcher'.static.GetCheckedDuelCount();
-    quid   = class'APCardWatcher'.static.GetCheckedQuidditchMatchCount();
+    cards  = class'APGoalTracker'.static.GetOwnedCardCount();
+    spells = class'APGoalTracker'.static.GetGrantedSpellCount();
+    levels = class'APGoalTracker'.static.GetCheckedLevelObjectiveCount();
+    duels  = class'APGoalTracker'.static.GetCheckedDuelCount();
+    quid   = class'APGoalTracker'.static.GetCheckedQuidditchMatchCount();
 
     C.Font = rowFont;
     if (cardsNeed  > 0) { DrawProgressRow(C, fScaleFactor, hScale, xLeft, yLine, "Cards",     cards,  cardsNeed,  colorYellow, colorGreen, colorShadow); yLine += lineH; }
@@ -318,13 +318,13 @@ function ApplyUnlockedIconVisibility()
     local int i, j, rank, sCount, kCount;
 
     for (i = 0; i < 7; i++)
-        if (class'APCardWatcher'.static.IsSpellGranted(i) && default.SpellOrderSeq[i] == 0)
+        if (class'APGoalTracker'.static.IsSpellGranted(i) && default.SpellOrderSeq[i] == 0)
         {
             default.UnlockedOrderCounter = default.UnlockedOrderCounter + 1;
             default.SpellOrderSeq[i] = default.UnlockedOrderCounter;
         }
     for (i = 0; i < 14; i++)
-        if (class'APCardWatcher'.static.IsBlockerKeyGranted(i) && default.KeyOrderSeq[i] == 0)
+        if (class'APGoalTracker'.static.IsBlockerKeyGranted(i) && default.KeyOrderSeq[i] == 0)
         {
             default.UnlockedOrderCounter = default.UnlockedOrderCounter + 1;
             default.KeyOrderSeq[i] = default.UnlockedOrderCounter;
@@ -332,10 +332,10 @@ function ApplyUnlockedIconVisibility()
 
     sCount = 0;
     for (i = 0; i < 7; i++)
-        if (class'APCardWatcher'.static.IsSpellGranted(i)) sCount++;
+        if (class'APGoalTracker'.static.IsSpellGranted(i)) sCount++;
     kCount = 0;
     for (i = 0; i < 14; i++)
-        if (class'APCardWatcher'.static.IsBlockerKeyGranted(i)) kCount++;
+        if (class'APGoalTracker'.static.IsBlockerKeyGranted(i)) kCount++;
 
     if (sCount == LastSpellShownCount && kCount == LastKeyShownCount) return;
     LastSpellShownCount = sCount;
@@ -343,10 +343,10 @@ function ApplyUnlockedIconVisibility()
 
     for (i = 0; i < 7; i++)
     {
-        if (!class'APCardWatcher'.static.IsSpellGranted(i)) continue;
+        if (!class'APGoalTracker'.static.IsSpellGranted(i)) continue;
         rank = 0;
         for (j = 0; j < 7; j++)
-            if (j != i && class'APCardWatcher'.static.IsSpellGranted(j)
+            if (j != i && class'APGoalTracker'.static.IsSpellGranted(j)
                 && default.SpellOrderSeq[j] < default.SpellOrderSeq[i]) rank++;
         AssignSlot(SpellSlot[rank], spellTexCache[i], spellNameCache[i]);
     }
@@ -355,10 +355,10 @@ function ApplyUnlockedIconVisibility()
 
     for (i = 0; i < 14; i++)
     {
-        if (!class'APCardWatcher'.static.IsBlockerKeyGranted(i)) continue;
+        if (!class'APGoalTracker'.static.IsBlockerKeyGranted(i)) continue;
         rank = 0;
         for (j = 0; j < 14; j++)
-            if (j != i && class'APCardWatcher'.static.IsBlockerKeyGranted(j)
+            if (j != i && class'APGoalTracker'.static.IsBlockerKeyGranted(j)
                 && default.KeyOrderSeq[j] < default.KeyOrderSeq[i]) rank++;
         AssignSlot(KeySlot[rank], textureKeyIcon, keyNameCache[i]);
     }
@@ -515,6 +515,7 @@ function TeleportToHub()
     local HPConsole console;
     local harry h;
     local APCardWatcher w;
+    local APLocationScanner ls;
 
     if (book == None || book.Root == None || book.Root.Console == None)
     {
@@ -547,7 +548,11 @@ function TeleportToHub()
     // timer instead of restarting it. Routed through the watcher because this menu
     // page is not an Actor and cannot iterate AllActors.
     w = class'APCardWatcher'.static.GetLatest();
-    if (w != None) w.EndBailedSpellChallenge();
+    if (w != None)
+    {
+        ls = class'APLocationScanner'.static.GetInstance(w);
+        if (ls != None) ls.EndBailedSpellChallenge();
+    }
     // Bailing from stateDead via R2EH enters the hub still dead; suppress
     // the first post-travel stateDead so it is treated as the bail-out,
     // not an organic death. 40 ticks ~ 10s at 0.25s/tick mirrors

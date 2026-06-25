@@ -6,7 +6,7 @@
 //   - PickupProp.EndState calls Super.EndState() (vanilla score increment via
 //     ChallengeScoreManager.PickedUpStar) THEN fires CHECK_LOCID.
 //
-// Lifecycle: APCardWatcher.ReplaceChallengeStars destroys each unchecked
+// Lifecycle: APLevelSetup.ReplaceChallengeStars destroys each unchecked
 // vanilla ChallengeStar at level entry and Spawns one of these in its place
 // at the same Location/Rotation, stamped with the AP id from
 // APLocationRegistry.GetStarLocationId. Already-AP-checked spots are left as
@@ -47,13 +47,13 @@ state PickupProp
 }
 
 // Appearance capability contract. CheckLocationId is a full AP location id
-// (stamped by APCardWatcher.ReplaceChallengeStars after Spawn), so the
+// (stamped by APLevelSetup.ReplaceChallengeStars after Spawn), so the
 // resolvable id is that value directly. The watcher registers + best-effort
 // applies right after stamping; RestampMarkerAppearance is the authoritative
 // re-stamp.
 function ApplyAPAppearance()
 {
     if (CheckLocationId <= 0) return;
-    class'APCardWatcher'.static.ApplyAppearanceTo(self,
-        class'APCardWatcher'.static.AppearanceForApId(CheckLocationId));
+    class'APAppearanceMath'.static.ApplyAppearanceTo(self,
+        class'APMorphRegistry'.static.AppearanceForApId(CheckLocationId));
 }

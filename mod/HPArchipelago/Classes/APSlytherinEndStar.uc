@@ -4,7 +4,7 @@
 // GoldstarFinal particle, AmbientGlow, PHYS_Rotating, bPickupOnTouch). The
 // only behavioural change is a full override of PickupProp.EndState:
 //   - credits the clause-3 Slytherin objective (CHECK_LOCID 5760706) via the
-//     dedupe-safe APCardWatcher.NotifyLevelObjective, then
+//     dedupe-safe APGoalTracker.NotifyLevelObjective, then
 //   - travels the player back to Entryhall_Hub through harry.LoadLevel, the
 //     same path APFEInGamePage.TeleportToHub uses, so the room commits its
 //     persistent-actor state (found secrets, picked-up beans, dropped loot) via
@@ -22,7 +22,7 @@
 class APSlytherinEndStar extends FinalStar;
 
 // Adv7SlythComRoom clause-3 objective index
-// (APCardWatcher.LevelObjectiveIndexFor("ADV7SLYTHCOMROOM") == 6).
+// (APGoalTracker.LevelObjectiveIndexFor("ADV7SLYTHCOMROOM") == 6).
 const SLYTHERIN_OBJECTIVE_INDEX = 6;
 
 // HPawn.OnResolveGameState does `bHidden=True; SetCollision(False,False,False)`
@@ -57,7 +57,7 @@ state PickupProp
         // NonCardLocationChecked + GoalLevelDone[6], fires CHECK_LOCID
         // 5760706). Doing it before the travel guarantees the credit even if
         // the console lookup or ChangeLevel below fails.
-        class'APCardWatcher'.static.NotifyLevelObjective(SLYTHERIN_OBJECTIVE_INDEX);
+        class'APGoalTracker'.static.NotifyLevelObjective(SLYTHERIN_OBJECTIVE_INDEX);
 
         // Reach the local player's console without depending on
         // APCardWatcher.HarryRef (the watcher may not be bound at the instant

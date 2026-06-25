@@ -3,20 +3,20 @@
 // Unlike the four spell challenges, Ch7Gryffindor ships NO ChallengeScoreManager,
 // so vanilla FinalStar.PickupProp.EndState runs managerChallenge.PickedUpFinalStar()
 // on a None reference (no score tally) and TriggerEvent(Event) travels to the hub
-// on the same frame the star is destroyed. APCardWatcher.ScanFinalStarCompletion
+// on the same frame the star is destroyed. APLocationScanner.ScanFinalStarCompletion
 // credits challenges 7-11 by observing a FinalStar go present -> absent while the
 // per-level watcher is still bound, but that window never exists here: the level
 // (and the watcher) tear down before any poll tick sees the star gone, so the
 // completion check would never fire.
 //
 // This AP-aware replacement (swapped in for the placed FinalStar by
-// APCardWatcher.ReplaceGryffindorEndStar) credits the objective synchronously in
+// APLevelSetup.ReplaceGryffindorEndStar) credits the objective synchronously in
 // EndState, then travels to Entryhall_Hub itself, the same shape as
 // APSlytherinEndStar. The credit is guaranteed regardless of the immediate travel.
 class APGryffindorEndStar extends FinalStar;
 
 // Ch7Gryffindor clause-3 objective index
-// (APCardWatcher.LevelObjectiveIndexFor("CH7GRYFFINDOR") == 11). Fires CHECK_LOCID
+// (APGoalTracker.LevelObjectiveIndexFor("CH7GRYFFINDOR") == 11). Fires CHECK_LOCID
 // 5760711 via NotifyLevelObjective.
 const GRYFFINDOR_OBJECTIVE_INDEX = 11;
 
@@ -50,7 +50,7 @@ state PickupProp
         // NonCardLocationChecked + GoalLevelDone[11], fires CHECK_LOCID 5760711).
         // Doing it before the travel guarantees the credit even if the console
         // lookup or ChangeLevel below fails.
-        class'APCardWatcher'.static.NotifyLevelObjective(GRYFFINDOR_OBJECTIVE_INDEX);
+        class'APGoalTracker'.static.NotifyLevelObjective(GRYFFINDOR_OBJECTIVE_INDEX);
 
         // Reach the local player's console without depending on
         // APCardWatcher.HarryRef (the watcher may not be bound at the instant

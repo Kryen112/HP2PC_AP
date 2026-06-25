@@ -112,7 +112,7 @@ event InitGame(string Options, out string Error)
 
     // APHUDToast is per-level (not bGameRelevant) so each InitGame spawns a
     // fresh one. Save-load (ProcessServerTravel) skips InitGame; the fallback
-    // spawn for that path lives in APCardWatcher.TrySpawnClassroomBlockers.
+    // spawn for that path lives in APLevelSetup.TrySpawnClassroomBlockers.
     SpawnAPHUDToastIfMissing();
 
     ReplaceCardChests();
@@ -120,7 +120,7 @@ event InitGame(string Options, out string Error)
     // Durable open castle detection runs pre-Harry so DestroyGryffindorSpellGiver's
     // bOpenCastleMode gate is reliable even on a cold load into a sentinel-less
     // level (no MGBingo actor in Ch7Gryffindor).
-    class'APCardWatcher'.static.EnsureOpenCastleModeDetected();
+    class'APModeDetector'.static.EnsureOpenCastleModeDetected();
     DestroyGryffindorSpellGiver();
     ForceCutScenesSkippable();
     BlockRictaClassroomIfMissing();
@@ -172,7 +172,7 @@ function SpawnAPHUDToastIfMissing()
 //      sane play.
 //
 // Per-level: called from both APGameInfo.InitGame (initial game) AND
-// APCardWatcher.TrySpawnClassroomBlockers (post-save-load path that bypasses
+// APLevelSetup.TrySpawnClassroomBlockers (post-save-load path that bypasses
 // InitGame). Idempotent — re-applying the same bSkipAllowed value is a no-op.
 function ForceCutScenesSkippable()
 {
@@ -282,7 +282,7 @@ function DestroyGryffindorSpellGiver()
     local int n;
 
     if (Caps(string(Level.Outer.Name)) != "CH7GRYFFINDOR") return;
-    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
+    if (class'APModeDetector'.default.bOpenCastleMode != 1) return;
 
     foreach AllActors(class'Actor', a)
     {
@@ -319,7 +319,7 @@ function BlockRictaClassroomIfMissing()
     // (level-transition bookcase in Entryhall_hub, gated on the Rictusempra
     // Challenge Key item rather than on the spell). Skip the cutscene-anchored
     // blocker so we don't double up in Entryhall_hub.
-    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
+    if (class'APModeDetector'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -460,7 +460,7 @@ function BlockSkurgeClassroomIfMissing()
     local int nameLen;
 
     // Open castle mode: superseded by BlockOpenCastleSkurgeEntryIfMissing.
-    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
+    if (class'APModeDetector'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -605,7 +605,7 @@ function BlockDiffindoClassroomIfMissing()
     local int i, spawned;
 
     // Open castle mode: superseded by BlockOpenCastleDiffindoEntryIfMissing.
-    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
+    if (class'APModeDetector'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -747,7 +747,7 @@ function BlockSpongifyClassroomIfMissing()
     local harry h;
 
     // Open castle mode: superseded by BlockOpenCastleSpongifyEntryIfMissing.
-    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
+    if (class'APModeDetector'.default.bOpenCastleMode == 1)
     {
         return;
     }
@@ -948,7 +948,7 @@ function bool ShouldSpawnOpenCastleBlocker(name Tag, int KeyIdx)
             return False;
         }
     }
-    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
+    if (class'APModeDetector'.default.bOpenCastleMode == 1)
     {
         return !BlockerKeyGranted(KeyIdx);
     }
@@ -1302,7 +1302,7 @@ function BlockOpenCastleGreatHallEntryIfMissing()
     local Rotator rot;
     local Actor existing;
 
-    if (class'APCardWatcher'.default.bOpenCastleMode == 0) return;
+    if (class'APModeDetector'.default.bOpenCastleMode == 0) return;
     if (!OpenCastleLevelIs("ENTRYHALL_HUB")) return;
     if (class'APCardWatcher'.default.WasGoalUnlocked == 1) return;  // already opened
     foreach AllActors(class'Actor', existing)
@@ -1329,7 +1329,7 @@ function BlockOpenCastleGreatHallEntryIfMissing()
 function RemoveOpenCastleGreatHallBlocker()     { DestroyTaggedOpenCastleBlockers('APOpenCastleGreatHallBlocker'); }
 
 // Convenience aggregator called from InitGame and from
-// APCardWatcher.TrySpawnClassroomBlockers (post-save-load path that bypasses
+// APLevelSetup.TrySpawnClassroomBlockers (post-save-load path that bypasses
 // InitGame). Each helper is level-scoped and key-gated, so unconditional
 // iteration is safe in both modes — a Grounds bookcase in Entryhall_hub just
 // early-returns, and the per-region gate decides spawn/skip per mode. Open
@@ -1421,7 +1421,7 @@ function SpawnBeanRoomEntryIfMissing()
     local TriggerChangeLevel portal;
 
     if (Caps(string(Level.Outer.Name)) != "ENTRYHALL_HUB") return;
-    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
+    if (class'APModeDetector'.default.bOpenCastleMode != 1) return;
 
     foreach AllActors(class'Actor', existing)
     {
@@ -1460,7 +1460,7 @@ function SpawnBeanRoomExitStarIfMissing()
     local int destroyed;
 
     if (Caps(string(Level.Outer.Name)) != "BEANREWARDROOM") return;
-    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
+    if (class'APModeDetector'.default.bOpenCastleMode != 1) return;
 
     foreach AllActors(class'Actor', existing)
     {
@@ -1501,7 +1501,7 @@ function StopBeanRoomTimer()
     local BeanRoomTimerManager mgr;
     local int n;
 
-    if (class'APCardWatcher'.default.bOpenCastleMode != 1) return;
+    if (class'APModeDetector'.default.bOpenCastleMode != 1) return;
     if (Caps(string(Level.Outer.Name)) != "BEANREWARDROOM") return;
     if (Level.PlayerHarryActor == None) return;
 
@@ -2024,7 +2024,7 @@ function bool TryApplyBlockerKey(string Name)
 
     class'APCardWatcher'.static.MarkBlockerKeyAsAPGrantedDefault(Name);
 
-    if (class'APCardWatcher'.default.bOpenCastleMode == 1)
+    if (class'APModeDetector'.default.bOpenCastleMode == 1)
     {
         if (idx == 0)       RemoveOpenCastleChamberBlocker();
         else if (idx == 1)  RemoveOpenCastleSpongifyBlocker();
@@ -2407,7 +2407,7 @@ function bool TryApplyTrap(string Name, harry h)
         // records it and clears on the level change.
         h.bIsGoyle = True;
         h.SetNewMesh();
-        class'APCardWatcher'.static.MarkPolyjuiceTrapActiveDefault(h);
+        class'APTrapController'.static.MarkPolyjuiceTrapActiveDefault(h);
         Log("[Archipelago] ApplyGrant: Polyjuice Potion Trap - applied (reverts next level)");
         return True;
     }
@@ -2418,7 +2418,7 @@ function bool TryApplyTrap(string Name, harry h)
         // the per-level watcher respawn and save-load) then clear it. The
         // watcher restores on a timer or the next level transition, whichever
         // comes first, so spells are never permanently lost.
-        class'APCardWatcher'.static.BackupAndClearSpellBook(h);
+        class'APTrapController'.static.BackupAndClearSpellBook(h);
         Log("[Archipelago] ApplyGrant: Obliviate Trap - spellbook backed up + cleared");
         return True;
     }
@@ -2444,14 +2444,14 @@ function bool TryApplyTrap(string Name, harry h)
     {
         // Scale the model and hitbox up for the rest of the level. Like Polyjuice
         // it reverts on the next level's fresh pawn; the watcher just clears its flag.
-        class'APCardWatcher'.static.MarkSizeTrapActive(h, 1.4);
+        class'APTrapController'.static.MarkSizeTrapActive(h, 1.4);
         Log("[Archipelago] ApplyGrant: Engorgio Trap - DrawScale + hitbox up (reverts on next level)");
         return True;
     }
 
     if (Name == "Reducio Trap")
     {
-        class'APCardWatcher'.static.MarkSizeTrapActive(h, 0.6);
+        class'APTrapController'.static.MarkSizeTrapActive(h, 0.6);
         Log("[Archipelago] ApplyGrant: Reducio Trap - DrawScale + hitbox down (reverts on next level)");
         return True;
     }
@@ -2460,7 +2460,7 @@ function bool TryApplyTrap(string Name, harry h)
     {
         // Force inverted camera look. The watcher backs up the player's real
         // bInvertMouse setting and restores it on a timer or the next level.
-        class'APCardWatcher'.static.MarkConfundusTrapActive(h);
+        class'APTrapController'.static.MarkConfundusTrapActive(h);
         Log("[Archipelago] ApplyGrant: Confundus Trap - inverted look applied (reverts on timer or next level)");
         return True;
     }
@@ -2471,7 +2471,7 @@ function bool TryApplyTrap(string Name, harry h)
         // DrawScale does not render on the bone-attached wand, so the watcher
         // swaps baseWand.Mesh and, like the Polyjuice trap, keeps it for the
         // rest of the level, restoring the canonical wand mesh on the next level.
-        class'APCardWatcher'.static.MarkWandSizeTrapActive(h);
+        class'APTrapController'.static.MarkWandSizeTrapActive(h);
         Log("[Archipelago] ApplyGrant: Overcompensation Trap - wand enlarged (reverts on next level)");
         return True;
     }
@@ -2482,7 +2482,7 @@ function bool TryApplyTrap(string Name, harry h)
         // The watcher re-applies the roll each tick so walking physics can't
         // right him, swaps the strafe bindings so the flip doesn't reverse
         // strafing, and the next level's fresh pawn spawns upright.
-        class'APCardWatcher'.static.MarkLevicorpusTrapActive(h);
+        class'APTrapController'.static.MarkLevicorpusTrapActive(h);
         Log("[Archipelago] ApplyGrant: Levicorpus Trap - Harry flipped upside down (reverts on next level)");
         return True;
     }
@@ -2494,7 +2494,7 @@ function bool TryApplyTrap(string Name, harry h)
         // random jumps of its own. The duration is a tick countdown (not the
         // level clock, which resets on reload) and a first-bind heal clears the
         // gate if a save/quit orphans it; the next level ends it early.
-        class'APCardWatcher'.static.MarkJellyLegsTrapActive(h);
+        class'APTrapController'.static.MarkJellyLegsTrapActive(h);
         Log("[Archipelago] ApplyGrant: Jelly-Legs Jinx Trap - jump hijacked for ~20s (random jumps, reverts on timer or next level)");
         return True;
     }

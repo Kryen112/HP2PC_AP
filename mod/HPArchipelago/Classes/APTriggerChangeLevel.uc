@@ -1,7 +1,7 @@
 // AP-aware Gold Card Room end trigger (open castle's 13th level objective).
 //
 // Ch6WizardCard's far-end TriggerChangeLevel (tag changelevel1) reloads the
-// room on touch. APCardWatcher.ReplaceGoldRoomEndTrigger swaps the placed
+// room on touch. APLevelSetup.ReplaceGoldRoomEndTrigger swaps the placed
 // instance for this subclass so reaching the end credits clause-3 objective
 // idx 12 (CHECK_LOCID 5760712) synchronously, before the stock reload travels.
 //
@@ -12,13 +12,13 @@
 // so overriding it covers every way the volume fires.
 class APTriggerChangeLevel extends TriggerChangeLevel;
 
-// APCardWatcher.LevelObjectiveIndexFor("CH6WIZARDCARD") == 12.
+// APGoalTracker.LevelObjectiveIndexFor("CH6WIZARDCARD") == 12.
 const GOLDROOM_OBJECTIVE_INDEX = 12;
 
 function ProcessTrigger()
 {
     // Idempotent + sticky (NonCardLocationChecked + GoalLevelDone[12]). Fired
     // before Super travels so the credit survives the immediate reload.
-    class'APCardWatcher'.static.NotifyLevelObjective(GOLDROOM_OBJECTIVE_INDEX);
+    class'APGoalTracker'.static.NotifyLevelObjective(GOLDROOM_OBJECTIVE_INDEX);
     Super.ProcessTrigger();
 }

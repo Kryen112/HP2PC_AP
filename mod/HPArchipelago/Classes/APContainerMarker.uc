@@ -31,7 +31,7 @@ var int CheckLocationId;
 
 function PostBeginPlay()
 {
-    local APCardWatcher w;
+    local APMorphRegistry mr;
     local int slot;
 
     Super.PostBeginPlay();
@@ -50,10 +50,10 @@ function PostBeginPlay()
             Destroy();
             return;
         }
-        w = class'APCardWatcher'.static.GetLatest();
-        if (w != None)
+        mr = class'APMorphRegistry'.static.GetInstance(self);
+        if (mr != None)
         {
-            w.RegisterMorphMarker(self, CheckLocationId);
+            mr.RegisterMorphMarker(self, CheckLocationId);
         }
         ApplyAPAppearance();
     }
@@ -174,8 +174,8 @@ event Touch(Actor Other)
 function ApplyAPAppearance()
 {
     if (CheckLocationId <= 0) return;
-    class'APCardWatcher'.static.ApplyAppearanceTo(self,
-        class'APCardWatcher'.static.AppearanceForApId(CheckLocationId));
+    class'APAppearanceMath'.static.ApplyAppearanceTo(self,
+        class'APMorphRegistry'.static.AppearanceForApId(CheckLocationId));
 }
 
 defaultproperties

@@ -8,7 +8,7 @@
 // from the mod, and a per-frame correction elsewhere loses the tick-order race
 // against baseWand. baseWand positions the light by calling TheLumosLight.Update-
 // Location, so overriding that here re-places it at the 3x tip inside baseWand's
-// own call: synchronous, no race. APCardWatcher.MarkWandSizeTrapActive swaps this
+// own call: synchronous, no race. APTrapController.MarkWandSizeTrapActive swaps this
 // in for the retail LumosLight when the trap fires. The rescale is gated on
 // bWandSizeTrapActive, so when no trap is active this behaves exactly like the
 // retail light and no swap-back is needed.
@@ -31,7 +31,7 @@ function UpdateLocation(Vector NewLocation)
     local vector tip, axis;
     local baseWand wand;
 
-    if (class'APCardWatcher'.default.bWandSizeTrapActive == 0 || PlayerHarry == None)
+    if (class'APTrapController'.default.bWandSizeTrapActive == 0 || PlayerHarry == None)
     {
         Super.UpdateLocation(NewLocation);
         return;

@@ -55,7 +55,7 @@ var bool bIsFloatingCard;
 
 function PostBeginPlay()
 {
-    local APCardWatcher w;
+    local APMorphRegistry mr;
 
     Super.PostBeginPlay();
 
@@ -74,17 +74,16 @@ function PostBeginPlay()
     // #3 capability contract: opt this marker into the appearance sweep and
     // best-effort morph it now. Runs AFTER the self-destroy guard so a
     // checked location never registers/morphs a stale ghost. Register on the
-    // live per-level watcher (instance registry — class-default actor refs
-    // crash level cleanup); the watcher exists by now (spawned in InitGame
-    // before ReplaceCardChests). Self-apply is independent of registration
-    // and a no-op until the table arrives (async-safe); the sweep is the
-    // authoritative re-stamp.
+    // live per-level morph registry singleton (its registry is instance state;
+    // class-default actor refs crash level cleanup). Self-apply is independent
+    // of registration and a no-op until the table arrives (async-safe); the
+    // sweep is the authoritative re-stamp.
     if (CardLocationId > 0 && CardLocationId <= 101)
     {
-        w = class'APCardWatcher'.static.GetLatest();
-        if (w != None)
+        mr = class'APMorphRegistry'.static.GetInstance(self);
+        if (mr != None)
         {
-            w.RegisterMorphMarker(self,
+            mr.RegisterMorphMarker(self,
                 class'APCardAppearance'.static.CardIdToApId(CardLocationId));
         }
         ApplyAPAppearance();
@@ -252,12 +251,12 @@ function Touch(Actor Other)
 // #3 capability contract. Resolve this card location's appearance code and
 // stamp it onto self. The card branch of the resolver reads the exact card
 // face from <cardClass>.default.Skin. Called best-effort from PostBeginPlay
-// and authoritatively by APCardWatcher.RestampMarkerAppearance.
+// and authoritatively by APMorphRegistry.RestampMarkerAppearance.
 function ApplyAPAppearance()
 {
     if (CardLocationId <= 0 || CardLocationId > 101) return;
-    class'APCardWatcher'.static.ApplyAppearanceTo(self,
-        class'APCardWatcher'.static.AppearanceForApId(
+    class'APAppearanceMath'.static.ApplyAppearanceTo(self,
+        class'APMorphRegistry'.static.AppearanceForApId(
             class'APCardAppearance'.static.CardIdToApId(CardLocationId)));
 }
 

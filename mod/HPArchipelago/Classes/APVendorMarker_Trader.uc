@@ -16,7 +16,7 @@
 // 800-812), so Touch dedupes via NonCardLocationChecked[] and fires
 // SendCheckLocationId (a non-card AP location), not SendCheck.
 //
-// Spawned by APCardWatcher.TradersanityPass when it sees a freshly-sold item
+// Spawned by APVendorController.TradersanityPass when it sees a freshly-sold item
 // next to an unchecked Tradersanity vendor; CheckLocationId is stamped after
 // Spawn with that vendor's AP location id (APLocationRegistry.GetVendorLocationId).
 class APVendorMarker_Trader extends WizardCardIcon;
@@ -116,13 +116,13 @@ function Touch(Actor Other)
 }
 
 // Appearance capability contract. CheckLocationId (stamped after Spawn by
-// APCardWatcher.TradersanityPass) is the resolvable AP location id; the sweep
+// APVendorController.TradersanityPass) is the resolvable AP location id; the sweep
 // morphs this marker to whatever item the seed placed here.
 function ApplyAPAppearance()
 {
     if (CheckLocationId <= 0) return;
-    class'APCardWatcher'.static.ApplyAppearanceTo(self,
-        class'APCardWatcher'.static.AppearanceForApId(CheckLocationId));
+    class'APAppearanceMath'.static.ApplyAppearanceTo(self,
+        class'APMorphRegistry'.static.AppearanceForApId(CheckLocationId));
 }
 
 defaultproperties

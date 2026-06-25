@@ -13,7 +13,7 @@
 // has no physics.
 //
 // Lifetime: per level. NOT bGameRelevant — each level transition destroys
-// the toast and the next InitGame (or APCardWatcher.TrySpawnClassroomBlockers
+// the toast and the next InitGame (or APLevelSetup.TrySpawnClassroomBlockers
 // on save-load) spawns a fresh one. Class-default `LatestInstance` lets
 // APGameInfo.ApplyGrant reach the active toast via GetInstance().
 //
@@ -535,7 +535,7 @@ function RenderHud(Canvas C)
 // check. Visible while Harry has a vendor engaged (CurrVendorManager set
 // after Bump), the vendor is an AP-active check in this seed (13 generic
 // Tradersanity vendors gated on TradersanityMode, plus Fred/George gated on
-// bQuidditchUpgrades — see APCardWatcher.GetActiveAPVendorLocationId), the
+// bQuidditchUpgrades, see APVendorController.GetActiveAPVendorLocationId), the
 // AP location is still unchecked, AND the player hasn't already clicked Yes
 // in this engagement (TraderPurchased). Hidden once any of those flips. The
 // label text is the hinted item name when the apworld has cached one for
@@ -565,15 +565,15 @@ function DrawTradersanityAPLabel(Canvas C)
 
     engagedVendor = vm.Vendor;
     lvl = string(Level.Outer.Name);
-    locId = class'APCardWatcher'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
+    locId = class'APVendorController'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
     if (locId <= 0) return;
 
     slot = locId - 5760000;
     if (slot < 0 || slot >= 1024) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
-    if (class'APCardWatcher'.default.TraderPurchased[slot] == 1) return;
+    if (class'APVendorController'.default.TraderPurchased[slot] == 1) return;
 
-    hintName = class'APCardWatcher'.default.TraderHintItemName[slot];
+    hintName = class'APVendorController'.default.TraderHintItemName[slot];
     if (hintName != "")
     {
         label = hintName;
@@ -638,6 +638,6 @@ defaultproperties
     // leave a stale Entry/old-level instance fighting the live one for
     // default.LatestInstance. The toast is a per-level HUD widget: each
     // level gets a fresh one via APGameInfo.InitGame, and via
-    // APCardWatcher.TrySpawnClassroomBlockers on save-load (skips InitGame).
+    // APLevelSetup.TrySpawnClassroomBlockers on save-load (skips InitGame).
     bGameRelevant=False
 }

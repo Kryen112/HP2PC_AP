@@ -288,6 +288,7 @@ event ReceivedText(string Text)
 function HandleLine(string line)
 {
     local APCardWatcher w;
+    local APMorphRegistry mr;
     local string rest;
     local int sp;
 
@@ -339,14 +340,14 @@ function HandleLine(string line)
         // "cards,spells,levels,duels,quidditch,mask". Sticky class-default on
         // the watcher (mirrors bOpenCastleMode); resent every HELLO so a fresh
         // launch / reconnect re-arms it. Idempotent.
-        class'APCardWatcher'.static.SetGoalConfigCSV(Mid(line, 8));
+        class'APGoalTracker'.static.SetGoalConfigCSV(Mid(line, 8));
     }
     else if (Left(line, 9) == "TRADECFG ")
     {
         // Tradersanity price mode from the apworld slot_data, as a single
         // int (0 off / 1 vanilla / 2 random / 3 low). Sticky class-default
         // on the watcher (mirrors GOALCFG); resent every HELLO. Idempotent.
-        class'APCardWatcher'.static.SetTradersanityMode(int(Mid(line, 9)));
+        class'APVendorController'.static.SetTradersanityMode(int(Mid(line, 9)));
     }
     else if (Left(line, 13) == "TRADERPRICES ")
     {
@@ -357,7 +358,7 @@ function HandleLine(string line)
         // price range so a vendor's AP-check price is fixed for the seed
         // across level transitions AND save/exit, instead of re-rolling on
         // every level entry.
-        class'APCardWatcher'.static.SetTraderRolledFactors(Mid(line, 13));
+        class'APVendorController'.static.SetTraderRolledFactors(Mid(line, 13));
     }
     else if (Left(line, 19) == "SKIP_VENDOR_VOICES ")
     {
@@ -366,7 +367,7 @@ function HandleLine(string line)
         // cue immediately so the trade flows without audio. Sticky byte on the
         // watcher; resent every HELLO. The watcher re-applies the silence on
         // every Snapshot so a level change picks up the right state.
-        class'APCardWatcher'.static.SetSkipVendorVoices(byte(int(Mid(line, 19))));
+        class'APVendorController'.static.SetSkipVendorVoices(byte(int(Mid(line, 19))));
     }
     else if (Left(line, 19) == "QUIDDITCH_UPGRADES ")
     {
@@ -374,7 +375,7 @@ function HandleLine(string line)
         // the Tradersanity icon / banner / hint — those two AP locations only
         // exist when the seed has enable_quidditch_upgrades on. Sticky byte
         // on the watcher; resent every HELLO.
-        class'APCardWatcher'.static.SetQuidditchUpgrades(byte(int(Mid(line, 19))));
+        class'APVendorController'.static.SetQuidditchUpgrades(byte(int(Mid(line, 19))));
     }
     else if (Left(line, 14) == "RUNNING_LOGIC ")
     {
@@ -382,19 +383,19 @@ function HandleLine(string line)
         // the Running logic flag in logic, so shift-to-run is made free (no bean
         // drain, no >0-bean gate) to keep that assumption sound. Sticky byte on
         // the watcher; resent every HELLO.
-        class'APCardWatcher'.static.SetAllowRunningLogic(byte(int(Mid(line, 14))));
+        class'APSprintController'.static.SetAllowRunningLogic(byte(int(Mid(line, 14))));
     }
     else if (Left(line, 16) == "CONTAINERSANITY ")
     {
         // containersanity option from slot_data. When 1, the watcher swaps/
         // injects the bean-container AP tokens per level. Sticky byte; resent
         // every HELLO.
-        class'APCardWatcher'.static.SetContainersanity(byte(int(Mid(line, 16))));
+        class'APContainerManager'.static.SetContainersanity(byte(int(Mid(line, 16))));
     }
     else if (Left(line, 5) == "HINT ")
     {
         // Tradersanity vendor hint payload: "HINT <locId> <item_name>".
-        // Cached per-slot on APCardWatcher.TraderHintItemName so the in-trade
+        // Cached per-slot on APVendorController.TraderHintItemName so the in-trade
         // label can show the actual item name instead of generic "Archipelago
         // Item". Apworld sends one HINT per Tradersanity vendor location
         // after the scout response resolves, when hint-on-open is enabled.
@@ -407,7 +408,7 @@ function HandleLine(string line)
         // watcher (mirrors GOALCFG / TRADECFG); resent every HELLO. The toast
         // fire/arm is owned by APCardWatcher (Timer + .usa-restore re-arm),
         // so this line only records the address — idempotent on resend.
-        class'APCardWatcher'.static.SetConnectedAddress(Mid(line, 10));
+        class'APStartupFeedback'.static.SetConnectedAddress(Mid(line, 10));
     }
     else if (Left(line, 5) == "MODE ")
     {
@@ -418,10 +419,10 @@ function HandleLine(string line)
         // "open_castle" additionally latches bOpenCastleMode (a late belt
         // alongside the durable DLO probe); "MODE vanilla" only records the
         // declared mode — it never clears bOpenCastleMode (one-way invariant).
-        class'APCardWatcher'.static.SetSeedDeclaredMode(Mid(line, 5));
+        class'APModeDetector'.static.SetSeedDeclaredMode(Mid(line, 5));
         if (Mid(line, 5) == "open_castle")
         {
-            class'APCardWatcher'.static.EnterOpenCastleMode("IPC MODE open_castle");
+            class'APModeDetector'.static.EnterOpenCastleMode("IPC MODE open_castle");
         }
     }
     else if (Left(line, 14) == "RESYNC_SPELLS ")
@@ -491,12 +492,12 @@ function HandleLine(string line)
         // Open-castle bean-room ledger restored from AP data storage on connect
         // / HELLO. Merges dispensers + floor-collected (set, never clear) and
         // restores dropped-bean positions on a cold load. Sticky + idempotent.
-        class'APCardWatcher'.static.ApplyResyncBeanRoom(Mid(line, 16));
+        class'APBeanRoom'.static.ApplyResyncBeanRoom(Mid(line, 16));
     }
     else if (line == "RESYNC_BEANROOM")
     {
         // Empty-list form (nothing persisted yet). No-op; keeps the wire symmetric.
-        class'APCardWatcher'.static.ApplyResyncBeanRoom("");
+        class'APBeanRoom'.static.ApplyResyncBeanRoom("");
     }
     else if (Left(line, 8) == "CHECKED ")
     {
@@ -520,13 +521,13 @@ function HandleLine(string line)
     {
         // #3 per-location appearance table from the client, as
         // "apId:code,apId:code,…" (full AP location ids). Sticky class-default
-        // on the watcher (mirrors GOALCFG); resent every HELLO. Sweep the live
-        // watcher so an async mid-level arrival converges within a tick.
-        class'APCardWatcher'.static.SetAppearanceCSV(Mid(line, 11));
-        w = class'APCardWatcher'.static.GetLatest();
-        if (w != None)
+        // on APMorphRegistry (mirrors GOALCFG); resent every HELLO. Sweep the live
+        // registry so an async mid-level arrival converges within a tick.
+        class'APMorphRegistry'.static.SetAppearanceCSV(Mid(line, 11));
+        mr = class'APMorphRegistry'.static.GetInstance(self);
+        if (mr != None)
         {
-            w.RestampMarkerAppearance();
+            mr.RestampMarkerAppearance();
         }
     }
     else if (Left(line, 7) == "RINGIN ")
@@ -560,7 +561,7 @@ function HandleLine(string line)
 // Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the
 // HUD toast actor as "Sent <item> to <receiver>".
 // HINT body is `<locId> <item_name>`. Splits on the first space and forwards
-// to APCardWatcher.SetVendorHintItemName for the in-trade label to read.
+// to APVendorController.SetVendorHintItemName for the in-trade label to read.
 // item_name may contain spaces (e.g. "Cloak of Invisibility"), so Mid past
 // the first space is the full remainder.
 function HandleHint(string Body)
@@ -578,7 +579,7 @@ function HandleHint(string Body)
     itemName = Mid(Body, spaceIdx + 1);
     if (locId <= 0 || itemName == "") return;
 
-    class'APCardWatcher'.static.SetVendorHintItemName(locId, itemName);
+    class'APVendorController'.static.SetVendorHintItemName(locId, itemName);
 }
 
 // `code` is the toast colour: 0 yellow (system), 1 white (lifecycle).
@@ -877,7 +878,7 @@ function SendGoalComplete()
 
 // Push the open-castle bean-room ledger to the client to persist in AP data
 // storage (the only store that survives a restart here). Sent when the player
-// leaves the bean room. Payload is APCardWatcher.BuildBeanRoomState's flat list.
+// leaves the bean room. Payload is APBeanRoom.BuildBeanRoomState's flat list.
 function SendBeanRoomState(string payload)
 {
     SendText("BEANSTATE " $ payload $ Chr(10));

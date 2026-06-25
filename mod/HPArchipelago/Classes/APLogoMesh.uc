@@ -20,7 +20,7 @@
 //
 // Transparency uses a magenta chroma key, not alpha (alpha keying does not
 // work in this build): P8 + Flags=2 + MaskedOverride magenta + STY_Masked
-// (set in APCardWatcher.ApplyMeshSkin), the vanilla recipe used by
+// (set in APAppearanceMath.ApplyMeshSkin), the vanilla recipe used by
 // skArmorHelmet / skTableVaseKO / Tree* sprites.
 //
 // UE1 re-import gotcha: editing the .psk/.png alone does not re-import. UCC
