@@ -1,7 +1,8 @@
 """HP2PC_AP. Harry Potter 2: Chamber of Secrets PC randomizer for Archipelago.
 
-Items + locations come from data/*.yaml. The .py files in this directory
-are auto-generated; treat data/*.yaml as the source of truth.
+Items, locations, regions, and access rules are hand-maintained in this
+directory (items.py / locations.py / regions.py / rules.py / access.py).
+There is no code-generation step; build_apworld.py only packages the world.
 
 Generation models the Basilisk goal as the item/logic requirements needed to
 reach endgame. Runtime completion comes from the game-side GOAL_COMPLETE signal
@@ -91,9 +92,8 @@ VANILLA_BLOCKED_KEY_NAMES: set[str] = {
 # in a vanilla playthrough, so every location in them must not be created as a
 # vanilla check at all, not merely made unreachable. _location_enabled
 # enforces this (the mirror image of the Classrooms+open-castle exclusion).
-# The region name itself still appears in BOTH logic files because gen_apworld
-# requires the vanilla and open-castle region SETS to be identical; in vanilla
-# the region is inert (entry false, zero locations attached).
+# The region still exists in both modes' tables (REGION_NAMES is one shared
+# list); in vanilla its entry rule is `never` and no locations attach to it.
 OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge", "BeanBonusRoom"}
 
 
@@ -220,8 +220,8 @@ class AllowRunningLogic(Toggle):
 
     Additive only: it never removes a requirement, so a seed solvable with it
     off stays solvable with it on. `Running` is a logic flag, not an item: when
-    this is on the world precollects it so the `... | Running` clauses in
-    data/logic_*.yaml pass. Off by default. The standard logic expects the
+    this is on the world precollects it so the `... | Running` clauses in the
+    rule tables pass. Off by default. The standard logic expects the
     spell. The shift-to-run sprint is always available regardless of this option;
     with it on the mod also makes that sprint free (no bean cost, and usable at
     0 beans) so the running this logic relies on is genuinely always available.
@@ -237,7 +237,7 @@ class AllowGlitchedLogic(Toggle):
 
     Additive only: a seed solvable with it off stays solvable with it on.
     `Glitched` is a logic flag, not an item: when this is on the world
-    precollects it so the `... | Glitched` clauses in data/logic_*.yaml pass.
+    precollects it so any `... | Glitched` clauses in the rule tables pass.
     Off by default. The standard logic expects no glitches. Enabling it assumes
     the player can perform the glitches the tagged checks rely on.
     """
@@ -498,7 +498,7 @@ class HP2Options(PerGameCommonOptions):
     starting_spells: StartingSpells
     # Logic-flag toggles, both modes. Each precollects a code-less event item
     # (Running / Glitched) when on, relaxing the `... | Running` / `... |
-    # Glitched` clauses in data/logic_*.yaml. Pure generation logic, no item,
+    # Glitched` clauses in the rule tables. Pure generation logic, no item,
     # no pool entry, nothing the mod needs at runtime.
     allow_running_logic: AllowRunningLogic
     allow_glitched_logic: AllowGlitchedLogic

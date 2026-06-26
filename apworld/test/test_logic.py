@@ -5,7 +5,7 @@ location gating, and the Running-logic shortcut."""
 from BaseClasses import CollectionState
 
 from .bases import HP2TestBase
-from ..rules import _SILVER_CARD_NAMES
+from ..access import _SILVER_CARD_NAMES
 
 
 # Each of the 14 level/challenge regions is gated standalone by its own key in

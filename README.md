@@ -20,17 +20,17 @@ An Archipelago multiworld randomizer for _Harry Potter and the Chamber of Secret
                             [archipelago.gg server]
 ```
 
-No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan212's modder engine (which restored UE1 networking from UT99). The `data/*.yaml` files are the source of truth for items, locations, and access logic; the `apworld/*.py` next to them is auto-generated.
+No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan212's modder engine (which restored UE1 networking from UT99). The `apworld/*.py` files are the source of truth for items, locations, regions, and access logic; `build_apworld.py` packages them into `harry_potter_2_pc.apworld` with no code-generation step.
 
 ## Repo layout
 
 | Path                         | Purpose                                                                                    |
 | ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `apworld/`                   | Python AP world definition + bundled `Client.py` (compiles to `harry_potter_2_pc.apworld`) |
+| `apworld/`                   | Python AP world definition + bundled `Client.py` (packaged into `harry_potter_2_pc.apworld`) |
+| `apworld/{items,locations}.py` | Item / location id tables, groups, and classifications                                     |
+| `apworld/{regions,rules}.py`, `apworld/access.py` | Access logic as boolean predicates over item names                          |
+| `build_apworld.py`           | Packages the apworld into `harry_potter_2_pc.apworld` and installs it locally (no code generation) |
 | `mod/HPArchipelago/Classes/` | UnrealScript mod source, compiled with `ucc make`                                          |
-| `data/items.yaml`            | Item catalog, user-authored source of truth                                                |
-| `data/locations.yaml`        | Location catalog, user-authored source of truth                                            |
-| `data/logic_*.yaml`          | Access rules: `logic_levels` (shared level interiors) + `logic_vanilla`/`logic_open_castle` (region entries + castle hubs, per mode) |
 | `../DESIGN.md`               | Design decisions, with v1.1 parking lot                                                    |
 | `docs/PLAYER_SETUP.md`       | Install + first-run guide for end users                                                    |
 | `docs/DEV_SETUP.md`          | Dev environment + UScript build loop                                                       |

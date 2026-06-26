@@ -197,8 +197,8 @@ _AUDIO_KINDS = {
 _PATCH_ERRORS = (PatchError, OSError)
 
 
-# All wizard-card item names, derived from ITEM_GROUPS so it can never drift
-# from data/items.yaml. Used by /progress to count cards in received items.
+# All wizard-card item names, derived from ITEM_GROUPS (items.py) so it can never
+# drift. Used by /progress to count cards in received items.
 CARD_ITEM_NAMES_SET = frozenset(
     ITEM_GROUPS.get("Cards (Bronze)", [])
     + ITEM_GROUPS.get("Cards (Silver)", [])
@@ -214,8 +214,8 @@ LEVEL_COMPLETION_COUNT = sum(1 for g in LOCATION_GROUPS.values() if g == "LevelC
 # counts, so /progress shows these as the have/need denominator when the flag is set.
 DUEL_COUNT = sum(1 for g in LOCATION_GROUPS.values() if g == "Duels")
 QUIDDITCH_MATCH_COUNT = sum(1 for g in LOCATION_GROUPS.values() if g == "QuidditchMatches")
-# Trap item names, from ITEM_GROUPS so it can never drift from
-# data/items.yaml. Used by the #3 marker-appearance classifier. Every
+# Trap item names, from ITEM_GROUPS (items.py) so it can never drift. Used by
+# the #3 marker-appearance classifier. Every
 # received item is gated by the AP-Data-Storage consumed-index ledger (see
 # _forward_one / consumed_indices), so filler and traps are durable-but-once
 # exactly like cards/spells, with no special-casing.
@@ -255,7 +255,7 @@ DEATHLINK_AMNESTY_S = 2.0
 # no classroom location; harry.uc:335-337 adds them to every fresh Harry, the
 # mod's Snapshot+revert wipes them unless AP has granted them, and the AP
 # grant restores them. Whether they're starters depends on `starting_spells`.
-# See data/locations.yaml.
+# See locations.py.
 SPELL_TO_LOCATION_NAME = {
     "Rictusempra": "Learned Rictusempra",
     "Skurge":      "Learned Skurge",
