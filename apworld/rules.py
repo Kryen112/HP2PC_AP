@@ -619,7 +619,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Bean Bonus Room - Chest 4": alohomora,
     "Bean Bonus Room - Chest 5": alohomora,
     "Bean Bonus Room - Chest 6": alohomora,
-    "Bean Bonus Room - Spawner": alohomora,
+    "Bean Bonus Room - Gargoyle": alohomora,
     "Bicorn Level - Card Agrippa": alohomora & flipendo & skurge & rictusempra,
     "Bicorn Level - Card Cronk": alohomora & (flipendo | running) & skurge,
     "Bicorn Level - Card Goshawk": alohomora & flipendo & skurge & rictusempra,
