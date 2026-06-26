@@ -1,7 +1,7 @@
 """HP2PC_AP. Harry Potter 2: Chamber of Secrets PC randomizer for Archipelago.
 
-Items, locations, regions, and access rules are hand-maintained in this
-directory (items.py / locations.py / regions.py / rules.py / access.py).
+Items, locations, regions, and access rules live in this directory
+(items.py / locations.py / regions.py / rules.py / access.py).
 There is no code-generation step; build_apworld.py only packages the world.
 
 Generation models the Basilisk goal as the item/logic requirements needed to
@@ -46,8 +46,8 @@ SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
 # check can deliver. The player only ever passes through once, so without
 # Alohomora precollected these secrets are permanently impossible (not merely
 # missable) and are dropped as locations entirely rather than excluded. This
-# is a fixed game-knowledge fact, so it lives here in the hand-authored world
-# module rather than the generated locations.py.
+# is a fixed game-knowledge fact, so it lives here with the world logic rather
+# than in the locations.py id table.
 WHOMPING_WILLOW_ALOHOMORA_SECRETS: frozenset[str] = frozenset({
     'Whomping Willow - Secret 1',
     'Whomping Willow - Secret 2',

@@ -1,8 +1,8 @@
 // AP token for a containersanity location (a bean / ingredient / Peeves / gnome
 // container). Two eject paths:
 //
-//   QUEUE (chests/cauldrons): gen_apworld emits a per-location subclass
-//   APContainerMarker_<offset> with CheckLocationId baked into defaults. The
+//   QUEUE (chests/cauldrons): a per-location subclass APContainerMarker_<offset>
+//   carries CheckLocationId baked into defaults. The
 //   swapped APContainerChest_<Leaf> injects that class as the first item in the
 //   container's own eject queue, so the container's loop spits it out first with
 //   bean velocity and the inter-bean delay. The baked id is known in
@@ -22,8 +22,8 @@
 class APContainerMarker extends HProp;
 
 const LOC_BASE = 5760000;
-// Mirrors NONCARD_LOC_WINDOW in APCardWatcher.uc / APVendorMarker_Trader.uc /
-// gen_apworld.py; all must hold the same value (M212 can't cross-reference a
+// Mirrors NONCARD_LOC_WINDOW in APCardWatcher.uc / APVendorMarker_Trader.uc;
+// all must hold the same value (M212 can't cross-reference a
 // const, and guards take an integer literal anyway).
 const NONCARD_LOC_WINDOW = 2048;
 

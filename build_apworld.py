@@ -4,7 +4,7 @@ Run from the repo root:
     py -3.12 build_apworld.py
 
 Packaging only, no code generation. The apworld Python (access / items / locations
-/ regions / rules) and the mod's .uc files are hand-maintained source. This invokes
+/ regions / rules) and the mod's .uc files are committed source, not generated. This invokes
 Archipelago's native `Build APWorlds` Launcher to zip the world, then copies the
 result into the local custom_worlds dir(s).
 """

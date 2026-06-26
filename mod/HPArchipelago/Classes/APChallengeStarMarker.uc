@@ -16,7 +16,7 @@ class APChallengeStarMarker extends ChallengeStar;
 
 // 5760000 = locations.yaml `base_id`. Duplicated here as a literal because UE1
 // UScript const access across classes is awkward; the watcher's LOC_BASE
-// const is the source of truth — keep these in sync.
+// const is the source of truth. Keep these in sync.
 const LOC_BASE = 5760000;
 
 var int CheckLocationId;

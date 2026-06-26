@@ -133,7 +133,7 @@ event InitGame(string Options, out string Error)
 // Spawn an APHUDToast in the current level if one isn't already here. Called
 // from APGameInfo.InitGame (the launch / level / area-transition path).
 // Save-load (which bypasses InitGame) is handled by APCardWatcher.Ensure-
-// FreshToast, which also replaces a stale cross-package toast — a case this
+// FreshToast, which also replaces a stale cross-package toast, a case this
 // in-level check can't see. Idempotent: an in-level instance is a no-op.
 function SpawnAPHUDToastIfMissing()
 {
@@ -173,7 +173,7 @@ function SpawnAPHUDToastIfMissing()
 //
 // Per-level: called from both APGameInfo.InitGame (initial game) AND
 // APLevelSetup.TrySpawnClassroomBlockers (post-save-load path that bypasses
-// InitGame). Idempotent — re-applying the same bSkipAllowed value is a no-op.
+// InitGame). Idempotent. Re-applying the same bSkipAllowed value is a no-op.
 function ForceCutScenesSkippable()
 {
     local CutScene cs;
@@ -268,7 +268,7 @@ function DestroyUnobtainableSecretMarkers()
 
 // Ch7Gryffindor (open-castle-only challenge level) ships a vanilla
 // TriggerTurnOnAllSpells (tag Givespells) that, on its first Touch/Trigger,
-// sets harry.bNoSpellBookCheck=True — making harry.IsInSpellBook return True
+// sets harry.bNoSpellBookCheck=True, making harry.IsInSpellBook return True
 // for EVERY spell (harry.uc:568), so the player can cast everything and the
 // watcher's revert loop can never clear a spell. The level-start dispatcher
 // fires it almost immediately, before the per-level watcher's Snapshot runs,
@@ -444,7 +444,7 @@ function RemoveRictaBlocker()
 }
 
 // Mirror of BlockRictaClassroomIfMissing for Flitwick's Skurge classroom.
-// Same level (Grandstaircase_hub) but a different cutscene — the FileName
+// Same level (Grandstaircase_hub) but a different cutscene. The FileName
 // isn't in the UScript decompile (lives in the .unr), so we use a heuristic:
 // the Skurge intro cutscene's FileName contains "Skurge" and ends "Int"
 // (mirroring `02060DADARictaInt`'s structure). If the heuristic finds nothing,
@@ -616,7 +616,7 @@ function BlockDiffindoClassroomIfMissing()
         return;
     }
 
-    // Exact match — discovered via the heuristic-fallback dump. Sprout's
+    // Exact match, discovered via the heuristic-fallback dump. Sprout's
     // Diffindo intro doesn't follow the same naming convention as Ricta /
     // Skurge: it uses "Diff" (abbreviated) and the suffix is "Intro" not
     // "Int". So we hard-code the name like Ricta does.
@@ -636,11 +636,11 @@ function BlockDiffindoClassroomIfMissing()
     }
 
     // Sprout's classroom entrance is wider than one bookcase. Spawn one
-    // bookcase per slot in DiffindoBlockerOffsets — each is a WORLD offset
+    // bookcase per slot in DiffindoBlockerOffsets, each is a WORLD offset
     // from the cutscene actor (no rotation transformation). Slots are
     // independent; tune each one's X/Y/Z separately to match the doorway
     // geometry. Bookcase ORIENTATION still tracks the cutscene rotation
-    // (Yaw + 32768 to face Harry). No idempotency tag-scan up front — if
+    // (Yaw + 32768 to face Harry). No idempotency tag-scan up front. If
     // previous bookcases are still in the level (restored from .usa),
     // Spawn returns None on encroachment and we just skip that slot.
     // RemoveDiffindoBlocker's tag-scan destroys every tagged blocker on
@@ -688,7 +688,7 @@ function RemoveDiffindoBlocker()
 
     // Diffindo spawns a row of bookcases (one per DiffindoBlockerOffsets
     // slot) to cover the wide herbology entrance. Always tag-scan and
-    // destroy every matching actor — the direct-ref shortcut used by
+    // destroy every matching actor. The direct-ref shortcut used by
     // Ricta/Skurge would only destroy the first one and leak the others.
     default.DiffindoBlockerInstance = None;
 
@@ -732,7 +732,7 @@ function RemoveDiffindoBlocker()
 // Common Room), so spawning earlier would lock Harry out of DADA for no
 // reason; early-return below the gate.
 //
-// Anchored to the Rictusempra cutscene actor (`02060DADARictaInt`) — same
+// Anchored to the Rictusempra cutscene actor (`02060DADARictaInt`), the same
 // doorway chokepoint as the Ricta blocker. The `13040SpongeIntro` cutscene
 // actor is in the level but parked away from the doorway (only its trigger
 // location matters for activation). Offset is WORLD coords like Ricta; the
@@ -762,7 +762,7 @@ function BlockSpongifyClassroomIfMissing()
     if (h == None || h.iGameState < SpongifyGameStateGate)
     {
         // Story not yet at the point where Spongify intro becomes valid in
-        // DADA. Quiet return — this fires every InitGame / TrySpawnClassroom
+        // DADA. Quiet return, this fires every InitGame / TrySpawnClassroom
         // call before the gate; logging would be noise.
         return;
     }
@@ -793,7 +793,7 @@ function BlockSpongifyClassroomIfMissing()
     }
 
     // SpongifyBlockerOffset is in WORLD coords (mirrors RictaBlockerOffset).
-    // Rotation comes straight from the cutscene actor (no Yaw flip — Ricta
+    // Rotation comes straight from the cutscene actor (no Yaw flip, Ricta
     // doesn't flip either; the Ricta blocker has been verified facing the
     // right way at this same anchor).
     spawnLoc = candidate.Location + SpongifyBlockerOffset;
@@ -877,7 +877,7 @@ function RemoveSpongifyBlocker()
 // 14 keyed regions, 18 bookcases. Each helper is level-scoped (early-returns
 // when Level.Outer.Name doesn't match) so InitGame can call them all
 // unconditionally and let each one decide. APGrantedBlockerKey[i] on
-// APCardWatcher tracks which keys the player has received this session —
+// APCardWatcher tracks which keys the player has received this session.
 // Block helpers early-return on granted, Remove helpers tag-scan + Destroy.
 // Idempotent on re-entry via the tag check. OpenCastle* function naming is
 // legacy: these handle vanilla too (ShouldSpawnOpenCastleBlocker dispatches on
@@ -907,11 +907,11 @@ function bool BlockerKeyGranted(int idx)
 
 // Vanilla gates 7 regions behind a bookcase (same actor + coords + level as
 // open castle, since the levels are identical between distributions). The 5 level
-// regions form a cumulative chain in linear story order — a region's bookcase
+// regions form a cumulative chain in linear story order. A region's bookcase
 // clears only once its own key AND every earlier level key are granted;
 // Duelling and Quidditch are standalone (own key only). Returns True while the
 // bookcase for OwnKeyIdx must still block; False for any key not in the 7
-// (those regions have no vanilla bookcase — spells/story/precollection gate
+// (those regions have no vanilla bookcase, spells/story/precollection gate
 // them). Chain order: Bicorn(10) -> Boomslang(5) -> Goyle(9) ->
 // Slytherin(8) -> ForbiddenForest(7).
 function bool VanillaBlockerShouldBlock(int OwnKeyIdx)
@@ -1331,7 +1331,7 @@ function RemoveOpenCastleGreatHallBlocker()     { DestroyTaggedOpenCastleBlocker
 // Convenience aggregator called from InitGame and from
 // APLevelSetup.TrySpawnClassroomBlockers (post-save-load path that bypasses
 // InitGame). Each helper is level-scoped and key-gated, so unconditional
-// iteration is safe in both modes — a Grounds bookcase in Entryhall_hub just
+// iteration is safe in both modes. A Grounds bookcase in Entryhall_hub just
 // early-returns, and the per-region gate decides spawn/skip per mode. Open
 // castle may spawn all 14 keyed regions (each behind its own key); vanilla spawns
 // only the 7 chain/standalone level regions (the rest are gated by
@@ -1659,7 +1659,7 @@ function ReplaceCardChests()
         if (markerClass != None)
         {
             // Capture location/rotation/tag/base before destroying wci. We must
-            // destroy wci FIRST — Spawn at the same coords with wci still present
+            // destroy wci FIRST. Spawn at the same coords with wci still present
             // causes encroachment, the engine destroys the new marker and returns
             // None.
             //
@@ -1718,16 +1718,16 @@ function ReplaceCardChests()
 // Returns true if a replacement was found.
 //
 // If the card's location is already checked this session, swap to `Jellybean`
-// instead — mimics vanilla StatusGroupWizardCards.RemoveHarryOwnedCardsFromLevel
+// instead. Mimics vanilla StatusGroupWizardCards.RemoveHarryOwnedCardsFromLevel
 // which bean-swaps chest slots whose card the player already owns. Without
 // this swap, re-opening a looted chest would spawn an APCardMarker whose
 // PostBeginPlay sees LocationChecked[id]==1 and self-destroys, leaving the
 // player with chest particles + sound but no item ("ghost chest" bug).
 //
 // Handles two slot states:
-//   1) Vanilla WCxxx — read .default.Id from the vanilla class.
+//   1) Vanilla WCxxx, read .default.Id from the vanilla class.
 //   2) Already-replaced APCardMarker_xxx (restored from a persistent delta
-//      actor cache on re-entry) — read .default.CardLocationId from the marker
+//      actor cache on re-entry), read .default.CardLocationId from the marker
 //      class. Without this branch, a card collected in a level twin (e.g.
 //      Wadcock in Grounds_Night) would leave Grounds_hub's chest's
 //      EjectedObjects[0] stuck as the marker class, and the marker's
@@ -1907,7 +1907,7 @@ function PlayCardRewardFX(harry h, class<WizardCardIcon> cardClass, int nOldCard
     }
 }
 
-// Quidditch equipment grants — Nimbus 2001 (Fred) and Quidditch Armour (George).
+// Quidditch equipment grants: Nimbus 2001 (Fred) and Quidditch Armour (George).
 // Inventory only; bHaveNimbus2001 / bHaveQArmor stay False so Fred/George keep
 // offering, and the AP check at them stays reachable. Vanilla MakePurchase
 // sets the flag on actual sale; APVendorMarker_* has classStatusItem=None so
@@ -2161,7 +2161,7 @@ static function harry TryGetViewportHarry(harry SourceHarry)
 // hasn't transitioned yet).
 // bAllowInGameMenu (optional, default False): when True the in-game pause
 // menu (menuBook.bIsOpen) is NOT a blocking reason. Only RingLink's bean
-// drain passes True — a bean apply is pure data (StatusItem.nCount) with no
+// drain passes True. A bean apply is pure data (StatusItem.nCount) with no
 // UI-instantiating side effects, so it is safe mid-menu. The GRANT drain
 // leaves it False: spell/card grants do heavy work that can race the menu.
 static function bool IsPlayerInPlayableState(harry h, out string DeferReason, optional bool bAllowInGameMenu)
@@ -2208,7 +2208,7 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason, op
     // In-game pause menu (FEBook on the console). `bIsOpen` is True from
     // OpenBook (FEBook.uc:840) until CloseBook (FEBook.uc:880), covering
     // both the in-game pause menu (TogglePauseMenu → OpenBook("INGAME"))
-    // and any other menu page. `bGamePlaying` is the wrong gate here — it
+    // and any other menu page. `bGamePlaying` is the wrong gate here, it
     // only flips False on MainPage (title screen), not on the in-game menu.
     if (!bAllowInGameMenu
         && HPConsole(h.Player.Console) != None
@@ -2225,7 +2225,7 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason, op
     // bLevelLoadStarts cutscenes (the opening scenes that fire on level entry),
     // there's a window between "cutscene actor enters Running state" and
     // "cutscene script issues CAPTURE" where harry is briefly in PlayerWalking
-    // with bIsCaptured=False and HUD cutscene mode is False — and our drain
+    // with bIsCaptured=False and HUD cutscene mode is False, and our drain
     // would fire, applying start_inventory items mid-intro. Iterating active
     // CutScene actors closes that gap: any cutscene currently `bPlaying` means
     // we wait. Bounded N (a level holds <100 cutscene actors).
@@ -2306,7 +2306,7 @@ static function harry FindGrantReadyHarry(Actor caller)
 // delta would double-count it across every linked slot. Route every AP
 // bean grant through the persistent APIPCActor's no-broadcast helper, which
 // resyncs the RingLink baseline after mutating so the next poll sees a zero
-// delta. Direct AddBeans fallback only if the IPC actor is somehow absent —
+// delta. Direct AddBeans fallback only if the IPC actor is somehow absent,
 // beans must never be silently dropped.
 function GrantBeansNoBroadcast(harry h, int Amount)
 {
@@ -2378,7 +2378,7 @@ function bool TryApplyTrap(string Name, harry h)
         {
             beans = h.managerStatus.GetBeanCount();
             // Steal amount. min(N, current) so the count never goes negative
-            // (StatusItem.SetCount also floors at 0 — belt-and-suspenders).
+            // (StatusItem.SetCount also floors at 0, belt-and-suspenders).
             lost = 200;
             if (lost > beans)
             {
@@ -2390,7 +2390,7 @@ function bool TryApplyTrap(string Name, harry h)
                 // bean helper so the steal stays LOCAL
                 // (not mirrored room-wide like every other trap) and the
                 // RingLink poll baseline is resynced. Degrades to a clamped
-                // AddBeans when the IPC actor is absent — same call site
+                // AddBeans when the IPC actor is absent, same call site
                 // either way, so enabling RingLink later needs no change here.
                 GrantBeansNoBroadcast(h, -lost);
             }
@@ -2403,7 +2403,7 @@ function bool TryApplyTrap(string Name, harry h)
     {
         // Model swap only (harry.uc:4136 SetNewMesh swaps the mesh when
         // bIsGoyle flips). The next level loads a fresh pawn with the default
-        // bIsGoyle=false, so this reverts naturally — the watcher sticky just
+        // bIsGoyle=false, so this reverts naturally. The watcher sticky just
         // records it and clears on the level change.
         h.bIsGoyle = True;
         h.SetNewMesh();
@@ -2506,7 +2506,7 @@ function bool TryApplyTrap(string Name, harry h)
 // APIPCActor.bLastGrantWasHighStakes after ApplyGrant returns to route the
 // APPLIED ack through the deferred buffer and to record the pass as
 // high-stakes for its end-of-pass SaveGame decision. The save itself fires
-// from the drain once the queue empties — never mid-pass — so a long burst
+// from the drain once the queue empties (never mid-pass), so a long burst
 // costs one save, and a 1-item filler pass costs none.
 function MarkGrantAsHighStakes()
 {
@@ -2584,7 +2584,7 @@ function ApplyGrant(string Body)
     if (IsKnownSpellName(ItemName))
     {
         Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - marking AP-granted + AddToSpellBookByString");
-        // Always set the class-default flag — works even when no watcher
+        // Always set the class-default flag, works even when no watcher
         // instance is alive (e.g. during Save0.usa load gap). Next level's
         // watcher PreBeginPlay will copy default -> instance.
         class'APCardWatcher'.static.MarkSpellAsAPGrantedDefault(ItemName);
@@ -2655,7 +2655,7 @@ function ApplyGrant(string Body)
         Log("[Archipelago] ApplyGrant: granted Massive Jar of Beans (+250)");
         return;
     }
-    // Small bean denominations — same no-broadcast bean path as the Piles,
+    // Small bean denominations, same no-broadcast bean path as the Piles,
     // just tiny amounts so common filler barely moves the bean total.
     if (ItemName == "1 Bean")
     {
@@ -2703,7 +2703,7 @@ function ApplyGrant(string Body)
         return;
     }
     // Chocolate Frog: partial HP refill. Vanilla `ChocolateFrog.nPickupIncrement=40`
-    // on a StatusGroupHealth/StatusItemHealth pickup — we replicate that by
+    // on a StatusGroupHealth/StatusItemHealth pickup. We replicate that by
     // calling managerStatus.AddHealth(40), which caps at the current max.
     if (ItemName == "Chocolate Frog")
     {

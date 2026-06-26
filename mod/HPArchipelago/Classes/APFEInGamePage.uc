@@ -105,7 +105,7 @@ function Created()
     BuildUnlockedPanel();
 }
 
-// Open-castle goal-progress widget — 5-row mirror of the client /progress
+// Open-castle goal-progress widget, a 5-row mirror of the client /progress
 // command, drawn in the empty right-side strip of the pause menu so the
 // player can check goal status without alt-tabbing. Vanilla-mode seeds and
 // pre-GOALCFG state short-circuit before draw (see DrawGoalProgressPanel).

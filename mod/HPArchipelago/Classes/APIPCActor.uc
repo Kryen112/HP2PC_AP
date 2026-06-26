@@ -32,7 +32,7 @@ var float NextGrantDrainTime;
 // defers OR when the watcher first snapshots in a level. Closes the
 // 0.25s-tick race where harry transiently flickers through PlayerWalking
 // between cutscene segments (or the gap between watcher snapshot and the
-// level's first cutscene actor entering Running state — CutScene.uc:411
+// level's first cutscene actor entering Running state, CutScene.uc:411
 // Sleep(0.2) before Play). Without this, a single Timer tick of harry in
 // PlayerWalking is enough to leak a grant during the intro sequence. See
 // `PushDrainStability` for the bump rules.
@@ -66,7 +66,7 @@ var string RecvBuffer;
 
 // One-time startup safety save. APCardWatcher drives the trigger; these
 // flags are owned by the persistent singleton so they survive level
-// transitions and fire exactly once per process — the player only needs the
+// transitions and fire exactly once per process. The player only needs the
 // early-quit safety net once per fresh launch. TcpLink is transient (not
 // serialized into the save), so a new launch re-arms them.
 // bSawStateBelowGreatHall: set once the watcher reads any gstate below the
@@ -81,7 +81,7 @@ var bool bSawStateBelowGreatHall;
 // diffed against. The poll is deliberately NOT gated on
 // IsPlayerInPlayableState: a vendor spend drains beans while harry is
 // bKeepStationary (non-playable) and must still be mirrored. It IS gated on
-// harry + StatusManager being readable — every save-load and level/area
+// harry + StatusManager being readable. Every save-load and level/area
 // transition passes through a no-readable-harry window (the same gap the
 // grant drain defers on), and that window alone re-snapshots the baseline
 // so the load's bean jump is absorbed, never broadcast. bBaselineValid is
@@ -109,7 +109,7 @@ const SEND_DEATH_MIN_INTERVAL_SECS = 5.0;
 // going non-empty until it next empties. At end-of-pass the drain fires a
 // single SaveGame iff the pass moved >1 item OR included any high-stakes
 // item (spell / key item / blocker key / equipment / card). A 1-item filler
-// pass intentionally skips the save — bean / ingredient / frog / trap have
+// pass intentionally skips the save. Bean / ingredient / frog / trap have
 // no durability contract. Counters reset on death rising-edge (APCardWatcher)
 // so a post-revive resumed drain starts a clean pass.
 var int DrainPassItemCount;
@@ -119,7 +119,7 @@ var byte bDrainPassHadHighStakes;
 // of acking immediately; the end-of-pass SaveGame flushes the buffer. A death
 // between apply and save discards the buffer locally and fires DRAIN_ROLLBACK
 // on the falling edge so the client clears the unacked indices from
-// sent_this_session and re-forwards them — the post-reload drain then re-applies
+// sent_this_session and re-forwards them. The post-reload drain then re-applies
 // them durably. Without the defer, server-acked items applied between apply and
 // save are lost on a death-revert. Filler (beans, ingredients, frog, traps)
 // ignores the buffer and acks immediately.
@@ -190,8 +190,8 @@ function TryReconnect()
         ScheduleNextReconnect();
         return;
     }
-    // Open succeeded. Either Opened() fires (success path — resets backoff)
-    // or Closed() fires (failure — bumps backoff). Pre-schedule the next
+    // Open succeeded. Either Opened() fires (success path, resets backoff)
+    // or Closed() fires (failure, bumps backoff). Pre-schedule the next
     // attempt so a stuck STATE_Connecting still eventually retries.
     ScheduleNextReconnect();
 }
@@ -217,7 +217,7 @@ event Opened()
     Log("[Archipelago] APIPCActor: Opened - sending hello");
     bWantsReconnect = False;
     ReconnectBackoff = 1.0;
-    // RingLink: a (re)connect is a boundary — re-snapshot the baseline on
+    // RingLink: a (re)connect is a boundary. Re-snapshot the baseline on
     // the next playable tick and drop any deferred remote delta so it can't
     // apply against a count that moved while the link was down.
     bBaselineValid = False;
@@ -299,7 +299,7 @@ function HandleLine(string line)
         // Wire form: `GRANT <apIndex> <payload>`. Split on the first space
         // after "GRANT ". A malformed line (no space) still applies, with
         // index -1 so the drain skips the APPLIED ack (item lands; ledger
-        // just doesn't record it — graceful degradation, never a hang).
+        // just doesn't record it, graceful degradation, never a hang).
         rest = Mid(line, 6);
         sp = InStr(rest, " ");
         if (sp < 0)
@@ -317,7 +317,7 @@ function HandleLine(string line)
         // PrintJSON-driven "Sent X to Y" toast for items we sent to OTHER
         // slots. Client guarantees `receiving != self.slot` so own-slot
         // items don't double-toast (they go through ReceivedItems → GRANT
-        // and produce a "Received X from Y" toast instead). No queueing —
+        // and produce a "Received X from Y" toast instead). No queueing,
         // toast is purely cosmetic, drop on the floor if no toast actor.
         HandleSent(Mid(line, 5));
     }
@@ -363,7 +363,7 @@ function HandleLine(string line)
     else if (Left(line, 19) == "SKIP_VENDOR_VOICES ")
     {
         // Silence all in-trade vendor voice cues by zeroing each vendor's
-        // VendorDialog string ids — DoCutTalk's empty-dialog branch fires the
+        // VendorDialog string ids. DoCutTalk's empty-dialog branch fires the
         // cue immediately so the trade flows without audio. Sticky byte on the
         // watcher; resent every HELLO. The watcher re-applies the silence on
         // every Snapshot so a level change picks up the right state.
@@ -372,7 +372,7 @@ function HandleLine(string line)
     else if (Left(line, 19) == "QUIDDITCH_UPGRADES ")
     {
         // Gates whether Fred (Nimbus 2001) and George (Quidditch Armour) get
-        // the Tradersanity icon / banner / hint — those two AP locations only
+        // the Tradersanity icon / banner / hint. Those two AP locations only
         // exist when the seed has enable_quidditch_upgrades on. Sticky byte
         // on the watcher; resent every HELLO.
         class'APVendorController'.static.SetQuidditchUpgrades(byte(int(Mid(line, 19))));
@@ -407,7 +407,7 @@ function HandleLine(string line)
         // client-formatted (scheme stripped). Sticky class-default on the
         // watcher (mirrors GOALCFG / TRADECFG); resent every HELLO. The toast
         // fire/arm is owned by APCardWatcher (Timer + .usa-restore re-arm),
-        // so this line only records the address — idempotent on resend.
+        // so this line only records the address, idempotent on resend.
         class'APStartupFeedback'.static.SetConnectedAddress(Mid(line, 10));
     }
     else if (Left(line, 5) == "MODE ")
@@ -418,7 +418,7 @@ function HandleLine(string line)
         // own install probe (the MGBingo package) and warn on a mismatch.
         // "open_castle" additionally latches bOpenCastleMode (a late belt
         // alongside the durable DLO probe); "MODE vanilla" only records the
-        // declared mode — it never clears bOpenCastleMode (one-way invariant).
+        // declared mode, it never clears bOpenCastleMode (one-way invariant).
         class'APModeDetector'.static.SetSeedDeclaredMode(Mid(line, 5));
         if (Mid(line, 5) == "open_castle")
         {
@@ -532,7 +532,7 @@ function HandleLine(string line)
     }
     else if (Left(line, 7) == "RINGIN ")
     {
-        // Net remote RingLink delta. Accumulate — order is irrelevant, only
+        // Net remote RingLink delta. Accumulate, order is irrelevant, only
         // the sum matters. Applied by TickRingLink on the next playable tick.
         PendingRingDelta += int(Mid(line, 7));
         Log("[Archipelago] APIPCActor: RINGIN " $ Mid(line, 7) $ " (PendingRingDelta=" $ string(PendingRingDelta) $ ")");
@@ -650,7 +650,7 @@ function TickNotConnectedToast()
 }
 
 // RingLink poll + drain. The poll diffs whenever harry + StatusManager
-// are readable — NOT gated on IsPlayerInPlayableState, because a vendor
+// are readable, NOT gated on IsPlayerInPlayableState, because a vendor
 // spend drains beans while harry is bKeepStationary (non-playable) and must
 // still be broadcast. Readability alone is the load discriminator: every
 // save-load and level/area transition passes through a window with no
@@ -671,12 +671,12 @@ function TickRingLink()
 
     if (h == None || h.managerStatus == None)
     {
-        // No readable harry/StatusManager — the load gap every save-load
+        // No readable harry/StatusManager, the load gap every save-load
         // and level/area transition passes through. Re-snapshot the
         // baseline on the next readable tick so the load's bean jump is
         // absorbed and never broadcast, and drop any pending remote delta
         // so a delta that arrived just before the load can't apply against
-        // the post-load total. Beans are filler — a dropped inbound delta
+        // the post-load total. Beans are filler, a dropped inbound delta
         // is a one-time small desync, not corruption.
         bBaselineValid = False;
         PendingRingDelta = 0;
@@ -717,7 +717,7 @@ function TickRingLink()
 
     // Drain accumulated remote delta. Gated on IsPlayerInPlayableState (the
     // laxer poll above only reads beans; this mutates them) so an inbound
-    // delta is never applied mid-cutscene / mid-vendor — it stays deferred
+    // delta is never applied mid-cutscene / mid-vendor. It stays deferred
     // in PendingRingDelta until safe. bAllowInGameMenu=True: a bean apply
     // is pure data, safe with the pause menu open (unlike GRANT drain).
     if (PendingRingDelta != 0
@@ -726,7 +726,7 @@ function TickRingLink()
         // Local clamp at zero so beans never display negative or break
         // vendor affordability (belt-and-suspenders: StatusItem.SetCount
         // already floors at 0). We still broadcast our own true deltas
-        // unclamped — only what we apply from inbound is clamped.
+        // unclamped, only what we apply from inbound is clamped.
         applied = PendingRingDelta;
         if (applied < -current)
         {
@@ -744,11 +744,11 @@ function TickRingLink()
 
 // Shared "mutate beans without broadcasting" helper. Applies the
 // bean change and then immediately resyncs LastBeanBaseline to the freshly
-// read truth so the next poll diff is zero — this is the linchpin that
+// read truth so the next poll diff is zero. This is the linchpin that
 // kills the feedback loop and self-heals if AddBeans clamps. Every
 // non-organic bean mutation must route through here: AP-granted bean filler
 // (APGameInfo.ApplyGrant) and the #9 Bean Thief trap. Organic pickups /
-// vendor spend must NOT — they are exactly what RingLink broadcasts.
+// vendor spend must NOT. They are exactly what RingLink broadcasts.
 function MutateBeansNoBroadcast(harry h, int Delta)
 {
     if (h == None || h.managerStatus == None)
@@ -771,7 +771,7 @@ event Closed()
     Log("[Archipelago] APIPCActor: Closed - scheduling reconnect");
     // RecvBuffer may hold a partial line from before the disconnect. A
     // reconnected client starts fresh, so any half-line we held is now
-    // garbage — drop it.
+    // garbage, drop it.
     RecvBuffer = "";
     bWantsReconnect = True;
     // First retry after Closed: short delay so a graceful client restart
@@ -786,7 +786,7 @@ function SendCheck(int CardId)
 }
 
 // CHECK_LOCID carries a raw AP location id (e.g. 5760318) instead of a game-side
-// card id (1..101). Used by the secret/star pollers — those locations have no
+// card id (1..101). Used by the secret/star pollers; those locations have no
 // game-side numeric handle, so the watcher resolves marker → AP id via the
 // generated APLocationRegistry and ships the resulting AP id directly. Client
 // passes it straight to LocationChecks without a card-table lookup.
@@ -819,7 +819,7 @@ function SendLevel(string LevelName)
 
 // Strip every CR/LF from a payload so a SAY line cannot be split across
 // frames or truncate the newline-delimited wire. There is no Repl helper
-// in this class — InStr/Left/Mid loop, the same idiom ReceivedText uses
+// in this class, InStr/Left/Mid loop, the same idiom ReceivedText uses
 // to split incoming lines.
 function string StripNewlines(string s)
 {
@@ -914,7 +914,7 @@ function QueueGrant(string ItemName, int ApIndex)
     // duplicate. The client's consumed-index ledger prevents re-sends of
     // already-APPLIED items; this guards the in-flight window (e.g. a HELLO
     // re-forward racing the NEWGAME re-forward) so an index can never be
-    // applied twice. ApIndex < 0 is the malformed-wire sentinel — never dedupe
+    // applied twice. ApIndex < 0 is the malformed-wire sentinel, never dedupe
     // those against each other.
     if (ApIndex >= 0)
     {
@@ -936,7 +936,7 @@ function QueueGrant(string ItemName, int ApIndex)
 
 // Tell the client an item was applied to the live game so it records the AP
 // index in its durable AP-Data-Storage ledger and never re-grants it. idx < 0
-// means the GRANT wire was malformed (no index) — skip the ack.
+// means the GRANT wire was malformed (no index), skip the ack.
 function SendApplied(int idx)
 {
     if (idx < 0)
@@ -1031,7 +1031,7 @@ function TryDrainPendingGrants()
     // Hold the drain while Harry is dying / reloading from Save0. Applying an
     // item between rising-edge stateDead and post-reload PlayerWalking would
     // be reverted by the LoadGame, but the APPLIED buffer flush at the next
-    // save would still mark it consumed on the server — exactly the bug the
+    // save would still mark it consumed on the server, exactly the bug the
     // defer + DRAIN_ROLLBACK pair is fixing. The watcher clears bWasDead on
     // the falling edge once the post-reload PlayerWalking arrives.
     if (class'APCardWatcher'.default.bWasDead == 1)
@@ -1039,7 +1039,7 @@ function TryDrainPendingGrants()
         return;
     }
 
-    // Stability cooldown — set whenever anything below defers, or by
+    // Stability cooldown. Set whenever anything below defers, or by
     // APCardWatcher.Snapshot for the post-snapshot warmup. Silent re-poll
     // (no log spam): the original defer already logged its reason.
     if (Level.TimeSeconds < NextGrantDrainEarliest)
@@ -1057,9 +1057,9 @@ function TryDrainPendingGrants()
 
     // Don't drain while the engine is paused (HPConsole sets Level.Pauser
     // briefly during e.g. exec-script sleeps; load screens; dev `pause`).
-    // HP2's in-game menu does NOT flip Level.Pauser — that case is caught
+    // HP2's in-game menu does NOT flip Level.Pauser. That case is caught
     // further down by IsPlayerInPlayableState's `menuBook.bIsOpen` check.
-    // Level.Pauser is a string in HP2 (UE1 retail), not an object ref —
+    // Level.Pauser is a string in HP2 (UE1 retail), not an object ref,
     // compare to "" not None. See HPConsole.uc:752.
     if (Level.Pauser != "")
     {

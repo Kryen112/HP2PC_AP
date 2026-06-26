@@ -2,7 +2,7 @@
 // "X found their Y" with the location on a second line) plus single-colour
 // system/lifecycle lines. Spawned per level from APGameInfo.InitGame; registers
 // with HPHud's propArray so its RenderHud
-// gets called every frame the HUD draws (including during cutscenes — vanilla
+// gets called every frame the HUD draws (including during cutscenes; vanilla
 // only suppresses propArray rendering when the in-game menu is up).
 //
 // Why extend HProp: HPHud's propArray is `Array<HProp>` (HPHud.uc:20), so the
@@ -12,7 +12,7 @@
 // as a 3D mesh in HUD space). The actor itself is hidden, non-colliding, and
 // has no physics.
 //
-// Lifetime: per level. NOT bGameRelevant — each level transition destroys
+// Lifetime: per level. NOT bGameRelevant, each level transition destroys
 // the toast and the next InitGame (or APLevelSetup.TrySpawnClassroomBlockers
 // on save-load) spawns a fresh one. Class-default `LatestInstance` lets
 // APGameInfo.ApplyGrant reach the active toast via GetInstance().
@@ -61,15 +61,15 @@ var transient HPHud RegisteredHud;
 
 // Background texture drawn behind each toast line. `HGame.Icons.leftPanel`
 // is the same panel CutSceneManager uses for its cutscene border bars and
-// FEFolioPage uses for the description-text backdrop — known-good translucent
+// FEFolioPage uses for the description-text backdrop, a known-good translucent
 // panel that reads well on top of arbitrary scene content.
 var Texture ToastBackground;
-// "Whoosh" played per toast — same sound vanilla plays when a vendor card
+// "Whoosh" played per toast, the same sound vanilla plays when a vendor card
 // flies out into the world (Characters.uc:698 PlaySound `vendor_spawn_WC`).
 var Sound ToastSound;
 
 // Singleton pointer lives ONLY on the class default (`default.LatestInstance`).
-// The per-instance copy of this field must always be None — otherwise the save
+// The per-instance copy of this field must always be None. Otherwise the save
 // graph walks it and trips on a cross-package ref: a freshly-spawned toast in
 // (say) Entryhall_hub initializes its instance copy from the class default at
 // spawn time, which is the very first toast that ran PreBeginPlay this process
@@ -78,7 +78,7 @@ var Sound ToastSound;
 // the .usa is never written, and the player's progress silently rolls back on
 // the next load. PreBeginPlay clears it for fresh spawns; Timer clears it
 // defensively every tick for deserialized toasts (which skip PreBeginPlay).
-// `transient` is intentionally omitted — M212 does not honor it, so the explicit
+// `transient` is intentionally omitted. M212 does not honor it, so the explicit
 // clear is the load-bearing piece.
 var APHUDToast LatestInstance;
 
@@ -95,7 +95,7 @@ event PreBeginPlay()
 {
     Super.PreBeginPlay();
 
-    // Critical save-graph hygiene — see the comment above the LatestInstance
+    // Critical save-graph hygiene. See the comment above the LatestInstance
     // declaration. Spawn() seeds this instance copy from the class default
     // (which may point at a previous-level / Entry toast), so clear it before
     // any SaveGame can run.
@@ -151,7 +151,7 @@ event Destroyed()
 // otherwise reach the live Entryhall_hub harry and register itself into
 // Entryhall_hub.HPHud.propArray. That cross-package ref is exactly what the
 // SaveGame conform aborts on ("Graph is linked to external private object
-// APHUDToast Entry.APHUDToast0") — keeping the .usa from updating after a drain.
+// APHUDToast Entry.APHUDToast0"), keeping the .usa from updating after a drain.
 function bool TryRegisterWithHUD()
 {
     local harry h;
@@ -326,7 +326,7 @@ event Timer()
 {
     local int i;
 
-    // Save-graph hygiene — the instance copy of LatestInstance must never hold
+    // Save-graph hygiene. The instance copy of LatestInstance must never hold
     // a real ref (see the comment above the field declaration). A deserialized
     // toast comes back with whatever value the .usa serialized, often a
     // cross-package toast that would abort the next SaveGame.
@@ -540,7 +540,7 @@ function RenderHud(Canvas C)
 // in this engagement (TraderPurchased). Hidden once any of those flips. The
 // label text is the hinted item name when the apworld has cached one for
 // this vendor (HINT IPC); otherwise the generic "Archipelago Item" fallback
-// for off-hint seeds. Foreign-game item names come through unchanged — the
+// for off-hint seeds. Foreign-game item names come through unchanged, the
 // apworld resolves them against slot_info.
 function DrawTradersanityAPLabel(Canvas C)
 {

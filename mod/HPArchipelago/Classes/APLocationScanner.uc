@@ -64,7 +64,7 @@ event PreBeginPlay()
 // via Dispatcher13; WC2..WC11 are physical-walking-order best-guess.
 static function int WCNumForGoldCardId(int id)
 {
-    // Card ids from gen_apworld.CARD_GAME_ID_TO_CLASS (Goldcards subset).
+    // Gold-card game ids (the Goldcards subset of the card markers' CardLocationId).
     switch (id)
     {
         case 69:  return 1;  // WCBott        (entrance, confirmed)

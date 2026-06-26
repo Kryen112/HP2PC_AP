@@ -1,5 +1,5 @@
 //=============================================================================
-// APConsole — dev-only console subclass for bookcase placement.
+// APConsole. Dev-only console subclass for bookcase placement.
 //
 // Activated by patching Modded\system\Default.ini:
 //   [Engine.Engine]
@@ -7,27 +7,27 @@
 //
 // Adds exec commands callable from the in-game console (~ key):
 //
-//   LogPos          — one-shot log of harry's Location + Rotation to Game.log.
+//   LogPos          one-shot log of harry's Location + Rotation to Game.log.
 //                     Complements stock HP2's ShowPos (which only shows X/Y/Z
 //                     on the HUD); LogPos captures Rotation too, in the same
 //                     pretty-printed form a Block<X>IfMissing helper expects.
 //
-//   Note            — free-form label line in Game.log next to nearby LogPos /
+//   Note            free-form label line in Game.log next to nearby LogPos /
 //                     PlaceBookcase output, so one grep recovers a spot's name.
 //
-//   DumpActors      — log every actor (optionally class-name-substring-filtered)
+//   DumpActors      log every actor (optionally class-name-substring-filtered)
 //                     with class/name/tag/location. Used to identify the boss
 //                     and level-exit-trigger classes the §6 goal detector keys
 //                     off.
 //
-//   PlaceBookcase   — spawns a BookcaseGlassDoors at harry's current Location,
+//   PlaceBookcase   spawns a BookcaseGlassDoors at harry's current Location,
 //                     facing the same direction harry is looking. Stand at the
 //                     spot, look in the direction you want the bookcase's front
 //                     to face, fire the command. Bookcase is tagged
 //                     APDebugBookcase so it's idempotent / removable. Location +
 //                     Rotation get logged for later transcription.
 //
-//   ClearBookcases  — destroys every APDebugBookcase-tagged actor in the level.
+//   ClearBookcases  destroys every APDebugBookcase-tagged actor in the level.
 //                     For wiping a misplaced preview before respawning.
 //
 // Freecam keys (debug mode on; Delete toggles the freecam):
@@ -38,7 +38,7 @@
 //     spends beans the way the in-game shift-to-run sprint does.
 //
 // Release builds ship with Default.ini's Console= line unchanged, so end users
-// never instantiate this subclass — the .u compiles it in but the engine picks
+// never instantiate this subclass. The .u compiles it in but the engine picks
 // HGame.HPConsole and never sees these execs.
 //=============================================================================
 
@@ -55,7 +55,7 @@ var float FreeCamBaseSpeed;
 var byte bFreeCamBoosted;
 
 // Print a string to both Game.log AND the in-game chat overlay. Without the
-// ClientMessage path the player has no visible feedback from these execs —
+// ClientMessage path the player has no visible feedback from these execs.
 // LogPos and PlaceBookcase appear to do nothing when invoked, because all
 // their output lands in Game.log which the player has to alt-tab to read.
 function DevPrint(string msg)
@@ -177,12 +177,12 @@ exec function LogPos()
 }
 
 // Actor identification for Phase 4 auto-detection: find the
-// per-level actors the detector keys off — boss classes for Forbidden Forest /
+// per-level actors the detector keys off: boss classes for Forbidden Forest /
 // Chamber, and the level-exit / level-change trigger for the challenges +
 // Whomping Willow + Slytherin Common Room. Stand in the level and fire:
-//   DumpActors            — every actor (verbose; large in hub levels)
-//   DumpActors TRIGGER    — only classes whose name contains "TRIGGER"
-//   DumpActors BASILISK   — substring match on the class name
+//   DumpActors            every actor (verbose; large in hub levels)
+//   DumpActors TRIGGER    only classes whose name contains "TRIGGER"
+//   DumpActors BASILISK   substring match on the class name
 // Per-actor lines go to Game.log only (could be hundreds); the header/footer
 // echo to the chat overlay so the player sees it ran. Level name is the Caps'd
 // map name OpenCastleLevelIs() compares against.
@@ -308,7 +308,7 @@ function LogContainer(string lvl, string fam, Actor c, int hasCard, int lives, s
 
 // Distinct ejected classes of a chest; sets hasCard if any slot is a
 // WizardCardIcon child. The AP card markers are WizardCardIcon subclasses, so
-// this stays true after ReplaceCardChests swaps the slot — card chests are
+// this stays true after ReplaceCardChests swaps the slot. Card chests are
 // reliably flagged whether or not the swap has run yet.
 function string EjectorDrops_Chest(chestbronze chest, out int hasCard)
 {

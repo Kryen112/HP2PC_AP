@@ -10,9 +10,10 @@ const NUM_BLOCKER_KEYS = 14;
 // Mirrors `BASE_ID` in apworld/locations.py.
 const LOC_BASE = 5760000;
 // Window size for the non-card-location dedupe array and every `slot` guard
-// below. Mirrors `NONCARD_LOC_WINDOW` in gen_apworld.py — the two MUST hold
-// the same value; gen_apworld.py fails generation if any non-card location
-// id_offset >= this. Sized generously to cover every band with headroom.
+// below. APContainerMarker.uc and APVendorMarker_Trader.uc carry the same
+// const and all MUST hold the same value. A non-card location id_offset >=
+// this falls outside the array, so its dedupe is skipped. Sized to cover
+// every band with headroom.
 const NONCARD_LOC_WINDOW = 2048;
 // Class-default dedup for non-card AP locations (secrets, stars, vendors,
 // duels, matches, level completions). Indexed by `apId - LOC_BASE`.
@@ -54,7 +55,7 @@ var bool bFolioEmptyAtSnapshot;
 // default.APGrantedSpell[] / default.APGrantedBlockerKey[]; written by every card
 // grant (APGameInfo.TryApplyCard) and by the RESYNC_CARDS client ledger
 // (ApplyResyncCards). Dimension literal MUST be 102 (M212 array dims take an
-// integer literal, not a const) — matches WasOwnedByHarry[] / LocationChecked[].
+// integer literal, not a const). Matches WasOwnedByHarry[] / LocationChecked[].
 const CARD_TIER_BRONZE = 1;
 const CARD_TIER_SILVER = 2;
 const CARD_TIER_GOLD   = 3;
@@ -81,7 +82,7 @@ var byte LessonCheckFired[7];
 // Spell-cast chat flavor. LastSeenCastedSpell holds the
 // baseWand.LastCastedSpell reference observed last tick; its identity
 // changing is the "≥1 new cast happened" signal. PLAIN per-level instance
-// var (NOT class-default/travel) — re-spawned each level like the
+// var (NOT class-default/travel), re-spawned each level like the
 // WasSpellOwned baseline, so a harmless one-time re-trigger after load is
 // acceptable. NextSpellSayEarliest is the Level.TimeSeconds anti-flood
 // floor; SaySpellChance is the per-detected-cast roll (defaultproperties).
@@ -100,14 +101,14 @@ var byte APGrantedKeyItem[3];
 // 14 in the AP pool, vanilla puts the 7 in VANILLA_BLOCKED_KEY_NAMES in the
 // pool (cumulative chain + Duelling/Quidditch standalone) and precollects the
 // rest. APGrantedBlockerKey[i]==1 means the matching key has been delivered by
-// AP — the BlockOpenCastle<X>EntryIfMissing helpers early-return when their
+// AP. The BlockOpenCastle<X>EntryIfMissing helpers early-return when their
 // flag is set, and RemoveOpenCastle<X>Blocker tag-scans the level to destroy
 // any still-present bookcase. Class-default writes via MarkBlockerKeyAsAPGranted-
 // Default keep the flag sticky across save/load and across the per-level watcher
 // instance lifecycle. Index → name mapping in BlockerKeyNames[] below; new
 // entries here must mirror items.yaml blocker_keys.
 // Dimension literal MUST be the integer 14, not NUM_BLOCKER_KEYS (M212 array
-// dims take an integer literal, not a const) — keep in sync with the const.
+// dims take an integer literal, not a const). Keep in sync with the const.
 var string BlockerKeyNames[14];
 var byte APGrantedBlockerKey[14];
 
@@ -133,7 +134,7 @@ var APCardWatcher LatestInstance;
 var byte LocationChecked[102];
 
 // Durable resync handshake. Set by ApplyResyncSpells the first time the client
-// delivers the AP-Data-Storage spell ledger ("RESYNC_SPELLS <csv>") — at which
+// delivers the AP-Data-Storage spell ledger ("RESYNC_SPELLS <csv>"), at which
 // point default.APGrantedSpell[] reflects every spell this slot has ever
 // received from AP. The revert loop gates its wipe branch on this flag so a
 // fresh process / save-load can never wipe AP-granted spells before the client
@@ -154,7 +155,7 @@ var byte WasGoalUnlocked;
 var string MenuReturnFromLevelCaps;
 // Caps'd name of the level Harry was in when he entered stateDead (stamped by
 // ScanDeathLink, organic OR induced DeathLink). HP2's death penalty is
-// LoadGame 0, which reloads the autosave and so travels OUT of the level —
+// LoadGame 0, which reloads the autosave and so travels OUT of the level.
 // CheckExitedLevelObjective uses this to tell a death-reload apart from a real
 // completion (same role as MenuReturnFromLevelCaps for the Return-to-Hub bail).
 var string DeathExitFromLevelCaps;
@@ -170,7 +171,7 @@ var string LastBoundLevelCaps;
 // CHECK_SPELL and the flag clears. Class-default so the transition survives
 // the level change between EndLesson() and the auto-teleport to the
 // matching challenge level (vanilla EndLesson clears CurrSpellLesson, then
-// TriggerEvent likely fires the teleport on the same frame — the new
+// TriggerEvent likely fires the teleport on the same frame. The new
 // watcher in the challenge level still observes the cleared flag and the
 // stamped InLessonForSpell entry, and fires the check there).
 var byte InLessonForSpell[7];
@@ -236,8 +237,8 @@ function MarkSpellAsGranted(string SpellName)
         {
             APGrantedSpell[i] = 1;
             WasSpellOwned[i] = 1;
-            // Mirror to class default so the flag survives level transitions —
-            // each level spawns a fresh watcher with zeroed instance arrays,
+            // Mirror to class default so the flag survives level transitions.
+            // Each level spawns a fresh watcher with zeroed instance arrays,
             // and APGameInfo.InitGame reads this value before Snapshot has run.
             default.APGrantedSpell[i] = 1;
             Log("[Archipelago] APCardWatcher.MarkSpellAsGranted: " $ SpellName);
@@ -279,7 +280,7 @@ function bool HasKeyItem(int i)
 // `harry.CopyCardStatusFromManagerToHarry` on every save / level transition,
 // plus `AssignAllSilverToVendors` at iGameState >= 180) re-assigns AP-checked
 // cards to vendors because our markers never set Harry-owned ownership.
-// Vendors then offer them for sale — wasting beans for a duplicate CHECK that
+// Vendors then offer them for sale, wasting beans for a duplicate CHECK that
 // AP dedupes. Cleared cards are CardOwner_None, which `GetFirstVendorCardId`
 // skips. Called from APCardMarker.Touch (per-pickup) and from the watcher's
 // fallback polling path (if a vanilla wci pickup slipped past Phase B).
@@ -506,7 +507,7 @@ event PreBeginPlay()
     Log("[Archipelago] APCardWatcher.PreBeginPlay - starting timer (Level=" $ string(Level)
         $ " Level.Outer.Name=" $ string(Level.Outer.Name) $ ")");
 
-    // Critical save-graph hygiene — see the comment above the LatestInstance
+    // Critical save-graph hygiene. See the comment above the LatestInstance
     // declaration. Spawn() seeds the instance copy from the class default,
     // which may point at the prior level's (or Entry's) watcher.
     LatestInstance = None;
@@ -532,8 +533,8 @@ event PreBeginPlay()
     KeyItemNames[1] = "Bicorn";
     KeyItemNames[2] = "BitOGoyle";
 
-    // Bookcase-blocker keys (shared by open castle and vanilla). Order matters
-    // — APGrantedBlockerKey[] is indexed by this. Keep in sync with items.yaml
+    // Bookcase-blocker keys (shared by open castle and vanilla). Order matters.
+    // APGrantedBlockerKey[] is indexed by this. Keep in sync with items.yaml
     // blocker_keys section and with TryApplyBlockerKey / RemoveOpenCastle<X>Blocker
     // dispatch in APGameInfo.
     BlockerKeyNames[0]  = "Chamber of Secrets Key";
@@ -690,7 +691,7 @@ static function ApplyResyncSpells(string CsvNames)
 // Connected and every game HELLO) carries every key name this slot has ever
 // received from AP. For each one we route through APGameInfo.TryApplyBlockerKey
 // so the class-default flag is stamped AND any live bookcase blocker in the
-// current level is destroyed — the consumed-indices ledger blocks GRANT replay,
+// current level is destroyed. The consumed-indices ledger blocks GRANT replay,
 // so without this a cold load with wiped class-defaults strands the slot.
 // Falls back to the class-default-only marker when no GameInfo is reachable
 // (resync arrived before any level Game exists).
@@ -795,7 +796,7 @@ static function ApplyResyncKeyItems(string CsvNames)
 // slot has ever received from AP, sent on every Connected and game HELLO. Records
 // each card's tier in default.APGrantedCard[] (so the revert loop never wipes it
 // and a dropped card can be restored to the right StatusItem), then re-asserts
-// ownership on the live folio if a bound watcher exists — otherwise the next
+// ownership on the live folio if a bound watcher exists. Otherwise the next
 // Snapshot picks the flags up from the class-defaults. Mirrors ApplyResyncSpells /
 // ApplyResyncBlockerKeys: cards have no .usa-backed store and the consumed-indices
 // ledger blocks GRANT replay, so without this a save-load / death-reload that
@@ -939,7 +940,7 @@ function PixieCutsceneTick()
 // Inbound DeathLink arm (DEATHLINK IPC line). Class-default + sticky like the
 // other setters; ScanDeathLink applies it on the next playable tick. Setting
 // 1 over an already-pending 1 is idempotent (a death you can't act on yet
-// collapses to a single kill on return — correct, you only die once).
+// collapses to a single kill on return, correct, you only die once).
 static function SetPendingDeathLink()
 {
     default.bPendingDeathLink = 1;
@@ -954,7 +955,7 @@ static function SetPendingDeathLink()
 // game close+reload (class-defaults are compiled, never read from the .usa).
 // Level-completion apIds (5760700..5760711 → slot 700..711) additionally
 // re-stamp APGoalTracker's GoalLevelDone[idx], so a cold load can't leave the
-// open-castle goal evaluator stranded — the bookcase / hub Timer re-evaluates
+// open-castle goal evaluator stranded. The bookcase / hub Timer re-evaluates
 // GoalSatisfied() on the next tick and self-opens the Great Hall via the
 // existing WasGoalUnlocked path. Class-default + sticky like the other
 // setters; idempotent (a check can never be "uncollected"). Resent every
@@ -1012,8 +1013,8 @@ static function SetCheckedLocationsCSV(string csv)
 // Inverse of SetCheckedLocationsCSV: serialize the process-lifetime checked
 // arrays back to a comma-separated list of AP location ids. Sent to the client
 // on every bridge (re)connect (APIPCActor.SendCheckedOut) so a check fired
-// while the client wasn't bridged — client launched after the pickup, or
-// client restarted mid-session — is replayed to AP. The client dedupes against
+// while the client wasn't bridged (client launched after the pickup, or
+// client restarted mid-session) is replayed to AP. The client dedupes against
 // the server's checked_locations, so replaying an already-known id is a no-op.
 // Cards resolve via CardIdToApId (the band mapping is scrambled); non-card
 // slots are slot + LOC_BASE. Empty string when nothing collected yet.
@@ -1047,8 +1048,8 @@ static function string BuildCheckedOutCSV()
 // default.LocationChecked[].
 //
 // Why this exists: ReplaceCardChests only runs in InitGame, but the CHECKED
-// IPC line arrives asynchronously some hundreds of ms after the game's HELLO
-// — by then InitGame has long finished. Without this sweep the chests stay
+// IPC line arrives asynchronously some hundreds of ms after the game's HELLO.
+// By then InitGame has long finished. Without this sweep the chests stay
 // in their save-restored "APCardMarker in slot" state until the next level
 // transition. Idempotent: a slot already Jellybean (or one whose location
 // is still unchecked) is left alone. Mirrors the
@@ -1057,7 +1058,7 @@ static function string BuildCheckedOutCSV()
 // Scope: cards only. chest.bOpened is deliberately NOT restored to True
 // here: same-session ReplaceCardChests' bean-swap path doesn't touch
 // bOpened either (it only resets when hasUnchecked is true), so leaving it
-// matches that behaviour — a chest re-Alohomora'd post-sweep dispenses a
+// matches that behaviour. A chest re-Alohomora'd post-sweep dispenses a
 // Jellybean from the swapped slot, which is the same outcome as a
 // co-op-pre-collected chest the player opens for the first time.
 function ReSweepCheckedChests()
@@ -1174,7 +1175,7 @@ event Timer()
     local harry viewportHarry;
     local APLocationScanner ls;
 
-    // Save-graph hygiene — the instance copy of LatestInstance must always be
+    // Save-graph hygiene. The instance copy of LatestInstance must always be
     // None (only `default.LatestInstance` is the singleton pointer). A non-None
     // instance copy is a cross-package ref that aborts SaveGame.
     if (LatestInstance != None)
@@ -1205,7 +1206,7 @@ event Timer()
         class'APTrapController'.static.HealOrphanedJellyLegs(HarryRef);
         // Run the trap lifetime check on this first post-Bind tick too, so a
         // level transition restores the Obliviate spellbook immediately
-        // (HarryRef is valid here) instead of one tick later — and before the
+        // (HarryRef is valid here) instead of one tick later, and before the
         // spell-revert loop, which we return short of, can run. Idempotent
         // with the TrapTick() below; only acts when a trap is active.
         class'APTrapController'.static.TrapTick(HarryRef);
@@ -1247,7 +1248,7 @@ function ReconcileVanillaCardPickups(APIPCActor ipc)
             // a fresh vanilla pickup: that revert + spurious CHECK, with the
             // consumed-indices ledger blocking any GRANT replay, is exactly the
             // missing-cards bug. Just baseline it so we stop re-checking. This is
-            // the primary fix for the reload race — ownership can be restored
+            // the primary fix for the reload race. Ownership can be restored
             // after Snapshot baselined, leaving WasOwnedByHarry 0 here.
             if (default.APGrantedCard[id] != 0)
             {
@@ -1272,7 +1273,7 @@ function ReconcileVanillaCardPickups(APIPCActor ipc)
 
 // Lesson-end hook for the four spell-tutorial location checks.
 // Fires CHECK_SPELL the tick after harry.CurrSpellLesson transitions from
-// a valid lesson to None — which vanilla `harry.EndSpellLearning()` does
+// a valid lesson to None, which vanilla `harry.EndSpellLearning()` does
 // inside `SpellLessonTrigger.EndLesson()` (uc:842-879), right after
 // `AddToSpellBook(...)` and before the teleport-to-challenge-level event.
 // The transition is what the player perceives as "minigame finished".
@@ -1285,7 +1286,7 @@ function ReconcileVanillaCardPickups(APIPCActor ipc)
 // Class-default InLessonForSpell[] is set every tick the lesson is
 // active; the next tick CurrSpellLesson is None we fire + clear. Storing
 // class-default lets the transition span the watcher death between the
-// classroom level and the challenge level — the new watcher inherits
+// classroom level and the challenge level. The new watcher inherits
 // InLessonForSpell[i] = 1 and fires there if it missed the transition
 // before the level change.
 function SpellLessonEndHook(APIPCActor ipc)
@@ -1325,7 +1326,7 @@ function SpellLessonEndHook(APIPCActor ipc)
 
 // Ch7Gryffindor's TriggerTurnOnAllSpells sets harry.bNoSpellBookCheck=
 // True, which makes IsInSpellBook return True for EVERY spell
-// (harry.uc:568) — the revert loop below could then never clear a spell
+// (harry.uc:568). The revert loop below could then never clear a spell
 // and the player keeps full casting. APGameInfo.InitGame destroys the
 // actor before it can fire on the normal entry path; clearing the flag
 // here every tick also covers a save reloaded inside the room (save-load
@@ -1354,7 +1355,7 @@ function ReconcileVanillaSpells(APIPCActor ipc)
         // (or being restored this very tick by TrapTick). Skip the per-tick
         // vanilla-spell reconciliation entirely so the trap and the revert
         // don't fight; TrapTick owns restore (timer or level change). break
-        // (not continue) — when active, none of the 7 are reconciled.
+        // (not continue). When active, none of the 7 are reconciled.
         if (class'APTrapController'.default.bSpellTrapActive == 1)
         {
             break;
@@ -1378,7 +1379,7 @@ function ReconcileVanillaSpells(APIPCActor ipc)
             // Gate the wipe on the durable resync. Until the client has had a
             // chance to re-assert this slot's AP-granted spells (RESYNC_SPELLS,
             // sent on every Connected), assume an in-spellbook spell is one we
-            // can't yet classify — a late client connect / save-load that
+            // can't yet classify. A late client connect / save-load that
             // dropped APGrantedSpell would otherwise wipe legitimate AP grants
             // and never recover (the client's consumed_indices ledger blocks
             // re-forwarding). Once resync arrives, APGrantedSpell is the source
@@ -1415,7 +1416,7 @@ function ReconcileKeyItems(APIPCActor ipc)
 // every successful cast (baseWand.uc:391/463) and survives spell death
 // (SubtractFromCastedSpellList never clears it), so its reference
 // identity changing since the last 0.25s tick is a reliable "≥1 new
-// cast happened" signal — NumCastedSpells is non-monotonic and unread.
+// cast happened" signal. NumCastedSpells is non-monotonic and unread.
 // Store-then-compare prevents a double-fire; re-arm to None when the
 // casted list drains so the next cast of the same spell still triggers.
 // The wand is None during cutscene/menu (guarded). Duel/boss/sword
@@ -1481,7 +1482,7 @@ function DetectGoalUnlock()
 
 // M7 goal detection: poll FEBook.bInEndGame, set True by ShowCredits()
 // (FEBook.uc:1392) when the post-Basilisk credits cutscene runs. Access
-// pattern mirrors harry.uc:5582 / harry.uc:339 — go through the live
+// pattern mirrors harry.uc:5582 / harry.uc:339. Go through the live
 // gameplay UWorld's HPConsole to reach the active menuBook (HarryRef's
 // own .menuBook field can be stale; the explicit lookup is known-good).
 // One-shot: WasInEndGame guards re-fire. Null-check Player/Console/menuBook
@@ -1522,7 +1523,7 @@ function DetectGoalCompletion(APIPCActor ipc)
 // commands; mirrors the trailing digits of HarryRef.CurrentGameState).
 // Drives the Spongify blocker spawn (gated by APGameInfo.SpongifyGameStateGate),
 // and the log line is also general-purpose telemetry for any future
-// story-state-gated mod logic. One line per transition — quiet otherwise.
+// story-state-gated mod logic. One line per transition, quiet otherwise.
 function DriveStoryProgression()
 {
     if (HarryRef.iGameState != LastGameState)
@@ -1572,7 +1573,7 @@ function TickHeartbeat()
 // actors and reads `slotClass.Default.Id` + `slotClass.Default.bVendorsCanSell`
 // to decide whether to assign the card to a vendor. Our markers have
 // `Default.Id=200` (sentinel for vanilla bean-swap immunity, can't change),
-// so vanilla's lookup writes vendor ownership for nonexistent id 200 — no-op.
+// so vanilla's lookup writes vendor ownership for nonexistent id 200 (no-op).
 // We re-do the pass with the marker's real `CardLocationId` and the per-card
 // `bVendorsCanSell` / `strVendorOwnedAfterGState` defaults that the codegen
 // copies from each WCXxx vanilla class. Result: cards left behind in any
@@ -1588,7 +1589,7 @@ function AssignMarkersToVendors()
     local int assigned;
 
     // Phase C is vanilla-only missed-card recovery. In open castle every level is
-    // infinitely replayable, so a card left behind is never lost — assigning
+    // infinitely replayable, so a card left behind is never lost. Assigning
     // it to a vendor instead lets the player buy cards for levels they have
     // not even reached. Flip the pass into a cleanup so vendors never stock
     // cards in open castle. Covers every caller (iGameState transition + snapshot).
@@ -1724,7 +1725,7 @@ function bool TryAssignMarkerClassToVendor(class<APCardMarker> markerCls)
             return True;
         }
     }
-    // Gold tier intentionally not handled — gold cards are non-sellable in
+    // Gold tier intentionally not handled. Gold cards are non-sellable in
     // vanilla (all 11 have bVendorsCanSell=False and are filtered out above).
     return False;
 }
@@ -1744,7 +1745,7 @@ function bool TryAssignMarkerClassToVendor(class<APCardMarker> markerCls)
 //
 // Skips actors that are already APCardMarker subclasses (idempotent), have
 // id 0 / out-of-range, or have an unknown class (no marker subclass for
-// this card type — leave alone, fallback path will still work). For
+// this card type, leave alone, fallback path will still work). For
 // already-checked locations, destroys the vanilla wci with no replacement
 // (mirrors the chest-loose-icon path in ReplaceCardChests).
 function ReplaceVendorSpawnedCards()
@@ -1827,7 +1828,7 @@ function int LessonShapeToSpellIndex(SpellLessonTrigger lesson)
     return -1;
 }
 
-// Reverse of the SpellClasses[]/SpellNames[] table — maps a live
+// Reverse of the SpellClasses[]/SpellNames[] table, maps a live
 // baseSpell's class back to its 0..NUM_SPELLS-1 index, or -1 for any non-AP
 // spell (duel / boss / sword-fire casts also flow through CastSpell ->
 // AddToCastedSpellList but must not post chat). Same single-source table the
@@ -1962,7 +1963,7 @@ function EnsureLatestRegistration()
         Log("[Archipelago] APCardWatcher: restored LatestInstance -> self (was empty/stale, re-snapshotting)");
         // ProcessServerTravel skips APGameInfo.InitGame, so the classroom
         // blockers won't have been spawned for this level entry. Spawn them
-        // now — the Block* functions are idempotent via a tag-scan guard,
+        // now. The Block* functions are idempotent via a tag-scan guard,
         // so calling them here in addition to InitGame can't double-spawn.
         class'APLevelSetup'.static.TrySpawnClassroomBlockers(self);
         return;
@@ -2061,7 +2062,7 @@ function Snapshot()
 
     // Re-pull AP-grant flags from the class default in case ApplyResyncSpells
     // (or an ApplyGrant) fired between this watcher's PreBeginPlay copy and
-    // Snapshot — that one-shot copy would otherwise leave instance stale and
+    // Snapshot. That one-shot copy would otherwise leave instance stale and
     // the revert loop would wipe a spell the durable resync already covered.
     for (i = 0; i < NUM_SPELLS; i++)
     {
@@ -2073,7 +2074,7 @@ function Snapshot()
 
     // Restore AP-granted spells the .usa save dropped (M212's per-level package
     // does not always preserve travel class refs for spells the level's import
-    // table didn't natively need — exactly the spell-loss reload bug). The
+    // table didn't natively need, exactly the spell-loss reload bug). The
     // durable resync ledger is the source of truth; re-add anything it marked.
     // AddToSpellBook is idempotent (slot-empty guard, harry.uc:556).
     if (default.bResyncReceived == 1)
@@ -2100,7 +2101,7 @@ function Snapshot()
             // open castle's MGBingo grants all 7. Neither is a player action,
             // so set WasSpellOwned[i] to suppress the "new vanilla spell learned"
             // CHECK_SPELL transition in the revert loop. APGrantedSpell stays
-            // 0 — only true AP grants (ApplyGrant via IPC) set it. Spells the
+            // 0. Only true AP grants (ApplyGrant via IPC) set it. Spells the
             // user marked in starting_spells flow back over the durable resync;
             // anything else gets reverted on the next tick.
             WasSpellOwned[i] = 1;
@@ -2174,7 +2175,7 @@ function Snapshot()
     }
     // Clause-3: credit terminal objective levels (ingredient levels 0-2,
     // Willow 5, Slytherin 6) from the watcher's own per-level bind history
-    // when we leave them. Challenges (7-11) are NOT exit-credited — see
+    // when we leave them. Challenges (7-11) are NOT exit-credited. See
     // ScanFinalStarCompletion (per-tick FinalStar pickup observer), since the
     // entrance door and pause-menu Return-to-Hub button both bypass the
     // "leaving == completion" premise.
@@ -2188,14 +2189,14 @@ function Snapshot()
     if (ls != None) ls.DropOwnedGoldCardCurtains();
 
     // Post-snapshot warmup. Without this, the very first drain happens the
-    // moment Snapshot() returns — but level-load cutscenes haven't yet hit
+    // moment Snapshot() returns, but level-load cutscenes haven't yet hit
     // their `Play()` call (CutScene.uc:411 sleeps 0.2s in Idle.begin), so
     // every cutscene-presence gate (bPlaying / bIsCaptured / IsCutSceneOrPopupInProgress)
     // returns False and the drain leaks an item during the intro. Pushing
     // the earliest-drain time forward gives the level's bLevelLoadStarts
     // cutscenes time to enter Running state so the existing gates take over.
     // A Snapshot fires after every save-load, so the first post-Snapshot
-    // bean diff is the load's autosave revert — absorb it into the
+    // bean diff is the load's autosave revert. Absorb it into the
     // baseline rather than broadcasting.
     if (class'APIPCActor'.static.GetInstance() != None)
     {
@@ -2247,7 +2248,7 @@ function PushDeathLinkSettle(float seconds)
 // DeathLink. Outgoing rising-edge detection on the single terminal state
 // every death cause funnels through (stateDead → LoadGame 0), plus inbound
 // application via a dedicated terminal path that never routes through
-// Died/KillHarry — KillHarry's boss-victory branch (harry.uc:1576) would send
+// Died/KillHarry. KillHarry's boss-victory branch (harry.uc:1576) would send
 // SendVictoriousTrigger instead of dying when Harry has a boss target with
 // TrigEventWhenVictor, gifting a open castle player an Aragog/Basilisk goal.
 // StopBossEncounter clears that target; bClubDeath bypasses the Wiggenweld
@@ -2289,7 +2290,7 @@ function ScanDeathLink(APIPCActor ipc)
         }
         if (default.bSuppressNextDeathBroadcast == 1)
         {
-            // This stateDead is our own induced (incoming) kill — consume the
+            // This stateDead is our own induced (incoming) kill. Consume the
             // latch and do NOT rebroadcast (deterministic loop prevention).
             default.bSuppressNextDeathBroadcast = 0;
             default.DeathSuppressTicksLeft = 0;
@@ -2315,10 +2316,10 @@ function ScanDeathLink(APIPCActor ipc)
         if (default.DeathExitFromLevelCaps == Caps(string(Level.Outer.Name)))
             default.DeathExitFromLevelCaps = "";
 
-        // Alive again (post-reload PlayerWalking) — tell the client to clear
+        // Alive again (post-reload PlayerWalking). Tell the client to clear
         // sent_this_session for any indices not yet durably consumed, then
         // re-forward them. The reload is finished, so the freshly queued
-        // grants are safe from a wipe — earlier (rising edge) would race the
+        // grants are safe from a wipe. Earlier (rising edge) would race the
         // LoadGame. Clearing bWasDead is gated on the send going through;
         // otherwise a next-tick retry can re-attempt once the IPC settles.
         if (ipc != None)

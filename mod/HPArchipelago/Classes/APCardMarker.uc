@@ -1,7 +1,6 @@
 // Base class for the AP-replacement card icons placed in chests/cauldrons/levels.
-// One concrete subclass per card class (APCardMarker_WCStarkey etc.) is
-// auto-generated from data/items.yaml; each subclass sets CardLocationId
-// to the real card id.
+// One concrete subclass per card class (APCardMarker_WCStarkey etc.) sets
+// CardLocationId to the real card id.
 //
 // Extends WizardCardIcon to inherit the vanilla visual experience (mesh,
 // bouncing physics, fall-from-chest, fly-to-HUD spin).
@@ -21,17 +20,17 @@ var int CardLocationId;
 // opposed to chest-spawned by chestbronze.generateobject. Loose-spawned
 // markers keep bPersistent=True so they survive level transitions (matching
 // the vanilla wci behaviour they replace, since the cache delta records the
-// vanilla wci as destroyed — without a persistent replacement the spot ends
+// vanilla wci as destroyed, without a persistent replacement the spot ends
 // up empty on re-entry). Chest-spawned markers get bPersistent=False via
 // the Timer to avoid the 18-marker-stacking bug.
 var bool bIsLooseSpawn;
 
-// "Bronze" / "Silver" / "Gold" — set per generated subclass
+// "Bronze" / "Silver" / "Gold", set per generated subclass
 // (mirrors the parent vanilla class's tier). Used by
 // APCardWatcher.AssignMarkersToVendors to pick the right si (siBronze /
 // siSilver / siGold) when assigning vendor ownership for missed cards.
 // `bVendorsCanSell` and `strVendorOwnedAfterGState` are inherited from
-// `WizardCardIcon` — generated subclasses override them via defaultproperties
+// `WizardCardIcon`. Generated subclasses override them via defaultproperties
 // with the per-card vanilla values so vendors see our markers as sellable.
 var string MarkerTier;
 
@@ -47,7 +46,7 @@ var string DisplayName;
 // `Physics=PHYS_None` (no Physics line in `WizardCardIcon.defaultproperties`)
 // so it stays pinned. Our `Spawned()` normally overrides to `PHYS_Falling` so
 // chest-ejected cards fall and mover-carried cards (Chamber-II descending
-// platform → `WCElphick`) get pushed by mover collision — but that breaks the
+// platform → `WCElphick`) get pushed by mover collision, but that breaks the
 // floating placements. With this flag set, `Spawned()` keeps `PHYS_None` to
 // preserve the design-time Z. Set per-card via the FLOATING_CARDS list
 // in the codegen tooling.
@@ -92,7 +91,7 @@ function PostBeginPlay()
     // Defer bPersistent=False to next tick. chestbronze.generateobject (uc:163)
     // stamps newSpawn.bPersistent = bMakeSpawnPersistent AFTER PostBeginPlay
     // returns, so setting bPersistent here would be overridden. The Timer
-    // fires next tick — by then the chest's generateobject has finished and
+    // fires next tick. By then the chest's generateobject has finished and
     // our False sticks. Effect: an opened-but-not-picked-up card is gone on
     // level re-entry instead of stacking into a pile of intangible markers.
     // (For loose-spawn markers there's no chest stamp, but the timer still
@@ -114,7 +113,7 @@ event Timer()
 // chest with a dramatic arc. The bouncing state moves the icon around, which
 // makes loose-icon replacements (placed at design time) end up far from where
 // the player expects them. We keep gravity (PHYS_Falling so chest-spawned
-// markers fall to the floor instead of floating) but skip the bouncing state —
+// markers fall to the floor instead of floating) but skip the bouncing state.
 // the marker drops straight down to land at its spawn x/y, then sits in Wait.
 function Spawned()
 {
@@ -154,7 +153,7 @@ function MarkAsLoose()
 // landing surface instead of jittering forever under gravity. Velocity zeroed
 // on every contact; PHYS_Falling stays active so movers can collision-carry
 // the card. Tick keeps vanilla's spinning-yaw animation. The begin: loop
-// mirrors vanilla — UE1 needs a state entry point.
+// mirrors vanilla. UE1 needs a state entry point.
 auto state Wait
 {
     function HitWall(Vector HitNormal, Actor Wall)
@@ -188,7 +187,7 @@ function Touch(Actor Other)
     if (CardLocationId <= 0 || CardLocationId > 101) return;
     // Already AP-checked: this is a stale duplicate (e.g. vendor spawned a
     // second copy of the same card before the player picked up the first).
-    // Destroy self instead of returning silently — leaving the actor in the
+    // Destroy self instead of returning silently. Leaving the actor in the
     // world makes it an intangible ghost the player walks through forever.
     if (class'APCardWatcher'.default.LocationChecked[CardLocationId] == 1)
     {
