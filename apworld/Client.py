@@ -1,4 +1,4 @@
-"""HP2PC_AP — Archipelago-aware client (bundled apworld component).
+"""HP2PC_AP. Archipelago-aware client (bundled apworld component).
 
 Subclasses Archipelago's CommonContext to speak the real AP protocol over
 WebSocket against a hosted seed, while also accepting a local TCP connection
@@ -10,16 +10,16 @@ during dev from inside the Archipelago repo:
 
 Mod-side protocol (newline-delimited text):
     HELLO                       (game → client, on connect)
-    CHECK <id>                  (game → client, on card pickup — game-side card id 1..101)
-    CHECK_LOCID <id>            (game → client, on secret/star pickup — raw AP location id)
+    CHECK <id>                  (game → client, on card pickup, game-side card id 1..101)
+    CHECK_LOCID <id>            (game → client, on secret/star pickup, raw AP location id)
     CHECK_SPELL <name>          (game → client, on spell learned)
     CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
     GOAL_COMPLETE               (game → client, when the end-game latch sets; also replayed
                                 on every bridge connect while it holds, so a goal reached
                                 offline still registers)
     RINGOUT <signed_int>        (game → client, local bean total changed organically)
-    SAY <text>                  (game → client, ~1/100 on spell cast — cosmetic chat)
-    DEATH [cause]               (game → client, Harry entered stateDead — DeathLink out)
+    SAY <text>                  (game → client, ~1/100 on spell cast, cosmetic chat)
+    DEATH [cause]               (game → client, Harry entered stateDead, DeathLink out)
     VENDOR_OPENED <locId>       (game → client, player opened a Tradersanity vendor dialogue → broadcast hint)
     APPLIED <index>             (game → client, item at AP index applied → mark durably consumed)
     NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
@@ -32,8 +32,8 @@ Mod-side protocol (newline-delimited text):
                                 colourised toast segment record)
     SENT <segrecord>            (client → game, colourised "we sent X to Y" toast for items routed to other slots)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
-    DEATHLINK                   (client → game, a linked player died — kill Harry)
-    TRAPLINK <name>|<source>    (client → game, a linked player's trap — applied via the grant
+    DEATHLINK                   (client → game, a linked player died, kill Harry)
+    TRAPLINK <name>|<source>    (client → game, a linked player's trap, applied via the grant
                                 drain as an index-less grant)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server
@@ -62,7 +62,7 @@ re-stamps the matching class-default flag arrays (APGrantedSpell /
 APGrantedBlockerKey / APGrantedKeyItem / APGrantedCard) and restores any live
 game state the .usa save dropped (spellbook entries, bookcase blocker actors,
 Harry's ingredient StatusItems, folio card ownership), so a process restart that
-wiped the compiled class-defaults can never strand the slot — the consumed-indices
+wiped the compiled class-defaults can never strand the slot. The consumed-indices
 ledger would otherwise block any GRANT replay for these items. Cards additionally
 have no .usa-backed store at all, so the resync is also their save-load recovery
 within a single process (the gold-card-room "tracker enterable but folio short" fix).
@@ -192,9 +192,9 @@ _AUDIO_KINDS = {
         mode_aware=True),
 }
 
-# sound_patch and dialogue_patch raise ue1_package.PatchError; music_patch has
-# its own. OSError covers a write that fails outside the friendly-message path.
-_PATCH_ERRORS = (PatchError, music_patch.PatchError, OSError)
+# All patch modules raise ue1_package.PatchError. OSError covers a write that
+# fails outside the friendly-message path.
+_PATCH_ERRORS = (PatchError, OSError)
 
 
 # All wizard-card item names, derived from ITEM_GROUPS so it can never drift
@@ -204,16 +204,16 @@ CARD_ITEM_NAMES_SET = frozenset(
     + ITEM_GROUPS.get("Cards (Silver)", [])
     + ITEM_GROUPS.get("Cards (Gold)", [])
 )
-# Base AP id for the 12 level-completion locations (Hogwarts/Boomslang/...,
-# Aragog, Basilisk, the 4 spell challenges, Whomping Willow, Slytherin,
-# Gryffindor challenge). idx 0..11 = AP id - LEVEL_COMPLETION_BASE.
+# Base AP id for the level-completion locations (the story/challenge levels plus
+# the Gold Card Room). The count derives from the data so it cannot drift when a
+# level is added. idx = AP id - LEVEL_COMPLETION_BASE.
 LEVEL_COMPLETION_BASE = 5760700
-LEVEL_COMPLETION_COUNT = 12
-# Full set sizes for the duels and Quidditch goal clauses. Those two goal
-# options are enable flags (win-all), not counts, so /progress shows these as
-# the have/need denominator when the flag is set.
-DUEL_COUNT = 10
-QUIDDITCH_MATCH_COUNT = 6
+LEVEL_COMPLETION_COUNT = sum(1 for g in LOCATION_GROUPS.values() if g == "LevelCompletions")
+# Full set sizes for the duels and Quidditch goal clauses, derived from the data
+# so they cannot drift. Those two goal options are enable flags (win-all), not
+# counts, so /progress shows these as the have/need denominator when the flag is set.
+DUEL_COUNT = sum(1 for g in LOCATION_GROUPS.values() if g == "Duels")
+QUIDDITCH_MATCH_COUNT = sum(1 for g in LOCATION_GROUPS.values() if g == "QuidditchMatches")
 # Trap item names, from ITEM_GROUPS so it can never drift from
 # data/items.yaml. Used by the #3 marker-appearance classifier. Every
 # received item is gated by the AP-Data-Storage consumed-index ledger (see
@@ -243,13 +243,13 @@ GAME_TCP_PORT = 42779
 # of the last death in either direction (CommonContext.last_death_link, stamped
 # by send_death and on_deathlink) is treated as simultaneity and not bounced
 # into the game; an outbound DEATH within it is not re-broadcast. The
-# deterministic loop is handled mod-side by the suppression latch — this only
+# deterministic loop is handled mod-side by the suppression latch. This only
 # mops up genuine within-a-round-trip races.
 DEATHLINK_AMNESTY_S = 2.0
 
 # Map UScript spell name (as fired by APCardWatcher's CHECK_SPELL) to the
 # AP location it represents. Only the 4 non-starter spells have classroom
-# locations and so live in this map — each is taught after its classroom's
+# locations and so live in this map. Each is taught after its classroom's
 # spell challenge. Story order: Rictusempra (Lockhart#1) → Skurge (Flitwick)
 # → Diffindo (Sprout) → Spongify (Lockhart#2). Lumos/Flipendo/Alohomora have
 # no classroom location; harry.uc:335-337 adds them to every fresh Harry, the
@@ -279,7 +279,7 @@ KEYITEM_TO_LOCATION_NAME: dict[str, str] = {}
 # the marker into that item's vanilla art. Codes mirror
 # APCardWatcher.AppearanceCode[].
 
-# Spell appearance index — MUST match APCardWatcher.SpellNames[] order
+# Spell appearance index. MUST match APCardWatcher.SpellNames[] order
 # (0 Alohomora … 6 Spongify). Appearance code = 1000 + index.
 SPELL_NAME_TO_INDEX = {
     "Alohomora": 0, "Diffindo": 1, "Flipendo": 2, "Lumos": 3,
@@ -305,21 +305,21 @@ BLOCKER_KEY_NAMES_SET = frozenset(ITEM_GROUPS['Blocker Keys'])
 # three inherits save-load survivability with zero extra wiring.
 KEY_ITEM_NAMES_SET = frozenset(['Boomslang', 'Bicorn', 'BitOGoyle'])
 
-# Filler appearance code — FILLER_NAMES order maps 1:1 to the mod's 2001..2008
+# Filler appearance code. FILLER_NAMES order maps 1:1 to the mod's 2001..2008
 # (Small/Medium/Large/Massive Beans, Wiggenweld, Wiggentree Bark, Flobberworm,
 # Chocolate Frog).
 FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
 
-# Equipment appearance code — vanilla HProp pickups morphed to their own
+# Equipment appearance code: vanilla HProp pickups morphed to their own
 # vanilla mesh, same as cards/spells/filler (mod codes 3001..3002).
 EQUIPMENT_CODE = {'Nimbus 2001': 3001, 'Quidditch Armour': 3002}
 
-# Bookcase-blocker key appearance code — the 14 region keys all share the
+# Bookcase-blocker key appearance code. The 14 region keys all share the
 # vanilla "silver key" FX sprite (mod code 3003). Sourced from the canonical
 # ITEM_GROUPS entry so the set never drifts from items.yaml.
 KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Blocker Keys']}
 
-# Foreign (non-HP2) item codes — the only surviving #1 contribution: the
+# Foreign (non-HP2) item codes. The only surviving #1 contribution: the
 # AP-logo plate, arrow variant when the foreign item is progression or trap
 # (progression_skip_balancing collapses to the progression bit), plain
 # otherwise. This is the sole place the classification arrow is computed.
@@ -529,7 +529,7 @@ class HP2Context(CommonContext):
         # Drained by handle_game_connection on each new game connect.
         self.pending_grants: list[str] = []
         # Outbound AP messages queued while the AP server is offline. Drained
-        # on every successful Connected. In-memory only — a client crash
+        # on every successful Connected. In-memory only. A client crash
         # during an AP outage loses these.
         self.pending_ap_outbound: list[dict] = []
         # --- Durable-grant ledger ------------------------------------------
@@ -562,8 +562,8 @@ class HP2Context(CommonContext):
         self.beanroom_loaded: bool = False
         # When True, our in-memory consumed_indices wins over the server's stored
         # value on the next Retrieved (we overwrite the server instead of merging).
-        # Set by the NEWGAME wipe so a stale server ledger — e.g. a wipe Set lost
-        # to a dying socket — can't resurrect consumed indices and strand the
+        # Set by the NEWGAME wipe so a stale server ledger (e.g. a wipe Set lost
+        # to a dying socket) can't resurrect consumed indices and strand the
         # fresh playthrough. False the rest of the time, when the load instead
         # unions (preserving any locally-applied index whose persist was lost).
         self._ledger_client_authoritative: bool = False
@@ -582,12 +582,12 @@ class HP2Context(CommonContext):
         self.sent_this_session: set[int] = set()
         # --- Durable spell-grant ledger ------------------------------------
         # The set of spell item names this slot has ever received from AP is
-        # NOT a separate Data Storage record — it is derived live from
+        # NOT a separate Data Storage record. It is derived live from
         # received_by_index by the `granted_spell_names` property. AP's
         # cumulative ReceivedItems replay on every Connected is the source of
         # truth, so an already-consumed spell index (never re-forwarded as a
         # GRANT) still re-asserts as `RESYNC_SPELLS` on every connect/HELLO
-        # via the property — covering the .usa save-load that dropped the
+        # via the property, covering the .usa save-load that dropped the
         # SpellBook[] class ref and the cold mod-process boot that reset
         # default.APGrantedSpell[].
         # Identity (seed_name, slot name) of the connection whose per-slot state
@@ -602,14 +602,14 @@ class HP2Context(CommonContext):
         # which the built-in RoomInfo handler awaits before our on_package runs.
         # The server address is deliberately NOT part of the identity: a host can
         # return the SAME room on a new port (archipelago.gg inactivity sleep),
-        # so a port change is not a playthrough change — wiping then would drop
+        # so a port change is not a playthrough change. Wiping then would drop
         # locations_checked / pending_ap_outbound the mod can't re-assert while
         # the bridge stays up. The same-seed-value / same-slot / same-port case
         # (which seed+slot also can't see) is instead caught authoritatively by
         # the mod's NEWGAME signal when the fresh save starts.
         # A transient AP blip / same-slot reconnect leaves both unchanged, so the
         # durable state correctly survives it. CommonContext.reset_server_state
-        # is NOT the right hook — it runs on every disconnect, which the durable
+        # is NOT the right hook. It runs on every disconnect, which the durable
         # state must survive.
         self._last_seed_name: Optional[str] = None
         self._last_auth: Optional[str] = None
@@ -683,7 +683,7 @@ class HP2Context(CommonContext):
         self._audio_task: Optional[asyncio.Task] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
-        # every game HELLO) — a durable, authoritative open castle signal that
+        # every game HELLO). A durable, authoritative open castle signal that
         # survives a cold load into a sentinel-less level. The open-castle flag
         # itself (bOpenCastleMode) is one-way sticky and never cleared.
         self.is_open_castle: bool = False
@@ -694,7 +694,7 @@ class HP2Context(CommonContext):
         # install probe (the MGBingo package) to warn when a seed is played on
         # the wrong maps. "MODE open_castle" additionally latches bOpenCastleMode
         # mod-side; "MODE vanilla" only records the declared mode (never clears
-        # bOpenCastleMode — that invariant is preserved).
+        # bOpenCastleMode, preserving that invariant).
         self.seed_mode: Optional[str] = None
         # #3: last "apId:code,…" appearance payload pushed to the mod, or None
         # if not yet built. Resent on every game HELLO (sticky + idempotent
@@ -720,8 +720,8 @@ class HP2Context(CommonContext):
         self.trap_pool: list[str] = []
         # DeathLink. Opt-in per-slot via slot_data on Connected; the tag
         # itself lives on self.tags (managed by update_death_link). Inbound
-        # deaths are NOT queued for an offline game — you can't die when not
-        # playing, so a death received then is stale and dropped. Loop
+        # deaths are NOT queued for an offline game (you can't die when not
+        # playing), so a death received then is stale and dropped. Loop
         # prevention is the deterministic mod-side suppression latch; this
         # timestamp amnesty is only race insurance for genuine simultaneity
         # (CommonContext.last_death_link is stamped by both send_death and
@@ -729,7 +729,7 @@ class HP2Context(CommonContext):
         self.death_link_enabled: bool = False
         # Startup "Connected to host:port" toast. The effective AP server
         # address (scheme stripped, port defaulted), formatted on every
-        # Connected from self.server_address — which server_loop has by then
+        # Connected from self.server_address, which server_loop has by then
         # normalised to ws://host[:port]. Pushed as the sticky CONNECTED IPC
         # line now if the game is up, else on the next game HELLO. Sticky +
         # idempotent mod-side (same lifecycle as open_castle_goalcfg); the mod
@@ -977,7 +977,7 @@ class HP2Context(CommonContext):
         # full cross-mode/all-options universe, but an open castle /
         # option-trimmed seed only instantiates a subset for this slot. Scouting a
         # location id the slot doesn't have raises a server-side KeyError
-        # that drops the connection — and CommonClient auto-resends
+        # that drops the connection, and CommonClient auto-resends
         # locations_scouted on every reconnect, so a bad entry would wedge
         # the client permanently. server_locations (missing | checked) is
         # the authoritative per-slot set and is populated before
@@ -1009,7 +1009,7 @@ class HP2Context(CommonContext):
         # (including ours via a different process) collects one of our
         # locations. CommonContext has already merged the delta into
         # self.checked_locations by the time on_package runs, so just
-        # rebuild from scratch — the diff against self.checked_csv
+        # rebuild from scratch. The diff against self.checked_csv
         # suppresses no-op pushes.
         if "checked_locations" in args:
             self._rebuild_checked_csv()
@@ -1017,8 +1017,8 @@ class HP2Context(CommonContext):
     def _on_received_items(self, args: dict) -> None:
         base = args.get("index") or 0
         for offset, item in enumerate(args.get("items", [])):
-            # Absolute index in this slot's cumulative ReceivedItems list —
-            # the stable per-item key used by the durable ledger. AP resends
+            # Absolute index in this slot's cumulative ReceivedItems list.
+            # The stable per-item key used by the durable ledger. AP resends
             # the full list (base 0) on every reconnect, so storing by index
             # is idempotent.
             idx = base + offset
@@ -1105,8 +1105,8 @@ class HP2Context(CommonContext):
     def _handle_ring_bounce(self, args: dict) -> None:
         """Apply an inbound RingLink Bounce to the game's bean total.
 
-        Inbound is NOT cached (§4): if the game is offline the delta is
-        dropped, bypassing _send_to_game's offline queue — replaying stale
+        Inbound is NOT cached: if the game is offline the delta is
+        dropped, bypassing _send_to_game's offline queue. Replaying stale
         ring deltas after an outage double-applies across the room and beans
         are filler. The only defer is the short mod-side PendingRingDelta,
         cleared on save/level-load boundaries.
@@ -1118,7 +1118,7 @@ class HP2Context(CommonContext):
         data = args.get("data") or {}
         # The server echoes our own Bounce back to us (true in stock AP); the
         # source self-filter is mandatory. Other RingLink games may send a
-        # non-int source — a failed int() means it isn't ours, so apply it.
+        # non-int source. A failed int() means it isn't ours, so apply it.
         src = data.get("source")
         if src is not None and self.ring_source is not None:
             try:
@@ -1154,7 +1154,7 @@ class HP2Context(CommonContext):
         if not self.death_link_enabled:
             return
         if amnesty:
-            logger.info("DeathLink: inbound within amnesty window — not forwarding")
+            logger.info("DeathLink: inbound within amnesty window, not forwarding")
             return
         if self.game_writer is None or self.game_writer.is_closing():
             logger.info("DeathLink: inbound dropped (game offline; stale when not playing)")
@@ -1176,7 +1176,7 @@ class HP2Context(CommonContext):
         # Toast feedback for items WE send to other slots ("Sent X to Y").
         # AP server broadcasts an ItemSend PrintJSON for every cross-slot
         # delivery; we filter to ones where item.player == self.slot (we're
-        # the sender). Skip if receiving == self.slot — that's our own item
+        # the sender). Skip if receiving == self.slot. That's our own item
         # and ReceivedItems already triggers a "Received X from Y" toast,
         # so a SENT toast on top would be a duplicate.
         try:
@@ -1258,7 +1258,7 @@ class HP2Context(CommonContext):
         # safe). The tag must persist on self.tags so the Connect sent during
         # auth on a later reconnect already carries it; a ConnectUpdate is
         # only needed the first time we add it mid-session. AP 0.6.5's
-        # CommonContext has NO update_tags() — mirror update_death_link
+        # CommonContext has NO update_tags(). Mirror update_death_link
         # (CommonClient.py:752-760): mutate self.tags, then ConnectUpdate.
         self.ring_link_enabled = True
         self.ring_source = random.getrandbits(31)
@@ -1716,7 +1716,7 @@ class HP2Context(CommonContext):
         # logger). logger above is HP2Client, which is file-only.
         ui_logger.info("The Harry Potter 2 game connected to this client. It can now send and receive items.")
         self.game_writer = writer
-        # Fresh game session — clear the per-session sent-index guard so the
+        # Fresh game session. Clear the per-session sent-index guard so the
         # HELLO re-forward / drain below repopulate it from scratch.
         self.sent_this_session = set()
 
@@ -1746,7 +1746,7 @@ class HP2Context(CommonContext):
                 logger.info(f"[game→client] {line}")
                 await self._handle_game_line(line)
         except (ConnectionResetError, ConnectionAbortedError):
-            # Normal on Windows when the game window closes — the OS resets
+            # Normal on Windows when the game window closes. The OS resets
             # the socket without a clean FIN. No need to log a stack trace.
             pass
         finally:
@@ -1768,7 +1768,7 @@ class HP2Context(CommonContext):
                 writer.close()
             except Exception:
                 pass
-            # Skip wait_closed() entirely — on Windows ProactorEventLoop, an
+            # Skip wait_closed() entirely. On Windows ProactorEventLoop, an
             # already-reset socket raises ConnectionResetError from the loop's
             # internal _loop_reading task, which asyncio surfaces as
             # "Unhandled exception in client_connected_cb" regardless of any
@@ -1826,7 +1826,7 @@ class HP2Context(CommonContext):
         # Mod completed a death-revert: any item between the last save and
         # the death was un-applied by LoadGame 0, and its APPLIED ack was
         # buffered but never flushed. Anything in sent_this_session that
-        # isn't durably consumed is exactly that set — drop it from the
+        # isn't durably consumed is exactly that set. Drop it from the
         # session guard so _forward_all_received re-sends it, and the
         # post-reload drain re-applies it durably.
         unacked = self.sent_this_session - self.consumed_indices
@@ -1861,7 +1861,7 @@ class HP2Context(CommonContext):
         self.finished_game = False
         # A fresh save has checked nothing. Drop the local check cache so the
         # framework's next Connected resend can't replay a prior
-        # playthrough's locations — the backstop for two rooms the connect-
+        # playthrough's locations. The backstop for two rooms the connect-
         # time identity can't tell apart (same seed value → same seed_name,
         # same slot name, same host:port). The new game's genuine checks
         # repopulate this via CHECK / CHECKEDOUT.
@@ -1876,7 +1876,7 @@ class HP2Context(CommonContext):
         return
 
     async def _on_hello(self, line: str) -> None:
-        # Game (re)connected — re-forward every received item not yet
+        # Game (re)connected. Re-forward every received item not yet
         # consumed (the sent_this_session guard, reset on this connect,
         # stops the pending-grants drain + this from double-sending).
         #
@@ -1917,7 +1917,7 @@ class HP2Context(CommonContext):
         self._send_vendor_hints_to_mod()
         # Re-arm the Tradersanity per-vendor price factors. Sticky +
         # idempotent mod-side (writes a class-default byte table). Only
-        # sent when Tradersanity is on — when off the mod never reads the
+        # sent when Tradersanity is on. When off the mod never reads the
         # table, and an off seed should not be carrying stale factors.
         if self.tradersanity_prices_csv:
             self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
@@ -1934,7 +1934,7 @@ class HP2Context(CommonContext):
             self._send_to_game("CONNECTED " + self.connected_address)
         # Re-arm the checked-locations resync. Sticky + idempotent mod-side
         # (stamps are 0→1 only, no clears). `is not None` (not truthiness)
-        # so the empty-string "no checks yet" payload still re-arms — the
+        # so the empty-string "no checks yet" payload still re-arms. The
         # mod overwrites any stale state from a prior session that way.
         if self.checked_csv is not None:
             self._send_to_game("CHECKED " + self.checked_csv)
@@ -1985,7 +1985,7 @@ class HP2Context(CommonContext):
         # Do NOT route through the AP-outage replay queue
         # (pending_ap_outbound): replaying stale ring deltas after a long
         # outage double-applies across the room. If AP is down, drop the
-        # delta — beans are filler; the baseline has already moved, so it
+        # delta. Beans are filler; the baseline has already moved, so it
         # is a one-time small desync, not corruption.
         if not (self.server and self.slot is not None):
             logger.info(f"RingLink: AP offline, dropping outbound {delta:+d} (not queued)")
@@ -2004,7 +2004,7 @@ class HP2Context(CommonContext):
 
     async def _on_death(self, line: str) -> None:
         # Harry entered stateDead. Broadcast a DeathLink Bounce only while
-        # tagged (death_link on) and outside the amnesty window — the mod
+        # tagged (death_link on) and outside the amnesty window. The mod
         # already skipped the outbound edge for an induced (incoming) kill
         # via its suppression latch, so anything reaching here is an
         # organic death. send_death stamps last_death_link itself.
@@ -2017,7 +2017,7 @@ class HP2Context(CommonContext):
             logger.info("DeathLink: AP offline, dropping outbound death (not queued)")
             return
         # The DeathLink spec asks for a non-empty cause that contains the
-        # player name (slot known here — the offline guard above ran), so
+        # player name (slot known here, the offline guard above ran), so
         # receiving games show which AP slot died, not the in-game avatar.
         me = self.player_names.get(self.slot, "Harry")
         cause = f"{me} got avada kadavra'd"
@@ -2038,8 +2038,8 @@ class HP2Context(CommonContext):
     async def _on_say(self, line: str) -> None:
         # Cosmetic only: a ~1/100 spell-cast roll fired mod-side. Post a
         # random flavor line to multiworld chat. No dedupe / no location
-        # semantics — purely a gag.
-        await self._handle_spell_say(line[4:].strip())
+        # semantics. Purely a gag.
+        await self._handle_spell_say(line[len("SAY "):].strip())
         return
 
     async def _on_check_spell(self, line: str) -> None:
@@ -2103,7 +2103,7 @@ class HP2Context(CommonContext):
 
     async def _on_check(self, line: str) -> None:
         try:
-            check_id = int(line[6:].strip())
+            check_id = int(line[len("CHECK "):].strip())
         except ValueError:
             logger.warning(f"Unparseable CHECK: {line!r}")
             return
@@ -2145,7 +2145,7 @@ class HP2Context(CommonContext):
         """A random real player that isn't us, or None if there is no such
         player resolvable. Excludes our own slot, the Server pseudo-slot
         (slot 0), and group / item-link pseudo-slots (SlotType.group). When
-        AP is offline self.slot is None — we can't reliably tell ourselves
+        AP is offline self.slot is None. We can't reliably tell ourselves
         apart, so return None and let the caller fall back to "<Spell>!"."""
         if self.slot is None:
             return None
@@ -2173,7 +2173,7 @@ class HP2Context(CommonContext):
         return random.choice(forms)
 
     async def _handle_spell_say(self, spell_name: str) -> None:
-        """A ~1/100 spell-cast roll fired SAY mod-side — post a random flavor
+        """A ~1/100 spell-cast roll fired SAY mod-side. Post a random flavor
         line to multiworld chat. Routed through the same offline-safe queue as
         checks so an AP-down gag is replayed on reconnect (never lost, never
         blocks the game). Purely cosmetic: no location / dedupe semantics."""
@@ -2258,7 +2258,7 @@ class HP2Context(CommonContext):
     def _persist_ledger(self) -> None:
         """Write the consumed-index set back to AP server Data Storage. Routed
         through the offline-safe queue so an AP blip can't lose it (replayed on
-        reconnect). want_reply=False — single writer, no read-back needed."""
+        reconnect). want_reply=False. Single writer, no read-back needed."""
         if self.ledger_key is None:
             return
         asyncio.create_task(self._send_or_queue_ap_msg(
@@ -2272,8 +2272,8 @@ class HP2Context(CommonContext):
     def _persist_level(self, level: str) -> None:
         """Mirror the player's current map to AP server Data Storage so the
         tracker can follow along (it reads level_key on connect and subscribes
-        for changes). Offline-safe queue + replace semantics, want_reply=False —
-        single writer, latest value wins."""
+        for changes). Offline-safe queue + replace semantics, want_reply=False.
+        Single writer, latest value wins."""
         if self.level_key is None:
             return
         asyncio.create_task(self._send_or_queue_ap_msg(
@@ -2286,7 +2286,7 @@ class HP2Context(CommonContext):
     def _persist_beanroom(self) -> None:
         """Write the open-castle bean-room ledger back to AP Data Storage so the
         room's collected / opened state survives a game restart. Offline-safe
-        queue + replace semantics, want_reply=False — single writer, latest wins."""
+        queue + replace semantics, want_reply=False. Single writer, latest wins."""
         if self.beanroom_key is None:
             return
         asyncio.create_task(self._send_or_queue_ap_msg(
@@ -2353,8 +2353,8 @@ class HP2Context(CommonContext):
         ITEM_NAME_TO_CARD_CLASS) this slot has ever received from AP, derived
         from received_by_index the same way as `granted_spell_names`. Read by
         `_send_resync_cards` on every Connected + game HELLO. Cards have no other
-        durable record — the mod's folio is the only store and the .usa cannot
-        persist mod state — so this is the source of truth for re-asserting
+        durable record (the mod's folio is the only store and the .usa cannot
+        persist mod state), so this is the source of truth for re-asserting
         CardOwner_Harry on a card the folio dropped."""
         return {
             ucls
@@ -2367,8 +2367,8 @@ class HP2Context(CommonContext):
     @property
     def granted_key_item_names(self) -> set[str]:
         """Potion-ingredient key items (Boomslang / Bicorn / BitOGoyle) this
-        slot has received from AP. Always empty today — these names are not in
-        items.yaml — but the membership test mirrors the spell / blocker-key
+        slot has received from AP. Always empty today (these names are not in
+        items.yaml), but the membership test mirrors the spell / blocker-key
         pattern so a future randomization picks up save-load survivability
         without further wiring."""
         return {
@@ -2399,7 +2399,7 @@ class HP2Context(CommonContext):
         default.APGrantedBlockerKey[] AND destroys any matching live bookcase
         blocker, so a cold load that wiped the class-defaults isn't soft-locked
         by the consumed-indices ledger blocking GRANT replay. Covers both
-        modes — open castle (per-key blocker) and vanilla (cumulative chain
+        modes: open castle (per-key blocker) and vanilla (cumulative chain
         plus standalone Duelling/Quidditch)."""
         csv = ",".join(sorted(self.granted_blocker_key_names))
         if csv:
@@ -2423,7 +2423,7 @@ class HP2Context(CommonContext):
         RESYNC_CARDS line. Sticky + idempotent mod-side; sent on every Connected
         (Retrieved) and every game HELLO. The mod re-stamps default.APGrantedCard[]
         AND re-asserts CardOwner_Harry for any received card the folio is missing,
-        so a save-load / death-reload that dropped one isn't permanent — the
+        so a save-load / death-reload that dropped one isn't permanent. The
         consumed-indices ledger would otherwise block GRANT replay, the same
         failure the spell / blocker-key resync prevents, and the cause of the
         gold-card-room "tracker says enterable but folio is short" reports."""
@@ -2573,8 +2573,8 @@ class HP2Context(CommonContext):
         """Recompute the CHECKED resync payload from this slot's
         checked_locations, intersected with the slot's HP2 location universe.
         Pushed every game HELLO so the mod can stamp class-default
-        LocationChecked[] / NonCardLocationChecked[] on a fresh process —
-        those arrays are process-lifetime only. The intersect mirrors the
+        LocationChecked[] / NonCardLocationChecked[] on a fresh process.
+        Those arrays are process-lifetime only. The intersect mirrors the
         appearance scout: server_locations is the authoritative per-slot
         universe (missing | checked), so an apId outside it is not ours and
         would only be noise to the mod. Diff against the cached payload to
@@ -2611,8 +2611,8 @@ class HP2Context(CommonContext):
         # vendors gated on enable_quidditch_upgrades, so they ride on the same
         # hint pipeline as the 13 Tradersanity vendors when the option is on.
         if self.quidditch_upgrades:
-            tradersanity_ids.add(5760005)  # Castle Exterior - Nimbus 2001
-            tradersanity_ids.add(5760006)  # Castle Exterior - Quidditch Armour
+            tradersanity_ids.add(LOCATION_NAME_TO_ID["Castle Exterior - Nimbus 2001"])
+            tradersanity_ids.add(LOCATION_NAME_TO_ID["Castle Exterior - Quidditch Armour"])
         for loc_id in tradersanity_ids:
             ni = self.locations_info.get(loc_id)
             if ni is None:
@@ -2621,7 +2621,7 @@ class HP2Context(CommonContext):
             if not item_name:
                 continue
             # "<slot>'s <item>" so the label reads as a possessive sentence
-            # rather than just an item name in a vacuum — makes the foreign
+            # rather than just an item name in a vacuum. Makes the foreign
             # ownership obvious. For our own items we use the slot name too;
             # if it gets noisy we can branch on `ni.player == self.slot`
             # and drop the prefix.
@@ -2632,7 +2632,7 @@ class HP2Context(CommonContext):
     def _rebuild_appearance_table(self) -> None:
         """Recompute the per-location appearance payload from locations_info
         and push it to the mod if it changed. Only HP2 location ids appear in
-        locations_info (we scout only our own). Codes of 0 are omitted — the
+        locations_info (we scout only our own). Codes of 0 are omitted. The
         mod clears its table on each ingest so an omitted location reverts to
         its native look."""
         pairs: list[str] = []
@@ -2745,7 +2745,7 @@ def launch(*launch_args: str) -> None:
     parser.add_argument("url", nargs="?", help="Archipelago connection url.")
     args = parser.parse_args(launch_args)
     args = CommonClient.handle_url_arg(args, parser=parser)
-    # basicConfig (not just setLevel) — without an explicit handler, INFO-level
+    # basicConfig (not just setLevel). Without an explicit handler, INFO-level
     # logs fall through to logging's lastResort handler which drops anything
     # below WARNING. Only the warnings would surface, hiding all the useful
     # connection / item-flow chatter.

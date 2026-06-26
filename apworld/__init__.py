@@ -1,4 +1,4 @@
-"""HP2PC_AP — Harry Potter 2: Chamber of Secrets PC randomizer for Archipelago.
+"""HP2PC_AP. Harry Potter 2: Chamber of Secrets PC randomizer for Archipelago.
 
 Items + locations come from data/*.yaml. The .py files in this directory
 are auto-generated; treat data/*.yaml as the source of truth.
@@ -10,7 +10,6 @@ when credits start after the Basilisk sequence.
 
 from __future__ import annotations
 
-import random as _random
 from dataclasses import dataclass
 from typing import ClassVar, Union
 
@@ -18,7 +17,7 @@ import settings
 from BaseClasses import (Item, ItemClassification, Location,
                          LocationProgressType, Region)
 from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
-                     OptionGroup, OptionSet, PerGameCommonOptions,
+                     OptionError, OptionGroup, OptionSet, PerGameCommonOptions,
                      Range, StartInventoryPool, Toggle)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
@@ -44,8 +43,8 @@ SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
 # Vanilla-only: the Whomping Willow is the one-way opening level. Both of its
 # secrets require Alohomora, which the level never teaches and which no earlier
 # check can deliver. The player only ever passes through once, so without
-# Alohomora precollected these secrets are permanently impossible — not merely
-# missable — and are dropped as locations entirely rather than excluded. This
+# Alohomora precollected these secrets are permanently impossible (not merely
+# missable) and are dropped as locations entirely rather than excluded. This
 # is a fixed game-knowledge fact, so it lives here in the hand-authored world
 # module rather than the generated locations.py.
 WHOMPING_WILLOW_ALOHOMORA_SECRETS: frozenset[str] = frozenset({
@@ -90,7 +89,7 @@ VANILLA_BLOCKED_KEY_NAMES: set[str] = {
 
 # Regions that exist only in an open castle seed. Their level is never entered
 # in a vanilla playthrough, so every location in them must not be created as a
-# vanilla check at all — not merely made unreachable. _location_enabled
+# vanilla check at all, not merely made unreachable. _location_enabled
 # enforces this (the mirror image of the Classrooms+open-castle exclusion).
 # The region name itself still appears in BOTH logic files because gen_apworld
 # requires the vanilla and open-castle region SETS to be identical; in vanilla
@@ -239,7 +238,7 @@ class AllowGlitchedLogic(Toggle):
     Additive only: a seed solvable with it off stays solvable with it on.
     `Glitched` is a logic flag, not an item: when this is on the world
     precollects it so the `... | Glitched` clauses in data/logic_*.yaml pass.
-    Off by default — the standard logic expects no glitches. Enabling it assumes
+    Off by default. The standard logic expects no glitches. Enabling it assumes
     the player can perform the glitches the tagged checks rely on.
     """
     display_name = "Allow Glitched logic"
@@ -355,7 +354,7 @@ class TrapLink(Toggle):
     (whose name HP2 has no effect for) maps to a random HP2 trap, so a linked
     player always feels something. Independent of `traps`: you still receive
     linked traps even if your own seed generates none. Inbound traps respect
-    your `traps` selection — a trap you turned off is remapped to one you kept
+    your `traps` selection. A trap you turned off is remapped to one you kept
     (unless `traps` is empty, in which case any of the ten can land)."""
     display_name = "Trap Link"
 
@@ -499,12 +498,12 @@ class HP2Options(PerGameCommonOptions):
     starting_spells: StartingSpells
     # Logic-flag toggles, both modes. Each precollects a code-less event item
     # (Running / Glitched) when on, relaxing the `... | Running` / `... |
-    # Glitched` clauses in data/logic_*.yaml. Pure generation logic — no item,
+    # Glitched` clauses in data/logic_*.yaml. Pure generation logic, no item,
     # no pool entry, nothing the mod needs at runtime.
     allow_running_logic: AllowRunningLogic
     allow_glitched_logic: AllowGlitchedLogic
     # Per-category check toggles. Each gates both the matching locations and
-    # any paired items (currently: wizard cards, vendor equipment) — generator
+    # any paired items (currently: wizard cards, vendor equipment). Generator
     # emits both sides into the stable id space, HP2World filters at build
     # time. Spells + classrooms have no toggle: a spell-randomized run is the
     # core experience, so spells are always in the pool and classrooms are
@@ -520,13 +519,13 @@ class HP2Options(PerGameCommonOptions):
     enable_spell_challenge_times: EnableSpellChallengeTimes
     containersanity: Containersanity
     ring_link: RingLink
-    # AP Bounce-channel option (Toggle, default off). Pure runtime channel —
+    # AP Bounce-channel option (Toggle, default off). Pure runtime channel,
     # no fill/logic impact; the client reads it from slot_data on Connected,
     # (de)registers the TrapLink tag, broadcasts received traps and applies
     # inbound ones.
     trap_link: TrapLink
     # Built-in AP Bounce-channel option (Toggle, default off). Pure runtime
-    # channel — no fill/logic impact; the client reads it from slot_data on
+    # channel, no fill/logic impact; the client reads it from slot_data on
     # Connected and (de)registers the DeathLink tag.
     death_link: DeathLink
     traps: Traps
@@ -620,14 +619,25 @@ class HP2World(World):
             current.update({"Lumos", "Flipendo"})
             self.options.starting_spells.value = frozenset(current)
             return
-        # No open-castle card/goal contradiction to reject: wizard cards always
-        # exist (enable_wizard_cards only picks shuffle vs locked-vanilla), so a
-        # cards goal clause is always satisfiable.
+        # Open castle gates each level behind its own key, so the 14 level keys
+        # need a reachable home OUTSIDE the locked levels. Only secrets, shuffled
+        # cards, and containers place locations in the pre-key hubs; the behind-key
+        # categories (stars/duels/quidditch/spell-times) do not, so a config with
+        # none of the three cannot place the keys. Reject with guidance rather
+        # than crash fill. (The count guard in create_items catches the separate
+        # case where a seeder is on but the totals still overflow.)
+        if not (self.options.enable_secrets or self.options.enable_wizard_cards
+                or self.options.containersanity):
+            raise OptionError(
+                f"{self.game}: open castle needs at least one check category whose "
+                "locations sit outside the locked levels, so the level keys have a "
+                "reachable home. Enable secrets, wizard cards, or containersanity."
+            )
 
     def create_item(self, name: str) -> HP2Item:
         classification = ITEM_CLASSIFICATIONS[name]
         # Open castle's configurable Great Hall key can require a card count,
-        # so AP must guarantee cards reachable — promote every card to
+        # so AP must guarantee cards reachable. Promote every card to
         # progression_skip_balancing (reachable-guaranteed, but excluded from
         # the heavy progression-balancing pass, like the silvers already are).
         # Open castle only: vanilla keeps the generated classification untouched.
@@ -669,7 +679,7 @@ class HP2World(World):
         # (0..13) is the only knob over how many count toward the Great Hall.
     }
     # Item-group → option-attr map. Same shape, applies to paired items.
-    # Spells / Key Items / Filler aren't listed — always in the pool. Cards
+    # Spells / Key Items / Filler aren't listed. Always in the pool. Cards
     # aren't here either: they always exist, and enable_wizard_cards only picks
     # shuffle vs locked-vanilla placement (handled in create_items). Traps are
     # a per-type OptionSet handled by name in _item_enabled, and are excluded
@@ -724,7 +734,7 @@ class HP2World(World):
         if opt_attr is None:
             return True
         # .value generalises the Toggle gates and makes a Choice (Tradersanity:
-        # off=0) read as enabled for any non-off setting — bool(option) is
+        # off=0) read as enabled for any non-off setting. bool(option) is
         # always truthy for a Choice instance, so it must be bool(value).
         return bool(getattr(self.options, opt_attr).value)
 
@@ -735,7 +745,9 @@ class HP2World(World):
             return item_name in self.options.traps.value
         for group_name, opt_attr in self._ITEM_GROUP_TO_OPT.items():
             if item_name in ITEM_GROUPS.get(group_name, []):
-                return bool(getattr(self.options, opt_attr))
+                # .value for the same reason as _location_enabled: bool(option) is
+                # always truthy for a Choice; the gate must read bool(value).
+                return bool(getattr(self.options, opt_attr).value)
         return True
 
     def create_regions(self) -> None:
@@ -782,7 +794,7 @@ class HP2World(World):
         #
         # Spells: honor `starting_spells` exactly in both modes. The mod's
         # Snapshot reverts every spell harry.PreBeginPlay grants (Flipendo /
-        # Lumos / Alohomora — see harry.uc:335-337) unless AP has granted it
+        # Lumos / Alohomora, see harry.uc:335-337) unless AP has granted it
         # over IPC, so a spell that isn't precollected here cannot be kept
         # by riding the vanilla engine grant.
         spells = set(self.options.starting_spells.value) & set(ITEM_GROUPS.get("Spells", []))
@@ -804,7 +816,7 @@ class HP2World(World):
         # This covers secrets flagged missable AND every container in a one-way
         # story region (chests/cauldrons/spawners there are gone for good once
         # the level is left). It is safe to hold progression only if guaranteed
-        # reachable then — i.e. allow_missable_progression is on AND every item it
+        # reachable then, i.e. allow_missable_progression is on AND every item it
         # depends on (region entry AND its own requires) is precollected.
         # Otherwise force it filler-only so AP fill never gates the seed on a
         # location the level makes permanently unreachable.
@@ -835,7 +847,7 @@ class HP2World(World):
         # Logic flags (Running / Glitched) are player-selected capabilities, not
         # items: when enabled, precollect each as a code-less event item so the
         # `... | Running` / `... | Glitched` clauses in the rule tables pass.
-        # Never placed, never sent over the wire — the mod runs/glitches the
+        # Never placed, never sent over the wire. The mod runs/glitches the
         # same regardless; this only relaxes generation logic.
         for flag_name, option in (
             ("Running", self.options.allow_running_logic),
@@ -850,7 +862,7 @@ class HP2World(World):
         # Traps are excluded here alongside filler: neither counts as a
         # placeable non-filler item. Traps only ever enter the pool through
         # the filler-delta partition below (so item/location balance is
-        # identical to a no-traps seed — they just displace some filler).
+        # identical to a no-traps seed, they just displace some filler).
         non_filler = [
             name for name in ITEM_NAME_TO_ID
             if name not in FILLER_NAMES
@@ -887,8 +899,20 @@ class HP2World(World):
             1 for loc_name in LOCATION_NAME_TO_ID if self._location_enabled(loc_name)
         )
         delta = active_location_count - len(placeable_non_filler)
+        if delta < 0:
+            # More mandatory progression items (level keys + spells) than check
+            # locations: the seed cannot place them and fill would crash. Reject
+            # with guidance instead of a cryptic FillError. Only open castle can
+            # hit this, when too few check categories are enabled.
+            raise OptionError(
+                f"{self.game}: {len(placeable_non_filler)} progression items "
+                f"(level keys and spells) but only {active_location_count} check "
+                "locations this seed. Enable at least one more check category "
+                "(wizard cards, secrets, challenge stars, duelling, quidditch "
+                "matches, upgrades, containersanity, or tradersanity)."
+            )
         if delta > 0:
-            rng: _random.Random = self.multiworld.random if hasattr(self.multiworld, "random") else _random.Random()
+            rng = self.multiworld.random
             # Split the delta between traps and filler. Empty trap set / 0% ⇒
             # trap_n stays 0 and the whole delta is filler. The partition keeps
             # the pool size exactly `delta`, so item/location balance is
@@ -1060,9 +1084,9 @@ class HP2World(World):
         levels = int(o.open_castle_goal_levels.value)
         duels = int(bool(o.open_castle_goal_duels.value))
         quidditch = int(bool(o.open_castle_goal_quidditch.value))
-        # The contradictory combo (open_castle_goal_cards>0 while
-        # enable_wizard_cards is off) is rejected up front in generate_early
-        # with a clear message, so it can't reach here — no silent zeroing needed.
+        # No card-goal contradiction to handle: wizard cards always exist in open
+        # castle (enable_wizard_cards only picks shuffle vs locked-vanilla), so a
+        # cards clause is always satisfiable (see generate_early).
         if not (cards or spells or levels or duels or quidditch):
             # SPELL_ITEM_NAMES is the 7 spells (defined at module top).
             spells = len(SPELL_ITEM_NAMES)
@@ -1084,8 +1108,8 @@ class HP2World(World):
         # so the same AP seed always produces the same per-vendor prices.
         # Mod side blends the factor into [LO,HI] (price_random) or the
         # vendor's own [min,max] (price_vanilla on a card vendor), so one
-        # roll per vendor sticks for the whole seed — across level transitions
-        # AND save/exit — instead of re-rolling RandRange on every level
+        # roll per vendor sticks for the whole seed (across level transitions
+        # AND save/exit) instead of re-rolling RandRange on every level
         # entry. Empty list when tradersanity is off; the client treats absent
         # / empty identically (the IPC line is suppressed).
         # list[list[int]] (not dict[int,int]) so the JSON wire shape doesn't

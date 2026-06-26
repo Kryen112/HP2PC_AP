@@ -25,10 +25,10 @@ from collections import namedtuple
 
 try:
     from .sound_pool import BLACKLIST, FOOTSTEPS, LONG, MEDIUM, SHORT
-    from .ue1_package import Package, PatchError, atomic_write, read_file
+    from .ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 except ImportError:  # standalone CLI use from the apworld directory
     from sound_pool import BLACKLIST, FOOTSTEPS, LONG, MEDIUM, SHORT
-    from ue1_package import Package, PatchError, atomic_write, read_file
+    from ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 
 
 _TMP_PREFIX = ".hpsounds_"
@@ -163,15 +163,7 @@ def restore_original(install_path: str) -> str:
     """Copy the pristine .orig back over HPSounds.u. Returns 'restored',
     'unchanged', or 'no-backup' (install was never patched).
     """
-    pkg_path = package_path(install_path)
-    orig_path = pkg_path + ".orig"
-    if not os.path.exists(orig_path):
-        return "no-backup"
-    pristine = read_file(orig_path)
-    if os.path.exists(pkg_path) and read_file(pkg_path) == pristine:
-        return "unchanged"
-    atomic_write(pkg_path, pristine, _TMP_PREFIX)
-    return "restored"
+    return restore_one(package_path(install_path), _TMP_PREFIX)
 
 
 if __name__ == "__main__":

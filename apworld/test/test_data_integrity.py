@@ -49,3 +49,20 @@ class TestDataIntegrity(unittest.TestCase):
     def test_every_location_has_a_region(self) -> None:
         missing = set(LOCATION_NAME_TO_ID) - set(LOCATION_REGIONS)
         self.assertEqual(missing, set(), f"locations missing a region: {sorted(missing)}")
+
+    def test_level_completion_ids_are_contiguous(self) -> None:
+        # The client's /progress readout range-scans level-completion ids as
+        # [base, base + count). That is correct only if the LevelCompletions ids
+        # form a gap-free run starting at the base the client scans from
+        # (5760700) that no other location intrudes on. Guards both the count
+        # (derived in the client) and that range assumption against future drift.
+        level_ids = sorted(LOCATION_NAME_TO_ID[n] for n, g in LOCATION_GROUPS.items()
+                           if g == "LevelCompletions")
+        self.assertTrue(level_ids, "no LevelCompletions locations found")
+        self.assertEqual(level_ids[0], 5760700, "level-completion base moved; update the client")
+        expected = list(range(level_ids[0], level_ids[0] + len(level_ids)))
+        self.assertEqual(level_ids, expected, "level-completion ids are not contiguous")
+        intruders = sorted(n for n, i in LOCATION_NAME_TO_ID.items()
+                           if level_ids[0] <= i <= level_ids[-1]
+                           and LOCATION_GROUPS.get(n) != "LevelCompletions")
+        self.assertEqual(intruders, [], f"non-level-completion ids inside the range: {intruders}")

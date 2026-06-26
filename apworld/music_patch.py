@@ -23,16 +23,14 @@ import os
 
 try:
     from .music_pool import JINGLE_POOL, MUSIC_POOL
+    from .ue1_package import DENIED_MSG, PatchError, atomic_write, safe_remove
 except ImportError:  # standalone use from the apworld directory
     from music_pool import JINGLE_POOL, MUSIC_POOL
+    from ue1_package import DENIED_MSG, PatchError, atomic_write, safe_remove
 
 MARKER_FORMAT = 1
 _MARKER_NAME = "marker.json"
 _BACKUP_DIRNAME = ".hp2_backup"
-
-
-class PatchError(Exception):
-    """Raised for unrecoverable patch states; the client surfaces the message."""
 
 
 def music_dir(install_path: str) -> str:
@@ -87,42 +85,6 @@ def _present_names(mdir: str) -> list[str]:
     return [n for n in (MUSIC_POOL + JINGLE_POOL) if os.path.exists(_ogg(mdir, n))]
 
 
-def _safe_remove(path: str) -> None:
-    try:
-        os.remove(path)
-    except OSError:
-        pass
-
-
-_DENIED_MSG = (
-    "could not write to the Harry Potter install folder (permission denied). Close "
-    "the game if it is running. If the install is under Program Files, close the "
-    "Archipelago launcher and reopen it as administrator, then reconnect."
-)
-
-
-def _atomic_write(path: str, data: bytes) -> None:
-    # Open the temp file directly rather than via tempfile.mkstemp. On Windows a
-    # denied folder (the usual non-elevated write under Program Files) makes
-    # mkstemp spin TMP_MAX times: it retries every PermissionError that
-    # os.access(W_OK) wrongly reports as writable, stalling this executor thread
-    # for tens of seconds and freezing the window when shutdown joins it on exit.
-    # A plain os.open surfaces the denial at once as the friendly admin message.
-    tmp = os.path.join(os.path.dirname(path), ".hpmus_" + os.urandom(8).hex() + ".tmp")
-    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_BINARY", 0)
-    try:
-        fd = os.open(tmp, flags, 0o600)
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        os.replace(tmp, path)
-    except PermissionError as e:
-        _safe_remove(tmp)
-        raise PatchError(_DENIED_MSG) from e
-    except BaseException:
-        _safe_remove(tmp)
-        raise
-
-
 def apply_patch(install_path: str, music_seed: int) -> str:
     """Swap each track's content for its shuffled target's. Returns 'patched' or
     'unchanged'. A pristine Music folder (no marker) seeds the backup; a patched
@@ -140,13 +102,16 @@ def apply_patch(install_path: str, music_seed: int) -> str:
     try:
         os.makedirs(bdir, exist_ok=True)
     except PermissionError as e:
-        raise PatchError(_DENIED_MSG) from e
+        raise PatchError(DENIED_MSG) from e
     present = _present_names(mdir)
     if marker is None:
         for name in present:  # pristine working files seed/refresh the backup
             with open(_ogg(mdir, name), "rb") as f:
-                _atomic_write(_ogg(bdir, name), f.read())
+                atomic_write(_ogg(bdir, name), f.read(), ".hpmus_")
     else:
+        # A marker means the backup is already seeded from pristine files; trust
+        # it (re-patch reads from it, never from the possibly-patched working
+        # files) and only verify it is complete.
         missing = [n for n in present if not os.path.exists(_ogg(bdir, n))]
         if missing:
             raise PatchError(
@@ -159,7 +124,7 @@ def apply_patch(install_path: str, music_seed: int) -> str:
         if not os.path.exists(source):
             continue  # target absent in this build; leave the track alone
         with open(source, "rb") as f:
-            _atomic_write(_ogg(mdir, name), f.read())
+            atomic_write(_ogg(mdir, name), f.read(), ".hpmus_")
 
     with open(_marker_path(install_path), "w", encoding="utf-8") as f:
         json.dump({"format": MARKER_FORMAT, "music_seed": music_seed, "pool_hash": digest}, f)
@@ -179,9 +144,9 @@ def restore_original(install_path: str) -> str:
         source = _ogg(bdir, name)
         if os.path.exists(source):
             with open(source, "rb") as f:
-                _atomic_write(_ogg(mdir, name), f.read())
+                atomic_write(_ogg(mdir, name), f.read(), ".hpmus_")
             touched = True
-    _safe_remove(_marker_path(install_path))
+    safe_remove(_marker_path(install_path))
     if not touched:
         return "no-backup"
     return "restored" if was_patched else "unchanged"

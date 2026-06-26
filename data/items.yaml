@@ -1,4 +1,4 @@
-# HP2PC_AP item catalog — source of truth.
+# HP2PC_AP item catalog. Source of truth.
 #
 # Each item appears EXACTLY ONCE in the multiworld pool. AP item IDs are stable
 # integers; once assigned, never change them (it would break old seeds).
@@ -39,7 +39,7 @@ spells:
 # `quidditch_purchases` section in data/locations.yaml under the
 # `enable_quidditch_upgrades` YAML option (Toggle, default off). When the
 # option is false, gen_apworld.py MUST skip both these items AND the two
-# matching locations together — leaving them unpaired would produce a 2-item
+# matching locations together. Leaving them unpaired would produce a 2-item
 # item-vs-location mismatch in the pool. The pairing is items 8/9 ↔ locations 5/6.
 #
 # Grant handlers in APGameInfo.ApplyGrant set the corresponding harry.bHaveX
@@ -197,12 +197,12 @@ blocker_keys:
   - { id_offset: 262, name: "Quidditch Key",             classification: progression, group: "Blocker Keys" }
   - { id_offset: 263, name: "Gryffindor Challenge Key",  classification: progression, group: "Blocker Keys" }
 
-# Filler. Stacks — multiple copies allowed, count adjusted at generation time
+# Filler. Stacks (multiple copies allowed), count adjusted at generation time
 # to exactly fill the location-pool delta (locations - non-filler items).
 filler:
   # Bean denominations. The small ones (1/5/10) carry the bulk of the bean
   # weight so most bean drops are tiny; the Pile tiers are trimmed and the
-  # big ones stay sparse premiums. APPEND new filler at the END only — the
+  # big ones stay sparse premiums. APPEND new filler at the END only. The
   # mod's appearance codes are 2001 + index in this list (Client.py
   # FILLER_CODE), so inserting mid-list would renumber 2001..2008.
   - { id_offset: 300, name: "Small Jar of Beans",   classification: filler, group: Filler, weight: 7,  notes: "Grants ~25 beans" }
@@ -220,10 +220,10 @@ filler:
 # Negative "trap" items (AP ItemClassification.trap). Opt-in per type: each is
 # generated only when its name is in the `traps` OptionSet (default all on),
 # replacing a `trap_fill_percent` fraction of the filler delta (item/location
-# balance unchanged — same math as filler). All grant-driven, dispatched by APGameInfo.TryApplyTrap on the
+# balance unchanged, same math as filler). All grant-driven, dispatched by APGameInfo.TryApplyTrap on the
 # GRANT line; one-shot (the client's AP-Data-Storage consumed-index
 # ledger marks each applied trap so it never re-fires on reconnect /
-# save-load — only a genuine new game replays it); self-terminating
+# save-load, only a genuine new game replays it); self-terminating
 # (instant / level-load revert / timer). id band
 # 400-411. 401 (Peeves) and 402 (Spider Swarm)
 # are retired: this M212 open castle build does not render an ad-hoc visible

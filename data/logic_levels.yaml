@@ -1,4 +1,4 @@
-# HP2PC_AP shared level-interior access rules — used by BOTH game modes.
+# HP2PC_AP shared level-interior access rules, used by BOTH game modes.
 #
 # Per-location requirements INSIDE the discrete level / challenge maps, which
 # are identical between the vanilla and open castle distributions. gen_apworld.py
@@ -9,7 +9,7 @@
 #
 # Values are sourced from the open-castle playthrough logic (the honest
 # intra-level requirement; the vanilla region entry re-imposes the story chain
-# on top). A location listed here must NOT also appear in a mode file —
+# on top). A location listed here must NOT also appear in a mode file.
 # gen_apworld errors on overlap.
 
 locations:

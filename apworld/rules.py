@@ -4,7 +4,7 @@ from typing import Callable
 
 from BaseClasses import CollectionState
 
-# Silver card item names — referenced by per-location lambdas that gate
+# Silver card item names, referenced by per-location lambdas that gate
 # on the open-castle Gold Card Room (20-of-40 silvers, matching the
 # in-game CardLockTrigger that only wires Lock1+Lock2). Sourced from
 # items.yaml.cards_silver at gen time so it can never drift.

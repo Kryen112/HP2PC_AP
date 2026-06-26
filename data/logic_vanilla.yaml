@@ -38,7 +38,7 @@
 # region wherever it is actually required, so the logic stays honest about
 # which locations depend on it when Alohomora isn't a starter.
 
-# Regions — entry rules. Locations inherit region access; their own `requires`
+# Regions. Entry rules. Locations inherit region access; their own `requires`
 # adds extra requirements on top.
 regions:
   Menu:

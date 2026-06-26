@@ -1,4 +1,4 @@
-# HP2PC_AP location catalog — source of truth.
+# HP2PC_AP location catalog. Source of truth.
 #
 # A "location" is any in-game spot the seed places an AP item. When the player
 # reaches/triggers a location, the mod sends `check_sent` with the location's id.
@@ -8,7 +8,7 @@
 #   name          stable string id (used in code; do NOT rename casually)
 #   region        which region this location belongs to (regions defined in regions.yaml or here later)
 #   group         grouping for YAML options (e.g. "Card Locations")
-#   notes         free text — vanilla item that lives there, route hints, etc.
+#   notes         free text (vanilla item that lives there, route hints, etc.)
 #
 # Card regions are catalogued from an open-hub playthrough.
 
@@ -33,13 +33,13 @@ base_id: 5760000
 # The mod fires `CHECK_SPELL <name>` when Harry first learns a spell; the
 # client maps name → location_id via `SPELL_TO_LOCATION_NAME` in apworld/Client.py.
 classrooms:
-  - { id_offset: 1, name: "Learned Rictusempra", region: GrandStaircase, group: Classrooms, notes: "Lockhart's first class (story step 1) — teaches Rictusempra after the in-classroom spell challenge" }
-  - { id_offset: 2, name: "Learned Skurge",      region: GrandStaircase, group: Classrooms, notes: "Flitwick's class (story step 4) — teaches Skurge after the spell challenge" }
-  - { id_offset: 3, name: "Learned Diffindo",      region: CastleExterior, group: Classrooms, notes: "Sprout's Herbology class (story step 7) — teaches Diffindo after the spell challenge" }
-  - { id_offset: 4, name: "Learned Spongify",    region: GrandStaircase, group: Classrooms, notes: "Lockhart's second class (story step 12) — teaches Spongify after the spell challenge. Shares the DADA room with Rictusempra so a bookcase here is hard to deploy without blocking Rictusempra too." }
+  - { id_offset: 1, name: "Learned Rictusempra", region: GrandStaircase, group: Classrooms, notes: "Lockhart's first class (story step 1). Teaches Rictusempra after the in-classroom spell challenge" }
+  - { id_offset: 2, name: "Learned Skurge",      region: GrandStaircase, group: Classrooms, notes: "Flitwick's class (story step 4). Teaches Skurge after the spell challenge" }
+  - { id_offset: 3, name: "Learned Diffindo",      region: CastleExterior, group: Classrooms, notes: "Sprout's Herbology class (story step 7). Teaches Diffindo after the spell challenge" }
+  - { id_offset: 4, name: "Learned Spongify",    region: GrandStaircase, group: Classrooms, notes: "Lockhart's second class (story step 12). Teaches Spongify after the spell challenge. Shares the DADA room with Rictusempra so a bookcase here is hard to deploy without blocking Rictusempra too." }
 
 # Special progression checks were here in earlier drafts (Special_Boomslang /
-# _Bicorn / _BitOGoyle). Removed — Boomslang, Bicorn, and BitOGoyle are
+# _Bicorn / _BitOGoyle). Removed. Boomslang, Bicorn, and BitOGoyle are
 # left to vanilla story progression and are not AP items/locations. The card
 # locations inside Bicorn/Boomslang/Goyle levels remain. Add these back when
 # the key-item flow is reliable end-to-end (mod hook for goyle-bump, vendor
@@ -58,7 +58,7 @@ special_checks: []
 # instance to scan for sale events.
 #
 # Spawn gate: Fred and George don't appear on the Castle Exterior grounds
-# until Harry has Rictusempra (vanilla story gate — they're keyed to the
+# until Harry has Rictusempra (vanilla story gate, they're keyed to the
 # post-Lockhart-class state). Logic for both locations therefore requires
 # Rictusempra on top of the CastleExterior region entry (Lumos & Flipendo).
 #
@@ -66,7 +66,7 @@ special_checks: []
 # YAML option (Toggle, default off). When the option is false the locations
 # aren't emitted at all and Fred/George keep their vanilla item drop. The
 # option ALSO gates the matching `equipment` items in data/items.yaml
-# (Nimbus 2001 / Quidditch Armour at items 8/9) — gen_apworld.py MUST drop
+# (Nimbus 2001 / Quidditch Armour at items 8/9). gen_apworld.py MUST drop
 # both the items and these locations together, otherwise the pool has 2
 # orphan items with no homes. The pairing is items 8/9 ↔ locations 5/6.
 #
@@ -86,20 +86,20 @@ quidditch_purchases:
 # 10 duel-win locations at the Duelling Club, one per ranked duel. Each check
 # fires when Harry wins the corresponding Duel0N standalone level. `duel_rank`
 # (1..10) is the stable handle used by the win-detection watcher to resolve
-# which AP location maps to a given TriggerEvent('HarryWonDuel') firing —
+# which AP location maps to a given TriggerEvent('HarryWonDuel') firing.
 # vanilla `harry.DuelRankHarry` carries the rank Harry just defeated.
 # `duel_level` is the source .unr file so the catalogue is grep-able.
 #
 # Generation gate: `enable_duelling` YAML option (Toggle, default false).
 # When false the 10 locations aren't emitted and duel wins fire no AP check.
-# Locations only — no paired items are added to the pool (these checks hold
+# Locations only, no paired items are added to the pool (these checks hold
 # whatever AP places at them, like cards or secrets do).
 #
 # Vanilla gate: duels unlock at `iGameState >= 80` (post-Bicorn), with a
 # blacklist of mid-story states `[120, 150, 160, 170]` where the duelling
 # room is taken over by story beats. AP logic encodes the post-Bicorn floor
 # via the DuellingClub region entry; intra-system rank ordering is left to
-# vanilla gameplay (per the "spell/item requires only" decision — AP doesn't
+# vanilla gameplay (per the "spell/item requires only" decision, AP doesn't
 # enforce 'must win Rank N-1 before Rank N').
 #
 # Per-rank requires live in the logic files. Higher-rank duels may need
@@ -135,7 +135,7 @@ duels:
 #
 # Generation gate: `enable_quidditch_matches` YAML option (Toggle,
 # default false). When false the 6 locations aren't emitted and match wins
-# fire no AP check. Locations only — no paired items in the pool.
+# fire no AP check. Locations only, no paired items in the pool.
 #
 # Per-match requires live in the logic files. Matches unlock further into
 # the story in vanilla; later matches may need Skurge / Diffindo / Spongify
@@ -146,7 +146,7 @@ duels:
 #   - Watcher subscribes to BOTH TriggerEvent(MatchEvents.Won) and
 #     TriggerEvent(MatchEvents_Final.Won) from QuidditchDirector (the event
 #     names are configurable name-vars on the director, so the listener
-#     uses Tag-matching on the runtime name values pulled at level entry —
+#     uses Tag-matching on the runtime name values pulled at level entry,
 #     or, more robustly, polls `harry.quidGameResults[i].bWon` on its tick
 #     and fires CHECK on the False→True transition for any match_index).
 #   - MatchLocationChecked[6] dedupes per-match so post-win level reload
@@ -171,9 +171,9 @@ quidditch_matches:
 # that array: 0=Rictusempra, 1=Skurge, 2=Diffindo, 3=Spongify.
 #
 # Generation gate: `enable_spell_challenge_times` YAML option (Toggle, default
-# false — optional skill content, mirroring enable_duelling /
+# false, optional skill content, mirroring enable_duelling /
 # enable_quidditch_matches). When false the 4 locations aren't emitted and
-# Mastering a challenge fires no AP check. Locations only — no paired items in
+# Mastering a challenge fires no AP check. Locations only, no paired items in
 # the pool (these checks hold whatever AP places at them, like cards do).
 #
 # Per-challenge requires live in data/logic_vanilla.yaml /
@@ -489,7 +489,7 @@ challenge_stars:
 #   idx 7-10 Mechanism D  left the terminal challenge level (CheckExitedLevelObjective); FinalStar NOT replaced
 #   idx 11   Mechanism D  CH7GRYFFINDOR FinalStar replaced with APGryffindorEndStar (credits in EndState)
 #   idx 12   Mechanism E  CH6WIZARDCARD end trigger (TriggerChangeLevel tag changelevel1) replaced with APTriggerChangeLevel
-# `level`/`idx` are documentation only — the generator uses name/id_offset/
+# `level`/`idx` are documentation only. The generator uses name/id_offset/
 # region/group (emit_locations generic loop). Region = the level's existing
 # logic region (must exist in BOTH logic_vanilla.yaml and logic_open_castle.yaml).
 # Always real AP checks (no enable toggle): the open castle Great Hall levels
@@ -519,13 +519,13 @@ level_completions:
 # runtime vendor census (vanilla + open castle walk). Vendor
 # `actor.Name` is stable across level re-entry / save-load and identical
 # between the vanilla and HP2 Bingo installs, so the mod keys each location on
-# (level, vendor_name) exactly like secrets — APLocationRegistry gains
+# (level, vendor_name) exactly like secrets. APLocationRegistry gains
 # GetVendorLocationId(LevelName, VendorKey). `sells` IS consumed by the
 # generator (GetVendorSells): a card vendor (BronzeCards/SilverCards) is
-# turned into an ingredient vendor at runtime while its check is pending —
-# HP2 card-vendor stock is tier-global and a card sale spawns a real card
-# (cardsanity cross-fire), whereas ingredient stock is per-vendor and spawns
-# a plain prop — and restored to its card tier on collection; the mod reads
+# turned into an ingredient vendor at runtime while its check is pending,
+# then restored to its card tier on collection. (HP2 card-vendor stock is
+# tier-global and a card sale spawns a real card, a cardsanity cross-fire,
+# whereas ingredient stock is per-vendor and spawns a plain prop.) The mod reads
 # the ORIGINAL type from here (not the mutated actor) so restore survives
 # save/load. `vendor_class` / `loc` are census provenance only; the generic
 # loop also uses id_offset/name/region/group.
@@ -536,7 +536,7 @@ level_completions:
 # generation if any non-card offset >= the window.
 #
 # Generation gate: the `tradersanity` Choice (off / price_vanilla /
-# price_random / price_low). Off emits zero locations. No paired items —
+# price_random / price_low). Off emits zero locations. No paired items,
 # these hold whatever the multiworld places (filler pads the delta).
 #
 # Region must exist in BOTH logic graphs: Entryhall_hub/Grandstaircase_hub

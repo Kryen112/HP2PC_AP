@@ -122,6 +122,7 @@ class Package:
         for _ in range(self.export_count):
             cls, pos = read_compact_index(d, pos)
             sup, pos = read_compact_index(d, pos)
+            # group_index is a fixed 32-bit int in v79, not a compact index.
             grp, = struct.unpack_from("<i", d, pos)
             pos += 4
             name, pos = read_compact_index(d, pos)
@@ -203,3 +204,16 @@ def atomic_write(path: str, data: bytes, tmp_prefix: str) -> None:
     except BaseException:
         safe_remove(tmp)
         raise
+
+
+def restore_one(path: str, tmp_prefix: str) -> str:
+    """Copy path.orig back over path. Returns 'restored', 'unchanged', or
+    'no-backup' (never patched)."""
+    orig_path = path + ".orig"
+    if not os.path.exists(orig_path):
+        return "no-backup"
+    pristine = read_file(orig_path)
+    if os.path.exists(path) and read_file(path) == pristine:
+        return "unchanged"
+    atomic_write(path, pristine, tmp_prefix)
+    return "restored"

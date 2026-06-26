@@ -23,7 +23,7 @@ DATA_DIR = REPO_ROOT / "data"
 APWORLD_DIR = REPO_ROOT / "apworld"
 MOD_CLASSES_DIR = REPO_ROOT / "mod" / "HPArchipelago" / "Classes"
 
-# AP framework checkout — required for the final `Build APWorlds` step that
+# AP framework checkout. Required for the final `Build APWorlds` step that
 # zips the apworld for cross-platform distribution (Linux can't follow the
 # Windows-only junction the dev loop uses). Env var override for non-standard
 # layouts; default follows DEV_SETUP's sibling-of-HP2PC_AP convention.
@@ -32,7 +32,7 @@ AP_FRAMEWORK_DIR = Path(
 ).resolve()
 APWORLD_GAME_NAME = "Harry Potter 2 PC"
 
-# --- LOCAL ONLY — do not commit -------------------------------------------
+# --- LOCAL ONLY, do not commit -------------------------------------------
 # Copy the built apworld into each local Archipelago custom_worlds so the
 # running generator / client / launcher pick up the rebuild. Machine-specific
 # paths; override with HP2_APWORLD_INSTALL_DIRS (os.pathsep-separated).
@@ -65,7 +65,7 @@ LOCATION_CATEGORIES = (
 )
 
 # Non-card-location dedupe window. Mirrors `NONCARD_LOC_WINDOW` in
-# mod/HPArchipelago/Classes/APCardWatcher.uc — the two MUST hold the same
+# mod/HPArchipelago/Classes/APCardWatcher.uc. The two MUST hold the same
 # value. A non-card location whose id_offset >= this falls outside the mod's
 # NonCardLocationChecked[] array, so its dedupe is silently skipped and the
 # check re-fires on level re-entry / save-load. Card-location and item offsets
@@ -234,7 +234,7 @@ CARD_VENDOR_META: dict[str, tuple[bool, str, str]] = {
 # Add cards here as they're discovered. The check is exact-name
 # against the WC class, e.g. "WCToothill".
 FLOATING_CARDS: set[str] = {
-    "WCToothill",  # Grand Staircase — floats at the top, requires Spongify-jump.
+    "WCToothill",  # Grand Staircase. Floats at the top, requires Spongify-jump.
 }
 
 
@@ -247,7 +247,7 @@ def load_data() -> tuple[dict, dict, dict, dict]:
     # Shared level-interior location rules live in logic_levels.yaml and merge
     # into both modes. Region entries + the castle-hub / Quidditch location rules
     # stay mode-specific in the per-mode files. A location belongs to either the
-    # shared levels file or one mode file, never both — overlap is an authoring
+    # shared levels file or one mode file, never both. Overlap is an authoring
     # error, so flag it loudly rather than silently picking a winner.
     shared = logic_levels.get("locations") or {}
     for mode_logic, fname in ((logic_vanilla, "logic_vanilla.yaml"),
@@ -298,7 +298,7 @@ def expand_macros(logic: dict, items: dict, context: str) -> None:
 
     `@all_silver_cards` and `@silver_cards_at_least_<N>` both expand to a
     bare-ident sentinel that `_emit_rule_body` rewrites to
-    `state.has_from_list_unique(_SILVER_CARD_NAMES, player, N)` — the full silver
+    `state.has_from_list_unique(_SILVER_CARD_NAMES, player, N)`. The full silver
     count for the former, N for the latter. Silver names come from
     items.yaml.cards_silver, so the threshold can never drift from the pool size.
     """
@@ -334,8 +334,8 @@ def expand_macros(logic: dict, items: dict, context: str) -> None:
 # _emit_rule_body needs no special case; parse_rule only skips the unknown-item
 # check for them, and rule_idents excludes them (like true/false/TBD) so they
 # never read as item dependencies.
-#   Running  — gaps clearable by the always-on run speed instead of a spell.
-#   Glitched — umbrella for every glitch shortcut.
+#   Running  - gaps clearable by the always-on run speed instead of a spell.
+#   Glitched - umbrella for every glitch shortcut.
 LOGIC_FLAG_NAMES: frozenset[str] = frozenset({"Running", "Glitched"})
 
 
@@ -420,7 +420,9 @@ def rule_idents(rule_str: str) -> set[str]:
 
 def collect_known_items(items: dict) -> set[str]:
     names: set[str] = set()
-    for category in ("spells", "key_items", "blocker_keys", "cards_bronze", "cards_silver", "cards_gold", "filler", "traps"):
+    categories = ("spells", "key_items", "blocker_keys", "cards_bronze", "cards_silver",
+                  "cards_gold", "equipment", "filler", "traps")
+    for category in categories:
         for entry in items.get(category, []):
             names.add(entry["name"])
     # Silver-gate sentinels from expand_macros aren't items; parse_rule and
@@ -613,8 +615,8 @@ def emit_items(items: dict) -> str:
         card_class_to_item_name.append((entry["class"], entry["name"]))
     for entry in items.get("cards_gold", []):
         # Gold cards default to filler: they unlock nothing in vanilla (no
-        # game-side reward — only silvers feed StatusItemLock1..4 / the Gold
-        # Card Room — and no logic_*.yaml rule references a gold card). Open
+        # game-side reward (only silvers feed StatusItemLock1..4 / the Gold
+        # Card Room) and no logic_*.yaml rule references a gold card). Open
         # castle still guarantees them reachable: HP2World.create_item promotes
         # every card to progression_skip_balancing in open castle mode
         # regardless of this default, since open_castle_goal_cards counts all
@@ -750,7 +752,7 @@ def emit_locations(locations: dict, items: dict) -> str:
     # HP2World.set_rules (no silver may be placed here in any mode; no key or
     # spell may be placed here in open castle). Every location in the
     # GoldCardRoom region sits behind the silver-card wall, so derive from
-    # region — that is the 11 gold cards plus the "Gold Card Room - Complete"
+    # region. That is the 11 gold cards plus the "Gold Card Room - Complete"
     # level-completion. The gold-tier classification is still walked first so
     # validate()'s items-vs-locations card-class parity check applies and every
     # gold class is guaranteed a location.
@@ -844,8 +846,8 @@ def _emit_regions_dual(
 
 
 def _emit_rule_body(rule_str: str) -> str:
-    """Convert rule string to lambda-body Python expression. No validation here —
-    caller has already validated via parse_rule(). TBD compiles to True (lenient)."""
+    """Convert rule string to lambda-body Python expression. No validation here.
+    Caller has already validated via parse_rule(). TBD compiles to True (lenient)."""
     s = (rule_str or "true").strip()
     if s == "true" or s == "TBD":
         return "True"
@@ -919,7 +921,7 @@ def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dic
         "",
         "from BaseClasses import CollectionState",
         "",
-        "# Silver card item names — referenced by per-location lambdas that gate",
+        "# Silver card item names, referenced by per-location lambdas that gate",
         "# on the open-castle Gold Card Room (20-of-40 silvers, matching the",
         "# in-game CardLockTrigger that only wires Lock1+Lock2). Sourced from",
         "# items.yaml.cards_silver at gen time so it can never drift.",
@@ -931,7 +933,7 @@ def emit_rules_dual(logic_vanilla: dict, logic_open_castle: dict, locations: dic
     # Container baseline rules: each container's requirement is just its opening
     # spell (the `spell` field on the data/locations.yaml `containers` rows), so
     # the rows need no hand-authored logic entry. setdefault means an explicit
-    # entry in logic_*.yaml `locations:` for the same name WINS — that is the
+    # entry in logic_*.yaml `locations:` for the same name WINS. That is the
     # refine-by-hand path (add `'<name>': { requires: "<spell> & ..." }`).
     # BeanBonusRoom rows carry mode: open_castle, so they get an open-castle
     # rule only (vanilla disables them via OPEN_CASTLE_ONLY_REGIONS).
@@ -974,7 +976,7 @@ def emit_location_registry(locations: dict, base_id: int) -> int:
     registered (level, key) pairs.
     """
 
-    def expand_levels(level_field: Any) -> list[str]:
+    def expand_levels(level_field: "str | list[str]") -> list[str]:
         if isinstance(level_field, list):
             return list(level_field)
         return [level_field]
@@ -1160,7 +1162,7 @@ def emit_card_markers(items: dict) -> int:
     Each subclass also gets `soundPickup` set to the matching vanilla card-tier
     sound (pickup_WC_bronze / _silver / _gold), so AP marker pickups are audible.
     Markers extend WizardCardIcon directly, not the per-tier BronzeCards/etc., so
-    they don't inherit a soundPickup default — we set it here.
+    they don't inherit a soundPickup default, so we set it here.
 
     Returns the number of marker files written.
     """
@@ -1461,7 +1463,7 @@ def emit_container_classes(locations: dict, base_id: int) -> tuple[int, int]:
 
 def build_apworld_zip() -> Path | None:
     """Invoke AP's native `Build APWorlds` Launcher component to package the
-    apworld dir into a cross-platform `.apworld` zip — the dev loop's junction
+    apworld dir into a cross-platform `.apworld` zip. The dev loop's junction
     is Windows-only, so without this Linux players have nothing to install.
     Output lands at `<AP_FRAMEWORK_DIR>/build/apworlds/harry_potter_2_pc.apworld`
     (the Launcher writes it relative to its cwd). Returns the zip path on
@@ -1495,7 +1497,7 @@ def build_apworld_zip() -> Path | None:
     return zip_path
 
 
-# --- LOCAL ONLY — do not commit -------------------------------------------
+# --- LOCAL ONLY, do not commit -------------------------------------------
 def install_apworld(zip_path: Path) -> None:
     """Copy the built apworld into each local custom_worlds dir so the running
     Archipelago picks up the rebuild. Skips dirs that do not exist."""
@@ -1619,7 +1621,7 @@ def main() -> int:
     zip_path = build_apworld_zip()
     if zip_path is not None:
         print(f"Built {zip_path} ({zip_path.stat().st_size // 1024} KB)")
-        install_apworld(zip_path)  # LOCAL ONLY — do not commit
+        install_apworld(zip_path)  # LOCAL ONLY, do not commit
     return 0
 
 

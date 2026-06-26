@@ -40,10 +40,10 @@ from collections import namedtuple
 
 try:
     from .dialogue_pool import ACTORS
-    from .ue1_package import Package, PatchError, atomic_write, read_file
+    from .ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 except ImportError:  # standalone CLI use from the apworld directory
     from dialogue_pool import ACTORS
-    from ue1_package import Package, PatchError, atomic_write, read_file
+    from ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 
 
 _TMP_PREFIX = ".alldialog_"
@@ -269,26 +269,13 @@ def apply_patch(install_path: str, dialogue_seed: int, mode: str) -> str:
     return "patched" if "patched" in (audio, captions) else "unchanged"
 
 
-def _restore_one(path: str) -> str:
-    """Copy path.orig back over path. Returns 'restored', 'unchanged', or
-    'no-backup' (never patched)."""
-    orig_path = path + ".orig"
-    if not os.path.exists(orig_path):
-        return "no-backup"
-    pristine = read_file(orig_path)
-    if os.path.exists(path) and read_file(path) == pristine:
-        return "unchanged"
-    atomic_write(path, pristine, _TMP_PREFIX)
-    return "restored"
-
-
 def restore_original(install_path: str) -> str:
     """Restore AllDialog.uax and every caption .int (hpdialog.int, BumpDialog.int)
     from their .orig backups. Returns 'restored' if any changed, 'no-backup' if
     none was ever patched, else 'unchanged'.
     """
-    results = [_restore_one(package_path(install_path))]
-    results += [_restore_one(p) for p in caption_paths(install_path)]
+    results = [restore_one(package_path(install_path), _TMP_PREFIX)]
+    results += [restore_one(p, _TMP_PREFIX) for p in caption_paths(install_path)]
     if "restored" in results:
         return "restored"
     if all(r == "no-backup" for r in results):

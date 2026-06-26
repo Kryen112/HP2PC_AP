@@ -3,8 +3,8 @@
 Source-of-truth list of the audio basenames in the install's `Music/` folder,
 split into two pools that shuffle within themselves when `music_randomizer` is on:
 
-- MUSIC_POOL: the 98 long-form tracks used as level background music.
-- JINGLE_POOL: the 43 short feedback cues (win/fail/found-secret/snitch horn etc.)
+- MUSIC_POOL: the long-form tracks used as level background music.
+- JINGLE_POOL: the short feedback cues (win/fail/found-secret/snitch horn etc.)
   kept in their own pool so a level's "you won" stinger becomes another short
   jingle, not a 3-minute orchestral piece on loop.
 
