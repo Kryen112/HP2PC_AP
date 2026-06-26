@@ -583,6 +583,10 @@ function HandleHint(string Body)
 }
 
 // `code` is the toast colour: 0 yellow (system), 1 white (lifecycle).
+// When no live toast exists (the gap between a level tearing down and the next
+// level's toast spawning), buffer the line on the toast class default instead of
+// dropping it, so the next level replays it. Matters for a lifecycle line that
+// lands mid-load.
 function HandleToast(string Body, optional byte code)
 {
     local APHUDToast toast;
@@ -593,10 +597,17 @@ function HandleToast(string Body, optional byte code)
     {
         toast.EnqueuePlainToast(Body, code);
     }
+    else
+    {
+        class'APHUDToast'.static.BufferPlainRecord(Body, code);
+    }
 }
 
 // Body is the client-built colourised segment record for an item we sent to
 // another slot. EnqueueSegmentToast parses it into the toast's segment pool.
+// The "we sent X to Y" record is a server round trip (CHECKEDOUT -> AP ItemSend
+// -> SENT) that for a level-complete check routinely lands during the loading
+// gap with no live toast; buffer it for the next level rather than drop it.
 function HandleSent(string Body)
 {
     local APHUDToast toast;
@@ -607,6 +618,10 @@ function HandleSent(string Body)
     if (toast != None)
     {
         toast.EnqueueSegmentToast(Body);
+    }
+    else
+    {
+        class'APHUDToast'.static.BufferSegmentRecord(Body);
     }
 }
 

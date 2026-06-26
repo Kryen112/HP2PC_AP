@@ -5,7 +5,7 @@ location gating, and the Running-logic shortcut."""
 from BaseClasses import CollectionState
 
 from .bases import HP2TestBase
-from ..access import _SILVER_CARD_NAMES
+from ..access import _BRONZE_CARD_NAMES, _SILVER_CARD_NAMES
 
 
 # Each of the 14 level/challenge regions is gated standalone by its own key in
@@ -153,6 +153,71 @@ class TestOpenCastleHubGate(HP2TestBase):
     def test_entry_hall_card_needs_alohomora(self) -> None:
         self.assertAccessDependency(["Entry Hall - Card Alderton"],
                                     [["Alohomora"]], only_check_listed=True)
+
+
+# Open-castle Chamber of Secrets: the first fall in is skippable with 20 bronze
+# cards (two extra health rows) instead of Spongify, but only for the six spots
+# behind that first fall. Deeper Spongify gates stay real. starting_spells empty
+# so Spongify sits in the pool rather than being precollected; containersanity on
+# so the cauldron/chest/jar locations exist.
+class TestChamberFirstFallBronzeSkip(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    # Region entry (Chamber of Secrets Key + Alohomora) plus the per-location
+    # spell. Cauldron 1 also needs Flipendo; the deeper Cauldron 3 adds Diffindo
+    # and Skurge on top of its non-skippable Spongify.
+    def _state_with(self, names: list[str]) -> CollectionState:
+        state = CollectionState(self.multiworld)
+        for name in names:
+            state.collect(self.world.create_item(name), prevent_sweep=True)
+        return state
+
+    def test_twenty_bronze_skips_first_fall(self) -> None:
+        state = self._state_with(
+            ["Chamber of Secrets Key", "Alohomora", "Flipendo"] + _BRONZE_CARD_NAMES[:20])
+        self.assertTrue(
+            state.can_reach("Chamber of Secrets - Cauldron 1", "Location", self.player),
+            "20 bronze cards should let Harry tank the first fall without Spongify")
+
+    def test_nineteen_bronze_is_not_enough(self) -> None:
+        state = self._state_with(
+            ["Chamber of Secrets Key", "Alohomora", "Flipendo"] + _BRONZE_CARD_NAMES[:19])
+        self.assertFalse(
+            state.can_reach("Chamber of Secrets - Cauldron 1", "Location", self.player),
+            "19 bronze cards is below the fall-survival threshold")
+
+    def test_spongify_still_reaches_first_fall_without_bronze(self) -> None:
+        state = self._state_with(
+            ["Chamber of Secrets Key", "Alohomora", "Flipendo", "Spongify"])
+        self.assertTrue(
+            state.can_reach("Chamber of Secrets - Cauldron 1", "Location", self.player),
+            "Spongify remains a valid path for the first fall")
+
+    def test_bronze_does_not_skip_a_deeper_spongify_gate(self) -> None:
+        state = self._state_with(
+            ["Chamber of Secrets Key", "Alohomora", "Flipendo", "Diffindo", "Skurge"]
+            + _BRONZE_CARD_NAMES[:20])
+        self.assertFalse(
+            state.can_reach("Chamber of Secrets - Cauldron 3", "Location", self.player),
+            "the deeper Cauldron 3 Spongify gate is not bronze-skippable")
+
+
+# The same first-fall rule lives in the vanilla table for consistency, but bronze
+# cards are not progression in vanilla and CoS entry already requires Spongify, so
+# owning every bronze card must NOT skip the fall. Spongify stays a hard dependency.
+class TestChamberFirstFallVanillaStillNeedsSpongify(HP2TestBase):
+    options = {"game_mode": "vanilla", "starting_spells": [], "containersanity": True}
+    run_default_tests = False
+
+    def test_cauldron_1_still_needs_spongify(self) -> None:
+        self.assertAccessDependency(["Chamber of Secrets - Cauldron 1"],
+                                    [["Spongify"]], only_check_listed=True)
 
 
 # Gold Card Room is gated behind the silver-card collection (40 in vanilla, 20 in

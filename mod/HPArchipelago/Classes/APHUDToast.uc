@@ -27,6 +27,9 @@ const MAX_QUEUE = 8;
 const STRIDE = 10;        // max segments one toast can hold (richest line is 9)
 const TOAST_DURATION = 5.0;
 const TICK_INTERVAL = 0.1;
+// Minimum life (seconds) a carried-over toast resumes with in the next level, so
+// a near-expired one still gets read time. See the carry buffer below.
+const CARRY_MIN_REMAINING = 2.0;
 
 // Segment colour codes. The client sends a role letter per segment; the mod
 // resolves it to one of these and maps it to an RGB in RoleColor. NEWLINE is a
@@ -52,6 +55,29 @@ var transient ToastSeg ToastSegs[80];
 var transient int ToastSegN[8];
 var transient float ToastRemaining[8];
 var transient int ToastCount;
+
+// Cross-level carry buffer. Lives ONLY on the class default so it survives the
+// per-level toast teardown/respawn: the actor is garbage-collected on level
+// travel (its Destroyed event does NOT fire, the whole level package is just
+// unloaded), but the class object stays loaded for the whole process, so
+// default.* persists across a loading zone. The active toast mirrors its
+// on-screen queue here every Timer tick (MirrorQueueToCarry), and the relay
+// appends records that arrive while no live toast exists (the loading-gap drop).
+// The next level's fresh toast drains it once it registers (DrainCarryToQueue),
+// silently, so a level-complete send fired right at a loading zone is still
+// readable. Mirrors the live-queue layout (CarrySegs is MAX_QUEUE*STRIDE). Pure
+// value types like the live arrays, so the save graph stays clean. Instance
+// copies are unused; only default.* matters.
+var transient ToastSeg CarrySegs[80];
+var transient int CarrySegN[8];
+var transient float CarryRemaining[8];
+var transient int CarryCount;
+// Per-instance: this toast has replayed the carried buffer from the previous
+// level. Set the moment it first registers (so carried toasts do not decay
+// during the pre-registration load window). Gates MirrorQueueToCarry too: the
+// buffer is left untouched until the drain, then this toast owns it.
+var transient bool bDrainedCarry;
+
 // HPHud we're currently registered with. `transient` so a saved-state
 // deserialized toast doesn't bring back a stale ref that fools the dedupe
 // path into thinking we're already in propArray when we aren't. Each new
@@ -101,6 +127,9 @@ event PreBeginPlay()
     // any SaveGame can run.
     LatestInstance = None;
 
+    // Fresh instance: it has not yet drained the previous level's carry buffer.
+    bDrainedCarry = False;
+
     default.LatestInstance = self;
     SetTimer(TICK_INTERVAL, true);
 
@@ -120,6 +149,12 @@ event PreBeginPlay()
 
 event Destroyed()
 {
+    // Note: on level travel this does NOT run (the level package is unloaded and
+    // the toast is garbage-collected without a Destroyed event). The cross-level
+    // carry buffer is therefore maintained from Timer (MirrorQueueToCarry), not
+    // here. This still fires on an explicit Destroy() (e.g. a stale toast being
+    // replaced), where the propArray cleanup below matters.
+
     // Leave the HUD's propArray cleanly. HPHud.RenderHud iterates
     // `propArray[I].RenderHud(Canvas)` with NO None-guard, so a destroyed
     // toast still referenced there is an Accessed-None every frame. Matters
@@ -252,6 +287,15 @@ function CommitToast(optional Sound overrideSound)
             h.PlaySound(soundToPlay);
         }
     }
+
+    // Mirror the carry buffer the instant a toast is added, so a toast committed
+    // in the last fraction of a second before a loading zone is carried even if
+    // no Timer tick fires before the level is unloaded. Same gating as the Timer
+    // mirror: only after this toast has drained the previous buffer, active only.
+    if (bDrainedCarry && default.LatestInstance == self)
+    {
+        MirrorQueueToCarry();
+    }
 }
 
 // Single-colour, single-line toast (HP2 system status in yellow, multiworld
@@ -300,15 +344,190 @@ function EnqueueSegmentToast(string record, optional Sound overrideSound)
             rest = Mid(rest, sepIdx + 1);
         }
         if (seg == "") continue;
-        AddSeg(idx, Mid(seg, 1), RoleCharToCode(Left(seg, 1)));
+        AddSeg(idx, Mid(seg, 1), class'APHUDToast'.static.RoleCharToCode(Left(seg, 1)));
     }
 
     Log("[Archipelago] APHUDToast segment toast (segs=" $ ToastSegN[idx] $ ")");
     CommitToast(overrideSound);
 }
 
+// ---- Cross-level carry buffer ----------------------------------------------
+// Capture toasts so they survive a loading zone. Two producers feed the
+// class-default buffer: MirrorQueueToCarry (the active toast continuously mirrors
+// its on-screen queue here, since the actor is GC'd on travel with no Destroyed
+// event) and BufferSegmentRecord/BufferPlainRecord (records that reached the
+// relay while no live toast existed). DrainCarryToQueue (next level's fresh
+// toast) is the single consumer. The buffer-fill helpers are static so the
+// relay can reach them with no live instance.
+
+// Reserve the next carry slot, dropping the oldest carried toast when full
+// (newer info matters more, mirroring BeginToast). Returns the slot index with
+// CarrySegN cleared and CarryRemaining seeded to a full duration; producers that
+// carry a partially-elapsed toast (the teardown snapshot) overwrite the latter.
+static function int BeginCarryEntry()
+{
+    local int idx, j, k;
+
+    if (default.CarryCount >= MAX_QUEUE)
+    {
+        for (j = 0; j < MAX_QUEUE - 1; j++)
+        {
+            default.CarrySegN[j] = default.CarrySegN[j + 1];
+            default.CarryRemaining[j] = default.CarryRemaining[j + 1];
+            for (k = 0; k < STRIDE; k++)
+            {
+                default.CarrySegs[j * STRIDE + k] = default.CarrySegs[(j + 1) * STRIDE + k];
+            }
+        }
+        default.CarryCount = MAX_QUEUE - 1;
+    }
+    idx = default.CarryCount;
+    default.CarrySegN[idx] = 0;
+    default.CarryRemaining[idx] = TOAST_DURATION;
+    default.CarryCount++;
+    return idx;
+}
+
+// Append one segment to carry entry `carryIdx`. Whole-struct assignment (not a
+// member write on a default array element) keeps it to lvalue forms M212 is
+// known to accept. Silently drops overflow past STRIDE, like AddSeg.
+static function AddCarrySeg(int carryIdx, string text, byte code)
+{
+    local int n;
+    local ToastSeg seg;
+
+    n = default.CarrySegN[carryIdx];
+    if (n >= STRIDE) return;
+    seg.Text = text;
+    seg.ColorCode = code;
+    default.CarrySegs[carryIdx * STRIDE + n] = seg;
+    default.CarrySegN[carryIdx] = n + 1;
+}
+
+// Parse a colourised segment record (the SENT / item form) straight into a new
+// carry entry at full duration. Mirrors EnqueueSegmentToast's tokenizer but
+// targets the class-default buffer; used when a "we sent X to Y" record arrives
+// during the loading gap with no live toast to show it.
+static function BufferSegmentRecord(string record)
+{
+    local int idx, sepIdx;
+    local string seg, rest;
+
+    if (record == "") return;
+    idx = BeginCarryEntry();
+
+    rest = record;
+    while (rest != "")
+    {
+        sepIdx = InStr(rest, Chr(30));
+        if (sepIdx < 0)
+        {
+            seg = rest;
+            rest = "";
+        }
+        else
+        {
+            seg = Left(rest, sepIdx);
+            rest = Mid(rest, sepIdx + 1);
+        }
+        if (seg == "") continue;
+        AddCarrySeg(idx, Mid(seg, 1), RoleCharToCode(Left(seg, 1)));
+    }
+
+    Log("[Archipelago] APHUDToast.BufferSegmentRecord: buffered late record (carryCount=" $ default.CarryCount $ ")");
+}
+
+// Single-segment plain toast (system/lifecycle line) buffered for the loading
+// gap. Counterpart to BufferSegmentRecord for the TOAST / TOASTW relay path.
+static function BufferPlainRecord(string text, byte code)
+{
+    local int idx;
+
+    if (text == "") return;
+    idx = BeginCarryEntry();
+    AddCarrySeg(idx, text, code);
+    Log("[Archipelago] APHUDToast.BufferPlainRecord: buffered late toast '" $ text $ "'");
+}
+
+// Mirror the active toast's on-screen queue into the carry buffer. Called every
+// Timer tick (after the drain) so the class default always reflects exactly what
+// is on screen right now, with each toast's current remaining time. This is the
+// teardown-survival mechanism: the actor is GC'd on travel without a Destroyed
+// event, so there is no snapshot-at-teardown; the continuously-updated class
+// default is what the next level reads. Full overwrite (resets CarryCount), so
+// the live queue is the single source of truth. The live queue already self-
+// prunes expired toasts, so an empty queue correctly empties the buffer. No Log:
+// this runs at 10 Hz.
+function MirrorQueueToCarry()
+{
+    local int i, k, srcBase, dstBase;
+
+    default.CarryCount = 0;
+    for (i = 0; i < ToastCount; i++)
+    {
+        if (default.CarryCount >= MAX_QUEUE) break;
+        srcBase = i * STRIDE;
+        dstBase = default.CarryCount * STRIDE;
+        default.CarrySegN[default.CarryCount] = ToastSegN[i];
+        default.CarryRemaining[default.CarryCount] = ToastRemaining[i];
+        for (k = 0; k < STRIDE; k++)
+        {
+            default.CarrySegs[dstBase + k] = ToastSegs[srcBase + k];
+        }
+        default.CarryCount++;
+    }
+}
+
+// Replay the previous level's carry buffer into this toast's live queue, then
+// clear it. A direct array copy, never CommitToast, so there is no whoosh and no
+// inter-toast wait (every carried toast lands in one pass and renders stacked).
+// Each resumes at its carried remaining, floored to CARRY_MIN_REMAINING. Called
+// exactly once per toast (Timer guards on bDrainedCarry), the moment it first
+// registers, so carried toasts only start decaying when they can actually
+// render. The clear is defensive: this toast's own MirrorQueueToCarry repopulates
+// the buffer the same tick, but clearing first means no other instance can
+// re-drain this same content.
+function DrainCarryToQueue()
+{
+    local int i, k, srcBase, dstBase;
+    local float remaining;
+
+    if (default.CarryCount <= 0) return;
+
+    for (i = 0; i < default.CarryCount; i++)
+    {
+        if (ToastCount >= MAX_QUEUE) break;
+        srcBase = i * STRIDE;
+        dstBase = ToastCount * STRIDE;
+        ToastSegN[ToastCount] = default.CarrySegN[i];
+        remaining = default.CarryRemaining[i];
+        if (remaining < CARRY_MIN_REMAINING)
+        {
+            remaining = CARRY_MIN_REMAINING;
+        }
+        ToastRemaining[ToastCount] = remaining;
+        for (k = 0; k < STRIDE; k++)
+        {
+            ToastSegs[dstBase + k] = default.CarrySegs[srcBase + k];
+        }
+        ToastCount++;
+    }
+
+    Log("[Archipelago] APHUDToast.DrainCarryToQueue: replayed " $ default.CarryCount $ " carried toast(s)");
+
+    for (i = 0; i < MAX_QUEUE; i++)
+    {
+        default.CarrySegN[i] = 0;
+        default.CarryRemaining[i] = 0.0;
+    }
+    default.CarryCount = 0;
+}
+
 // Map a client role letter to a stored colour code (see the legend up top).
-function byte RoleCharToCode(string ch)
+// Static so the carry-buffer fill path (BufferSegmentRecord, called from the
+// relay with no live instance) can reuse it. Callers use the qualified
+// class'APHUDToast'.static form.
+static function byte RoleCharToCode(string ch)
 {
     if (ch == "w") return 1;
     if (ch == "s") return 2;
@@ -346,8 +565,15 @@ event Timer()
     }
 
     // TryRegisterWithHUD self-dedupes against RegisteredHud so a no-op call
-    // is cheap, and a changed HPHud (post-travel) re-registers.
-    TryRegisterWithHUD();
+    // is cheap, and a changed HPHud (post-travel) re-registers. The first time it
+    // registers, replay the toasts carried across the loading zone (once, gated on
+    // bDrainedCarry). Gated on registration so carried toasts only begin decaying
+    // once they can actually render.
+    if (TryRegisterWithHUD() && !bDrainedCarry)
+    {
+        bDrainedCarry = True;
+        DrainCarryToQueue();
+    }
 
     i = 0;
     while (i < ToastCount)
@@ -361,6 +587,16 @@ event Timer()
         {
             i++;
         }
+    }
+
+    // Keep the cross-level carry buffer current with what is on screen. The actor
+    // is GC'd on travel without a Destroyed event, so this continuous mirror (not
+    // a teardown snapshot) is what survives into the next level. Held off until
+    // this toast has drained the previous buffer, and only the active instance
+    // writes it.
+    if (bDrainedCarry && default.LatestInstance == self)
+    {
+        MirrorQueueToCarry();
     }
 }
 

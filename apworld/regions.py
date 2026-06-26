@@ -54,7 +54,11 @@ REGION_NAMES: list[str] = [
 ]
 
 REGION_ENTRY_RULES_VANILLA: dict[str, _Access] = {
-    "BeanBonusRoom": never,
+    # Vanilla enters the bean room by completing the Rictusempra challenge, so the
+    # gate is that completion's reachability. RictusempraChallenge entry (lumos &
+    # flipendo & rictusempra) already subsumes the Complete location's own
+    # flipendo & rictusempra.
+    "BeanBonusRoom": lumos & flipendo & rictusempra,
     "BicornLevel": lumos & flipendo & alohomora & rictusempra & skurge & bicorn_level_key,
     "BoomslangLevel": lumos
     & flipendo

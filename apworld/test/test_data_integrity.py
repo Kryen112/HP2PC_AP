@@ -4,6 +4,7 @@ create_items / create_regions rely on."""
 
 import unittest
 
+from ..access import _BRONZE_CARD_NAMES, _SILVER_CARD_NAMES
 from ..items import (BASE_ID as ITEM_BASE_ID, FILLER_NAMES, ITEM_CLASSIFICATIONS,
                      ITEM_GROUPS, ITEM_NAME_TO_ID, TRAP_NAMES)
 from ..locations import (BASE_ID as LOCATION_BASE_ID, LOCATION_GROUPS,
@@ -41,6 +42,15 @@ class TestDataIntegrity(unittest.TestCase):
         for group, names in ITEM_GROUPS.items():
             for name in names:
                 self.assertIn(name, ITEM_NAME_TO_ID, f"item group {group!r} -> unknown item {name!r}")
+
+    def test_card_count_helper_lists_match_item_groups(self) -> None:
+        # access.py hardcodes the bronze/silver name lists the count helpers
+        # (_bronze_cards / _silver_cards) scan. Guard them against drifting from
+        # the canonical ITEM_GROUPS card lists, in order.
+        self.assertEqual(_BRONZE_CARD_NAMES, ITEM_GROUPS["Cards (Bronze)"],
+                         "_BRONZE_CARD_NAMES drifted from ITEM_GROUPS['Cards (Bronze)']")
+        self.assertEqual(_SILVER_CARD_NAMES, ITEM_GROUPS["Cards (Silver)"],
+                         "_SILVER_CARD_NAMES drifted from ITEM_GROUPS['Cards (Silver)']")
 
     def test_location_groups_reference_real_locations(self) -> None:
         for loc in LOCATION_GROUPS:

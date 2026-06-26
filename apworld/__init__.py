@@ -94,7 +94,9 @@ VANILLA_BLOCKED_KEY_NAMES: set[str] = {
 # enforces this (the mirror image of the Classrooms+open-castle exclusion).
 # The region still exists in both modes' tables (REGION_NAMES is one shared
 # list); in vanilla its entry rule is `never` and no locations attach to it.
-OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge", "BeanBonusRoom"}
+# The bean room is NOT here: vanilla reaches it by completing the Rictusempra
+# challenge, so its containers are real (missable) vanilla checks.
+OPEN_CASTLE_ONLY_REGIONS: set[str] = {"GryffindorChallenge"}
 
 
 def launch_client(*args: str) -> None:

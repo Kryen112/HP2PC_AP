@@ -1,5 +1,6 @@
 from .access import (
     _Access,
+    _bronze_cards,
     alohomora,
     bicorn_level_key,
     boomslang_level_key,
@@ -16,7 +17,23 @@ from .access import (
     spongify,
 )
 
+# Chamber of Secrets level logic (both modes): the drop in needs Spongify to land
+# safely, but 20 bronze cards (two extra health rows) tank the 2.5-row fall instead.
+# Only this first fall is bronze-skippable; deeper gates keep bare spongify. Vanilla
+# masks it (region entry already needs Spongify, and bronze is not progression there).
+chamber_first_fall = spongify | _bronze_cards(20)
+
 LOCATION_RULES_VANILLA: dict[str, _Access] = {
+    # The bean room (reached by completing Rictusempra; entry gate on the region)
+    # opens its containers with Alohomora, same as open castle. Missable: the
+    # vanilla room is a one-shot timed visit.
+    "Bean Bonus Room - Chest 1": alohomora,
+    "Bean Bonus Room - Chest 2": alohomora,
+    "Bean Bonus Room - Chest 3": alohomora,
+    "Bean Bonus Room - Chest 4": alohomora,
+    "Bean Bonus Room - Chest 5": alohomora,
+    "Bean Bonus Room - Chest 6": alohomora,
+    "Bean Bonus Room - Gargoyle": alohomora,
     "Bicorn Level - Card Agrippa": alohomora & flipendo & skurge & rictusempra,
     "Bicorn Level - Card Cronk": alohomora & (flipendo | running) & skurge,
     "Bicorn Level - Card Goshawk": alohomora & flipendo & skurge & rictusempra,
@@ -97,9 +114,9 @@ LOCATION_RULES_VANILLA: dict[str, _Access] = {
     "Castle Exterior - Secret 7": alohomora & (skurge & rictusempra & diffindo & bicorn_level_key | running),
     "Castle Exterior - Secret 8": alohomora,
     "Chamber of Secrets - Card Elphick": spongify & diffindo & skurge & rictusempra & flipendo,
-    "Chamber of Secrets - Cauldron 1": spongify & flipendo,
+    "Chamber of Secrets - Cauldron 1": chamber_first_fall & flipendo,
     "Chamber of Secrets - Cauldron 10": flipendo,
-    "Chamber of Secrets - Cauldron 2": spongify & flipendo,
+    "Chamber of Secrets - Cauldron 2": chamber_first_fall & flipendo,
     "Chamber of Secrets - Cauldron 3": spongify & diffindo & skurge & flipendo,
     "Chamber of Secrets - Cauldron 4": spongify & diffindo & skurge & flipendo,
     "Chamber of Secrets - Cauldron 5": spongify & diffindo & skurge & flipendo,
@@ -108,14 +125,14 @@ LOCATION_RULES_VANILLA: dict[str, _Access] = {
     "Chamber of Secrets - Cauldron 8": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Cauldron 9": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Chest 1": skurge & lumos & alohomora,
-    "Chamber of Secrets - Chest 2": spongify & alohomora,
-    "Chamber of Secrets - Chest 3": spongify & alohomora,
+    "Chamber of Secrets - Chest 2": chamber_first_fall & alohomora,
+    "Chamber of Secrets - Chest 3": chamber_first_fall & alohomora,
     "Chamber of Secrets - Chest 4": spongify & diffindo & skurge & alohomora,
     "Chamber of Secrets - Chest 5": spongify & diffindo & skurge & alohomora,
     "Chamber of Secrets - Chest 6": spongify & diffindo & skurge & (flipendo | running) & alohomora,
     "Chamber of Secrets - Chest 7": alohomora,
     "Chamber of Secrets - Complete": spongify & diffindo & skurge & rictusempra & flipendo,
-    "Chamber of Secrets - Flobberworm Mucous Jar 1": spongify & flipendo,
+    "Chamber of Secrets - Flobberworm Mucous Jar 1": chamber_first_fall & flipendo,
     "Chamber of Secrets - Flobberworm Mucous Jar 2": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Flobberworm Mucous Jar 3": flipendo,
     "Chamber of Secrets - Secret 1": skurge & lumos,
@@ -124,7 +141,7 @@ LOCATION_RULES_VANILLA: dict[str, _Access] = {
     "Chamber of Secrets - Secret 4": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Secret 5": spongify & diffindo & skurge & rictusempra & flipendo & lumos,
     "Chamber of Secrets - Secret 6": spongify & diffindo & skurge & rictusempra & flipendo,
-    "Chamber of Secrets - Wiggentree Bark Jar 1": spongify & flipendo,
+    "Chamber of Secrets - Wiggentree Bark Jar 1": chamber_first_fall & flipendo,
     "Chamber of Secrets - Wiggentree Bark Jar 2": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Wiggentree Bark Jar 3": flipendo,
     "Diffindo Challenge - Beat Par Time": diffindo & rictusempra & flipendo & lumos & skurge & alohomora,
@@ -696,9 +713,9 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Castle Exterior - Secret 7": diffindo,
     "Castle Exterior - Secret 8": alohomora,
     "Chamber of Secrets - Card Elphick": spongify & diffindo & skurge & rictusempra & flipendo,
-    "Chamber of Secrets - Cauldron 1": spongify & flipendo,
+    "Chamber of Secrets - Cauldron 1": chamber_first_fall & flipendo,
     "Chamber of Secrets - Cauldron 10": flipendo,
-    "Chamber of Secrets - Cauldron 2": spongify & flipendo,
+    "Chamber of Secrets - Cauldron 2": chamber_first_fall & flipendo,
     "Chamber of Secrets - Cauldron 3": spongify & diffindo & skurge & flipendo,
     "Chamber of Secrets - Cauldron 4": spongify & diffindo & skurge & flipendo,
     "Chamber of Secrets - Cauldron 5": spongify & diffindo & skurge & flipendo,
@@ -707,14 +724,14 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Chamber of Secrets - Cauldron 8": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Cauldron 9": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Chest 1": skurge & lumos & alohomora,
-    "Chamber of Secrets - Chest 2": spongify & alohomora,
-    "Chamber of Secrets - Chest 3": spongify & alohomora,
+    "Chamber of Secrets - Chest 2": chamber_first_fall & alohomora,
+    "Chamber of Secrets - Chest 3": chamber_first_fall & alohomora,
     "Chamber of Secrets - Chest 4": spongify & diffindo & skurge & alohomora,
     "Chamber of Secrets - Chest 5": spongify & diffindo & skurge & alohomora,
     "Chamber of Secrets - Chest 6": spongify & diffindo & skurge & (flipendo | running) & alohomora,
     "Chamber of Secrets - Chest 7": alohomora,
     "Chamber of Secrets - Complete": spongify & diffindo & skurge & rictusempra & flipendo,
-    "Chamber of Secrets - Flobberworm Mucous Jar 1": spongify & flipendo,
+    "Chamber of Secrets - Flobberworm Mucous Jar 1": chamber_first_fall & flipendo,
     "Chamber of Secrets - Flobberworm Mucous Jar 2": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Flobberworm Mucous Jar 3": flipendo,
     "Chamber of Secrets - Secret 1": skurge & lumos,
@@ -723,7 +740,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Chamber of Secrets - Secret 4": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Secret 5": spongify & diffindo & skurge & rictusempra & flipendo & lumos,
     "Chamber of Secrets - Secret 6": spongify & diffindo & skurge & rictusempra & flipendo,
-    "Chamber of Secrets - Wiggentree Bark Jar 1": spongify & flipendo,
+    "Chamber of Secrets - Wiggentree Bark Jar 1": chamber_first_fall & flipendo,
     "Chamber of Secrets - Wiggentree Bark Jar 2": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Wiggentree Bark Jar 3": flipendo,
     "Diffindo Challenge - Beat Par Time": diffindo & rictusempra & flipendo & lumos & skurge & alohomora,

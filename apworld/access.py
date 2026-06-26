@@ -2,6 +2,59 @@ from typing import Callable
 
 from BaseClasses import CollectionState
 
+_BRONZE_CARD_NAMES: list[str] = [
+    "Bronze Card - Agrippa",
+    "Bronze Card - Alderton",
+    "Bronze Card - Barbary",
+    "Bronze Card - Barkwith",
+    "Bronze Card - Belby",
+    "Bronze Card - Blane",
+    "Bronze Card - Bloxam",
+    "Bronze Card - Bonham",
+    "Bronze Card - Catchlove",
+    "Bronze Card - Elphick",
+    "Bronze Card - Ethelred",
+    "Bronze Card - Fancourt",
+    "Bronze Card - Goshawk",
+    "Bronze Card - Graves",
+    "Bronze Card - Gunhilda",
+    "Bronze Card - Hipworth",
+    "Bronze Card - Kegg",
+    "Bronze Card - Ketteridge",
+    "Bronze Card - Marjoribanks",
+    "Bronze Card - Merlin",
+    "Bronze Card - Merwyn",
+    "Bronze Card - Muldoon",
+    "Bronze Card - Ollerton",
+    "Bronze Card - Peakes",
+    "Bronze Card - Pilliwickle",
+    "Bronze Card - Platt",
+    "Bronze Card - Plumpton",
+    "Bronze Card - Po",
+    "Bronze Card - Pokeby",
+    "Bronze Card - Sawbridge",
+    "Bronze Card - Scamander",
+    "Bronze Card - Starkey",
+    "Bronze Card - Stroulger",
+    "Bronze Card - Stump",
+    "Bronze Card - Sweeting",
+    "Bronze Card - Sykes",
+    "Bronze Card - Thruston",
+    "Bronze Card - Toke",
+    "Bronze Card - Twonk",
+    "Bronze Card - Ulric",
+    "Bronze Card - Vablatsky",
+    "Bronze Card - Waffling",
+    "Bronze Card - Wagtail",
+    "Bronze Card - Warbeck",
+    "Bronze Card - Wellbeloved",
+    "Bronze Card - Wenlock",
+    "Bronze Card - Whitehorn",
+    "Bronze Card - Wintringham",
+    "Bronze Card - Withers",
+    "Bronze Card - Woodcroft",
+]
+
 _SILVER_CARD_NAMES: list[str] = [
     "Silver Card - Andros",
     "Silver Card - Beamish",
@@ -68,6 +121,10 @@ class _Access:
 
 def _item(name: str) -> _Access:
     return _Access(lambda state, player: state.has(name, player))
+
+
+def _bronze_cards(count: int) -> _Access:
+    return _Access(lambda state, player: state.has_from_list_unique(_BRONZE_CARD_NAMES, player, count))
 
 
 def _silver_cards(count: int) -> _Access:

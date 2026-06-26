@@ -2142,6 +2142,13 @@ GOLD_CARD_ROOM_LOCATIONS: frozenset = frozenset(
 # through the level the one time it is reachable).
 MISSABLE_LOCATIONS: frozenset = frozenset(
     {
+        "Bean Bonus Room - Chest 1",
+        "Bean Bonus Room - Chest 2",
+        "Bean Bonus Room - Chest 3",
+        "Bean Bonus Room - Chest 4",
+        "Bean Bonus Room - Chest 5",
+        "Bean Bonus Room - Chest 6",
+        "Bean Bonus Room - Gargoyle",
         "Bicorn Level - Cauldron 1",
         "Bicorn Level - Cauldron 2",
         "Bicorn Level - Cauldron 3",
@@ -2288,6 +2295,15 @@ MISSABLE_LOCATIONS: frozenset = frozenset(
 # open castle dependency table. A subset of the precollected starting
 # inventory means the location is reachable from the start.
 MISSABLE_LOCATION_DEPS_VANILLA: dict[str, list[str]] = {
+    # Bean room: reaching it = completing Rictusempra (Lumos, Flipendo,
+    # Rictusempra); opening its containers needs Alohomora.
+    "Bean Bonus Room - Chest 1": ["Alohomora", "Flipendo", "Lumos", "Rictusempra"],
+    "Bean Bonus Room - Chest 2": ["Alohomora", "Flipendo", "Lumos", "Rictusempra"],
+    "Bean Bonus Room - Chest 3": ["Alohomora", "Flipendo", "Lumos", "Rictusempra"],
+    "Bean Bonus Room - Chest 4": ["Alohomora", "Flipendo", "Lumos", "Rictusempra"],
+    "Bean Bonus Room - Chest 5": ["Alohomora", "Flipendo", "Lumos", "Rictusempra"],
+    "Bean Bonus Room - Chest 6": ["Alohomora", "Flipendo", "Lumos", "Rictusempra"],
+    "Bean Bonus Room - Gargoyle": ["Alohomora", "Flipendo", "Lumos", "Rictusempra"],
     "Bicorn Level - Secret 2": ["Alohomora", "Bicorn Level Key", "Flipendo", "Lumos", "Rictusempra", "Skurge"],
     "Bicorn Level - Secret 1": ["Alohomora", "Bicorn Level Key", "Flipendo", "Lumos", "Rictusempra", "Skurge"],
     "Bicorn Level - Secret 6": ["Alohomora", "Bicorn Level Key", "Flipendo", "Lumos", "Rictusempra", "Skurge"],
