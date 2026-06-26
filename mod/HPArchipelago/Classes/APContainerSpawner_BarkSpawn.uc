@@ -1,9 +1,3 @@
-// Auto-generated. Do not edit by hand; regenerate from
-// data/locations.yaml (containers) via gen_apworld.py.
-// Swap target for BarkSpawn containers (single-content jars): the AP
-// token REPLACES the native goodie -- it drops INSTEAD OF the bark/
-// mucus, not alongside it. SwapContainerSpawner copies the instance
-// spawn config and, for replace leaves, does NOT bump Limits.
 class APContainerSpawner_BarkSpawn extends BarkSpawn;
 
 const LOC_BASE = 5760000;

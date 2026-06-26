@@ -1,5 +1,3 @@
-// Auto-generated. Do not edit by hand; regenerate from
-// data/locations.yaml (secrets + challenge_stars + tradersanity + containers sections).
 class APLocationRegistry extends Object;
 
 static function int GetSecretLocationId(string LevelName, string MarkerName)

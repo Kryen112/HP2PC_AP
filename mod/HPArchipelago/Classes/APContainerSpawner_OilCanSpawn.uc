@@ -1,9 +1,3 @@
-// Auto-generated. Do not edit by hand; regenerate from
-// data/locations.yaml (containers) via gen_apworld.py.
-// Swap target for OilCanSpawn containers: ejects the AP token as its own
-// sequential goodie (bean velocity / bounce / delay), then the box's own
-// goodies. SwapContainerSpawner copies the instance spawn config + bumps
-// Limits by 1 for the extra slot.
 class APContainerSpawner_OilCanSpawn extends OilCanSpawn;
 
 const LOC_BASE = 5760000;

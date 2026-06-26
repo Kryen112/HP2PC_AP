@@ -1,4 +1,3 @@
-// Auto-generated. Do not edit by hand; regenerate from data/items.yaml.
 class APCardMarker_WCBelby extends APCardMarker;
 
 defaultproperties

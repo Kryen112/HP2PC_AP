@@ -1,5 +1,3 @@
-// Auto-generated. Do not edit by hand; regenerate from
-// data/locations.yaml (cards section) + CARD_GAME_ID_TO_CLASS.
 class APCardAppearance extends Object;
 
 // Game-side card id (1..101) -> full AP location id. The #3 resolver
