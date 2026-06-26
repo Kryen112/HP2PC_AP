@@ -9,11 +9,6 @@
 // drives Scan/Manage each tick via GetInstance.
 class APBeanRoom extends Info;
 
-// Mirror APCardWatcher's id constants (ContainerMarkerClass indexes the watcher's
-// NonCardLocationChecked ledger cross-class by apId - LOC_BASE).
-const LOC_BASE = 5760000;
-const NONCARD_LOC_WINDOW = 2048;
-
 // Process-wide singleton pointer (class-default). The instance copy is unused and
 // kept None for save-graph hygiene, mirroring APHUDToast.
 var APBeanRoom LatestInstance;
@@ -156,90 +151,6 @@ function SpawnDropBean(Vector pos)
     if (bean != None) bean.Tag = 'APDropBean';
 }
 
-// Burst `count` beans out of a dispenser at `loc` with scatter velocity (mimics
-// the native eject, but all at once so there is no eject window). Tagged
-// 'APDropBean' so the snapshot persists them.
-function SpawnBurstBeans(Vector loc, int count)
-{
-    local int i;
-    local Actor bean;
-    local Vector spawnAt, v;
-
-    loc.Z += 40.0;
-    for (i = 0; i < count; i++)
-    {
-        spawnAt = loc;
-        spawnAt.X += (-16 + Rand(32));
-        spawnAt.Y += (-16 + Rand(32));
-        bean = Spawn(RandomBeanClass(), None, 'APDropBean', spawnAt);
-        if (bean == None) continue;
-        bean.Tag = 'APDropBean';
-        v.X = -80 + Rand(160);
-        v.Y = -80 + Rand(160);
-        v.Z = 150 + Rand(120);
-        bean.Velocity = v;
-        bean.SetPhysics(PHYS_Falling);
-    }
-}
-
-// Eject the containersanity AP token a bean-room dispenser would have dropped had
-// ManageBeanDrops not suppressed its native eject. The token is a separate
-// collectible (own mesh, fires the check on Touch), so it flings alongside the
-// bean burst. Velocity / PHYS_Falling / persist mirror SpawnBurstBeans and the
-// native eject. markerCls None (dispenser left vanilla because the location is
-// already collected) is a no-op; the marker's own PostBeginPlay self-destroys a
-// stale already-checked ghost.
-function SpawnContainerMarker(class<Actor> markerCls, Vector loc)
-{
-    local Actor m;
-    local Vector spawnAt, v;
-
-    if (markerCls == None) return;
-
-    spawnAt = loc;
-    spawnAt.Z += 40.0;
-    m = Spawn(markerCls, , , spawnAt);
-    if (m == None) return;
-    m.bPersistent = True;
-    v.X = -80 + Rand(160);
-    v.Y = -80 + Rand(160);
-    v.Z = 150 + Rand(120);
-    m.Velocity = v;
-    m.SetPhysics(PHYS_Falling);
-    Log("[Archipelago] ManageBeanDrops: ejected AP marker " $ string(markerCls.Name));
-}
-
-// The containersanity marker class for an apId, or None when the id is 0 (not a
-// check) or the location is already collected (no phantom token on re-clear).
-// Bean-room dispensers keep their map name (chests are injected in place, the
-// spawner is left unswapped), so GetContainerLocationId resolves them by name.
-function class<Actor> ContainerMarkerClass(int apId)
-{
-    local int slot;
-
-    if (apId <= 0) return None;
-    slot = apId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return None;
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return None;
-    return class<Actor>(DynamicLoadObject(
-        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
-}
-
-// Destroy stray native beans within radius of a just-taken-over dispenser (the
-// few that can eject before the take-over fires). Floor beans ('APFloorBean')
-// and managed drop beans ('APDropBean') are left alone.
-function DestroyLeakedDropBeans(Vector loc)
-{
-    local Jellybean b;
-
-    foreach AllActors(class'Jellybean', b)
-    {
-        if (b == None || b.bDeleteMe) continue;
-        if (b.Tag == 'APFloorBean' || b.Tag == 'APDropBean') continue;
-        if (VSize(b.Location - loc) < 250.0) b.Destroy();
-    }
-}
-
 // Chest/gargoyle one-time + dropped-bean persistence. Runs after ScanBeanRoom so
 // floor beans are already tagged 'APFloorBean' and excluded here. See the
 // DispenserOpened/DropBeanPos declaration for the model.
@@ -248,7 +159,7 @@ function ManageBeanDrops()
     local ChestGold chest;
     local GenericSpawner garg;
     local Jellybean b;
-    local int idx, s, gcount;
+    local int idx, s;
 
     if (class'APModeDetector'.default.bOpenCastleMode != 1) return;
     if (Caps(string(Level.Outer.Name)) != "BEANREWARDROOM") return;
@@ -294,10 +205,14 @@ function ManageBeanDrops()
         return;
     }
 
-    // First open this visit: take the dispenser over so its whole pool appears
-    // at once (no eject window to lose beans in). Suppress the native eject,
-    // clear any leaked native beans, then burst the pool as tagged drop beans;
-    // the snapshot below persists them.
+    // First open this visit: let the dispenser eject natively over time. A player
+    // who leaves mid-spew loses the beans that have not ejected yet - that is
+    // accepted. The containersanity AP token rides the native eject queue like any
+    // other container (the chest is injected at EjectedObjects[0], the gargoyle is
+    // swapped to APContainerSpawner_GenericSpawner; both by APContainerManager), so
+    // it drops first, in sequence, at the correct time. All this needs to do is
+    // mark the dispenser spent so a re-entry can't re-farm; the snapshot below
+    // persists the beans that reach the floor.
     foreach AllActors(class'ChestGold', chest)
     {
         if (chest == None || chest.bDeleteMe) continue;
@@ -306,16 +221,7 @@ function ManageBeanDrops()
         if (chest.bOpened && default.DispenserOpened[idx] == 0)
         {
             default.DispenserOpened[idx] = 1;
-            if (!chest.IsInState('stillOpen')) chest.GotoState('stillOpen');
-            DestroyLeakedDropBeans(chest.Location);
-            SpawnBurstBeans(chest.Location, chest.iNumberOfBeans);
-            // The forced stillOpen above kills the native eject, so the
-            // containersanity token never drops on its own; eject it here.
-            SpawnContainerMarker(ContainerMarkerClass(
-                class'APLocationRegistry'.static.GetContainerLocationId(
-                    "BEANREWARDROOM", string(chest.Name))), chest.Location);
-            Log("[Archipelago] ManageBeanDrops: ChestGold" $ idx $ " burst "
-                $ chest.iNumberOfBeans);
+            Log("[Archipelago] ManageBeanDrops: ChestGold" $ idx $ " opened (native eject)");
         }
     }
     foreach AllActors(class'GenericSpawner', garg)
@@ -324,22 +230,7 @@ function ManageBeanDrops()
         if (!garg.IsInState('stateStart') && default.DispenserOpened[6] == 0)
         {
             default.DispenserOpened[6] = 1;
-            garg.HowManyObjectsToSpawn = 0;   // suppress native spawn loop
-            // Match the native pool: RandRange of the gargoyle's configured Min/Max.
-            if (garg.Limits.Min >= garg.Limits.Max)
-                gcount = garg.Limits.Min;
-            else
-                gcount = RandRange(garg.Limits.Min, garg.Limits.Max);
-            if (gcount <= 0) gcount = 6;   // fallback if Limits is unset
-            DestroyLeakedDropBeans(garg.Location);
-            SpawnBurstBeans(garg.Location, gcount);
-            // HowManyObjectsToSpawn=0 above suppresses the spawner's own eject,
-            // so eject its containersanity token here. The bean-room spawner is
-            // left unswapped, so it keeps its map name for the lookup.
-            SpawnContainerMarker(ContainerMarkerClass(
-                class'APLocationRegistry'.static.GetContainerLocationId(
-                    "BEANREWARDROOM", string(garg.Name))), garg.Location);
-            Log("[Archipelago] ManageBeanDrops: gargoyle burst " $ gcount);
+            Log("[Archipelago] ManageBeanDrops: gargoyle opened (native eject)");
         }
         break;
     }

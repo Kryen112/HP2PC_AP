@@ -102,16 +102,6 @@ function ReplaceContainers()
         apId = class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(spawner.Name));
         if (apId > 0)
         {
-            // Bean-room spawners are ejected manually by APBeanRoom.ManageBeanDrops
-            // (it bursts the whole pool at once), so the native eject the swap
-            // exists to hook is never used here. Swapping would only strip the map
-            // actor's Alohomora targeting (the respawn reverts eVulnerableToSpell
-            // to the class default Flipendo), leaving no lock-on target. Leave it
-            // in place; ManageBeanDrops ejects its token by name lookup.
-            if (lvl == "BEANREWARDROOM")
-            {
-                continue;
-            }
             SwapContainerSpawner(spawner, apId);
             n++;
         }
