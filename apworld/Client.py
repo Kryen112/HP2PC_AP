@@ -14,27 +14,39 @@ Mod-side protocol (newline-delimited text):
     CHECK_LOCID <id>            (game → client, on secret/star pickup — raw AP location id)
     CHECK_SPELL <name>          (game → client, on spell learned)
     CHECK_KEYITEM <name>        (game → client, on Boomslang/Bicorn pickup or BitOGoyle interaction)
-    GOAL_COMPLETE               (game → client, when the end-game latch sets; also replayed on every bridge connect while it holds, so a goal reached offline still registers)
+    GOAL_COMPLETE               (game → client, when the end-game latch sets; also replayed
+                                on every bridge connect while it holds, so a goal reached
+                                offline still registers)
     RINGOUT <signed_int>        (game → client, local bean total changed organically)
     SAY <text>                  (game → client, ~1/100 on spell cast — cosmetic chat)
     DEATH [cause]               (game → client, Harry entered stateDead — DeathLink out)
     VENDOR_OPENED <locId>       (game → client, player opened a Tradersanity vendor dialogue → broadcast hint)
     APPLIED <index>             (game → client, item at AP index applied → mark durably consumed)
     NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
-    CHECKEDOUT <id_csv>         (game → client, on bridge connect: AP location ids the mod has locally checked → replay to AP for any the server is missing)
-    BEANSTATE <payload>         (game → client, on leaving the open-castle bean room: its ledger to persist in AP storage so the room survives a restart)
-    GRANT <index> <payload>\x1f<segrecord>  (client → game, forward item received; index = AP ReceivedItems index; \x1f splits the apply payload from a colourised toast segment record)
+    CHECKEDOUT <id_csv>         (game → client, on bridge connect: AP location ids the mod has
+                                locally checked → replay to AP for any the server is missing)
+    BEANSTATE <payload>         (game → client, on leaving the open-castle bean room: its ledger
+                                to persist in AP storage so the room survives a restart)
+    GRANT <index> <payload>\x1f<segrecord>  (client → game, forward item received; index = AP
+                                ReceivedItems index; \x1f splits the apply payload from a
+                                colourised toast segment record)
     SENT <segrecord>            (client → game, colourised "we sent X to Y" toast for items routed to other slots)
     RINGIN <signed_int>         (client → game, net remote RingLink delta to apply)
     DEATHLINK                   (client → game, a linked player died — kill Harry)
-    TRAPLINK <name>|<source>    (client → game, a linked player's trap — applied via the grant drain as an index-less grant)
+    TRAPLINK <name>|<source>    (client → game, a linked player's trap — applied via the grant
+                                drain as an index-less grant)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
-    CHECKED <id_csv>            (client → game, comma-separated AP location ids the server already has as checked; sticky, every HELLO)
-    RESYNC_CARDS <class_csv>    (client → game, wizard-card UScript class names ever received; re-asserts CardOwner_Harry; sticky, every Connected + HELLO)
-    RESYNC_BEANROOM <payload>   (client → game, open-castle bean-room ledger from AP storage; merges dispensers/floor, restores drops on cold load; every Connected + HELLO)
+    CHECKED <id_csv>            (client → game, comma-separated AP location ids the server
+                                already has as checked; sticky, every HELLO)
+    RESYNC_CARDS <class_csv>    (client → game, wizard-card UScript class names ever received;
+                                re-asserts CardOwner_Harry; sticky, every Connected + HELLO)
+    RESYNC_BEANROOM <payload>   (client → game, open-castle bean-room ledger from AP storage;
+                                merges dispensers/floor, restores drops on cold load; every
+                                Connected + HELLO)
     TOAST <text>                (client → game, yellow system toast: DeathLink out, AP disconnect, randomizer notices)
     TOASTW <text>               (client → game, white lifecycle toast: Join/Part, Goal by other slot, inbound DeathLink)
-    segrecord = `<roleChar><text>` segments joined by \x1e; roles s=our slot o=other g/u/t/f=item-by-flag l=location w=white n=newline
+    segrecord = `<roleChar><text>` segments joined by \x1e; roles s=our slot o=other
+                g/u/t/f=item-by-flag l=location w=white n=newline
 
 Durable-grant ledger: the set of applied AP indices is persisted in AP server
 Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
@@ -71,7 +83,7 @@ import sys
 import time
 import urllib.parse
 import warnings
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 # Silence the upstream setuptools deprecation that fires every time AP imports
 # pkg_resources (Archipelago/ModuleUpdate.py:76). Must run before importing
@@ -90,6 +102,9 @@ from .locations import (CARD_CLASS_TO_LOCATION_NAME,
                         CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID)
 from .ue1_package import PatchError
+
+if TYPE_CHECKING:
+    import kvui
 
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 
@@ -2054,7 +2069,8 @@ class HP2Context(CommonContext):
     async def _send_named_location_check(self, kind: str, game_name: str, name_to_location: dict[str, str]) -> None:
         location_name = name_to_location.get(game_name)
         if location_name is None:
-            logger.info(f"Game {kind} {game_name!r} has no AP location mapping (likely starter / non-progression); skipping")
+            logger.info(f"Game {kind} {game_name!r} has no AP location mapping "
+                        f"(likely starter / non-progression); skipping")
             return
         location_id = LOCATION_NAME_TO_ID.get(location_name)
         if location_id is None:

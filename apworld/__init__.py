@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import random as _random
 from dataclasses import dataclass
-from typing import Any, ClassVar, Union
+from typing import ClassVar, Union
 
 import settings
-from BaseClasses import (CollectionState, Item, ItemClassification, Location,
+from BaseClasses import (Item, ItemClassification, Location,
                          LocationProgressType, Region)
 from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
                      OptionGroup, OptionSet, PerGameCommonOptions,
@@ -24,12 +24,9 @@ from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
 
-from .items import BASE_ID as ITEM_BASE_ID
 from .items import (FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
                     ITEM_NAME_TO_ID, TRAP_NAMES)
-from .locations import BASE_ID as LOCATION_BASE_ID
-from .locations import (CARD_GAME_ID_TO_LOCATION_NAME,
-                        CARD_ITEM_NAME_TO_LOCATION_NAME,
+from .locations import (CARD_ITEM_NAME_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                         MISSABLE_LOCATION_DEPS_VANILLA, MISSABLE_LOCATIONS)
@@ -976,8 +973,8 @@ class HP2World(World):
             except KeyError:
                 continue
             add_rule(loc, lambda state, sp=spell_names, kp=key_names, player=self.player:
-                sum(state.has(s, player) for s in sp) >= 3
-                and sum(state.has(k, player) for k in kp) >= 3)
+                     sum(state.has(s, player) for s in sp) >= 3
+                     and sum(state.has(k, player) for k in kp) >= 3)
             if duelling_rule is not None:
                 add_rule(loc, lambda state, fn=duelling_rule, player=self.player: fn(state, player),
                          combine="or")
@@ -1066,10 +1063,10 @@ class HP2World(World):
         # every clause to 0/off there would be no gate at all, so fall back to
         # "all spells".
         o = self.options
-        cards     = int(o.open_castle_goal_cards.value)
-        spells    = int(o.open_castle_goal_spells.value)
-        levels    = int(o.open_castle_goal_levels.value)
-        duels     = int(bool(o.open_castle_goal_duels.value))
+        cards = int(o.open_castle_goal_cards.value)
+        spells = int(o.open_castle_goal_spells.value)
+        levels = int(o.open_castle_goal_levels.value)
+        duels = int(bool(o.open_castle_goal_duels.value))
         quidditch = int(bool(o.open_castle_goal_quidditch.value))
         # The contradictory combo (open_castle_goal_cards>0 while
         # enable_wizard_cards is off) is rejected up front in generate_early
