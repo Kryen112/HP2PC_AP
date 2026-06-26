@@ -908,10 +908,17 @@ class HP2World(World):
                     self.create_item(rng.choice(FILLER_NAMES)))
 
     def set_rules(self) -> None:
-        from worlds.generic.Rules import add_item_rule, add_rule, set_rule
-
         self._apply_missable_exclusions()
+        self._apply_location_rules()
+        self._exclude_silver_cards_from_gold_room()
+        self._gate_bean_costly_vendors()
+        if self._is_open_castle():
+            self._set_open_castle_completion()
+        else:
+            self._set_vanilla_completion()
 
+    def _apply_location_rules(self) -> None:
+        from worlds.generic.Rules import set_rule
         for loc_name, rule_fn in self._location_rules().items():
             try:
                 loc = self.multiworld.get_location(loc_name, self.player)
@@ -919,16 +926,15 @@ class HP2World(World):
                 continue
             set_rule(loc, lambda state, fn=rule_fn, player=self.player: fn(state, player))
 
-        # Placement constraint: gold-card locations cannot hold silver card
-        # items. The gold card room opens only after collecting 40 silver
-        # cards (=4 gold keys), so a silver buried in a gold-room location
-        # creates a circular dependency where the player can't reach 40
-        # silvers to unlock the room containing that silver. Enforced at
-        # fill time (the rule grammar can't express a placement constraint).
-        #
-        # GOLD_CARD_ROOM_LOCATIONS is generated from the items.yaml gold tier
-        # (cards_gold) — the same classification ITEM_GROUPS draws from — so
-        # the excluded item set and the target location set cannot drift.
+    def _exclude_silver_cards_from_gold_room(self) -> None:
+        # Placement constraint: gold-card locations cannot hold silver card items.
+        # The gold card room opens only after collecting 40 silver cards, so a
+        # silver buried in a gold-room location creates a circular dependency where
+        # the player can't reach 40 silvers to unlock the room containing it.
+        # Enforced at fill time (the rule grammar can't express placement).
+        # GOLD_CARD_ROOM_LOCATIONS comes from the same cards_gold classification
+        # ITEM_GROUPS draws from, so the excluded set and target set can't drift.
+        from worlds.generic.Rules import add_item_rule
         silver_items = frozenset(ITEM_GROUPS.get("Cards (Silver)", []))
         for loc_name in GOLD_CARD_ROOM_LOCATIONS:
             try:
@@ -936,26 +942,19 @@ class HP2World(World):
             except KeyError:
                 continue
             add_item_rule(loc, lambda item, silvers=silver_items: item.name not in silvers)
-        # Gold Card Room reachability (the silver-count gate itself) lives in the
-        # GoldCardRoom region `entry`: logic_vanilla.yaml `@all_silver_cards` (all
-        # of them) and logic_open_castle.yaml `@silver_cards_at_least_20`, both
-        # expanded by gen_apworld.py from the same cards_silver classification.
 
+    def _gate_bean_costly_vendors(self) -> None:
         # Quidditch-purchase vendors (Nimbus 2001 / Quidditch Armour) and the
-        # Tradersanity vendors cost a lot of beans the player can't have
-        # collected early. Gate them behind owning at least 3 spells AND at
-        # least 3 bookcase-blocker keys (any of them, a count threshold the
-        # logic grammar can't express), which ANDs onto the existing rule.
-        # Reaching the Duelling Club is a second sufficient path (its duels are
-        # a repeatable bean grind), so the Duelling Club region entry ORs in
-        # beside the count proxy: 'Duelling Key' in open castle, the full duel
-        # chain in vanilla. Only the locations that exist this seed are touched,
-        # so this is a no-op when those vendors are off.
+        # Tradersanity vendors cost beans the player can't have early. Gate them
+        # behind owning >=3 spells AND >=3 bookcase-blocker keys (a count the logic
+        # grammar can't express), ANDed onto the existing rule. Reaching the
+        # Duelling Club is a second sufficient path (a repeatable bean grind), so
+        # its region entry ORs in beside the count proxy. No-op for vendors off.
         #
-        # QuidditchPurchases is always gated. Tradersanity vendors are gated
-        # too, EXCEPT when the price is the flat-low 10 beans AND opening a
-        # vendor publishes its hint: cheap enough to afford in sphere 1 and the
-        # player is told it's there, so it stays an ungated sphere-1 check.
+        # QuidditchPurchases is always gated. Tradersanity vendors are gated too,
+        # EXCEPT when the price is the flat-low 10 beans AND opening a vendor
+        # publishes its hint: cheap in sphere 1 and the player is told it's there.
+        from worlds.generic.Rules import add_rule
         spell_names = ITEM_GROUPS.get("Spells", [])
         key_names = ITEM_GROUPS.get("Blocker Keys", [])
         duelling_rule = self._region_rules().get("DuellingClub")
@@ -979,70 +978,63 @@ class HP2World(World):
                 add_rule(loc, lambda state, fn=duelling_rule, player=self.player: fn(state, player),
                          combine="or")
 
-        # Open castle: AP's completion_condition mirrors the mod's GoalSatisfied().
-        # cards/spells are has-counts (the same items the mod counts; cards
-        # are promoted to progression_skip_balancing in create_item for open
-        # castle so AP guarantees them reachable). The levels clause gates on
-        # the reachability of the 13 "X Level - Complete" locations — completing
-        # a level, not merely owning its key (owning 'Boomslang Level Key' is
-        # not the same as finishing Boomslang, which also needs Diffindo).
-        # duels/quidditch gate on the key that opens that bookcase. Same
-        # _open_castle_goal_config the mod gets via fill_slot_data. The
-        # GoldCardRoom key/spell placement exclusion below stops AP shoving a
-        # goal-required key behind the silver-card wall.
-        if self._is_open_castle():
-            keys_and_spells = frozenset(
-                ITEM_GROUPS.get("Blocker Keys", []) + ITEM_GROUPS.get("Spells", []))
-            for loc_name in GOLD_CARD_ROOM_LOCATIONS:
-                try:
-                    loc = self.multiworld.get_location(loc_name, self.player)
-                except KeyError:
-                    continue
-                add_item_rule(loc, lambda item, bad=keys_and_spells: item.name not in bad)
+    def _set_open_castle_completion(self) -> None:
+        # AP's completion_condition mirrors the mod's GoalSatisfied(). cards/spells
+        # are has-counts (cards are promoted to progression_skip_balancing in
+        # create_item so AP guarantees them reachable). The levels clause gates on
+        # the reachability of the 13 "X - Complete" locations (completing a level,
+        # not merely owning its key). duels/quidditch gate on the bookcase key.
+        # Same _open_castle_goal_config the mod gets via fill_slot_data. The
+        # gold-room key/spell exclusion stops AP shoving a goal-required key behind
+        # the silver-card wall.
+        from worlds.generic.Rules import add_item_rule
+        keys_and_spells = frozenset(
+            ITEM_GROUPS.get("Blocker Keys", []) + ITEM_GROUPS.get("Spells", []))
+        for loc_name in GOLD_CARD_ROOM_LOCATIONS:
+            try:
+                loc = self.multiworld.get_location(loc_name, self.player)
+            except KeyError:
+                continue
+            add_item_rule(loc, lambda item, bad=keys_and_spells: item.name not in bad)
 
-            cfg = self._open_castle_goal_config()
-            need_cards = cfg["open_castle_goal_cards"]
-            need_spells = cfg["open_castle_goal_spells"]
-            need_levels = cfg["open_castle_goal_levels"]
-            need_duels = cfg["open_castle_goal_duels"]
-            need_quidditch = cfg["open_castle_goal_quidditch"]
-            card_items = sorted(CARD_ITEM_NAMES)
-            spell_items = ITEM_GROUPS.get("Spells", [])
-            duel_key = "Duelling Key"
-            quidditch_key = "Quidditch Key"
-            # The 13 level-completion locations. Always created (no toggle),
-            # so this set is stable; each one's reachability already folds in
-            # its region entry plus any per-completion `requires:` on the
-            # level_completions rows. Counting reachable completions is the
-            # AP analogue of the mod's clause-3 detector.
-            completion_locs = [n for n, g in LOCATION_GROUPS.items()
-                               if g == "LevelCompletions"]
+        cfg = self._open_castle_goal_config()
+        need_cards = cfg["open_castle_goal_cards"]
+        need_spells = cfg["open_castle_goal_spells"]
+        need_levels = cfg["open_castle_goal_levels"]
+        need_duels = cfg["open_castle_goal_duels"]
+        need_quidditch = cfg["open_castle_goal_quidditch"]
+        card_items = sorted(CARD_ITEM_NAMES)
+        spell_items = ITEM_GROUPS.get("Spells", [])
+        duel_key = "Duelling Key"
+        quidditch_key = "Quidditch Key"
+        completion_locs = [n for n, g in LOCATION_GROUPS.items()
+                           if g == "LevelCompletions"]
 
-            def _open_castle_complete(state, p=self.player):
-                if need_cards and sum(state.has(c, p) for c in card_items) < need_cards:
-                    return False
-                if need_spells and sum(state.has(s, p) for s in spell_items) < need_spells:
-                    return False
-                if need_levels and sum(
-                        state.can_reach_location(loc, p)
-                        for loc in completion_locs) < need_levels:
-                    return False
-                if need_duels and not state.has(duel_key, p):
-                    return False
-                if need_quidditch and not state.has(quidditch_key, p):
-                    return False
-                return True
+        def _open_castle_complete(state, p=self.player):
+            if need_cards and sum(state.has(c, p) for c in card_items) < need_cards:
+                return False
+            if need_spells and sum(state.has(s, p) for s in spell_items) < need_spells:
+                return False
+            if need_levels and sum(
+                    state.can_reach_location(loc, p)
+                    for loc in completion_locs) < need_levels:
+                return False
+            if need_duels and not state.has(duel_key, p):
+                return False
+            if need_quidditch and not state.has(quidditch_key, p):
+                return False
+            return True
 
-            self.multiworld.completion_condition[self.player] = (
-                lambda state, fn=_open_castle_complete: fn(state)
-            )
-            return
+        self.multiworld.completion_condition[self.player] = (
+            lambda state, fn=_open_castle_complete: fn(state)
+        )
 
+    def _set_vanilla_completion(self) -> None:
         goal_locations = self._goal_location_requirements().get(DEFAULT_GOAL, [])
         goal_rule = self._goal_rules().get(DEFAULT_GOAL)
         if not goal_locations and goal_rule is None:
-            # Fallback: if logic.yaml has no goal defined, use M5 placeholder
-            # (collect every progression item).
+            # Fallback: if logic.yaml has no goal defined, collect every
+            # progression item.
             progression = list(PROGRESSION_ITEM_NAMES)
             self.multiworld.completion_condition[self.player] = (
                 lambda state: all(state.has(name, self.player) for name in progression)

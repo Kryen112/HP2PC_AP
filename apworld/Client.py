@@ -773,316 +773,334 @@ class HP2Context(CommonContext):
         await self.send_connect()
 
     def on_package(self, cmd: str, args: dict) -> None:
-        if cmd == "RoomInfo":
-            new_seed = args.get("seed_name")
-            # self.auth is the slot name we're (re)authenticating as; the
-            # built-in RoomInfo handler awaits server_auth before this runs, so
-            # it is set before the framework's Connected resend of
-            # locations_checked.
-            new_auth = self.auth
-            seed_changed = bool(self._last_seed_name and new_seed
-                                and new_seed != self._last_seed_name)
-            slot_changed = bool(self._last_auth and new_auth
-                                and new_auth != self._last_auth)
-            if seed_changed or slot_changed:
-                reasons = []
-                if seed_changed:
-                    reasons.append(f"seed {self._last_seed_name!r} → {new_seed!r}")
-                if slot_changed:
-                    reasons.append(f"slot {self._last_auth!r} → {new_auth!r}")
-                self._reset_connection_state("; ".join(reasons))
-            if new_seed:
-                self._last_seed_name = new_seed
-            if new_auth:
-                self._last_auth = new_auth
-        elif cmd == "Connected":
-            logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
-            if self.pending_ap_outbound:
-                asyncio.create_task(self._flush_pending_ap_outbound())
+        handler = {
+            "RoomInfo": self._on_room_info,
+            "Connected": self._on_connected,
+            "RoomUpdate": self._on_room_update,
+            "ReceivedItems": self._on_received_items,
+            "Retrieved": self._on_retrieved,
+            "LocationInfo": self._on_location_info,
+            "Bounced": self._on_bounced,
+        }.get(cmd)
+        if handler is not None:
+            handler(args)
 
-            # Durable-grant ledger: (re)fetch this slot's consumed-index set
-            # from AP server Data Storage. Hold replay until the Retrieved
-            # response lands (handled in on_package below) so we never replay
-            # against an unknown ledger. received_by_index is rebuilt from the
-            # fresh ReceivedItems AP resends on this connection.
-            self.ledger_key = f"HP2PC_AP:{self.team}:{self.slot}"
-            self.ledger_loaded = False
-            self.received_by_index = {}
-            asyncio.create_task(self._send_or_queue_ap_msg(
-                {"cmd": "Get", "keys": [self.ledger_key]},
-                label=f"Get durable ledger {self.ledger_key}",
-            ))
+    def _on_room_info(self, args: dict) -> None:
+        new_seed = args.get("seed_name")
+        # self.auth is the slot name we're (re)authenticating as; the
+        # built-in RoomInfo handler awaits server_auth before this runs, so
+        # it is set before the framework's Connected resend of
+        # locations_checked.
+        new_auth = self.auth
+        seed_changed = bool(self._last_seed_name and new_seed
+                            and new_seed != self._last_seed_name)
+        slot_changed = bool(self._last_auth and new_auth
+                            and new_auth != self._last_auth)
+        if seed_changed or slot_changed:
+            reasons = []
+            if seed_changed:
+                reasons.append(f"seed {self._last_seed_name!r} → {new_seed!r}")
+            if slot_changed:
+                reasons.append(f"slot {self._last_auth!r} → {new_auth!r}")
+            self._reset_connection_state("; ".join(reasons))
+        if new_seed:
+            self._last_seed_name = new_seed
+        if new_auth:
+            self._last_auth = new_auth
 
-            # Open-castle bean-room ledger. Independent of the item ledger;
-            # replayed to the mod once its own Retrieved lands (and every HELLO).
-            self.beanroom_key = f"HP2PC_AP_beanroom:{self.team}:{self.slot}"
-            self.beanroom_loaded = False
-            asyncio.create_task(self._send_or_queue_ap_msg(
-                {"cmd": "Get", "keys": [self.beanroom_key]},
-                label=f"Get bean room state {self.beanroom_key}",
-            ))
+    def _on_connected(self, args: dict) -> None:
+        logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
+        if self.pending_ap_outbound:
+            asyncio.create_task(self._flush_pending_ap_outbound())
 
-            # Map-follow key for the tracker. Re-publish the last known level on
-            # AP (re)connect: the game only resends LEVEL when the game↔client
-            # bridge reopens, so an AP-only reconnect would otherwise leave the
-            # stored value stale.
-            self.level_key = f"HP2PC_AP_level:{self.team}:{self.slot}"
-            if self.current_level:
-                self._persist_level(self.current_level)
+        # Durable-grant ledger: (re)fetch this slot's consumed-index set
+        # from AP server Data Storage. Hold replay until the Retrieved
+        # response lands (handled in on_package below) so we never replay
+        # against an unknown ledger. received_by_index is rebuilt from the
+        # fresh ReceivedItems AP resends on this connection.
+        self.ledger_key = f"HP2PC_AP:{self.team}:{self.slot}"
+        self.ledger_loaded = False
+        self.received_by_index = {}
+        asyncio.create_task(self._send_or_queue_ap_msg(
+            {"cmd": "Get", "keys": [self.ledger_key]},
+            label=f"Get durable ledger {self.ledger_key}",
+        ))
 
-            # Startup connection toast. server_loop has set self.server_address
-            # to the normalised ws://host[:port] it actually connected to by
-            # the time Connected is processed. Push now if the game is up;
-            # otherwise it rides the next game HELLO. Sticky + idempotent
-            # mod-side; recomputed every Connected so a reconnect stays
-            # correct (the mod's latch keeps it from re-toasting).
-            self.connected_address = self._format_ap_address(self.server_address)
-            if self.connected_address and self.game_writer is not None:
-                self._send_to_game("CONNECTED " + self.connected_address)
-            sd = args.get("slot_data") or {}
-            self.is_open_castle = sd.get("game_mode") == "open_castle"
-            self.seed_mode = "open_castle" if self.is_open_castle else "vanilla"
+        # Open-castle bean-room ledger. Independent of the item ledger;
+        # replayed to the mod once its own Retrieved lands (and every HELLO).
+        self.beanroom_key = f"HP2PC_AP_beanroom:{self.team}:{self.slot}"
+        self.beanroom_loaded = False
+        asyncio.create_task(self._send_or_queue_ap_msg(
+            {"cmd": "Get", "keys": [self.beanroom_key]},
+            label=f"Get bean room state {self.beanroom_key}",
+        ))
+
+        # Map-follow key for the tracker. Re-publish the last known level on
+        # AP (re)connect: the game only resends LEVEL when the game↔client
+        # bridge reopens, so an AP-only reconnect would otherwise leave the
+        # stored value stale.
+        self.level_key = f"HP2PC_AP_level:{self.team}:{self.slot}"
+        if self.current_level:
+            self._persist_level(self.current_level)
+
+        # Startup connection toast. server_loop has set self.server_address
+        # to the normalised ws://host[:port] it actually connected to by
+        # the time Connected is processed. Push now if the game is up;
+        # otherwise it rides the next game HELLO. Sticky + idempotent
+        # mod-side; recomputed every Connected so a reconnect stays
+        # correct (the mod's latch keeps it from re-toasting).
+        self.connected_address = self._format_ap_address(self.server_address)
+        if self.connected_address and self.game_writer is not None:
+            self._send_to_game("CONNECTED " + self.connected_address)
+        sd = args.get("slot_data") or {}
+        self.is_open_castle = sd.get("game_mode") == "open_castle"
+        self.seed_mode = "open_castle" if self.is_open_castle else "vanilla"
+        if self.game_writer is not None:
+            self._send_to_game("MODE " + self.seed_mode)
+        if sd.get("game_mode") == "open_castle":
+            self.open_castle_goalcfg = "{},{},{},{},{},{}".format(
+                sd.get("open_castle_goal_cards", 0),
+                sd.get("open_castle_goal_spells", 0),
+                sd.get("open_castle_goal_levels", 0),
+                sd.get("open_castle_goal_duels", 0),
+                sd.get("open_castle_goal_quidditch", 0),
+                sd.get("open_castle_level_mask", 0),
+            )
+            logger.info(f"Open castle goal config from slot_data: {self.open_castle_goalcfg}")
+            # If the game is already connected, push now; otherwise it goes
+            # out on the next game HELLO.
             if self.game_writer is not None:
-                self._send_to_game("MODE " + self.seed_mode)
-            if sd.get("game_mode") == "open_castle":
-                self.open_castle_goalcfg = "{},{},{},{},{},{}".format(
-                    sd.get("open_castle_goal_cards", 0),
-                    sd.get("open_castle_goal_spells", 0),
-                    sd.get("open_castle_goal_levels", 0),
-                    sd.get("open_castle_goal_duels", 0),
-                    sd.get("open_castle_goal_quidditch", 0),
-                    sd.get("open_castle_level_mask", 0),
-                )
-                logger.info(f"Open castle goal config from slot_data: {self.open_castle_goalcfg}")
-                # If the game is already connected, push now; otherwise it goes
-                # out on the next game HELLO.
-                if self.game_writer is not None:
-                    self._send_to_game("GOALCFG " + self.open_castle_goalcfg)
-            else:
-                self.open_castle_goalcfg = None
+                self._send_to_game("GOALCFG " + self.open_castle_goalcfg)
+        else:
+            self.open_castle_goalcfg = None
 
-            # Tradersanity price mode (both game modes; slot_data carries it
-            # for vanilla and open castle). Sticky like open_castle_goalcfg:
-            # push now if the game is up, else it rides the next HELLO.
-            # Default 0 (off).
-            self.tradersanity_cfg = str(int(sd.get("tradersanity", 0)))
-            logger.info(f"Tradersanity mode from slot_data: {self.tradersanity_cfg}")
-            if self.game_writer is not None:
-                self._send_to_game("TRADECFG " + self.tradersanity_cfg)
+        # Tradersanity price mode (both game modes; slot_data carries it
+        # for vanilla and open castle). Sticky like open_castle_goalcfg:
+        # push now if the game is up, else it rides the next HELLO.
+        # Default 0 (off).
+        self.tradersanity_cfg = str(int(sd.get("tradersanity", 0)))
+        logger.info(f"Tradersanity mode from slot_data: {self.tradersanity_cfg}")
+        if self.game_writer is not None:
+            self._send_to_game("TRADECFG " + self.tradersanity_cfg)
 
-            # Tradersanity per-vendor price factors (byte 0..255 per
-            # Tradersanity location id), pre-rolled in the apworld from the
-            # seeded RNG. Mod blends each factor into [LO,HI] for
-            # price_random, or the vendor's own [min,max] for price_vanilla
-            # on a card vendor, so a vendor's AP-check price is fixed for
-            # the seed across level transitions AND save/exit. Same sticky
-            # lifecycle as tradersanity_cfg. Empty / missing → suppress the
-            # IPC line; mod side falls back to its built-in RandRange.
-            factors = sd.get("tradersanity_prices") or []
-            if factors:
-                self.tradersanity_prices_csv = ",".join(
-                    f"{int(loc_id)}:{int(factor)}" for loc_id, factor in factors
-                )
-                logger.info(
-                    f"Tradersanity per-vendor price factors from slot_data: "
-                    f"{len(factors)} entries"
-                )
-                if self.game_writer is not None:
-                    self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
-            else:
-                self.tradersanity_prices_csv = None
-
-            # Hint-on-open for Tradersanity vendors. (Re)fetch the per-seed
-            # sticky set so a reconnect or client restart never re-broadcasts
-            # the same hint. Disabled (and the set left empty) when off, so a
-            # later VENDOR_OPENED is a cheap no-op.
-            self.tradersanity_hint_on_open = bool(sd.get("tradersanity_hint_on_open"))
-            self.skip_vendor_voices = bool(sd.get("skip_vendor_voices"))
-            self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
-            logger.info(f"Skip vendor voices {'enabled' if self.skip_vendor_voices else 'disabled'}")
-            self.quidditch_upgrades = bool(sd.get("enable_quidditch_upgrades"))
-            self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
-            logger.info(f"Quidditch upgrades {'enabled' if self.quidditch_upgrades else 'disabled'}")
-            self.allow_running_logic = bool(sd.get("allow_running_logic"))
-            self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
-            logger.info(f"Running in logic {'enabled (sprint is free)' if self.allow_running_logic else 'disabled'}")
-            self.containersanity = bool(sd.get("containersanity"))
-            self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
-            logger.info(f"Containersanity {'enabled' if self.containersanity else 'disabled'}")
-            self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
-            self.hinted_vendor_locs = set()
-            if self.tradersanity_hint_on_open:
-                asyncio.create_task(self._send_or_queue_ap_msg(
-                    {"cmd": "Get", "keys": [self.vendor_hint_key]},
-                    label=f"Get vendor-hint set {self.vendor_hint_key}",
-                ))
+        # Tradersanity per-vendor price factors (byte 0..255 per
+        # Tradersanity location id), pre-rolled in the apworld from the
+        # seeded RNG. Mod blends each factor into [LO,HI] for
+        # price_random, or the vendor's own [min,max] for price_vanilla
+        # on a card vendor, so a vendor's AP-check price is fixed for
+        # the seed across level transitions AND save/exit. Same sticky
+        # lifecycle as tradersanity_cfg. Empty / missing → suppress the
+        # IPC line; mod side falls back to its built-in RandRange.
+        factors = sd.get("tradersanity_prices") or []
+        if factors:
+            self.tradersanity_prices_csv = ",".join(
+                f"{int(loc_id)}:{int(factor)}" for loc_id, factor in factors
+            )
             logger.info(
-                f"Tradersanity hint-on-open {'enabled' if self.tradersanity_hint_on_open else 'disabled'}"
+                f"Tradersanity per-vendor price factors from slot_data: "
+                f"{len(factors)} entries"
             )
+            if self.game_writer is not None:
+                self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
+        else:
+            self.tradersanity_prices_csv = None
 
-            # Sound, music, and dialogue randomizers. All patch files in the
-            # install, so they run in one task that resolves the install once
-            # (prompting the player at most once) and does the file work off the
-            # event loop. Off seeds restore from the backup. Auto-launch is chained
-            # after, so the game boots only once the files have settled.
-            self._audio_task = asyncio.create_task(self._connect_audio_then_launch(sd))
+        # Hint-on-open for Tradersanity vendors. (Re)fetch the per-seed
+        # sticky set so a reconnect or client restart never re-broadcasts
+        # the same hint. Disabled (and the set left empty) when off, so a
+        # later VENDOR_OPENED is a cheap no-op.
+        self.tradersanity_hint_on_open = bool(sd.get("tradersanity_hint_on_open"))
+        self.skip_vendor_voices = bool(sd.get("skip_vendor_voices"))
+        self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
+        logger.info(f"Skip vendor voices {'enabled' if self.skip_vendor_voices else 'disabled'}")
+        self.quidditch_upgrades = bool(sd.get("enable_quidditch_upgrades"))
+        self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
+        logger.info(f"Quidditch upgrades {'enabled' if self.quidditch_upgrades else 'disabled'}")
+        self.allow_running_logic = bool(sd.get("allow_running_logic"))
+        self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
+        logger.info(f"Running in logic {'enabled (sprint is free)' if self.allow_running_logic else 'disabled'}")
+        self.containersanity = bool(sd.get("containersanity"))
+        self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
+        logger.info(f"Containersanity {'enabled' if self.containersanity else 'disabled'}")
+        self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
+        self.hinted_vendor_locs = set()
+        if self.tradersanity_hint_on_open:
+            asyncio.create_task(self._send_or_queue_ap_msg(
+                {"cmd": "Get", "keys": [self.vendor_hint_key]},
+                label=f"Get vendor-hint set {self.vendor_hint_key}",
+            ))
+        logger.info(
+            f"Tradersanity hint-on-open {'enabled' if self.tradersanity_hint_on_open else 'disabled'}"
+        )
 
-            # RingLink. Re-roll the per-connection source UUID and
-            # (re)register the tag on every Connected so a reconnect stays
-            # routable for Bounced packets. Disable cleanly if a later seed
-            # / reconnect turns it off.
-            if sd.get("ring_link"):
-                asyncio.create_task(self._enable_ring_link())
-            else:
-                asyncio.create_task(self._disable_ring_link())
+        # Sound, music, and dialogue randomizers. All patch files in the
+        # install, so they run in one task that resolves the install once
+        # (prompting the player at most once) and does the file work off the
+        # event loop. Off seeds restore from the backup. Auto-launch is chained
+        # after, so the game boots only once the files have settled.
+        self._audio_task = asyncio.create_task(self._connect_audio_then_launch(sd))
 
-            # TrapLink. (Re)register the tag on every Connected so a reconnect
-            # stays routable for Bounced trap packets; disable cleanly if a
-            # later seed / reconnect turns it off. trap_pool is the slot's
-            # enabled trap types, used to constrain inbound traps.
-            self.trap_pool = list(sd.get("trap_pool") or [])
-            if sd.get("trap_link"):
-                asyncio.create_task(self._enable_trap_link())
-            else:
-                asyncio.create_task(self._disable_trap_link())
+        # RingLink. Re-roll the per-connection source UUID and
+        # (re)register the tag on every Connected so a reconnect stays
+        # routable for Bounced packets. Disable cleanly if a later seed
+        # / reconnect turns it off.
+        if sd.get("ring_link"):
+            asyncio.create_task(self._enable_ring_link())
+        else:
+            asyncio.create_task(self._disable_ring_link())
 
-            # DeathLink. Opt-in via slot_data. update_death_link
-            # (CommonClient.py) mutates self.tags then ConnectUpdate, so the
-            # tag persists across a reconnect's Connect; re-run on every
-            # Connected so a seed change / reconnect re-asserts the right
-            # state. Built-in dispatch (process_server_cmd) calls
-            # on_deathlink for inbound DeathLink Bounces once tagged.
-            self.death_link_enabled = bool(sd.get("death_link"))
-            asyncio.create_task(self.update_death_link(self.death_link_enabled))
-            logger.info(f"DeathLink {'enabled' if self.death_link_enabled else 'disabled'} for this slot")
+        # TrapLink. (Re)register the tag on every Connected so a reconnect
+        # stays routable for Bounced trap packets; disable cleanly if a
+        # later seed / reconnect turns it off. trap_pool is the slot's
+        # enabled trap types, used to constrain inbound traps.
+        self.trap_pool = list(sd.get("trap_pool") or [])
+        if sd.get("trap_link"):
+            asyncio.create_task(self._enable_trap_link())
+        else:
+            asyncio.create_task(self._disable_trap_link())
 
-            # #3: scout this slot's HP2 locations so the appearance table can
-            # resolve what item each marker holds. create_as_hint=0 → peek
-            # only, no hint broadcast (no spoiler-policy issue).
-            #
-            # MUST intersect with server_locations: LOCATION_NAME_TO_ID is the
-            # full cross-mode/all-options universe, but an open castle /
-            # option-trimmed seed only instantiates a subset for this slot. Scouting a
-            # location id the slot doesn't have raises a server-side KeyError
-            # that drops the connection — and CommonClient auto-resends
-            # locations_scouted on every reconnect, so a bad entry would wedge
-            # the client permanently. server_locations (missing | checked) is
-            # the authoritative per-slot set and is populated before
-            # on_package runs.
-            scout_ids = sorted(
-                set(LOCATION_NAME_TO_ID.values()) & set(self.server_locations)
-            )
-            if scout_ids:
-                self.locations_scouted |= set(scout_ids)
-                asyncio.create_task(self._send_or_queue_ap_msg(
-                    {"cmd": "LocationScouts",
-                     "locations": scout_ids,
-                     "create_as_hint": 0},
-                    label=f"LocationScouts ({len(scout_ids)} HP2 locations, "
-                          f"#3 appearance, no hint)",
-                ))
+        # DeathLink. Opt-in via slot_data. update_death_link
+        # (CommonClient.py) mutates self.tags then ConnectUpdate, so the
+        # tag persists across a reconnect's Connect; re-run on every
+        # Connected so a seed change / reconnect re-asserts the right
+        # state. Built-in dispatch (process_server_cmd) calls
+        # on_deathlink for inbound DeathLink Bounces once tagged.
+        self.death_link_enabled = bool(sd.get("death_link"))
+        asyncio.create_task(self.update_death_link(self.death_link_enabled))
+        logger.info(f"DeathLink {'enabled' if self.death_link_enabled else 'disabled'} for this slot")
 
-            # CHECKED resync. server_locations + checked_locations are
-            # populated by CommonContext before on_package runs for Connected,
-            # so the first rebuild here gives us a full payload. RoomUpdate
-            # below rebuilds incrementally as co-op partners collect.
+        # #3: scout this slot's HP2 locations so the appearance table can
+        # resolve what item each marker holds. create_as_hint=0 → peek
+        # only, no hint broadcast (no spoiler-policy issue).
+        #
+        # MUST intersect with server_locations: LOCATION_NAME_TO_ID is the
+        # full cross-mode/all-options universe, but an open castle /
+        # option-trimmed seed only instantiates a subset for this slot. Scouting a
+        # location id the slot doesn't have raises a server-side KeyError
+        # that drops the connection — and CommonClient auto-resends
+        # locations_scouted on every reconnect, so a bad entry would wedge
+        # the client permanently. server_locations (missing | checked) is
+        # the authoritative per-slot set and is populated before
+        # on_package runs.
+        scout_ids = sorted(
+            set(LOCATION_NAME_TO_ID.values()) & set(self.server_locations)
+        )
+        if scout_ids:
+            self.locations_scouted |= set(scout_ids)
+            asyncio.create_task(self._send_or_queue_ap_msg(
+                {"cmd": "LocationScouts",
+                 "locations": scout_ids,
+                 "create_as_hint": 0},
+                label=f"LocationScouts ({len(scout_ids)} HP2 locations, "
+                      f"#3 appearance, no hint)",
+            ))
+
+        # CHECKED resync. server_locations + checked_locations are
+        # populated by CommonContext before on_package runs for Connected,
+        # so the first rebuild here gives us a full payload. RoomUpdate
+        # below rebuilds incrementally as co-op partners collect.
+        self._rebuild_checked_csv()
+        # No custom outbound-check or goal re-send here: CommonContext
+        # resends self.locations_checked and re-asserts self.finished_game
+        # for us in its own Connected handling (and on a Sync mismatch).
+
+    def _on_room_update(self, args: dict) -> None:
+        # The server pushes a checked_locations delta whenever any client
+        # (including ours via a different process) collects one of our
+        # locations. CommonContext has already merged the delta into
+        # self.checked_locations by the time on_package runs, so just
+        # rebuild from scratch — the diff against self.checked_csv
+        # suppresses no-op pushes.
+        if "checked_locations" in args:
             self._rebuild_checked_csv()
-            # No custom outbound-check or goal re-send here: CommonContext
-            # resends self.locations_checked and re-asserts self.finished_game
-            # for us in its own Connected handling (and on a Sync mismatch).
-        elif cmd == "RoomUpdate":
-            # The server pushes a checked_locations delta whenever any client
-            # (including ours via a different process) collects one of our
-            # locations. CommonContext has already merged the delta into
-            # self.checked_locations by the time on_package runs, so just
-            # rebuild from scratch — the diff against self.checked_csv
-            # suppresses no-op pushes.
-            if "checked_locations" in args:
-                self._rebuild_checked_csv()
-        elif cmd == "ReceivedItems":
-            base = args.get("index") or 0
-            for offset, item in enumerate(args.get("items", [])):
-                # Absolute index in this slot's cumulative ReceivedItems list —
-                # the stable per-item key used by the durable ledger. AP resends
-                # the full list (base 0) on every reconnect, so storing by index
-                # is idempotent.
-                idx = base + offset
-                self.received_by_index[idx] = item
-                # Only forward once the ledger is known; otherwise replay could
-                # run against an unknown consumed-set and double-grant. The
-                # Retrieved handler does the catch-up forward.
-                if self.ledger_loaded:
-                    self._forward_one(idx, item)
-        elif cmd == "Retrieved":
-            keys = args.get("keys") or {}
-            if self.vendor_hint_key is not None and self.vendor_hint_key in keys:
-                val = keys.get(self.vendor_hint_key)
-                self.hinted_vendor_locs = set(int(x) for x in val) if val else set()
-                logger.info(
-                    f"Tradersanity vendor-hint set loaded: "
-                    f"{len(self.hinted_vendor_locs)} already-hinted location(s)"
-                )
-            if self.beanroom_key is not None and self.beanroom_key in keys:
-                val = keys.get(self.beanroom_key)
-                self.beanroom_state = val if isinstance(val, str) else ""
-                self.beanroom_loaded = True
-                self._send_resync_beanroom()
-                logger.info(f"Bean room state loaded ({len(self.beanroom_state)} chars)")
-            if self.ledger_key is not None and self.ledger_key in keys:
-                val = keys.get(self.ledger_key)
-                server_set = set(val) if val else set()
-                if self._ledger_client_authoritative:
-                    # A NEWGAME wipe this session made our set the source of
-                    # truth. Keep ours and overwrite the server so a stale
-                    # value (a wipe Set lost to a dying socket) can't resurrect
-                    # consumed indices and block the fresh playthrough's grants.
-                    if self.consumed_indices != server_set:
-                        self._persist_ledger()
-                else:
-                    # Normal load: union rather than replace. On a fresh client
-                    # session our set is empty, so this adopts the server value;
-                    # on an AP reconnect mid-session it preserves any index we
-                    # applied but whose persist Set was lost (silent socket
-                    # death), so an already-applied item is never re-granted.
-                    merged = self.consumed_indices | server_set
-                    self.consumed_indices = merged
-                    if merged != server_set:
-                        # We hold indices the server was missing; write the
-                        # union back so the stored ledger catches up.
-                        self._persist_ledger()
-                self.ledger_loaded = True
-                logger.info(
-                    f"Durable ledger loaded: {len(self.consumed_indices)} "
-                    f"consumed index(es) for {self.ledger_key}"
-                )
-                # Drain queued GRANTs (items not yet consumed) BEFORE the
-                # RESYNC. AP's ReceivedItems for this connection has already
-                # arrived (server sends it immediately after Connected, before
-                # processing our Get reply), so received_by_index is fully
-                # populated and granted_spell_names reflects every spell this
-                # slot has ever received. RESYNC opens the mod's wipe gate; the
-                # gate keeps existing F/L/A in place for spells the property
-                # includes, and correctly wipes any in-book spell the slot has
-                # never received from AP.
-                self._forward_all_received()
-                self._send_resync_spells()
-                self._send_resync_blocker_keys()
-                self._send_resync_key_items()
-                self._send_resync_cards()
-        elif cmd == "LocationInfo":
-            # CommonContext's built-in handler has already populated
-            # self.locations_info[loc] = NetworkItem for every scouted
-            # location before on_package runs. Rebuild + push the table.
-            self._rebuild_appearance_table()
-            # Vendor hints: when hint-on-open is on, push the resolved item
-            # name for each Tradersanity location to the mod so the in-trade
-            # label reads the actual item, not the generic "Archipelago Item".
-            self._send_vendor_hints_to_mod()
-        elif cmd == "Bounced":
-            # One Bounced packet may carry RingLink and/or TrapLink tags; each
-            # handler filters on its own tag, so dispatch to both.
-            self._handle_ring_bounce(args)
-            self._handle_traplink_bounce(args)
+
+    def _on_received_items(self, args: dict) -> None:
+        base = args.get("index") or 0
+        for offset, item in enumerate(args.get("items", [])):
+            # Absolute index in this slot's cumulative ReceivedItems list —
+            # the stable per-item key used by the durable ledger. AP resends
+            # the full list (base 0) on every reconnect, so storing by index
+            # is idempotent.
+            idx = base + offset
+            self.received_by_index[idx] = item
+            # Only forward once the ledger is known; otherwise replay could
+            # run against an unknown consumed-set and double-grant. The
+            # Retrieved handler does the catch-up forward.
+            if self.ledger_loaded:
+                self._forward_one(idx, item)
+
+    def _on_retrieved(self, args: dict) -> None:
+        keys = args.get("keys") or {}
+        if self.vendor_hint_key is not None and self.vendor_hint_key in keys:
+            val = keys.get(self.vendor_hint_key)
+            self.hinted_vendor_locs = set(int(x) for x in val) if val else set()
+            logger.info(
+                f"Tradersanity vendor-hint set loaded: "
+                f"{len(self.hinted_vendor_locs)} already-hinted location(s)"
+            )
+        if self.beanroom_key is not None and self.beanroom_key in keys:
+            val = keys.get(self.beanroom_key)
+            self.beanroom_state = val if isinstance(val, str) else ""
+            self.beanroom_loaded = True
+            self._send_resync_beanroom()
+            logger.info(f"Bean room state loaded ({len(self.beanroom_state)} chars)")
+        if self.ledger_key is not None and self.ledger_key in keys:
+            val = keys.get(self.ledger_key)
+            server_set = set(val) if val else set()
+            if self._ledger_client_authoritative:
+                # A NEWGAME wipe this session made our set the source of
+                # truth. Keep ours and overwrite the server so a stale
+                # value (a wipe Set lost to a dying socket) can't resurrect
+                # consumed indices and block the fresh playthrough's grants.
+                if self.consumed_indices != server_set:
+                    self._persist_ledger()
+            else:
+                # Normal load: union rather than replace. On a fresh client
+                # session our set is empty, so this adopts the server value;
+                # on an AP reconnect mid-session it preserves any index we
+                # applied but whose persist Set was lost (silent socket
+                # death), so an already-applied item is never re-granted.
+                merged = self.consumed_indices | server_set
+                self.consumed_indices = merged
+                if merged != server_set:
+                    # We hold indices the server was missing; write the
+                    # union back so the stored ledger catches up.
+                    self._persist_ledger()
+            self.ledger_loaded = True
+            logger.info(
+                f"Durable ledger loaded: {len(self.consumed_indices)} "
+                f"consumed index(es) for {self.ledger_key}"
+            )
+            # Drain queued GRANTs (items not yet consumed) BEFORE the
+            # RESYNC. AP's ReceivedItems for this connection has already
+            # arrived (server sends it immediately after Connected, before
+            # processing our Get reply), so received_by_index is fully
+            # populated and granted_spell_names reflects every spell this
+            # slot has ever received. RESYNC opens the mod's wipe gate; the
+            # gate keeps existing F/L/A in place for spells the property
+            # includes, and correctly wipes any in-book spell the slot has
+            # never received from AP.
+            self._forward_all_received()
+            self._send_resync_spells()
+            self._send_resync_blocker_keys()
+            self._send_resync_key_items()
+            self._send_resync_cards()
+
+    def _on_location_info(self, args: dict) -> None:
+        # CommonContext's built-in handler has already populated
+        # self.locations_info[loc] = NetworkItem for every scouted
+        # location before on_package runs. Rebuild + push the table.
+        self._rebuild_appearance_table()
+        # Vendor hints: when hint-on-open is on, push the resolved item
+        # name for each Tradersanity location to the mod so the in-trade
+        # label reads the actual item, not the generic "Archipelago Item".
+        self._send_vendor_hints_to_mod()
+
+    def _on_bounced(self, args: dict) -> None:
+        # One Bounced packet may carry RingLink and/or TrapLink tags; each
+        # handler filters on its own tag, so dispatch to both.
+        self._handle_ring_bounce(args)
+        self._handle_traplink_bounce(args)
 
     def _handle_ring_bounce(self, args: dict) -> None:
         """Apply an inbound RingLink Bounce to the game's bean total.
@@ -1758,313 +1776,352 @@ class HP2Context(CommonContext):
             # cleanup; the OS reaps the socket either way.
 
     async def _handle_game_line(self, line: str) -> None:
-        if line.startswith("APPLIED "):
-            # Mod confirms an item was applied to the live game and the
-            # post-apply SaveGame() landed. Mark its AP index durably consumed
-            # and persist the ledger to AP storage so a reconnect / save-load /
-            # client restart never re-grants it.
-            try:
-                idx = int(line[len("APPLIED "):].strip())
-            except ValueError:
-                logger.warning(f"Unparseable APPLIED: {line!r}")
-                return
-            if idx not in self.consumed_indices:
-                self.consumed_indices.add(idx)
-                self._persist_ledger()
+        # Game lines are "COMMAND" or "COMMAND <args>"; dispatch on the first word.
+        # The command words are distinct (CHECK vs CHECK_SPELL/_KEYITEM/_LOCID),
+        # so the first token routes unambiguously.
+        handler = {
+            "APPLIED": self._on_applied,
+            "BEANSTATE": self._on_beanstate,
+            "DRAIN_ROLLBACK": self._on_drain_rollback,
+            "NEWGAME": self._on_newgame,
+            "HELLO": self._on_hello,
+            "GOAL_COMPLETE": self._on_goal_complete,
+            "RINGOUT": self._on_ringout,
+            "DEATH": self._on_death,
+            "LEVEL": self._on_level,
+            "SAY": self._on_say,
+            "CHECK_SPELL": self._on_check_spell,
+            "CHECK_KEYITEM": self._on_check_keyitem,
+            "CHECKEDOUT": self._on_checkedout,
+            "CHECK_LOCID": self._on_check_locid,
+            "VENDOR_OPENED": self._on_vendor_opened,
+            "CHECK": self._on_check,
+        }.get(line.split(" ", 1)[0])
+        if handler is not None:
+            await handler(line)
+
+    async def _on_applied(self, line: str) -> None:
+        # Mod confirms an item was applied to the live game and the
+        # post-apply SaveGame() landed. Mark its AP index durably consumed
+        # and persist the ledger to AP storage so a reconnect / save-load /
+        # client restart never re-grants it.
+        try:
+            idx = int(line[len("APPLIED "):].strip())
+        except ValueError:
+            logger.warning(f"Unparseable APPLIED: {line!r}")
             return
-        if line.startswith("BEANSTATE "):
-            # Open-castle bean-room ledger snapshot from the mod (sent on leaving
-            # the room). Persist verbatim to AP storage so it survives a restart.
-            self.beanroom_state = line[len("BEANSTATE "):]
-            self._persist_beanroom()
-            return
-        if line == "DRAIN_ROLLBACK":
-            # Mod completed a death-revert: any item between the last save and
-            # the death was un-applied by LoadGame 0, and its APPLIED ack was
-            # buffered but never flushed. Anything in sent_this_session that
-            # isn't durably consumed is exactly that set — drop it from the
-            # session guard so _forward_all_received re-sends it, and the
-            # post-reload drain re-applies it durably.
-            unacked = self.sent_this_session - self.consumed_indices
-            if unacked:
-                self.sent_this_session -= unacked
-                logger.info(f"DRAIN_ROLLBACK: re-forwarding {len(unacked)} unacked item(s) after death-revert")
-                self._forward_all_received()
-            else:
-                logger.info("DRAIN_ROLLBACK: no unacked items in flight - no-op")
-            return
-        if line == "NEWGAME":
-            # Mod observed a genuine new game (iGameState 0). Wipe the
-            # consumed-index ledger (memory + AP storage) so the fresh
-            # playthrough re-receives every item, then re-forward.
-            # sent_this_session is deliberately NOT cleared: the mod's grant
-            # queue / TCP session is continuous across a NEWGAME, so anything
-            # already sent this session must not be re-sent (that would
-            # double-queue → double-apply). Items skipped pre-NEWGAME because
-            # they were in the stale prior-playthrough ledger are now forwarded
-            # (consumed is empty); each index ends up sent exactly once. RESYNC
-            # then re-asserts AP-granted spells against the fresh mod state
-            # (default.APGrantedSpell may have been reset by the mod's open
-            # castle entry path); the spell set itself is unchanged because
-            # received_by_index still holds every spell AP has ever delivered.
-            logger.info("NEWGAME: wiping durable ledger and re-forwarding all received items")
-            self.consumed_indices = set()
-            # Our wiped set is now authoritative over the server's stored value:
-            # a reconnect must not merge a stale pre-wipe ledger back in (see the
-            # Retrieved handler). A fresh game also hasn't goaled.
-            self._ledger_client_authoritative = True
-            self.finished_game = False
-            # A fresh save has checked nothing. Drop the local check cache so the
-            # framework's next Connected resend can't replay a prior
-            # playthrough's locations — the backstop for two rooms the connect-
-            # time identity can't tell apart (same seed value → same seed_name,
-            # same slot name, same host:port). The new game's genuine checks
-            # repopulate this via CHECK / CHECKEDOUT.
-            self.locations_checked = set()
+        if idx not in self.consumed_indices:
+            self.consumed_indices.add(idx)
             self._persist_ledger()
-            # Fresh playthrough: clear the persisted bean-room ledger so its room
-            # starts full (the mod wipes its class-default copy on NEWGAME too).
-            self.beanroom_state = ""
-            self._persist_beanroom()
+        return
+
+    async def _on_beanstate(self, line: str) -> None:
+        # Open-castle bean-room ledger snapshot from the mod (sent on leaving
+        # the room). Persist verbatim to AP storage so it survives a restart.
+        self.beanroom_state = line[len("BEANSTATE "):]
+        self._persist_beanroom()
+        return
+
+    async def _on_drain_rollback(self, line: str) -> None:
+        # Mod completed a death-revert: any item between the last save and
+        # the death was un-applied by LoadGame 0, and its APPLIED ack was
+        # buffered but never flushed. Anything in sent_this_session that
+        # isn't durably consumed is exactly that set — drop it from the
+        # session guard so _forward_all_received re-sends it, and the
+        # post-reload drain re-applies it durably.
+        unacked = self.sent_this_session - self.consumed_indices
+        if unacked:
+            self.sent_this_session -= unacked
+            logger.info(f"DRAIN_ROLLBACK: re-forwarding {len(unacked)} unacked item(s) after death-revert")
+            self._forward_all_received()
+        else:
+            logger.info("DRAIN_ROLLBACK: no unacked items in flight - no-op")
+        return
+
+    async def _on_newgame(self, line: str) -> None:
+        # Mod observed a genuine new game (iGameState 0). Wipe the
+        # consumed-index ledger (memory + AP storage) so the fresh
+        # playthrough re-receives every item, then re-forward.
+        # sent_this_session is deliberately NOT cleared: the mod's grant
+        # queue / TCP session is continuous across a NEWGAME, so anything
+        # already sent this session must not be re-sent (that would
+        # double-queue → double-apply). Items skipped pre-NEWGAME because
+        # they were in the stale prior-playthrough ledger are now forwarded
+        # (consumed is empty); each index ends up sent exactly once. RESYNC
+        # then re-asserts AP-granted spells against the fresh mod state
+        # (default.APGrantedSpell may have been reset by the mod's open
+        # castle entry path); the spell set itself is unchanged because
+        # received_by_index still holds every spell AP has ever delivered.
+        logger.info("NEWGAME: wiping durable ledger and re-forwarding all received items")
+        self.consumed_indices = set()
+        # Our wiped set is now authoritative over the server's stored value:
+        # a reconnect must not merge a stale pre-wipe ledger back in (see the
+        # Retrieved handler). A fresh game also hasn't goaled.
+        self._ledger_client_authoritative = True
+        self.finished_game = False
+        # A fresh save has checked nothing. Drop the local check cache so the
+        # framework's next Connected resend can't replay a prior
+        # playthrough's locations — the backstop for two rooms the connect-
+        # time identity can't tell apart (same seed value → same seed_name,
+        # same slot name, same host:port). The new game's genuine checks
+        # repopulate this via CHECK / CHECKEDOUT.
+        self.locations_checked = set()
+        self._persist_ledger()
+        # Fresh playthrough: clear the persisted bean-room ledger so its room
+        # starts full (the mod wipes its class-default copy on NEWGAME too).
+        self.beanroom_state = ""
+        self._persist_beanroom()
+        self._send_resync_spells()
+        self._forward_all_received()
+        return
+
+    async def _on_hello(self, line: str) -> None:
+        # Game (re)connected — re-forward every received item not yet
+        # consumed (the sent_this_session guard, reset on this connect,
+        # stops the pending-grants drain + this from double-sending).
+        #
+        self._forward_all_received()
+        # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
+        # every HELLO (fresh launch / reconnect / cold load into a
+        # sentinel-less level) re-asserts it. Sent in BOTH modes so the mod
+        # can flag a seed/install mismatch; "open_castle" also re-latches
+        # bOpenCastleMode.
+        if self.seed_mode is not None:
+            self._send_to_game("MODE " + self.seed_mode)
+        # Re-arm the open castle Great Hall key thresholds. Sticky +
+        # idempotent mod-side, so resending every HELLO covers fresh game
+        # launches and reconnects without harm. No-op for vanilla /
+        # pre-Connected.
+        if self.open_castle_goalcfg:
+            self._send_to_game("GOALCFG " + self.open_castle_goalcfg)
+        # Re-arm the Tradersanity price mode. Sticky + idempotent mod-side;
+        # is not None (not truthiness) so mode 0 (off) still re-arms and a
+        # later seed that turns Tradersanity off is honoured.
+        if self.tradersanity_cfg is not None:
+            self._send_to_game("TRADECFG " + self.tradersanity_cfg)
+        # Re-arm the skip-vendor-voices flag. Sticky + idempotent mod-side;
+        # the mod re-applies the silence sweep on every level snapshot, so
+        # a fresh launch / level change picks up the right state.
+        self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
+        # Re-arm the quidditch-upgrades flag so Fred/George get the AP
+        # icon + banner + hint only when their two locations exist as
+        # AP checks for this seed.
+        self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
+        # Re-arm running-in-logic so a fresh launch / reconnect keeps the
+        # sprint free when the seed put Running in logic.
+        self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
+        self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
+        # Re-push Tradersanity vendor hint item names to the mod. Sticky +
+        # idempotent mod-side (cached per-slot on APCardWatcher), so
+        # resending every HELLO covers fresh launches / reconnects.
+        self._send_vendor_hints_to_mod()
+        # Re-arm the Tradersanity per-vendor price factors. Sticky +
+        # idempotent mod-side (writes a class-default byte table). Only
+        # sent when Tradersanity is on — when off the mod never reads the
+        # table, and an off seed should not be carrying stale factors.
+        if self.tradersanity_prices_csv:
+            self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
+        # #3: re-push the appearance table. Sticky + idempotent mod-side,
+        # so resending every HELLO re-arms a fresh game launch / reconnect.
+        # is not None (not truthiness) so an all-native "" still re-arms.
+        if self.appearance_csv is not None:
+            self._send_to_game("APPEARANCE " + self.appearance_csv)
+        # Re-arm the startup connection toast address. Sticky + idempotent
+        # mod-side (the mod owns the once-per-launch / once-per-save-load
+        # latch), so a fresh game launch or reconnect HELLO re-delivers
+        # the address without re-toasting. None until AP-connected.
+        if self.connected_address:
+            self._send_to_game("CONNECTED " + self.connected_address)
+        # Re-arm the checked-locations resync. Sticky + idempotent mod-side
+        # (stamps are 0→1 only, no clears). `is not None` (not truthiness)
+        # so the empty-string "no checks yet" payload still re-arms — the
+        # mod overwrites any stale state from a prior session that way.
+        if self.checked_csv is not None:
+            self._send_to_game("CHECKED " + self.checked_csv)
+        # Re-arm the durable spell-grant resync. Mirrors CHECKED's lifecycle:
+        # sticky + idempotent mod-side, resent every HELLO so a fresh game
+        # launch (mid-session reconnect / save-load) re-asserts the AP-grant
+        # flags and re-adds spells the .usa dropped. Gated on ledger_loaded
+        # because received_by_index is only known-complete once AP has sent
+        # ReceivedItems and replied to our Get; a HELLO before that would
+        # ship a stale empty list and wipe legit spells via the mod's
+        # now-open gate.
+        if self.ledger_loaded:
             self._send_resync_spells()
-            self._forward_all_received()
+            self._send_resync_blocker_keys()
+            self._send_resync_key_items()
+            self._send_resync_cards()
+        # Bean-room ledger is independent of the item ledger; gate on its own
+        # load flag so a fresh game launch / reconnect re-asserts it.
+        if self.beanroom_loaded:
+            self._send_resync_beanroom()
+        return
+
+    async def _on_goal_complete(self, line: str) -> None:
+        # The mod replays GOAL_COMPLETE on every bridge connect while it
+        # holds the end-game latch, so this can re-fire; finished_game
+        # dedupes it. Setting finished_game also arms CommonContext to
+        # re-assert CLIENT_GOAL on every AP reconnect, covering a goal
+        # reached while AP was unreachable.
+        if self.finished_game:
             return
-        if line == "HELLO":
-            # Game (re)connected — re-forward every received item not yet
-            # consumed (the sent_this_session guard, reset on this connect,
-            # stops the pending-grants drain + this from double-sending).
-            #
-            self._forward_all_received()
-            # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
-            # every HELLO (fresh launch / reconnect / cold load into a
-            # sentinel-less level) re-asserts it. Sent in BOTH modes so the mod
-            # can flag a seed/install mismatch; "open_castle" also re-latches
-            # bOpenCastleMode.
-            if self.seed_mode is not None:
-                self._send_to_game("MODE " + self.seed_mode)
-            # Re-arm the open castle Great Hall key thresholds. Sticky +
-            # idempotent mod-side, so resending every HELLO covers fresh game
-            # launches and reconnects without harm. No-op for vanilla /
-            # pre-Connected.
-            if self.open_castle_goalcfg:
-                self._send_to_game("GOALCFG " + self.open_castle_goalcfg)
-            # Re-arm the Tradersanity price mode. Sticky + idempotent mod-side;
-            # is not None (not truthiness) so mode 0 (off) still re-arms and a
-            # later seed that turns Tradersanity off is honoured.
-            if self.tradersanity_cfg is not None:
-                self._send_to_game("TRADECFG " + self.tradersanity_cfg)
-            # Re-arm the skip-vendor-voices flag. Sticky + idempotent mod-side;
-            # the mod re-applies the silence sweep on every level snapshot, so
-            # a fresh launch / level change picks up the right state.
-            self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
-            # Re-arm the quidditch-upgrades flag so Fred/George get the AP
-            # icon + banner + hint only when their two locations exist as
-            # AP checks for this seed.
-            self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
-            # Re-arm running-in-logic so a fresh launch / reconnect keeps the
-            # sprint free when the seed put Running in logic.
-            self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
-            self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
-            # Re-push Tradersanity vendor hint item names to the mod. Sticky +
-            # idempotent mod-side (cached per-slot on APCardWatcher), so
-            # resending every HELLO covers fresh launches / reconnects.
-            self._send_vendor_hints_to_mod()
-            # Re-arm the Tradersanity per-vendor price factors. Sticky +
-            # idempotent mod-side (writes a class-default byte table). Only
-            # sent when Tradersanity is on — when off the mod never reads the
-            # table, and an off seed should not be carrying stale factors.
-            if self.tradersanity_prices_csv:
-                self._send_to_game("TRADERPRICES " + self.tradersanity_prices_csv)
-            # #3: re-push the appearance table. Sticky + idempotent mod-side,
-            # so resending every HELLO re-arms a fresh game launch / reconnect.
-            # is not None (not truthiness) so an all-native "" still re-arms.
-            if self.appearance_csv is not None:
-                self._send_to_game("APPEARANCE " + self.appearance_csv)
-            # Re-arm the startup connection toast address. Sticky + idempotent
-            # mod-side (the mod owns the once-per-launch / once-per-save-load
-            # latch), so a fresh game launch or reconnect HELLO re-delivers
-            # the address without re-toasting. None until AP-connected.
-            if self.connected_address:
-                self._send_to_game("CONNECTED " + self.connected_address)
-            # Re-arm the checked-locations resync. Sticky + idempotent mod-side
-            # (stamps are 0→1 only, no clears). `is not None` (not truthiness)
-            # so the empty-string "no checks yet" payload still re-arms — the
-            # mod overwrites any stale state from a prior session that way.
-            if self.checked_csv is not None:
-                self._send_to_game("CHECKED " + self.checked_csv)
-            # Re-arm the durable spell-grant resync. Mirrors CHECKED's lifecycle:
-            # sticky + idempotent mod-side, resent every HELLO so a fresh game
-            # launch (mid-session reconnect / save-load) re-asserts the AP-grant
-            # flags and re-adds spells the .usa dropped. Gated on ledger_loaded
-            # because received_by_index is only known-complete once AP has sent
-            # ReceivedItems and replied to our Get; a HELLO before that would
-            # ship a stale empty list and wipe legit spells via the mod's
-            # now-open gate.
-            if self.ledger_loaded:
-                self._send_resync_spells()
-                self._send_resync_blocker_keys()
-                self._send_resync_key_items()
-                self._send_resync_cards()
-            # Bean-room ledger is independent of the item ledger; gate on its own
-            # load flag so a fresh game launch / reconnect re-asserts it.
-            if self.beanroom_loaded:
-                self._send_resync_beanroom()
+        self.finished_game = True
+        await self._send_or_queue_ap_msg(
+            {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
+            label="ClientStatus.CLIENT_GOAL (slot complete)",
+        )
+        return
+
+    async def _on_ringout(self, line: str) -> None:
+        if not self.ring_link_enabled or self.ring_source is None:
             return
-        if line == "GOAL_COMPLETE":
-            # The mod replays GOAL_COMPLETE on every bridge connect while it
-            # holds the end-game latch, so this can re-fire; finished_game
-            # dedupes it. Setting finished_game also arms CommonContext to
-            # re-assert CLIENT_GOAL on every AP reconnect, covering a goal
-            # reached while AP was unreachable.
-            if self.finished_game:
-                return
-            self.finished_game = True
-            await self._send_or_queue_ap_msg(
-                {"cmd": "StatusUpdate", "status": ClientStatus.CLIENT_GOAL},
-                label="ClientStatus.CLIENT_GOAL (slot complete)",
-            )
+        try:
+            delta = int(line[len("RINGOUT "):].strip())
+        except ValueError:
+            logger.warning(f"Unparseable RINGOUT: {line!r}")
             return
-        if line.startswith("RINGOUT "):
-            if not self.ring_link_enabled or self.ring_source is None:
-                return
-            try:
-                delta = int(line[len("RINGOUT "):].strip())
-            except ValueError:
-                logger.warning(f"Unparseable RINGOUT: {line!r}")
-                return
-            if delta == 0:
-                return
-            # Do NOT route through the AP-outage replay queue
-            # (pending_ap_outbound): replaying stale ring deltas after a long
-            # outage double-applies across the room. If AP is down, drop the
-            # delta — beans are filler; the baseline has already moved, so it
-            # is a one-time small desync, not corruption.
-            if not (self.server and self.slot is not None):
-                logger.info(f"RingLink: AP offline, dropping outbound {delta:+d} (not queued)")
-                return
-            try:
-                await self.send_msgs([{
-                    "cmd": "Bounce",
-                    "tags": ["RingLink"],
-                    "data": {"time": time.time(), "amount": int(delta),
-                             "source": self.ring_source},
-                }])
-                logger.info(f"RingLink: outbound {delta:+d} → Bounce")
-            except Exception as e:
-                logger.warning(f"RingLink: send Bounce failed, dropping {delta:+d}: {e}")
+        if delta == 0:
             return
-        if line == "DEATH" or line.startswith("DEATH "):
-            # Harry entered stateDead. Broadcast a DeathLink Bounce only while
-            # tagged (death_link on) and outside the amnesty window — the mod
-            # already skipped the outbound edge for an induced (incoming) kill
-            # via its suppression latch, so anything reaching here is an
-            # organic death. send_death stamps last_death_link itself.
-            if not self.death_link_enabled or "DeathLink" not in self.tags:
-                return
-            if (time.time() - self.last_death_link) < DEATHLINK_AMNESTY_S:
-                logger.info("DeathLink: outbound suppressed (within amnesty window)")
-                return
-            if not (self.server and self.slot is not None):
-                logger.info("DeathLink: AP offline, dropping outbound death (not queued)")
-                return
-            # The DeathLink spec asks for a non-empty cause that contains the
-            # player name (slot known here — the offline guard above ran), so
-            # receiving games show which AP slot died, not the in-game avatar.
-            me = self.player_names.get(self.slot, "Harry")
-            cause = f"{me} got avada kadavra'd"
-            logger.info(f"DeathLink: outbound death → Bounce ({cause})")
-            await self.send_death(cause)
-            self._toast_to_game("DeathLink sent")
+        # Do NOT route through the AP-outage replay queue
+        # (pending_ap_outbound): replaying stale ring deltas after a long
+        # outage double-applies across the room. If AP is down, drop the
+        # delta — beans are filler; the baseline has already moved, so it
+        # is a one-time small desync, not corruption.
+        if not (self.server and self.slot is not None):
+            logger.info(f"RingLink: AP offline, dropping outbound {delta:+d} (not queued)")
             return
-        if line.startswith("LEVEL "):
-            # Current map the player entered. Mirror it to AP Data Storage so
-            # the PopTracker can follow the player to the matching map tab.
-            level = line[len("LEVEL "):].strip()
-            if level:
-                self.current_level = level
-                self._persist_level(level)
+        try:
+            await self.send_msgs([{
+                "cmd": "Bounce",
+                "tags": ["RingLink"],
+                "data": {"time": time.time(), "amount": int(delta),
+                         "source": self.ring_source},
+            }])
+            logger.info(f"RingLink: outbound {delta:+d} → Bounce")
+        except Exception as e:
+            logger.warning(f"RingLink: send Bounce failed, dropping {delta:+d}: {e}")
+        return
+
+    async def _on_death(self, line: str) -> None:
+        # Harry entered stateDead. Broadcast a DeathLink Bounce only while
+        # tagged (death_link on) and outside the amnesty window — the mod
+        # already skipped the outbound edge for an induced (incoming) kill
+        # via its suppression latch, so anything reaching here is an
+        # organic death. send_death stamps last_death_link itself.
+        if not self.death_link_enabled or "DeathLink" not in self.tags:
             return
-        if line.startswith("SAY "):
-            # Cosmetic only: a ~1/100 spell-cast roll fired mod-side. Post a
-            # random flavor line to multiworld chat. No dedupe / no location
-            # semantics — purely a gag.
-            await self._handle_spell_say(line[4:].strip())
+        if (time.time() - self.last_death_link) < DEATHLINK_AMNESTY_S:
+            logger.info("DeathLink: outbound suppressed (within amnesty window)")
             return
-        if line.startswith("CHECK_SPELL "):
-            spell_name = line[len("CHECK_SPELL "):].strip()
-            await self._send_named_location_check(
-                kind="spell",
-                game_name=spell_name,
-                name_to_location=SPELL_TO_LOCATION_NAME,
-            )
+        if not (self.server and self.slot is not None):
+            logger.info("DeathLink: AP offline, dropping outbound death (not queued)")
             return
-        if line.startswith("CHECK_KEYITEM "):
-            key_item_name = line[len("CHECK_KEYITEM "):].strip()
-            await self._send_named_location_check(
-                kind="key item",
-                game_name=key_item_name,
-                name_to_location=KEYITEM_TO_LOCATION_NAME,
-            )
+        # The DeathLink spec asks for a non-empty cause that contains the
+        # player name (slot known here — the offline guard above ran), so
+        # receiving games show which AP slot died, not the in-game avatar.
+        me = self.player_names.get(self.slot, "Harry")
+        cause = f"{me} got avada kadavra'd"
+        logger.info(f"DeathLink: outbound death → Bounce ({cause})")
+        await self.send_death(cause)
+        self._toast_to_game("DeathLink sent")
+        return
+
+    async def _on_level(self, line: str) -> None:
+        # Current map the player entered. Mirror it to AP Data Storage so
+        # the PopTracker can follow the player to the matching map tab.
+        level = line[len("LEVEL "):].strip()
+        if level:
+            self.current_level = level
+            self._persist_level(level)
+        return
+
+    async def _on_say(self, line: str) -> None:
+        # Cosmetic only: a ~1/100 spell-cast roll fired mod-side. Post a
+        # random flavor line to multiworld chat. No dedupe / no location
+        # semantics — purely a gag.
+        await self._handle_spell_say(line[4:].strip())
+        return
+
+    async def _on_check_spell(self, line: str) -> None:
+        spell_name = line[len("CHECK_SPELL "):].strip()
+        await self._send_named_location_check(
+            kind="spell",
+            game_name=spell_name,
+            name_to_location=SPELL_TO_LOCATION_NAME,
+        )
+        return
+
+    async def _on_check_keyitem(self, line: str) -> None:
+        key_item_name = line[len("CHECK_KEYITEM "):].strip()
+        await self._send_named_location_check(
+            kind="key item",
+            game_name=key_item_name,
+            name_to_location=KEYITEM_TO_LOCATION_NAME,
+        )
+        return
+
+    async def _on_checkedout(self, line: str) -> None:
+        await self._handle_checked_out(line[len("CHECKEDOUT "):].strip())
+        return
+
+    async def _on_check_locid(self, line: str) -> None:
+        try:
+            location_id = int(line[len("CHECK_LOCID "):].strip())
+        except ValueError:
+            logger.warning(f"Unparseable CHECK_LOCID: {line!r}")
             return
-        if line.startswith("CHECKEDOUT "):
-            await self._handle_checked_out(line[len("CHECKEDOUT "):].strip())
+        if location_id in self.locations_checked:
             return
-        if line.startswith("CHECK_LOCID "):
-            try:
-                location_id = int(line[len("CHECK_LOCID "):].strip())
-            except ValueError:
-                logger.warning(f"Unparseable CHECK_LOCID: {line!r}")
-                return
-            if location_id in self.locations_checked:
-                return
-            self.locations_checked.add(location_id)
-            await self._send_or_queue_ap_msg(
-                {"cmd": "LocationChecks", "locations": [location_id]},
-                label=f"LocationChecks for AP location id {location_id} (raw CHECK_LOCID)",
-            )
+        self.locations_checked.add(location_id)
+        await self._send_or_queue_ap_msg(
+            {"cmd": "LocationChecks", "locations": [location_id]},
+            label=f"LocationChecks for AP location id {location_id} (raw CHECK_LOCID)",
+        )
+        return
+
+    async def _on_vendor_opened(self, line: str) -> None:
+        try:
+            location_id = int(line[len("VENDOR_OPENED "):].strip())
+        except ValueError:
+            logger.warning(f"Unparseable VENDOR_OPENED: {line!r}")
             return
-        if line.startswith("VENDOR_OPENED "):
-            try:
-                location_id = int(line[len("VENDOR_OPENED "):].strip())
-            except ValueError:
-                logger.warning(f"Unparseable VENDOR_OPENED: {line!r}")
-                return
-            if not self.tradersanity_hint_on_open:
-                return
-            if location_id in self.hinted_vendor_locs:
-                return
-            if location_id not in self.server_locations:
-                return
-            self.hinted_vendor_locs.add(location_id)
-            await self._send_or_queue_ap_msg(
-                {"cmd": "LocationScouts",
-                 "locations": [location_id],
-                 "create_as_hint": 2},
-                label=f"LocationScouts hint for AP location id {location_id} (VENDOR_OPENED)",
-            )
-            self._persist_vendor_hints()
+        if not self.tradersanity_hint_on_open:
             return
-        if line.startswith("CHECK "):
-            try:
-                check_id = int(line[6:].strip())
-            except ValueError:
-                logger.warning(f"Unparseable CHECK: {line!r}")
-                return
-            location_name = CARD_GAME_ID_TO_LOCATION_NAME.get(check_id)
-            if location_name is None:
-                logger.warning(f"Game CHECK {check_id} doesn't map to a known card location; dropping")
-                return
-            location_id = LOCATION_NAME_TO_ID.get(location_name)
-            if location_id is None:
-                logger.warning(f"Card location {location_name!r} has no AP id; dropping")
-                return
-            if location_id in self.locations_checked:
-                return
-            self.locations_checked.add(location_id)
-            await self._send_or_queue_ap_msg(
-                {"cmd": "LocationChecks", "locations": [location_id]},
-                label=f"LocationChecks for {location_name} (id={location_id}, game CHECK {check_id})",
-            )
+        if location_id in self.hinted_vendor_locs:
+            return
+        if location_id not in self.server_locations:
+            return
+        self.hinted_vendor_locs.add(location_id)
+        await self._send_or_queue_ap_msg(
+            {"cmd": "LocationScouts",
+             "locations": [location_id],
+             "create_as_hint": 2},
+            label=f"LocationScouts hint for AP location id {location_id} (VENDOR_OPENED)",
+        )
+        self._persist_vendor_hints()
+        return
+
+    async def _on_check(self, line: str) -> None:
+        try:
+            check_id = int(line[6:].strip())
+        except ValueError:
+            logger.warning(f"Unparseable CHECK: {line!r}")
+            return
+        location_name = CARD_GAME_ID_TO_LOCATION_NAME.get(check_id)
+        if location_name is None:
+            logger.warning(f"Game CHECK {check_id} doesn't map to a known card location; dropping")
+            return
+        location_id = LOCATION_NAME_TO_ID.get(location_name)
+        if location_id is None:
+            logger.warning(f"Card location {location_name!r} has no AP id; dropping")
+            return
+        if location_id in self.locations_checked:
+            return
+        self.locations_checked.add(location_id)
+        await self._send_or_queue_ap_msg(
+            {"cmd": "LocationChecks", "locations": [location_id]},
+            label=f"LocationChecks for {location_name} (id={location_id}, game CHECK {check_id})",
+        )
 
     async def _send_named_location_check(self, kind: str, game_name: str, name_to_location: dict[str, str]) -> None:
         location_name = name_to_location.get(game_name)
