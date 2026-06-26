@@ -64,3 +64,31 @@ class TestMissableEligibleWhenAllDepsPrecollected(HP2TestBase):
     def test_deep_missable_eligible_when_keys_precollected(self) -> None:
         self.assertNotEqual(self.world.get_location("Bicorn Level - Secret 2").progress_type,
                             EXCLUDED, "every dep precollected -> eligible")
+
+
+# Containers in one-way levels are also missable, but only exist as locations
+# when containersanity is on.
+class TestMissableContainersExcludedByDefault(HP2TestBase):
+    options = {"game_mode": "vanilla", "containersanity": True, "allow_missable_progression": False}
+    run_default_tests = False
+
+    def test_missable_containers_excluded(self) -> None:
+        for name in ("Whomping Willow - Chest 1", "Whomping Willow - Chest 2",
+                     "Chamber of Secrets - Chest 1"):
+            self.assertEqual(self.world.get_location(name).progress_type, EXCLUDED,
+                             f"{name} must be EXCLUDED without allow_missable_progression")
+
+
+class TestMissableContainerEligibility(HP2TestBase):
+    options = {"game_mode": "vanilla", "containersanity": True, "allow_missable_progression": True}
+    run_default_tests = False
+
+    def test_simple_dep_container_eligible(self) -> None:
+        # Whomping Willow - Chest 1 depends only on Alohomora (a default starter).
+        self.assertNotEqual(self.world.get_location("Whomping Willow - Chest 1").progress_type,
+                            EXCLUDED, "all deps precollected -> eligible")
+
+    def test_deep_dep_container_still_excluded(self) -> None:
+        # Chamber chest needs the whole gated key chain, none precollected.
+        self.assertEqual(self.world.get_location("Chamber of Secrets - Chest 1").progress_type,
+                         EXCLUDED, "deep deps not precollected -> still EXCLUDED")

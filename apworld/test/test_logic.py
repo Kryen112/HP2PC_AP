@@ -225,3 +225,46 @@ class TestVendorEquipmentOpenCastleFree(HP2TestBase):
         self.assertTrue(
             state.can_reach("Castle Exterior - Nimbus 2001", "Location", self.player),
             "open castle leaves the Nimbus vendor unrestricted")
+
+
+# Vanilla gates levels in a CUMULATIVE chain (unlike open castle's standalone
+# keys): each deeper region needs every earlier level key too. Each chain key is
+# therefore independently necessary -> removing any one strands the location.
+# assertAccessDependency can't express an AND-chain, so this checks necessity by
+# removal. vanilla_gate_levels default-on keeps these chain keys in the pool.
+VANILLA_CHAIN = {
+    "Boomslang Level - Card Toke":
+        ("Bicorn Level Key", "Boomslang Level Key"),
+    "Goyle Level - Card Bloxam":
+        ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key"),
+    "Slytherin Common Room - Card Pilliwickle":
+        ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
+         "Slytherin Common Room Key"),
+    "Forbidden Forest - Card Fancourt":
+        ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
+         "Slytherin Common Room Key", "Forbidden Forest Key"),
+    "Duelling Club - Duel Rank 1":
+        ("Bicorn Level Key", "Duelling Key"),
+}
+
+
+class TestVanillaBlockerChains(HP2TestBase):
+    options = {
+        "game_mode": "vanilla",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "enable_duelling": True,
+    }
+    run_default_tests = False
+
+    def test_every_chain_key_is_necessary(self) -> None:
+        for loc, chain in VANILLA_CHAIN.items():
+            full = CollectionState(self.multiworld)
+            self.collect_all_but([], full)
+            self.assertTrue(full.can_reach(loc, "Location", self.player),
+                            f"{loc} should be reachable with the whole chain collected")
+            for missing in chain:
+                state = CollectionState(self.multiworld)
+                self.collect_all_but([missing], state)
+                self.assertFalse(state.can_reach(loc, "Location", self.player),
+                                 f"{loc} reachable without {missing}: vanilla chain not enforced")
