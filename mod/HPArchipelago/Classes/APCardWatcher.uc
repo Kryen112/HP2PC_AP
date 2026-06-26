@@ -2191,7 +2191,7 @@ function Snapshot()
     // Post-snapshot warmup. Without this, the very first drain happens the
     // moment Snapshot() returns, but level-load cutscenes haven't yet hit
     // their `Play()` call (CutScene.uc:411 sleeps 0.2s in Idle.begin), so
-    // every cutscene-presence gate (bPlaying / bIsCaptured / IsCutSceneOrPopupInProgress)
+    // every cutscene-presence gate (bPlaying / bIsCaptured / the full-cut HUD flags)
     // returns False and the drain leaks an item during the intro. Pushing
     // the earliest-drain time forward gives the level's bLevelLoadStarts
     // cutscenes time to enter Running state so the existing gates take over.

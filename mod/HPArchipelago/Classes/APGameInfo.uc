@@ -2155,10 +2155,12 @@ static function harry TryGetViewportHarry(harry SourceHarry)
 // APIPCActor.TryDrainPendingGrants. Only PlayerWalking grants; every other
 // state (cutscene, spell learning, frozen, dead, quidditch, duelling, pickup,
 // potion mixing, etc.) defers, and the grant queue drains the moment Harry
-// returns to PlayerWalking. The HUD cutscene/popup check covers the
-// tick-window between cutscene start and stateCutIdle transition (and the
+// returns to PlayerWalking. A dialogue popup (an ambient NPC line or a
+// PopupTrigger) is treated as playable: Harry keeps walking, so the item and
+// its toast land during the subtitle instead of queueing until it clears. Only
+// a full (captured) cutscene defers via the HUD flags, which also covers the
 // cutscene-skip path where bBothBordersActive animates while Harry's state
-// hasn't transitioned yet).
+// hasn't transitioned back yet.
 // bAllowInGameMenu (optional, default False): when True the in-game pause
 // menu (menuBook.bIsOpen) is NOT a blocking reason. Only RingLink's bean
 // drain passes True. A bean apply is pure data (StatusItem.nCount) with no
@@ -2198,10 +2200,21 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason, op
         return False;
     }
 
+    // Defer only on a FULL (captured) cutscene, not on a dialogue popup. The
+    // engine keys both grades on bIsCaptured: HPHud.StartCutScene picks
+    // bCutSceneMode (captured) over bCutPopupMode, and CutSceneManager picks
+    // bBothBordersActive over bPopupBorderActive the same way. An ambient line
+    // or PopupTrigger sets only the popup-grade flag while Harry stays in
+    // PlayerWalking, so checking the popup flags here is what made items (and
+    // their toasts) wait out every subtitle. bBothBordersActive (full-cut) is
+    // kept because it also covers the cutscene-skip path, where the bars animate
+    // out while Harry's state hasn't transitioned back yet. Mirrors the popup-
+    // vs-cutscene split APSprintController.SprintContext already uses for movement.
     hud = HPHud(h.myHUD);
-    if (hud != None && hud.IsCutSceneOrPopupInProgress())
+    if (hud != None && hud.managerCutScene != None
+        && (hud.bCutSceneMode || hud.managerCutScene.bBothBordersActive))
     {
-        DeferReason = "HUD cutscene/popup in progress";
+        DeferReason = "full cutscene in progress";
         return False;
     }
 
@@ -2219,9 +2232,9 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason, op
         return False;
     }
 
-    // Direct cutscene-actor check. `IsCutSceneOrPopupInProgress` only returns
+    // Direct cutscene-actor check. The HUD cut-mode check above only flips
     // True after the cutscene script has executed CAPTURE (which calls
-    // HPHud.StartCutScene to flip bCutSceneMode/bCutPopupMode). For
+    // HPHud.StartCutScene to set bCutSceneMode / bBothBordersActive). For
     // bLevelLoadStarts cutscenes (the opening scenes that fire on level entry),
     // there's a window between "cutscene actor enters Running state" and
     // "cutscene script issues CAPTURE" where harry is briefly in PlayerWalking
