@@ -8,24 +8,42 @@ from .bases import HP2TestBase
 from ..rules import _SILVER_CARD_NAMES
 
 
-# Open castle gates each level region behind its own standalone key (no
-# cumulative chain), with starting_spells emptied so every spell sits in the
-# pool and only the key under test is the missing dependency.
+# Each of the 14 level/challenge regions is gated standalone by its own key in
+# open castle (no cumulative chain). One representative location per region.
+KEY_TO_LOCATION = {
+    "Bicorn Level Key": "Bicorn Level - Card Agrippa",
+    "Boomslang Level Key": "Boomslang Level - Card Toke",
+    "Goyle Level Key": "Goyle Level - Card Bloxam",
+    "Slytherin Common Room Key": "Slytherin Common Room - Card Pilliwickle",
+    "Forbidden Forest Key": "Forbidden Forest - Card Fancourt",
+    "Whomping Willow Key": "Whomping Willow - Card Starkey",
+    "Rictusempra Challenge Key": "Rictusempra Challenge - Card Barbary",
+    "Skurge Challenge Key": "Skurge Challenge - Card Belby",
+    "Diffindo Challenge Key": "Diffindo Challenge - Card Ketteridge",
+    "Spongify Challenge Key": "Spongify Challenge - Card Merlin",
+    "Gryffindor Challenge Key": "Gryffindor Challenge - Secret 1",
+    "Duelling Key": "Duelling Club - Duel Rank 1",
+    "Quidditch Key": "Quidditch - Match 1 (Hufflepuff)",
+    "Chamber of Secrets Key": "Chamber of Secrets - Card Elphick",
+}
+
+
+# starting_spells emptied so every spell sits in the pool (only the key under
+# test is missing); Running off so the Quidditch key has no shortcut; duels and
+# matches enabled so those regions have locations.
 class TestOpenCastleLevelKeys(HP2TestBase):
-    options = {"game_mode": "open_castle", "starting_spells": []}
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "enable_duelling": True,
+        "enable_quidditch_matches": True,
+    }
     run_default_tests = False
 
-    def test_forbidden_forest_needs_its_key(self) -> None:
-        self.assertAccessDependency(["Forbidden Forest - Card Fancourt"],
-                                    [["Forbidden Forest Key"]], only_check_listed=True)
-
-    def test_goyle_level_needs_its_key(self) -> None:
-        self.assertAccessDependency(["Goyle Level - Card Bloxam"],
-                                    [["Goyle Level Key"]], only_check_listed=True)
-
-    def test_chamber_of_secrets_needs_its_key(self) -> None:
-        self.assertAccessDependency(["Chamber of Secrets - Card Elphick"],
-                                    [["Chamber of Secrets Key"]], only_check_listed=True)
+    def test_each_region_gated_by_its_key(self) -> None:
+        for key, loc in KEY_TO_LOCATION.items():
+            self.assertAccessDependency([loc], [[key]], only_check_listed=True)
 
 
 # Running-logic shortcut: Castle Exterior - Card Pokeby is gated behind a spell
@@ -170,3 +188,40 @@ class TestOpenCastleSpellGoal(HP2TestBase):
         self.collect_all_but([], with_all)
         self.assertTrue(self.multiworld.can_beat_game(with_all),
                         "the goal must be beatable once every item is collected")
+
+
+# More Running-off dependencies: without the shortcut the spell chain is real.
+class TestMoreRunningOffChains(HP2TestBase):
+    options = {"game_mode": "vanilla", "allow_running_logic": False, "starting_spells": []}
+    run_default_tests = False
+
+    def test_youdle_needs_spongify(self) -> None:
+        self.assertAccessDependency(["Castle Exterior - Card Youdle"],
+                                    [["Spongify"]], only_check_listed=True)
+
+    def test_marjoribanks_needs_diffindo(self) -> None:
+        self.assertAccessDependency(["Castle Exterior - Card Marjoribanks"],
+                                    [["Diffindo"]], only_check_listed=True)
+
+
+# Vendor equipment: vanilla gates Fred's Nimbus behind Rictusempra; open castle
+# leaves it unrestricted.
+class TestVendorEquipmentVanillaGate(HP2TestBase):
+    options = {"game_mode": "vanilla", "enable_quidditch_upgrades": True, "starting_spells": []}
+    run_default_tests = False
+
+    def test_nimbus_needs_rictusempra(self) -> None:
+        self.assertAccessDependency(["Castle Exterior - Nimbus 2001"],
+                                    [["Rictusempra"]], only_check_listed=True)
+
+
+class TestVendorEquipmentOpenCastleFree(HP2TestBase):
+    options = {"game_mode": "open_castle", "enable_quidditch_upgrades": True, "starting_spells": []}
+    run_default_tests = False
+
+    def test_nimbus_reachable_without_rictusempra(self) -> None:
+        state = CollectionState(self.multiworld)
+        self.collect_all_but(["Rictusempra"], state)
+        self.assertTrue(
+            state.can_reach("Castle Exterior - Nimbus 2001", "Location", self.player),
+            "open castle leaves the Nimbus vendor unrestricted")
