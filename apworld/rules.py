@@ -627,6 +627,18 @@ LOCATION_RULES_VANILLA: dict[str, _Access] = {
     "Whomping Willow - Knight 2": lumos & flipendo & flipendo,
     "Whomping Willow - Secret 1": lumos & alohomora,
     "Whomping Willow - Secret 2": lumos & flipendo & alohomora,
+    # Decoration containers (Flipendo-break statues / skeleton / plant dragons). Easy
+    # spots need only the spell; the Castle Exterior plant dragons sit at the same hard
+    # reaches as that level's Secrets 6 / 7, and the one-way props add their level's
+    # traversal (Willow wants Lumos, the Skurge challenge needs Skurge).
+    "Entry Hall - Witch Statue": flipendo,
+    "Grand Staircase - Gregory the Smarmy Statue": flipendo,
+    "Grand Staircase - Dragon Skeleton": flipendo & rictusempra,
+    "Castle Exterior - Dragon Statue": flipendo,
+    "Castle Exterior - Plant Dragon 1": alohomora & skurge & rictusempra & flipendo & bicorn_level_key | running,
+    "Castle Exterior - Plant Dragon 2": alohomora & (skurge & rictusempra & diffindo & bicorn_level_key | running),
+    "Skurge Challenge - Witch Statue": skurge & flipendo,
+    "Whomping Willow - Dragon Statue": lumos & flipendo,
 }
 
 LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
@@ -1189,6 +1201,17 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Whomping Willow - Knight 2": lumos & flipendo & flipendo,
     "Whomping Willow - Secret 1": lumos & alohomora,
     "Whomping Willow - Secret 2": lumos & flipendo & alohomora,
+    # Decoration containers (Flipendo-break statues / skeleton / plant dragons). Easy
+    # spots need only the spell; the Castle Exterior plant dragons match that level's
+    # Secrets 6 / 7.
+    "Entry Hall - Witch Statue": flipendo,
+    "Grand Staircase - Gregory the Smarmy Statue": flipendo,
+    "Grand Staircase - Dragon Skeleton": flipendo,
+    "Castle Exterior - Dragon Statue": flipendo,
+    "Castle Exterior - Plant Dragon 1": flipendo | spongify | running,
+    "Castle Exterior - Plant Dragon 2": diffindo,
+    "Skurge Challenge - Witch Statue": skurge & flipendo,
+    "Whomping Willow - Dragon Statue": lumos & flipendo,
 }
 
 GOAL_RULES_VANILLA: dict[str, _Access] = {

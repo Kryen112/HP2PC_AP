@@ -598,6 +598,16 @@ LOCATION_NAME_TO_ID: dict[str, int] = {
     "Castle Exterior - Chest 8": 5761295,
     "Castle Exterior - Chest 2": 5761296,
     "Castle Exterior - Chest 5": 5761297,
+    # Decoration containers: inert statues / skeleton / plant dragons the mod gives a
+    # Flipendo break. GROUNDS_NIGHT shares the Castle Exterior ids (one check per prop).
+    "Whomping Willow - Dragon Statue": 5761298,
+    "Skurge Challenge - Witch Statue": 5761299,
+    "Entry Hall - Witch Statue": 5761300,
+    "Grand Staircase - Gregory the Smarmy Statue": 5761301,
+    "Grand Staircase - Dragon Skeleton": 5761302,
+    "Castle Exterior - Dragon Statue": 5761303,
+    "Castle Exterior - Plant Dragon 1": 5761304,
+    "Castle Exterior - Plant Dragon 2": 5761305,
 }
 
 LOCATION_REGIONS: dict[str, str] = {
@@ -1198,6 +1208,14 @@ LOCATION_REGIONS: dict[str, str] = {
     "Castle Exterior - Chest 8": "CastleExterior",
     "Castle Exterior - Chest 2": "CastleExterior",
     "Castle Exterior - Chest 5": "CastleExterior",
+    "Whomping Willow - Dragon Statue": "WhompingWillow",
+    "Skurge Challenge - Witch Statue": "SkurgeChallenge",
+    "Entry Hall - Witch Statue": "EntryHall",
+    "Grand Staircase - Gregory the Smarmy Statue": "GrandStaircase",
+    "Grand Staircase - Dragon Skeleton": "GrandStaircase",
+    "Castle Exterior - Dragon Statue": "CastleExterior",
+    "Castle Exterior - Plant Dragon 1": "CastleExterior",
+    "Castle Exterior - Plant Dragon 2": "CastleExterior",
 }
 
 LOCATION_GROUPS: dict[str, str] = {
@@ -1798,6 +1816,14 @@ LOCATION_GROUPS: dict[str, str] = {
     "Castle Exterior - Chest 8": "Containers",
     "Castle Exterior - Chest 2": "Containers",
     "Castle Exterior - Chest 5": "Containers",
+    "Whomping Willow - Dragon Statue": "Containers",
+    "Skurge Challenge - Witch Statue": "Containers",
+    "Entry Hall - Witch Statue": "Containers",
+    "Grand Staircase - Gregory the Smarmy Statue": "Containers",
+    "Grand Staircase - Dragon Skeleton": "Containers",
+    "Castle Exterior - Dragon Statue": "Containers",
+    "Castle Exterior - Plant Dragon 1": "Containers",
+    "Castle Exterior - Plant Dragon 2": "Containers",
 }
 
 # Map UScript card class name → AP location name. Used by the client to
@@ -2284,6 +2310,7 @@ MISSABLE_LOCATIONS: frozenset = frozenset(
         "Whomping Willow - Chest 4",
         "Whomping Willow - Knight 1",
         "Whomping Willow - Knight 2",
+        "Whomping Willow - Dragon Statue",
         "Whomping Willow - Secret 1",
         "Whomping Willow - Secret 2",
     }
@@ -3034,6 +3061,7 @@ MISSABLE_LOCATION_DEPS_VANILLA: dict[str, list[str]] = {
     "Whomping Willow - Chest 2": ["Alohomora", "Lumos"],
     "Whomping Willow - Knight 1": ["Flipendo", "Lumos"],
     "Whomping Willow - Knight 2": ["Flipendo", "Lumos"],
+    "Whomping Willow - Dragon Statue": ["Flipendo", "Lumos"],
     "Bicorn Level - Wiggentree Bark Jar 1": [
         "Alohomora",
         "Bicorn Level Key",

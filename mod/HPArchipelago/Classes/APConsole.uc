@@ -356,6 +356,63 @@ function string EjectorDrops_Spawner(GenericSpawner gs)
     return s;
 }
 
+// Non-standard container census: the decoration props (statues, skeletons, dragons,
+// plant dragons) DumpContainers cannot see because they carry no native break or
+// eject. Sweeps the two inert trees, HDecoration and HPlants, and logs one parseable
+// line per actor with the fields a containersanity entry needs: level, family, class,
+// Name (the stable key the runtime resolves via GetContainerLocationId), tag,
+// eVulnerableToSpell (SPELL_None = inert, so a new Flipendo-break subclass is needed;
+// a Flipendo value = the placed actor already breaks and only wants wiring), mesh (to
+// tell apart several statues sharing one class), draw scale, collision cylinder, and
+// location. Anything outside these two trees (e.g. an HChar skeleton) is found with
+// DumpActors <substring>. Run once on fresh entry to each level:
+//   DumpDecorations
+exec function DumpDecorations()
+{
+    local HDecoration deco;
+    local HPlants plnt;
+    local string lvl;
+    local int n;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        Log("[Archipelago] APConsole.DumpDecorations: no Viewport.Actor");
+        return;
+    }
+    lvl = Caps(string(Viewport.Actor.Level.Outer.Name));
+    DevPrint("DumpDecorations Level=" $ lvl $ " - see Game.log");
+
+    foreach Viewport.Actor.AllActors(class'HDecoration', deco)
+    {
+        LogDecoration(lvl, "decoration", deco);
+        n++;
+    }
+    foreach Viewport.Actor.AllActors(class'HPlants', plnt)
+    {
+        LogDecoration(lvl, "plant", plnt);
+        n++;
+    }
+    DevPrint("DumpDecorations: " $ n $ " decoration(s) logged (see Game.log)");
+}
+
+// One parseable census line per decoration prop. `name=` is the engine actor Name the
+// runtime watcher would resolve; `spell=` reads the inherited Pawn vulnerability
+// (SPELL_None = inert); `mesh=` disambiguates which statue or dragon it is.
+function LogDecoration(string lvl, string fam, HPawn d)
+{
+    Log("[Archipelago]   decoration level=" $ lvl
+        $ " family=" $ fam
+        $ " class=" $ string(d.Class.Name)
+        $ " name=" $ string(d.Name)
+        $ " tag=" $ string(d.Tag)
+        $ " spell=" $ string(d.eVulnerableToSpell)
+        $ " mesh=" $ string(d.Mesh)
+        $ " drawscale=" $ string(d.DrawScale)
+        $ " colradius=" $ string(d.CollisionRadius)
+        $ " colheight=" $ string(d.CollisionHeight)
+        $ " loc=" $ string(d.Location));
+}
+
 exec function PlaceBookcase(optional float Forward)
 {
     local Vector loc, fwd;

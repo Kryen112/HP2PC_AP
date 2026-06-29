@@ -9,7 +9,7 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 ## What you're getting
 
 - An Archipelago multiworld randomizer for HP2 (PC, KnowWonder 2002 release).
-- Up to ~570 checks across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases, ~274 containersanity containers, and up to 13 Tradersanity vendor checks. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
+- Up to ~578 checks across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases, ~282 containersanity containers, and up to 13 Tradersanity vendor checks. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
 - Goal: in vanilla, defeat the Basilisk; in open castle, satisfy your configured goal clauses to unlock the Great Hall (see "Game mode" below).
 - Plays solo or as a slot in a larger AP multiworld.
 

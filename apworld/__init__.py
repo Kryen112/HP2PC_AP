@@ -275,12 +275,13 @@ class EnableSpellChallengeTimes(Toggle):
 
 
 class Containersanity(Toggle):
-    """If true, ~274 in-world containers (chests without cards, cauldrons,
+    """If true, ~282 in-world containers (chests without cards, cauldrons,
     cigar / jewel / music boxes, decanters, oil cans, plant pots, vases,
-    knights, and ingredient spawners) each become a location: opening one with
-    its spell (Alohomora or Flipendo) ejects an AP token. A big check-count
-    increase, so off by default. The 7 in the open-castle bean reward room exist
-    only in open castle. Locations-only (filler pads the pool).
+    knights, ingredient spawners, and a handful of Flipendo-break statues)
+    each become a location: hitting one with its spell (Alohomora or Flipendo)
+    yields an AP token. A big check-count increase, so off by default. The 7 in
+    the open-castle bean reward room exist only in open castle. Locations-only
+    (filler pads the pool).
     """
     display_name = "Containersanity"
 

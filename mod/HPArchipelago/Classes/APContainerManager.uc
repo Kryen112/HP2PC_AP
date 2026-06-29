@@ -66,6 +66,8 @@ function ReplaceContainers()
     local chestbronze chest;
     local bronzecauldron caul;
     local GenericSpawner spawner;
+    local HDecoration deco;
+    local HPlants plnt;
     local string lvl;
     local int apId, n;
 
@@ -103,6 +105,29 @@ function ReplaceContainers()
         if (apId > 0)
         {
             SwapContainerSpawner(spawner, apId);
+            n++;
+        }
+    }
+    // SpawnThingy decorations: the plant dragons and the Whomping Willow dragon eject
+    // their beans from co-located SpawnThingy actors fired by a spellTrigger, not from a
+    // GenericSpawner. HDecoration covers the Willow dragon statue; HPlants covers the
+    // plant dragons. GetSpawnThingyDecorationId returns 0 for every other prop in these
+    // trees, so only the catalogued ones arm.
+    foreach AllActors(class'HDecoration', deco)
+    {
+        apId = class'APLocationRegistry'.static.GetSpawnThingyDecorationId(lvl, string(deco.Name));
+        if (apId > 0)
+        {
+            ArmSpawnThingyDecoration(deco, apId);
+            n++;
+        }
+    }
+    foreach AllActors(class'HPlants', plnt)
+    {
+        apId = class'APLocationRegistry'.static.GetSpawnThingyDecorationId(lvl, string(plnt.Name));
+        if (apId > 0)
+        {
+            ArmSpawnThingyDecoration(plnt, apId);
             n++;
         }
     }
@@ -400,6 +425,50 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     }
     Log("[Archipelago] APContainerManager.SwapContainerSpawner: swapped " $ string(nw.Class.Name)
         $ " (apId " $ apId $ ", lives " $ string(savedLives) $ ")");
+}
+
+// SpawnThingy decorations: the plant dragons and the Whomping Willow dragon are inert
+// HDecoration / HPlants props, but each has co-located SpawnThingy actors (fired by the
+// statue's spellTrigger on a Flipendo hit) that eject its beans. Repoint the nearest
+// bean-ejecting SpawnThingy's SpawnClass to the baked AP marker, so the hit ejects the
+// AP token in place of that first bean -- like a bark / mucus jar -- through the game's
+// own spawn, which renders. Skipped when already collected so a re-clear stays vanilla.
+function ArmSpawnThingyDecoration(HProp deco, int apId)
+{
+    local SpawnThingy st, best;
+    local class<Actor> markerCls;
+    local float d, bestD;
+    local int slot;
+
+    slot = apId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
+
+    // Pick the placed bean ejector nearest the decoration. SpawnThingys sit ~60-160u
+    // from their statue; a colour bean is a Jellybean subclass, so the IsA test skips
+    // the FX / spider SpawnThingys and grabs an actual bean to replace.
+    bestD = 100000.0;
+    foreach AllActors(class'SpawnThingy', st)
+    {
+        if (st.SpawnClass == None) continue;
+        if (!ClassIsChildOf(st.SpawnClass, class'Jellybean')) continue;
+        d = VSize(st.Location - deco.Location);
+        if (d < bestD) { bestD = d; best = st; }
+    }
+    if (best == None || bestD > 300.0)
+    {
+        Log("[Archipelago] APContainerManager.ArmSpawnThingyDecoration: no bean SpawnThingy near "
+            $ string(deco.Name) $ " (apId " $ apId $ ")");
+        return;
+    }
+
+    markerCls = class<Actor>(DynamicLoadObject(
+        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
+    if (markerCls == None) return;
+
+    best.SpawnClass = markerCls;
+    Log("[Archipelago] APContainerManager.ArmSpawnThingyDecoration: " $ string(deco.Name)
+        $ " -> " $ string(best.Name) $ " now ejects APContainerMarker_" $ string(slot));
 }
 
 defaultproperties

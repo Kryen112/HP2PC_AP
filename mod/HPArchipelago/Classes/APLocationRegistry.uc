@@ -461,6 +461,8 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
     else if (LevelName == "CH2SKURGE")
     {
         if (MarkerName == "BarkSpawn1") return 5761138;
+        // Invisible Flipendo spawner inside the Hunchback Witch statue.
+        if (MarkerName == "InvisibleSpawn0") return 5761299;
         if (MarkerName == "ChestGold0") return 5761139;
         if (MarkerName == "ChestGold4") return 5761140;
         if (MarkerName == "ChestGold6") return 5761141;
@@ -583,6 +585,8 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
     else if (LevelName == "ENTRYHALL_HUB")
     {
         if (MarkerName == "BarkSpawn0") return 5761249;
+        // Invisible Flipendo spawner inside the Hunchback Witch statue.
+        if (MarkerName == "InvisibleSpawn0") return 5761300;
         if (MarkerName == "ChestGold0") return 5761250;
         if (MarkerName == "ChestWood10") return 5761251;
         if (MarkerName == "ChestWood11") return 5761252;
@@ -600,6 +604,10 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
     else if (LevelName == "GRANDSTAIRCASE_HUB")
     {
         if (MarkerName == "ChestIron0") return 5761263;
+        // Invisible Flipendo spawners inside the Gregory statue and the Dragon Skeleton
+        // (the skeleton's ejects spiders; the AP token rides the first eject).
+        if (MarkerName == "InvisibleSpawn0") return 5761301;
+        if (MarkerName == "InvisibleSpawn11") return 5761302;
         if (MarkerName == "ChestWood10") return 5761264;
         if (MarkerName == "ChestWood11") return 5761265;
         if (MarkerName == "ChestWood12") return 5761266;
@@ -629,6 +637,9 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
     else if (LevelName == "GROUNDS_HUB")
     {
         if (MarkerName == "ChestWood10") return 5761289;
+        // Invisible Flipendo spawner inside the central dragon statue (same id in
+        // GROUNDS_NIGHT). The plant dragons are SpawnThingy-driven: GetSpawnThingyDecorationId.
+        if (MarkerName == "InvisibleSpawn0") return 5761303;
         if (MarkerName == "ChestWood11") return 5761290;
         if (MarkerName == "ChestWood12") return 5761291;
         if (MarkerName == "ChestWood13") return 5761292;
@@ -641,6 +652,8 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
     else if (LevelName == "GROUNDS_NIGHT")
     {
         if (MarkerName == "ChestWood10") return 5761289;
+        // Same central dragon statue spawner as GROUNDS_HUB (one check, day or night).
+        if (MarkerName == "InvisibleSpawn0") return 5761303;
         if (MarkerName == "ChestWood11") return 5761290;
         if (MarkerName == "ChestWood12") return 5761291;
         if (MarkerName == "ChestWood13") return 5761292;
@@ -653,3 +666,22 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
     return 0;
 }
 
+// SpawnThingy-driven decoration containers: the plant dragons and the Whomping Willow
+// dragon eject beans from co-located SpawnThingy actors (fired by a spellTrigger), not a
+// GenericSpawner, so APContainerManager.ArmSpawnThingyDecoration repoints the nearest
+// bean SpawnThingy rather than swapping. Keyed on the decoration's own actor Name.
+// GROUNDS_NIGHT mirrors GROUNDS_HUB (one check, day or night).
+static function int GetSpawnThingyDecorationId(string LevelName, string MarkerName)
+{
+    LevelName = Caps(LevelName);
+    if (LevelName == "ADV1WILLOW")
+    {
+        if (MarkerName == "StatueDragon1") return 5761298;
+    }
+    else if (LevelName == "GROUNDS_HUB" || LevelName == "GROUNDS_NIGHT")
+    {
+        if (MarkerName == "PlantsBushDragon0") return 5761304;
+        if (MarkerName == "PlantsBushDragon1") return 5761305;
+    }
+    return 0;
+}

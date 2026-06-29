@@ -8,6 +8,7 @@ static function bool Stamp(Actor a, int apId)
     if (APContainerSpawner_CigarBoxSpawn(a) != None) { APContainerSpawner_CigarBoxSpawn(a).CheckLocationId = apId; return True; }
     if (APContainerSpawner_DecanterSpawn(a) != None) { APContainerSpawner_DecanterSpawn(a).CheckLocationId = apId; return True; }
     if (APContainerSpawner_GenericSpawner(a) != None) { APContainerSpawner_GenericSpawner(a).CheckLocationId = apId; return True; }
+    if (APContainerSpawner_InvisibleSpawn(a) != None) { APContainerSpawner_InvisibleSpawn(a).CheckLocationId = apId; return True; }
     if (APContainerSpawner_JewelBoxSpawn(a) != None) { APContainerSpawner_JewelBoxSpawn(a).CheckLocationId = apId; return True; }
     if (APContainerSpawner_Knightspawn(a) != None) { APContainerSpawner_Knightspawn(a).CheckLocationId = apId; return True; }
     if (APContainerSpawner_MucusSpawn(a) != None) { APContainerSpawner_MucusSpawn(a).CheckLocationId = apId; return True; }
