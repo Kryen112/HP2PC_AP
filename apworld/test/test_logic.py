@@ -2,10 +2,9 @@
 logic edit can't silently break them: bookcase/level blocker keys, per-category
 location gating, and the Running-logic shortcut."""
 
-from BaseClasses import CollectionState
-
 from .bases import HP2TestBase
 from ..access import _BRONZE_CARD_NAMES, _SILVER_CARD_NAMES
+from ..rules import CHAMBER_FALL_BRONZE_COUNT
 
 
 # Each of the 14 level/challenge regions is gated standalone by its own key in
@@ -65,8 +64,8 @@ class TestQuidditchUpgradesGateEquipment(HP2TestBase):
     run_default_tests = False
 
     def test_equipment_locations_present(self) -> None:
-        self.world.get_location("Castle Exterior - Nimbus 2001")
-        self.world.get_location("Castle Exterior - Quidditch Armour")
+        self.assert_location_exists("Castle Exterior - Nimbus 2001")
+        self.assert_location_exists("Castle Exterior - Quidditch Armour")
 
 
 class TestQuidditchUpgradesOffNoEquipment(HP2TestBase):
@@ -83,7 +82,7 @@ class TestDuellingTogglePresence(HP2TestBase):
     run_default_tests = False
 
     def test_duel_locations_present(self) -> None:
-        self.world.get_location("Duelling Club - Duel Rank 1")
+        self.assert_location_exists("Duelling Club - Duel Rank 1")
 
 
 class TestDuellingOffAbsent(HP2TestBase):
@@ -99,7 +98,7 @@ class TestQuidditchMatchesTogglePresence(HP2TestBase):
     run_default_tests = False
 
     def test_match_locations_present(self) -> None:
-        self.world.get_location("Quidditch - Match 1 (Hufflepuff)")
+        self.assert_location_exists("Quidditch - Match 1 (Hufflepuff)")
 
 
 class TestQuidditchMatchesOffAbsent(HP2TestBase):
@@ -117,8 +116,7 @@ class TestRunningOnSkipsSpellChain(HP2TestBase):
     run_default_tests = False
 
     def test_pokeby_reachable_via_running(self) -> None:
-        state = CollectionState(self.multiworld)
-        self.collect_all_but(["Rictusempra", "Skurge", "Bicorn Level Key"], state)
+        state = self.state_all_but(["Rictusempra", "Skurge", "Bicorn Level Key"])
         self.assertTrue(
             state.can_reach("Castle Exterior - Card Pokeby", "Location", self.player),
             "Running should bypass the Rictusempra/Skurge/Bicorn-key chain")
@@ -171,38 +169,35 @@ class TestChamberFirstFallBronzeSkip(HP2TestBase):
 
     # Region entry (Chamber of Secrets Key + Alohomora) plus the per-location
     # spell. Cauldron 1 also needs Flipendo; the deeper Cauldron 3 adds Diffindo
-    # and Skurge on top of its non-skippable Spongify.
-    def _state_with(self, names: list[str]) -> CollectionState:
-        state = CollectionState(self.multiworld)
-        for name in names:
-            state.collect(self.world.create_item(name), prevent_sweep=True)
-        return state
-
-    def test_twenty_bronze_skips_first_fall(self) -> None:
-        state = self._state_with(
-            ["Chamber of Secrets Key", "Alohomora", "Flipendo"] + _BRONZE_CARD_NAMES[:20])
+    # and Skurge on top of its non-skippable Spongify. The bronze counts come
+    # from the rule's own threshold so a balance change keeps the test honest.
+    def test_threshold_bronze_skips_first_fall(self) -> None:
+        state = self.state_with(
+            ["Chamber of Secrets Key", "Alohomora", "Flipendo"]
+            + _BRONZE_CARD_NAMES[:CHAMBER_FALL_BRONZE_COUNT])
         self.assertTrue(
             state.can_reach("Chamber of Secrets - Cauldron 1", "Location", self.player),
-            "20 bronze cards should let Harry tank the first fall without Spongify")
+            "the bronze threshold should let Harry tank the first fall without Spongify")
 
-    def test_nineteen_bronze_is_not_enough(self) -> None:
-        state = self._state_with(
-            ["Chamber of Secrets Key", "Alohomora", "Flipendo"] + _BRONZE_CARD_NAMES[:19])
+    def test_one_under_threshold_is_not_enough(self) -> None:
+        state = self.state_with(
+            ["Chamber of Secrets Key", "Alohomora", "Flipendo"]
+            + _BRONZE_CARD_NAMES[:CHAMBER_FALL_BRONZE_COUNT - 1])
         self.assertFalse(
             state.can_reach("Chamber of Secrets - Cauldron 1", "Location", self.player),
-            "19 bronze cards is below the fall-survival threshold")
+            "one bronze below the threshold is not enough to survive the fall")
 
     def test_spongify_still_reaches_first_fall_without_bronze(self) -> None:
-        state = self._state_with(
+        state = self.state_with(
             ["Chamber of Secrets Key", "Alohomora", "Flipendo", "Spongify"])
         self.assertTrue(
             state.can_reach("Chamber of Secrets - Cauldron 1", "Location", self.player),
             "Spongify remains a valid path for the first fall")
 
     def test_bronze_does_not_skip_a_deeper_spongify_gate(self) -> None:
-        state = self._state_with(
+        state = self.state_with(
             ["Chamber of Secrets Key", "Alohomora", "Flipendo", "Diffindo", "Skurge"]
-            + _BRONZE_CARD_NAMES[:20])
+            + _BRONZE_CARD_NAMES[:CHAMBER_FALL_BRONZE_COUNT])
         self.assertFalse(
             state.can_reach("Chamber of Secrets - Cauldron 3", "Location", self.player),
             "the deeper Cauldron 3 Spongify gate is not bronze-skippable")
@@ -245,12 +240,10 @@ class TestOpenCastleSpellGoal(HP2TestBase):
     run_default_tests = False
 
     def test_goal_requires_every_spell(self) -> None:
-        without_one = CollectionState(self.multiworld)
-        self.collect_all_but(["Spongify"], without_one)
+        without_one = self.state_all_but(["Spongify"])
         self.assertFalse(self.multiworld.can_beat_game(without_one),
                          "a 7-spell goal must not be beatable while a spell is missing")
-        with_all = CollectionState(self.multiworld)
-        self.collect_all_but([], with_all)
+        with_all = self.state_all_but([])
         self.assertTrue(self.multiworld.can_beat_game(with_all),
                         "the goal must be beatable once every item is collected")
 
@@ -269,6 +262,45 @@ class TestMoreRunningOffChains(HP2TestBase):
                                     [["Diffindo"]], only_check_listed=True)
 
 
+# Vanilla Card Marjoribanks gates on Alohomora and Diffindo plus EITHER the
+# spell chain OR Running. Diffindo sits outside the chain, so it is required even
+# on the Running shortcut (Running alone does not bypass it).
+class TestVanillaMarjoribanksRunningStillNeedsDiffindo(HP2TestBase):
+    options = {"game_mode": "vanilla", "allow_running_logic": True, "starting_spells": []}
+    run_default_tests = False
+
+    LOC = "Castle Exterior - Card Marjoribanks"
+
+    def test_running_does_not_bypass_diffindo(self) -> None:
+        self.assertFalse(
+            self.state_all_but(["Diffindo"]).can_reach(self.LOC, "Location", self.player),
+            "Marjoribanks needs Diffindo even with Running available")
+
+    def test_reachable_with_full_inventory(self) -> None:
+        self.assertTrue(
+            self.state_all_but([]).can_reach(self.LOC, "Location", self.player))
+
+
+# Vanilla Secret 7 gates on Diffindo plus EITHER the spell chain OR Running.
+# Diffindo is the always-required gate; Alohomora is NOT required (it gates the
+# sibling secrets, not this one).
+class TestVanillaSecret7GatedByDiffindoNotAlohomora(HP2TestBase):
+    options = {"game_mode": "vanilla", "allow_running_logic": True, "starting_spells": []}
+    run_default_tests = False
+
+    LOC = "Castle Exterior - Secret 7"
+
+    def test_diffindo_required(self) -> None:
+        self.assertFalse(
+            self.state_all_but(["Diffindo"]).can_reach(self.LOC, "Location", self.player),
+            "Secret 7 requires Diffindo")
+
+    def test_alohomora_not_required(self) -> None:
+        self.assertTrue(
+            self.state_all_but(["Alohomora"]).can_reach(self.LOC, "Location", self.player),
+            "Secret 7 does not require Alohomora")
+
+
 # Vendor equipment: vanilla gates Fred's Nimbus behind Rictusempra; open castle
 # leaves it unrestricted.
 class TestVendorEquipmentVanillaGate(HP2TestBase):
@@ -285,8 +317,7 @@ class TestVendorEquipmentOpenCastleFree(HP2TestBase):
     run_default_tests = False
 
     def test_nimbus_reachable_without_rictusempra(self) -> None:
-        state = CollectionState(self.multiworld)
-        self.collect_all_but(["Rictusempra"], state)
+        state = self.state_all_but(["Rictusempra"])
         self.assertTrue(
             state.can_reach("Castle Exterior - Nimbus 2001", "Location", self.player),
             "open castle leaves the Nimbus vendor unrestricted")
@@ -324,12 +355,136 @@ class TestVanillaBlockerChains(HP2TestBase):
 
     def test_every_chain_key_is_necessary(self) -> None:
         for loc, chain in VANILLA_CHAIN.items():
-            full = CollectionState(self.multiworld)
-            self.collect_all_but([], full)
+            full = self.state_all_but([])
             self.assertTrue(full.can_reach(loc, "Location", self.player),
                             f"{loc} should be reachable with the whole chain collected")
             for missing in chain:
-                state = CollectionState(self.multiworld)
-                self.collect_all_but([missing], state)
+                state = self.state_all_but([missing])
                 self.assertFalse(state.can_reach(loc, "Location", self.player),
                                  f"{loc} reachable without {missing}: vanilla chain not enforced")
+
+
+# Hub-world vanilla extras. In open castle the hub regions (Entry Hall, Grand
+# Staircase) are lightly gated; vanilla layers extra spell requirements on top.
+# These pin the vanilla-only extra (and the open castle baseline) so a future
+# logic edit cannot silently drop the difference.
+class TestEntryHallHubOpenCastleUngated(HP2TestBase):
+    options = {"game_mode": "open_castle", "starting_spells": []}
+    run_default_tests = False
+
+    def test_gunhilda_needs_only_alohomora(self) -> None:
+        # Open castle Entry Hall is unrestricted; the card needs only Alohomora.
+        self.assertAccessDependency(["Entry Hall - Card Gunhilda"],
+                                    [["Alohomora"]], only_check_listed=True)
+
+
+class TestEntryHallHubVanillaExtra(HP2TestBase):
+    options = {"game_mode": "vanilla", "allow_running_logic": False,
+               "starting_spells": [], "containersanity": True}
+    run_default_tests = False
+
+    LOC = "Entry Hall - Card Gunhilda"
+
+    def test_vanilla_needs_the_extra(self) -> None:
+        # Vanilla adds (Rictusempra OR Skurge+Diffindo) on top of the open rule.
+        none_of = self.state_all_but(["Rictusempra", "Skurge", "Diffindo"])
+        self.assertFalse(none_of.can_reach(self.LOC, "Location", self.player),
+                         "vanilla Gunhilda needs Rictusempra or Skurge+Diffindo")
+
+    def test_rictusempra_alone_satisfies_extra(self) -> None:
+        self.assertTrue(
+            self.state_all_but(["Skurge", "Diffindo"]).can_reach(self.LOC, "Location", self.player),
+            "Rictusempra alone should unlock vanilla Gunhilda")
+
+    def test_skurge_and_diffindo_satisfy_extra(self) -> None:
+        self.assertTrue(
+            self.state_all_but(["Rictusempra"]).can_reach(self.LOC, "Location", self.player),
+            "Skurge + Diffindo should unlock vanilla Gunhilda without Rictusempra")
+
+    def test_knight_3_has_the_same_extra(self) -> None:
+        # A non-card Entry Hall location carries the same vanilla extra.
+        knight = "Entry Hall - Knight 3"
+        self.assertFalse(
+            self.state_all_but(["Rictusempra", "Skurge", "Diffindo"]).can_reach(
+                knight, "Location", self.player),
+            "vanilla Knight 3 needs Rictusempra or Skurge+Diffindo")
+        self.assertTrue(
+            self.state_all_but(["Skurge", "Diffindo"]).can_reach(knight, "Location", self.player),
+            "Rictusempra alone should unlock vanilla Knight 3")
+
+
+class TestGrandStaircaseHubVanillaExtra(HP2TestBase):
+    options = {"game_mode": "vanilla", "allow_running_logic": False,
+               "starting_spells": [], "containersanity": True}
+    run_default_tests = False
+
+    def test_barkwith_needs_rictusempra(self) -> None:
+        # Vanilla adds Rictusempra; open castle needs only its open rule.
+        self.assertAccessDependency(["Grand Staircase - Card Barkwith"],
+                                    [["Rictusempra"]], only_check_listed=True)
+
+    def test_blane_needs_rictusempra_and_skurge(self) -> None:
+        loc = "Grand Staircase - Card Blane"
+        self.assertFalse(self.state_all_but(["Rictusempra"]).can_reach(loc, "Location", self.player),
+                         "vanilla Blane needs Rictusempra")
+        self.assertFalse(self.state_all_but(["Skurge"]).can_reach(loc, "Location", self.player),
+                         "vanilla Blane needs Skurge")
+        self.assertTrue(self.state_all_but([]).can_reach(loc, "Location", self.player),
+                        "Blane reachable with the full inventory")
+
+    def test_cauldron_3_needs_rictusempra_and_skurge(self) -> None:
+        # A non-card hub location with the same vanilla extra as Blane.
+        loc = "Grand Staircase - Cauldron 3"
+        self.assertFalse(self.state_all_but(["Rictusempra"]).can_reach(loc, "Location", self.player),
+                         "vanilla Cauldron 3 needs Rictusempra")
+        self.assertFalse(self.state_all_but(["Skurge"]).can_reach(loc, "Location", self.player),
+                         "vanilla Cauldron 3 needs Skurge")
+        self.assertTrue(self.state_all_but([]).can_reach(loc, "Location", self.player),
+                        "Cauldron 3 reachable with the full inventory")
+
+
+# The three _VANILLA_OVERRIDE locations are where vanilla is NOT a clean superset
+# of the open castle rule, so vanilla carries its rule in full. Pin each mode so
+# the override cannot silently drift. (Card Youdle is covered above.)
+class TestVanillaSecret6Override(HP2TestBase):
+    options = {"game_mode": "vanilla", "allow_running_logic": False, "starting_spells": []}
+    run_default_tests = False
+
+    LOC = "Castle Exterior - Secret 6"
+
+    def test_vanilla_needs_the_chain_without_running(self) -> None:
+        self.assertTrue(self.state_all_but([]).can_reach(self.LOC, "Location", self.player),
+                        "reachable with the full chain")
+        for missing in ("Skurge", "Rictusempra", "Bicorn Level Key"):
+            self.assertFalse(self.state_all_but([missing]).can_reach(self.LOC, "Location", self.player),
+                             f"vanilla Secret 6 reachable without {missing}")
+
+
+class TestOpenCastleSecret6Ungated(HP2TestBase):
+    options = {"game_mode": "open_castle", "allow_running_logic": False, "starting_spells": []}
+    run_default_tests = False
+
+    def test_reachable_via_spongify_without_flipendo(self) -> None:
+        state = self.state_all_but(["Flipendo"])
+        self.assertTrue(state.can_reach("Castle Exterior - Secret 6", "Location", self.player),
+                        "open castle Secret 6 reaches via Spongify without Flipendo")
+
+
+# Card Vablatsky is the one location where the two modes genuinely diverge:
+# vanilla gates on Rictusempra + Skurge, open castle on the Chamber of Secrets Key.
+class TestVablatskyVanilla(HP2TestBase):
+    options = {"game_mode": "vanilla", "starting_spells": []}
+    run_default_tests = False
+
+    def test_needs_rictusempra_and_skurge(self) -> None:
+        self.assertAccessDependency(["Grand Staircase - Card Vablatsky"],
+                                    [["Rictusempra", "Skurge"]], only_check_listed=True)
+
+
+class TestVablatskyOpenCastle(HP2TestBase):
+    options = {"game_mode": "open_castle", "starting_spells": []}
+    run_default_tests = False
+
+    def test_needs_chamber_key(self) -> None:
+        self.assertAccessDependency(["Grand Staircase - Card Vablatsky"],
+                                    [["Chamber of Secrets Key"]], only_check_listed=True)

@@ -22,7 +22,8 @@ DECORATION_LOCATIONS = (
 )
 
 # Statues at easy, freely-reachable spots: Flipendo is their only gate. The Castle
-# Exterior plant dragons sit at harder reaches (Secrets 6 / 7) and are tested separately.
+# Exterior plant dragons also need only Flipendo in open castle but are tested
+# separately (vanilla gates them behind the level traversal chain).
 HUB_STATUES = (
     "Entry Hall - Witch Statue",
     "Grand Staircase - Gregory the Smarmy Statue",
@@ -77,24 +78,18 @@ class TestSkurgeWitchNeedsSkurgeAndFlipendo(HP2TestBase):
                              f"{loc} reachable without {missing}")
 
 
-class TestPlantDragonsMatchCastleSecrets(HP2TestBase):
-    # The Castle Exterior plant dragons mirror that level's Secrets 6 / 7. Open castle:
-    # Plant Dragon 2 needs Diffindo (Secret 7); Plant Dragon 1 is reachable without
-    # Flipendo via Spongify (Secret 6's flipendo | spongify | running).
+class TestPlantDragonsNeedFlipendo(HP2TestBase):
+    # Open castle: both Castle Exterior plant dragons just need Flipendo (the
+    # Castle Exterior region is unrestricted there), like the hub statues.
+    # Vanilla layers the level's traversal chain on top (it crosses the open
+    # castle rule via the Running escape, so it is tested by the chain tests).
     options = {"game_mode": "open_castle", "containersanity": True,
                "allow_running_logic": False, "starting_spells": []}
     run_default_tests = False
 
-    def test_plant_dragon_2_needs_diffindo(self) -> None:
-        self.assertAccessDependency(["Castle Exterior - Plant Dragon 2"],
-                                    [["Diffindo"]], only_check_listed=True)
-
-    def test_plant_dragon_1_reachable_via_spongify_without_flipendo(self) -> None:
-        state = CollectionState(self.multiworld)
-        self.collect_all_but(["Flipendo"], state)
-        self.assertTrue(
-            state.can_reach("Castle Exterior - Plant Dragon 1", "Location", self.player),
-            "Plant Dragon 1 should be reachable via Spongify even without Flipendo")
+    def test_both_plant_dragons_need_only_flipendo(self) -> None:
+        for name in ("Castle Exterior - Plant Dragon 1", "Castle Exterior - Plant Dragon 2"):
+            self.assertAccessDependency([name], [["Flipendo"]], only_check_listed=True)
 
 
 class TestSkeletonVanillaNeedsRictusempra(HP2TestBase):

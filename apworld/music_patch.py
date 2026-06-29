@@ -31,6 +31,8 @@ except ImportError:  # standalone use from the apworld directory
 MARKER_FORMAT = 1
 _MARKER_NAME = "marker.json"
 _BACKUP_DIRNAME = ".hp2_backup"
+# atomic_write temp-file prefix, named like the sibling patchers' _TMP_PREFIX.
+_TMP_PREFIX = ".hpmus_"
 
 
 def music_dir(install_path: str) -> str:
@@ -107,7 +109,7 @@ def apply_patch(install_path: str, music_seed: int) -> str:
     if marker is None:
         for name in present:  # pristine working files seed/refresh the backup
             with open(_ogg(mdir, name), "rb") as f:
-                atomic_write(_ogg(bdir, name), f.read(), ".hpmus_")
+                atomic_write(_ogg(bdir, name), f.read(), _TMP_PREFIX)
     else:
         # A marker means the backup is already seeded from pristine files; trust
         # it (re-patch reads from it, never from the possibly-patched working
@@ -124,7 +126,7 @@ def apply_patch(install_path: str, music_seed: int) -> str:
         if not os.path.exists(source):
             continue  # target absent in this build; leave the track alone
         with open(source, "rb") as f:
-            atomic_write(_ogg(mdir, name), f.read(), ".hpmus_")
+            atomic_write(_ogg(mdir, name), f.read(), _TMP_PREFIX)
 
     with open(_marker_path(install_path), "w", encoding="utf-8") as f:
         json.dump({"format": MARKER_FORMAT, "music_seed": music_seed, "pool_hash": digest}, f)
@@ -144,7 +146,7 @@ def restore_original(install_path: str) -> str:
         source = _ogg(bdir, name)
         if os.path.exists(source):
             with open(source, "rb") as f:
-                atomic_write(_ogg(mdir, name), f.read(), ".hpmus_")
+                atomic_write(_ogg(mdir, name), f.read(), _TMP_PREFIX)
             touched = True
     safe_remove(_marker_path(install_path))
     if not touched:

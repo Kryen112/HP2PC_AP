@@ -305,9 +305,8 @@ BLOCKER_KEY_NAMES_SET = frozenset(ITEM_GROUPS['Blocker Keys'])
 # three inherits save-load survivability with zero extra wiring.
 KEY_ITEM_NAMES_SET = frozenset(['Boomslang', 'Bicorn', 'BitOGoyle'])
 
-# Filler appearance code. FILLER_NAMES order maps 1:1 to the mod's 2001..2008
-# (Small/Medium/Large/Massive Beans, Wiggenweld, Wiggentree Bark, Flobberworm,
-# Chocolate Frog).
+# Filler appearance code. FILLER_NAMES order maps 1:1 to the mod's filler codes
+# starting at 2001 (one per filler, in FILLER_NAMES order).
 FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
 
 # Equipment appearance code: vanilla HProp pickups morphed to their own
@@ -325,6 +324,13 @@ KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Blocker Keys']}
 # otherwise. This is the sole place the classification arrow is computed.
 APPEARANCE_FOREIGN_PLAIN = 9000
 APPEARANCE_FOREIGN_ARROW = 9001
+
+# NetworkItem.flags classification bits (AP ItemClassification). Distinct from
+# the connection-time items_handling bitfield, which happens to share literals.
+ITEM_FLAG_PROGRESSION = 0b001
+ITEM_FLAG_USEFUL = 0b010
+ITEM_FLAG_TRAP = 0b100
+ITEM_FLAG_ANY_CLASSIFIED = ITEM_FLAG_PROGRESSION | ITEM_FLAG_USEFUL | ITEM_FLAG_TRAP
 
 logger = logging.getLogger("HP2Client")
 # The Kivy client only renders loggers wired into its on-screen tabs ("Client").
@@ -808,6 +814,17 @@ class HP2Context(CommonContext):
         if new_auth:
             self._last_auth = new_auth
 
+    def _apply_bool_slot_flag(self, sd: dict, key: str, attr: str, command: str,
+                              label: str, on_text: str = "enabled",
+                              off_text: str = "disabled") -> bool:
+        """Read a boolean slot-data flag, store it on attr, mirror it to the game
+        as "<command> 0|1", and log the result. Returns the resolved flag."""
+        flag = bool(sd.get(key))
+        setattr(self, attr, flag)
+        self._send_to_game(f"{command} {1 if flag else 0}")
+        logger.info(f"{label} {on_text if flag else off_text}")
+        return flag
+
     def _on_connected(self, args: dict) -> None:
         logger.info(f"Connected to AP server as slot {self.slot} ({self.player_names.get(self.slot, '?')})")
         if self.pending_ap_outbound:
@@ -910,18 +927,15 @@ class HP2Context(CommonContext):
         # the same hint. Disabled (and the set left empty) when off, so a
         # later VENDOR_OPENED is a cheap no-op.
         self.tradersanity_hint_on_open = bool(sd.get("tradersanity_hint_on_open"))
-        self.skip_vendor_voices = bool(sd.get("skip_vendor_voices"))
-        self._send_to_game(f"SKIP_VENDOR_VOICES {1 if self.skip_vendor_voices else 0}")
-        logger.info(f"Skip vendor voices {'enabled' if self.skip_vendor_voices else 'disabled'}")
-        self.quidditch_upgrades = bool(sd.get("enable_quidditch_upgrades"))
-        self._send_to_game(f"QUIDDITCH_UPGRADES {1 if self.quidditch_upgrades else 0}")
-        logger.info(f"Quidditch upgrades {'enabled' if self.quidditch_upgrades else 'disabled'}")
-        self.allow_running_logic = bool(sd.get("allow_running_logic"))
-        self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
-        logger.info(f"Running in logic {'enabled (sprint is free)' if self.allow_running_logic else 'disabled'}")
-        self.containersanity = bool(sd.get("containersanity"))
-        self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
-        logger.info(f"Containersanity {'enabled' if self.containersanity else 'disabled'}")
+        self._apply_bool_slot_flag(sd, "skip_vendor_voices", "skip_vendor_voices",
+                                   "SKIP_VENDOR_VOICES", "Skip vendor voices")
+        self._apply_bool_slot_flag(sd, "enable_quidditch_upgrades", "quidditch_upgrades",
+                                   "QUIDDITCH_UPGRADES", "Quidditch upgrades")
+        self._apply_bool_slot_flag(sd, "allow_running_logic", "allow_running_logic",
+                                   "RUNNING_LOGIC", "Running in logic",
+                                   on_text="enabled (sprint is free)")
+        self._apply_bool_slot_flag(sd, "containersanity", "containersanity",
+                                   "CONTAINERSANITY", "Containersanity")
         self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
         self.hinted_vendor_locs = set()
         if self.tradersanity_hint_on_open:
@@ -2321,31 +2335,28 @@ class HP2Context(CommonContext):
             label=f"persist vendor-hint set ({len(self.hinted_vendor_locs)} loc(s))",
         ))
 
-    @property
-    def granted_spell_names(self) -> set[str]:
-        """The set of spell item names this slot has ever received from AP,
-        derived from the cumulative received-items dict on read. AP replays
-        the full ReceivedItems on every Connected, so this is authoritative
-        without a parallel Data Storage record. Read by `_send_resync_spells`
-        each time it pushes a RESYNC_SPELLS line."""
+    def _granted_names_in(self, name_set: "frozenset[str]") -> set[str]:
+        """Every item name this slot has ever received from AP that is in
+        name_set. AP replays the full ReceivedItems on every Connected, so
+        received_by_index is authoritative without a parallel Data Storage
+        record. Backs the granted_* membership properties below."""
         return {
             name
             for item in self.received_by_index.values()
             for name in (self.item_names.lookup_in_game(item.item, GAME_NAME),)
-            if name in SPELL_ITEM_NAMES_SET
+            if name in name_set
         }
 
     @property
+    def granted_spell_names(self) -> set[str]:
+        """Spell item names received from AP. Read by `_send_resync_spells`."""
+        return self._granted_names_in(SPELL_ITEM_NAMES_SET)
+
+    @property
     def granted_blocker_key_names(self) -> set[str]:
-        """Bookcase-blocker keys this slot has received from AP, derived the
-        same way as `granted_spell_names`. Read by `_send_resync_blocker_keys`
-        on every Connected + game HELLO."""
-        return {
-            name
-            for item in self.received_by_index.values()
-            for name in (self.item_names.lookup_in_game(item.item, GAME_NAME),)
-            if name in BLOCKER_KEY_NAMES_SET
-        }
+        """Bookcase-blocker keys received from AP. Read by
+        `_send_resync_blocker_keys` on every Connected + game HELLO."""
+        return self._granted_names_in(BLOCKER_KEY_NAMES_SET)
 
     @property
     def granted_card_class_names(self) -> set[str]:
@@ -2366,72 +2377,48 @@ class HP2Context(CommonContext):
 
     @property
     def granted_key_item_names(self) -> set[str]:
-        """Potion-ingredient key items (Boomslang / Bicorn / BitOGoyle) this
-        slot has received from AP. Always empty today (these names are not in
-        items.yaml), but the membership test mirrors the spell / blocker-key
-        pattern so a future randomization picks up save-load survivability
-        without further wiring."""
-        return {
-            name
-            for item in self.received_by_index.values()
-            for name in (self.item_names.lookup_in_game(item.item, GAME_NAME),)
-            if name in KEY_ITEM_NAMES_SET
-        }
+        """Potion-ingredient key items (Boomslang / Bicorn / BitOGoyle) received
+        from AP. Always empty today (these names are not items), but the
+        membership test mirrors the spell / blocker-key pattern so a future
+        randomization picks up save-load survivability without further wiring."""
+        return self._granted_names_in(KEY_ITEM_NAMES_SET)
+
+    def _send_resync(self, command: str, names: set[str]) -> None:
+        """Push a derived ledger to the mod as a single sticky + idempotent
+        RESYNC line. The bare command (no trailing space) is the empty-list form
+        the mod expects (APIPCActor.HandleLine has a separate exact-match
+        branch); a non-empty ledger rides as "<command> a,b,c"."""
+        csv = ",".join(sorted(names))
+        self._send_to_game(f"{command} {csv}" if csv else command)
 
     def _send_resync_spells(self) -> None:
-        """Push the derived spell ledger to the mod as a single RESYNC_SPELLS
-        line. Sticky + idempotent mod-side; sent on every Connected (Retrieved)
-        and every game HELLO. Empty payload still opens the mod's wipe gate, so
-        a slot with no spells received yet correctly reverts vanilla-engine
-        F/L/A on the very first tick of post-resync revert."""
-        csv = ",".join(sorted(self.granted_spell_names))
-        # Bare "RESYNC_SPELLS" (no trailing space) is the empty-list form the
-        # mod expects (APIPCActor.HandleLine has a separate exact-match branch).
-        if csv:
-            self._send_to_game(f"RESYNC_SPELLS {csv}")
-        else:
-            self._send_to_game("RESYNC_SPELLS")
+        """Push the spell ledger. Sent on every Connected (Retrieved) and game
+        HELLO. Empty payload still opens the mod's wipe gate, so a slot with no
+        spells yet correctly reverts vanilla-engine F/L/A on the first tick."""
+        self._send_resync("RESYNC_SPELLS", self.granted_spell_names)
 
     def _send_resync_blocker_keys(self) -> None:
-        """Push the derived bookcase-blocker-key ledger to the mod as a single
-        RESYNC_BLOCKERKEYS line. Sticky + idempotent mod-side; sent on every
-        Connected (Retrieved) and every game HELLO. The mod re-stamps
-        default.APGrantedBlockerKey[] AND destroys any matching live bookcase
-        blocker, so a cold load that wiped the class-defaults isn't soft-locked
-        by the consumed-indices ledger blocking GRANT replay. Covers both
-        modes: open castle (per-key blocker) and vanilla (cumulative chain
-        plus standalone Duelling/Quidditch)."""
-        csv = ",".join(sorted(self.granted_blocker_key_names))
-        if csv:
-            self._send_to_game(f"RESYNC_BLOCKERKEYS {csv}")
-        else:
-            self._send_to_game("RESYNC_BLOCKERKEYS")
+        """Push the bookcase-blocker-key ledger. The mod re-stamps
+        default.APGrantedBlockerKey[] AND destroys any matching live blocker, so
+        a cold load that wiped the class-defaults isn't soft-locked by the
+        consumed-indices ledger blocking GRANT replay. Covers both modes: open
+        castle (per-key blocker) and vanilla (cumulative chain plus standalone
+        Duelling/Quidditch)."""
+        self._send_resync("RESYNC_BLOCKERKEYS", self.granted_blocker_key_names)
 
     def _send_resync_key_items(self) -> None:
-        """Push the derived potion-key-item ledger to the mod as a single
-        RESYNC_KEYITEMS line. Always empty today (none of the three names are
-        in items.yaml); wired up so future randomization of any of them
+        """Push the potion-key-item ledger. Always empty today (none of the three
+        names are items); wired up so future randomization of any of them
         inherits the spell / blocker-key save-load survivability."""
-        csv = ",".join(sorted(self.granted_key_item_names))
-        if csv:
-            self._send_to_game(f"RESYNC_KEYITEMS {csv}")
-        else:
-            self._send_to_game("RESYNC_KEYITEMS")
+        self._send_resync("RESYNC_KEYITEMS", self.granted_key_item_names)
 
     def _send_resync_cards(self) -> None:
-        """Push the derived wizard-card ledger to the mod as a single
-        RESYNC_CARDS line. Sticky + idempotent mod-side; sent on every Connected
-        (Retrieved) and every game HELLO. The mod re-stamps default.APGrantedCard[]
+        """Push the wizard-card ledger. The mod re-stamps default.APGrantedCard[]
         AND re-asserts CardOwner_Harry for any received card the folio is missing,
         so a save-load / death-reload that dropped one isn't permanent. The
-        consumed-indices ledger would otherwise block GRANT replay, the same
-        failure the spell / blocker-key resync prevents, and the cause of the
-        gold-card-room "tracker says enterable but folio is short" reports."""
-        csv = ",".join(sorted(self.granted_card_class_names))
-        if csv:
-            self._send_to_game(f"RESYNC_CARDS {csv}")
-        else:
-            self._send_to_game("RESYNC_CARDS")
+        consumed-indices ledger would otherwise block GRANT replay, the cause of
+        the gold-card-room "tracker says enterable but folio is short" reports."""
+        self._send_resync("RESYNC_CARDS", self.granted_card_class_names)
 
     @staticmethod
     def _item_role(flags: int, own_item_name: str = "") -> str:
@@ -2449,13 +2436,13 @@ class HP2Context(CommonContext):
         Open castle promotes cards to progression at create_item time, which a
         real receipt reflects in its flags; a cheat-sent card recovers only the
         static useful here, an accepted cosmetic gap on the cheat path."""
-        if not (flags & 0b111) and own_item_name in ITEM_CLASSIFICATIONS:
+        if not (flags & ITEM_FLAG_ANY_CLASSIFIED) and own_item_name in ITEM_CLASSIFICATIONS:
             flags = int(ITEM_CLASSIFICATIONS[own_item_name])
-        if flags & 0b001:
+        if flags & ITEM_FLAG_PROGRESSION:
             return "g"
-        if flags & 0b100:
+        if flags & ITEM_FLAG_TRAP:
             return "t"
-        if flags & 0b010:
+        if flags & ITEM_FLAG_USEFUL:
             return "u"
         return "f"
 
@@ -2544,7 +2531,7 @@ class HP2Context(CommonContext):
         slot = self.slot_info.get(owner) if self.slot_info else None
         owner_game = slot.game if slot is not None else None
         if owner_game != GAME_NAME:
-            if (ni.flags & 0b001) or (ni.flags & 0b100):
+            if (ni.flags & ITEM_FLAG_PROGRESSION) or (ni.flags & ITEM_FLAG_TRAP):
                 return APPEARANCE_FOREIGN_ARROW
             return APPEARANCE_FOREIGN_PLAIN
 

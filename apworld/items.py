@@ -452,31 +452,11 @@ ITEM_GROUPS: dict[str, list[str]] = {
     ],
 }
 
-FILLER_NAMES: list[str] = [
-    "Small Jar of Beans",
-    "Medium Jar of Beans",
-    "Large Jar of Beans",
-    "Massive Jar of Beans",
-    "Wiggenweld Potion",
-    "Wiggentree Bark",
-    "Flobberworm Mucous",
-    "Chocolate Frog",
-    "1 Bean",
-    "5 Beans",
-    "10 Beans",
-]
-TRAP_NAMES: list[str] = [
-    "Bean Thief Trap",
-    "Polyjuice Potion Trap",
-    "Obliviate Trap",
-    "Drowsiness Draught Trap",
-    "Engorgio Trap",
-    "Reducio Trap",
-    "Confundus Trap",
-    "Overcompensation Trap",
-    "Levicorpus Trap",
-    "Jelly-Legs Jinx Trap",
-]
+# Derived from ITEM_GROUPS so the flat lists can never drift from the groups.
+# Order is load-bearing: FILLER_NAMES maps 1:1 to the mod's 2001+ filler codes
+# (see Client.FILLER_CODE) and TRAP_NAMES fixes the reproducible trap-pick order.
+FILLER_NAMES: list[str] = list(ITEM_GROUPS["Filler"])
+TRAP_NAMES: list[str] = list(ITEM_GROUPS["Traps"])
 
 # Map UScript card class name → AP item display name. Used by the client
 # when forwarding 'GRANT <classname>' messages to the mod for cards.

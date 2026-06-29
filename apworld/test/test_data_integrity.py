@@ -8,7 +8,10 @@ from ..access import _BRONZE_CARD_NAMES, _SILVER_CARD_NAMES
 from ..items import (BASE_ID as ITEM_BASE_ID, FILLER_NAMES, ITEM_CLASSIFICATIONS,
                      ITEM_GROUPS, ITEM_NAME_TO_ID, TRAP_NAMES)
 from ..locations import (BASE_ID as LOCATION_BASE_ID, LOCATION_GROUPS,
-                         LOCATION_NAME_TO_ID, LOCATION_REGIONS)
+                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
+                         MISSABLE_LOCATION_DEPS_VANILLA, MISSABLE_LOCATIONS)
+from ..rules import (LOCATION_RULES_OPEN_CASTLE, LOCATION_RULES_VANILLA,
+                     _VANILLA_EXTRA, _VANILLA_ONLY, _VANILLA_OVERRIDE)
 
 
 class TestDataIntegrity(unittest.TestCase):
@@ -44,17 +47,62 @@ class TestDataIntegrity(unittest.TestCase):
                 self.assertIn(name, ITEM_NAME_TO_ID, f"item group {group!r} -> unknown item {name!r}")
 
     def test_card_count_helper_lists_match_item_groups(self) -> None:
-        # access.py hardcodes the bronze/silver name lists the count helpers
-        # (_bronze_cards / _silver_cards) scan. Guard them against drifting from
-        # the canonical ITEM_GROUPS card lists, in order.
+        # The count helpers (_bronze_cards / _silver_cards) scan these lists,
+        # which access.py derives from ITEM_GROUPS. Guard the contract so a
+        # future hand-edit can never resilver them out of step with the groups.
         self.assertEqual(_BRONZE_CARD_NAMES, ITEM_GROUPS["Cards (Bronze)"],
                          "_BRONZE_CARD_NAMES drifted from ITEM_GROUPS['Cards (Bronze)']")
         self.assertEqual(_SILVER_CARD_NAMES, ITEM_GROUPS["Cards (Silver)"],
                          "_SILVER_CARD_NAMES drifted from ITEM_GROUPS['Cards (Silver)']")
 
+    def test_filler_and_trap_lists_match_item_groups(self) -> None:
+        # FILLER_NAMES / TRAP_NAMES are derived from ITEM_GROUPS; their order is
+        # load-bearing (filler-code mapping, reproducible trap picks). Guard both.
+        self.assertEqual(FILLER_NAMES, ITEM_GROUPS["Filler"],
+                         "FILLER_NAMES drifted from ITEM_GROUPS['Filler']")
+        self.assertEqual(TRAP_NAMES, ITEM_GROUPS["Traps"],
+                         "TRAP_NAMES drifted from ITEM_GROUPS['Traps']")
+
+    def test_vanilla_rules_derive_from_open_castle(self) -> None:
+        # Open castle is the base table. Vanilla = open castle, with _VANILLA_EXTRA
+        # ANDed onto existing rules, _VANILLA_OVERRIDE replacing them, and
+        # _VANILLA_ONLY adding locations open castle does not gate. Guard the
+        # invariants so a stray key cannot silently invent or shadow a rule.
+        open_keys = set(LOCATION_RULES_OPEN_CASTLE)
+        # EXTRA and OVERRIDE refine existing open-castle rules.
+        stray_extra = set(_VANILLA_EXTRA) - open_keys
+        self.assertEqual(stray_extra, set(),
+                         f"_VANILLA_EXTRA keys not in open castle: {sorted(stray_extra)}")
+        stray_override = set(_VANILLA_OVERRIDE) - open_keys
+        self.assertEqual(stray_override, set(),
+                         f"_VANILLA_OVERRIDE keys not in open castle: {sorted(stray_override)}")
+        # ONLY adds locations open castle has no per-location rule for.
+        clash_only = set(_VANILLA_ONLY) & open_keys
+        self.assertEqual(clash_only, set(),
+                         f"_VANILLA_ONLY keys already in open castle: {sorted(clash_only)}")
+        # The three delta groups are pairwise disjoint.
+        self.assertEqual(set(_VANILLA_EXTRA) & set(_VANILLA_OVERRIDE), set(),
+                         "a key is both extended and overridden")
+        # Vanilla covers exactly the open-castle keys plus the vanilla-only ones.
+        self.assertEqual(set(LOCATION_RULES_VANILLA), open_keys | set(_VANILLA_ONLY),
+                         "vanilla keys are not open castle plus the vanilla-only set")
+
     def test_location_groups_reference_real_locations(self) -> None:
         for loc in LOCATION_GROUPS:
             self.assertIn(loc, LOCATION_NAME_TO_ID, f"location group keyed on unknown location {loc!r}")
+
+    def test_missable_deps_cover_exactly_missable_locations(self) -> None:
+        # The deps table is derived per region from MISSABLE_LOCATIONS, so its
+        # keys must match exactly. A drift means a missable location lost (or
+        # gained) its precollection gate.
+        self.assertEqual(set(MISSABLE_LOCATION_DEPS_VANILLA), set(MISSABLE_LOCATIONS),
+                         "missable deps keys drifted from MISSABLE_LOCATIONS")
+
+    def test_missable_deps_reference_real_items(self) -> None:
+        for loc, deps in MISSABLE_LOCATION_DEPS_VANILLA.items():
+            for dep in deps:
+                self.assertIn(dep, ITEM_NAME_TO_ID,
+                              f"missable dep for {loc!r} -> unknown item {dep!r}")
 
     def test_every_location_has_a_region(self) -> None:
         missing = set(LOCATION_NAME_TO_ID) - set(LOCATION_REGIONS)

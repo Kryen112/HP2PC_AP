@@ -41,6 +41,10 @@ PROGRESSION_ITEM_NAMES: list[str] = [
 
 DEFAULT_GOAL = "basilisk"
 SPELL_ITEM_NAMES: list[str] = sorted(ITEM_GROUPS.get("Spells", []))
+# Vendor unlock proxy: a gated vendor enters logic once the player can plausibly
+# afford it, modelled as at least this many spells and blocker keys reachable.
+_VENDOR_GATE_MIN_SPELLS = 3
+_VENDOR_GATE_MIN_KEYS = 3
 # Vanilla-only: the Whomping Willow is the one-way opening level. Both of its
 # secrets require Alohomora, which the level never teaches and which no earlier
 # check can deliver. The player only ever passes through once, so without
@@ -741,6 +745,15 @@ class HP2World(World):
         # always truthy for a Choice instance, so it must be bool(value).
         return bool(getattr(self.options, opt_attr).value)
 
+    def _try_get_location(self, loc_name: str) -> "Location | None":
+        # Not every catalogued location exists in a given seed (mode and option
+        # gates drop some), so callers iterating the static tables skip the ones
+        # that were never created.
+        try:
+            return self.multiworld.get_location(loc_name, self.player)
+        except KeyError:
+            return None
+
     def _item_enabled(self, item_name: str) -> bool:
         # Traps are selected per-type via the `traps` OptionSet, so a trap is
         # enabled iff its name is in the chosen set.
@@ -840,9 +853,8 @@ class HP2World(World):
             eligible = allow_prog and deps.issubset(precollected)
             if eligible:
                 continue
-            try:
-                loc = self.multiworld.get_location(name, self.player)
-            except KeyError:
+            loc = self._try_get_location(name)
+            if loc is None:
                 continue
             loc.progress_type = LocationProgressType.EXCLUDED
 
@@ -947,9 +959,8 @@ class HP2World(World):
     def _apply_location_rules(self) -> None:
         from worlds.generic.Rules import set_rule
         for loc_name, rule_fn in self._location_rules().items():
-            try:
-                loc = self.multiworld.get_location(loc_name, self.player)
-            except KeyError:
+            loc = self._try_get_location(loc_name)
+            if loc is None:
                 continue
             set_rule(loc, lambda state, fn=rule_fn, player=self.player: fn(state, player))
 
@@ -964,9 +975,8 @@ class HP2World(World):
         from worlds.generic.Rules import add_item_rule
         silver_items = frozenset(ITEM_GROUPS.get("Cards (Silver)", []))
         for loc_name in GOLD_CARD_ROOM_LOCATIONS:
-            try:
-                loc = self.multiworld.get_location(loc_name, self.player)
-            except KeyError:
+            loc = self._try_get_location(loc_name)
+            if loc is None:
                 continue
             add_item_rule(loc, lambda item, silvers=silver_items: item.name not in silvers)
 
@@ -994,13 +1004,12 @@ class HP2World(World):
         for loc_name, group in LOCATION_GROUPS.items():
             if group not in gated_groups:
                 continue
-            try:
-                loc = self.multiworld.get_location(loc_name, self.player)
-            except KeyError:
+            loc = self._try_get_location(loc_name)
+            if loc is None:
                 continue
             add_rule(loc, lambda state, sp=spell_names, kp=key_names, player=self.player:
-                     sum(state.has(s, player) for s in sp) >= 3
-                     and sum(state.has(k, player) for k in kp) >= 3)
+                     sum(state.has(s, player) for s in sp) >= _VENDOR_GATE_MIN_SPELLS
+                     and sum(state.has(k, player) for k in kp) >= _VENDOR_GATE_MIN_KEYS)
             if duelling_rule is not None:
                 add_rule(loc, lambda state, fn=duelling_rule, player=self.player: fn(state, player),
                          combine="or")
@@ -1018,9 +1027,8 @@ class HP2World(World):
         keys_and_spells = frozenset(
             ITEM_GROUPS.get("Blocker Keys", []) + ITEM_GROUPS.get("Spells", []))
         for loc_name in GOLD_CARD_ROOM_LOCATIONS:
-            try:
-                loc = self.multiworld.get_location(loc_name, self.player)
-            except KeyError:
+            loc = self._try_get_location(loc_name)
+            if loc is None:
                 continue
             add_item_rule(loc, lambda item, bad=keys_and_spells: item.name not in bad)
 
@@ -1060,8 +1068,9 @@ class HP2World(World):
         goal_locations = self._goal_location_requirements().get(DEFAULT_GOAL, [])
         goal_rule = self._goal_rules().get(DEFAULT_GOAL)
         if not goal_locations and goal_rule is None:
-            # Fallback: if logic.yaml has no goal defined, collect every
-            # progression item.
+            # Defensive fallback: the goal table always defines DEFAULT_GOAL, so
+            # this branch does not run today. It keeps the world solvable (own
+            # every progression item) if a future edit ever empties that table.
             progression = list(PROGRESSION_ITEM_NAMES)
             self.multiworld.completion_condition[self.player] = (
                 lambda state: all(state.has(name, self.player) for name in progression)
