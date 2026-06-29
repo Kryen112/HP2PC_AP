@@ -63,58 +63,14 @@ function PostBeginPlay()
     // token survives a hub leave/re-enter exactly like the beans beside it.
 }
 
-// Eject behaviour mirrors a wizard card: drop with PHYS_Falling, bounce off
-// surfaces (dampening) until it settles on the floor, then spin in place. The
-// visible default mesh + pickup collision come from defaultproperties; the
-// appearance sweep morphs the mesh to the placed item.
-function Spawned()
+// Drop and settle exactly like a native bean / potion ingredient: an empty auto
+// BounceIntoPlace inherits HProp.BounceIntoPlace (reflect + dampen off surfaces,
+// spin, play soundBounce, rest on a floor; walls only reflect, never freeze it).
+// bBounceIntoPlace in defaults makes HProp.PreBeginPlay set bBounce + PHYS_Falling,
+// and the eject path supplies the launch velocity. The appearance sweep morphs the
+// mesh to the placed item; Touch (below) fires the AP check, state-independent.
+auto state BounceIntoPlace
 {
-    SetPhysics(PHYS_Falling);
-    GotoState('bouncing');
-}
-
-// Bounce + spin until a floor-ish hit, then settle. Mirrors WizardCardIcon.bouncing.
-state bouncing
-{
-    function HitWall(Vector HitNormal, Actor Wall)
-    {
-        // Dampen + reflect off the surface, bouncing (like a bean) until the
-        // speed drops below the settle threshold, then come to rest and spin.
-        Velocity *= 0.6;
-        Velocity = MirrorVectorByNormal(Velocity, HitNormal);
-        if (VSize(Velocity) < 50.0)
-        {
-            Velocity = vect(0.0, 0.0, 0.0);
-            GotoState('Wait');
-        }
-    }
-
-    function Tick(float Delta)
-    {
-        local Rotator newRot;
-
-        newRot = Rotation;
-        newRot.Yaw = newRot.Yaw + (50000 * Delta);
-        SetRotation(newRot);
-    }
-}
-
-// Settled: keep spinning in place (no HitWall override, so it rests on the
-// floor under gravity). Mirrors WizardCardIcon.Wait.
-auto state Wait
-{
-    function Tick(float Delta)
-    {
-        local Rotator newRot;
-
-        newRot = Rotation;
-        newRot.Yaw = newRot.Yaw + (50000 * Delta);
-        SetRotation(newRot);
-    }
-
-begin:
-    Sleep(1.0);
-    goto ('Begin');
 }
 
 // `event` (not `function`) to match HProp.Touch's declaration; overriding with a
@@ -209,6 +165,11 @@ defaultproperties
     bBlockPlayers=False
     bBlockCamera=False
     bCantStandOnMe=True
+    // Bounce-and-settle via the native HProp.BounceIntoPlace path (same as beans
+    // and potion ingredients): bBounceIntoPlace flips on bBounce + PHYS_Falling in
+    // HProp.PreBeginPlay, and soundBounce is the shared bean-bounce cue.
     bBounce=True
+    bBounceIntoPlace=True
+    soundBounce=Sound'HPSounds.Magic_sfx.bean_bounce'
     bRotateToDesired=False
 }
