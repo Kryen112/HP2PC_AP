@@ -2154,8 +2154,9 @@ static function harry TryGetViewportHarry(harry SourceHarry)
 // of the Level.Pauser / FindGrantReadyHarry / watcher.bSnapshotted gates in
 // APIPCActor.TryDrainPendingGrants. Only PlayerWalking grants; every other
 // state (cutscene, spell learning, frozen, dead, quidditch, duelling, pickup,
-// potion mixing, etc.) defers, and the grant queue drains the moment Harry
-// returns to PlayerWalking. A dialogue popup (an ambient NPC line or a
+// potion mixing, etc.) defers, as does airborne movement (PHYS_Falling, since
+// PlayerWalking also covers falling). The grant queue drains the moment Harry
+// is back on solid ground in PlayerWalking. A dialogue popup (an ambient NPC line or a
 // PopupTrigger) is treated as playable: Harry keeps walking, so the item and
 // its toast land during the subtitle instead of queueing until it clears. Only
 // a full (captured) cutscene defers via the HUD flags, which also covers the
@@ -2186,6 +2187,17 @@ static function bool IsPlayerInPlayableState(harry h, out string DeferReason, op
     if (stateName != "PlayerWalking")
     {
         DeferReason = "harry state=" $ stateName $ " (only PlayerWalking grants)";
+        return False;
+    }
+
+    // PlayerWalking handles airborne movement internally (the state runs the
+    // fall logic), so a grant arriving mid-fall would fire its SaveGame at a
+    // doomed position. A save taken while plunging into a void or toward a
+    // fatal landing reloads straight back into the death, softlocking the slot.
+    // Defer until Harry is grounded again; the queue retries every drain tick.
+    if (h.Physics == PHYS_Falling)
+    {
+        DeferReason = "harry airborne (PHYS_Falling)";
         return False;
     }
 
