@@ -9,9 +9,42 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 ## What you're getting
 
 - An Archipelago multiworld randomizer for HP2 (PC, KnowWonder 2002 release).
-- Up to 280 checks across 8 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, and 2 Fred & George vendor purchases. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
+- Up to ~570 checks across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases, ~274 containersanity containers, and up to 13 Tradersanity vendor checks. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
 - Goal: in vanilla, defeat the Basilisk; in open castle, satisfy your configured goal clauses to unlock the Great Hall (see "Game mode" below).
 - Plays solo or as a slot in a larger AP multiworld.
+
+## Mod-only features (not in the base game)
+
+The randomizer adds gameplay the original game never prompts you about, and none of it shows up in the in-game controls menu. The full list:
+
+### Hold Shift to run
+
+Hold Shift while moving and Harry runs at 1.5x speed. It costs 1 Bertie Bott's bean every quarter-second you're actually moving, drawn from your bean stash, and stops on its own when you hit 0. The run carries through jumps and spell casts, and idling on Shift costs nothing. It's disabled while a slowdown is active (Drowsiness trap, Skurge ectoplasm, spider web) and during cutscenes.
+
+The `allow_running_logic` yaml option makes running **free** (no bean cost, usable even at 0 beans) and lets the generator place items in spots you're expected to reach by running. With it off (the default) running still works exactly the same, it just costs beans and is never logically required.
+
+### Return to the Entry Hall (pause menu)
+
+The pause menu has a **Return to Entry Hall** button in the middle of the bottom row. It's your escape from a softlock: you entered a level, partially cleared it, and a one-way door trapped you. It teleports you to the hub and commits your progress first (found secrets, picked-up beans, dropped loot), so nothing is lost. It's hidden during cutscenes and the level intro, so wait until you have control.
+
+### Check status without alt-tabbing (pause menu)
+
+In open castle, the pause menu draws a live goal-progress panel (cards / spells / levels / duels / Quidditch, have vs need), the same figures as the client's `/progress`. In every AP mode, an **Unlocked** panel lists the spells and level keys you've received, newest at the bottom.
+
+### What the wizard card tiers do
+
+- **Bronze** cards give Harry an extra health bar for every 10 you hold.
+- **Silver** cards open the Gold Card Room (20 needed in open castle, 40 in vanilla).
+- **Gold** cards are collectibles only. They don't unlock anything.
+
+### Containers and vendors (only if you enabled them)
+
+- `containersanity`: in-world containers (chests, cauldrons, boxes, vases, and more) each give an AP token when you open them with Alohomora or Flipendo. Walk over the token to send the check.
+- `tradersanity`: a vendor's first sale becomes an AP check, after which it sells normally.
+
+### Client commands worth knowing
+
+`/progress` prints your goal status. `/play` (re)launches the game. The randomizers each have a reshuffle/restore pair: `/reroll_sounds` `/restore_sounds`, `/reroll_music` `/restore_music`, `/reroll_dialogue` `/restore_dialogue` (see the randomizer sections above).
 
 ## Prerequisites
 
@@ -100,7 +133,7 @@ That's it. Archipelago discovers it automatically next time you launch, and `HP2
 If you're playing solo (just you, no other AP slots):
 
 1. **Generate the YAML template.** Open ArchipelagoLauncher, click **Generate Template Options**. Once `harry_potter_2_pc.apworld` is in `custom_worlds\`, the launcher writes a fresh `Harry Potter 2 PC.yaml` template into `<Archipelago install>\Players\Templates\`. (If you don't see the yaml, make sure you have the apworld installed and close and re-open the launcher.)
-2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 7 category toggles control what becomes an AP check:
+2. **Configure your slot.** Copy that template into `<Archipelago install>\Players\` and edit `name:` to your desired in-game player name. The 8 category toggles control what becomes an AP check:
 
    | Toggle                         | Default | What it enables                                                                                            |
    | ------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------- |
@@ -111,6 +144,7 @@ If you're playing solo (just you, no other AP slots):
    | `enable_quidditch_matches`     | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
    | `enable_spell_challenge_times` | off     | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.                |
    | `enable_quidditch_upgrades`    | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
+   | `containersanity`              | off     | ~282 in-world containers (chests without cards, cauldrons, cigar / jewel / music boxes, decanters, oil cans, plant pots, knights, ingredient jars, statues) each become a check. Opening one with its spell (Alohomora or Flipendo) ejects an AP token; walk over it to send the check. A big check-count increase, so off by default. |
 
    The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_missable_progression` (default off) controls whether progression items may be placed at missable locations in un-replayable levels (missable secrets, plus `containersanity` containers in those levels); safe default keeps those filler-only.
 
@@ -140,6 +174,8 @@ If you're playing solo (just you, no other AP slots):
    | --------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
    | `starting_spells`     | Flipendo, Lumos, Alohomora | Spells Harry starts with; any spell left off this list becomes an AP item. Vanilla physically needs Lumos + Flipendo to clear the Whomping Willow, so keep both unless they're placed very early. Valid: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo, Spongify. |
    | `vanilla_gate_levels` | on                         | **Vanilla only.** On: the 7 story-region keys are AP items and a bookcase blocks each region until its key arrives (linear story order). Off: all keys precollected, every region open from the start. No effect in open castle (keys are always AP items there).                    |
+   | `allow_running_logic` | off                        | Adds the `Running` logic flag to logic: checks reachable by Harry's run speed no longer require the spell they'd otherwise need, and the shift-to-run sprint becomes free (no bean cost, usable at 0 beans). Additive only, so it never makes a solvable seed unsolvable. Both modes. |
+   | `allow_glitched_logic`| off                        | Adds the `Glitched` logic flag to logic: checks reachable by glitches no longer require their normal items. Additive only. Enabling it assumes you can perform the glitches the tagged checks rely on. Both modes. |
    | `tradersanity`        | off                        | Turns each non-Weasley card/ingredient vendor's first sale into an AP check, after which it reverts to selling normally. The price mode only changes what that check costs: `price_vanilla` a normal in-game price (ingredient vendors keep their real price, card vendors charge a card-like price), `price_random` a random price per vendor fixed for the seed (10-250 beans), `price_low` a flat 10 beans. With `enable_quidditch_upgrades` on, Fred & George also become Tradersanity vendors.                                  |
    | `tradersanity_hint_on_open` | on                   | First time you open dialogue with an unchecked Tradersanity vendor, the AP check at that vendor is broadcast-hinted so the room can see what item it's holding. No effect when `tradersanity` is off.                                                                                |
    | `skip_vendor_voices`  | off                        | Silences every vendor's in-trade voice cues (sell / transaction-done / decline / narrator / Harry-inquiry) so the trade UI advances instantly. The not-enough-beans, out-of-stock, and proximity lure lines are left alone. Mainly useful for Tradersanity runs where the same dialogue repeats.    |
@@ -242,6 +278,15 @@ It works the same way as the sound randomizer: the client binary-patches `<insta
 
 - **Same install path, permissions, and timing** as the sound randomizer above (same per-mode `install_folder`, picks it once, needs write access / admin under `Program Files`, takes effect on the next launch).
 - **Reshuffle**: `/reroll_dialogue` (keeps the seed's mode). **Revert**: `/restore_dialogue`, or connect to a seed with the option off, or manually copy `AllDialog.uax.orig`, `hpdialog.int.orig`, and `BumpDialog.int.orig` back over their files. Restart once to hear the change.
+
+### PopTracker map tracker (optional)
+
+A [PopTracker](https://github.com/black-sliver/PopTracker/) pack autotracks your run: items, checks, and goal progress update live over the AP connection, every check shows as a pin on per-floor maps, and the tracker follows Harry to whatever map he's currently in. Both game modes work, and it reads your category toggles from the seed, so it configures itself per seed.
+
+1. Install **PopTracker v0.31.0 or newer**.
+2. Download the [HP2 tracker pack](https://github.com/Kryen112/HP2PC_AP_Poptracker/releases/latest) and drop the unzipped folder into PopTracker's `packs/` folder.
+3. In PopTracker, click **Load Pack**, pick the Harry Potter 2 PC pack, and choose the variant for your game mode.
+4. Click the AP connection button and enter the same server address, slot name, and password you used in the client. The map and checks then update on their own as you play.
 
 ## Verify it's working
 

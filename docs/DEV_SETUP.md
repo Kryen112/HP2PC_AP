@@ -17,7 +17,6 @@ How this dev machine is configured and the daily build/run loop. Update whenever
 | **Python** | **3.12.x** (currently 3.12.10) | AP 0.6.4 dropped 3.10. 3.12 is the safe middle of AP's supported range (3.11 / 3.12 / 3.13). |
 | **Archipelago framework** | **0.6.7** (release tag) | Released 2026-04-01. Pinned to a tag, **not `main`**. `main` breaks. Bump deliberately, not by drift. |
 | **M212 HP2Engine** | **3.4** | From the FAQ doc's "Version 3.4" header. |
-| **HP2PC_AP** | v1.1 | Adds secrets, challenge stars, duels, Quidditch matches, Fred & George vendors, tier-prefixed cards, gold-card-room region, per-category yaml toggles. |
 
 ## Installed paths (this PC)
 
@@ -50,7 +49,7 @@ cd "C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP"
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-# Project-side deps (will grow as M2+ lands)
+# Project-side deps
 pip install pyyaml
 ```
 
@@ -58,7 +57,7 @@ pip install pyyaml
 
 ## Archipelago framework (existing install)
 
-The existing AP framework install is at `C:\Users\<you>\Documents\Archipelago-play\Archipelago\`, currently on `main` at `0.6.2-rc2-60-g5da059d9` (close to 0.6.7 release; world-building API has been stable across these versions). HP2PC_AP integrates with this existing install rather than maintaining a separate clone.
+The existing AP framework install is at `C:\Users\<you>\Documents\Archipelago-play\Archipelago\`, checked out at the **0.6.7** release tag (matching the pin above). HP2PC_AP integrates with this existing install rather than maintaining a separate clone.
 
 For HP2PC_AP development, the repo's `apworld/` directory is the AP-world source. To make AP discover it during seed generation, we mirror it into `Archipelago/worlds/harry_potter_2_pc/` via a directory junction:
 
@@ -96,8 +95,8 @@ Harry Potter 2 PC:
 
 Why each entry:
 
-- **Lumos/Flipendo/Alohomora are not listed here.** The APWorld precollects them unconditionally because v1 has 108 checks and 111 unique non-filler items.
-- **`plando_items` 4 classroom locks.** Walking into a classroom auto-teleports to the spell challenge with the exit locked behind. If the player doesn't already own the spell, they softlock. v2 fix unlocks the door via UScript; v1 workaround is to plando each spell at its own classroom so picking it up at the challenge end grants the spell that opens the exit.
+- **Lumos/Flipendo/Alohomora are not listed here.** They're the default `starting_spells`, so the world precollects them and they need no plando entry. In vanilla, Lumos and Flipendo are force-precollected regardless, since clearing the Whomping Willow physically needs both.
+- **`plando_items` 4 classroom locks.** Walking into a classroom auto-teleports to the spell challenge with the exit locked behind. If the player doesn't already own the spell, they softlock. The proper fix unlocks the door via UScript; the workaround (used in the sample YAML above) is to plando each spell at its own classroom so picking it up at the challenge end grants the spell that opens the exit.
 - **`from_pool: true`** removes the plando'd copy from the random pool (no duplicates). **`force: silent`** suppresses the noisy "plando applied" stdout per entry.
 
 For "everything-unlocked" playtest mode (skip cataloguing, prove the AP solver), use `start_inventory_from_pool` for the 4 non-starter spells + 3 special progression items and drop the classroom plandos.
@@ -185,7 +184,7 @@ This is what `scripts/run_client.ps1` does. Requires the apworld junction (see *
 
 Alternative: `ArchipelagoLauncher.exe "HP2 PC Client"` runs the launcher entry point directly (Kivy GUI), same path users take.
 
-**Heads-up: `[Engine.GameEngine] ServerActors=` does not work** for runtime registration on M212/HP2 (verified 2026-05-07). The mutator chain *is* alive (`Base Mutator is <Level>.Mutator<N>` shows up per level transition), so the next experiment for runtime hookup is mutator-via-URL on the launcher shortcut. See `../MOD_TODO.md`.
+**Heads-up: `[Engine.GameEngine] ServerActors=` does not work** for runtime registration on M212/HP2 (verified 2026-05-07). Runtime hookup goes through a `GameInfo` subclass registered with `DefaultGame=HPArchipelago.APGameInfo` in `Game.ini`'s `[Engine.Engine]`; the mod spawns its actors from that class's `InitGame`. The mutator-via-URL route was also a dead end.
 
 ## Fresh-PC bootstrap
 
@@ -200,7 +199,7 @@ If you clone this repo on a new Windows machine, do these in order:
 7. Create the apworld junction (**Archipelago framework** section above).
 8. Create the AP player files (**Player files** section above).
 9. Repoint any Start Menu shortcuts the M212 installer leaves under `ProgramData\...\M212\` if you renamed the modding copy folder (see the 2026-05-07 rename note above).
-10. Read `../readme-handoff.md`, then `../DESIGN.md` and `../ROADMAP.md`.
+10. Read `../README.md` for the project overview and feature set.
 
 ## Known gotchas
 
@@ -208,7 +207,7 @@ If you clone this repo on a new Windows machine, do these in order:
 - **Default.ini extends past the EditPackages list.** Lines ~389+ are graphics-adapter sections (`[Diamond Stealth III/...]`, `[ATI 3D Rage Pro]`, etc.). Inserting `EditPackages=HPArchipelago` via `Add-Content` or any append-to-end will land in the wrong section. Always insert *immediately after* `EditPackages=M212Share`. The snippet in the engine prep section above does this correctly.
 - **HP.ini overrides Default.ini at runtime AND for UCC.** First game launch copies `Default.ini`'s `[Editor.EditorEngine]` (`EditPackages=`) and `[Core.System]` (`Paths=`, render-device, etc.) into `Documents\Harry - Coding Evolved\HP.ini`. After that, both Game.exe and UCC.exe read from HP.ini. Edits to Default.ini alone are ignored. If a Default.ini change doesn't take effect, also apply it to HP.ini. Bit us during fresh-laptop install: adding `EditPackages=IpDrv` to Default.ini alone left UCC failing with `Class APIPCActor has invalid parent IpDrv.TcpLink` until HP.ini was patched too. The engine prep snippet above handles both files.
 - **`mklink /J` from PowerShell silently truncates path args with spaces.** It's a `cmd.exe` builtin; PowerShell strips quoting before cmd sees it, so the second arg becomes just the part before the first space. The resulting junction is dead. It points at a non-existent directory, and `Generate.py` reports `excluding harry_potter_2_pc ... no __init__.py`. Use `New-Item -ItemType Junction -Path <link> -Target <target>` (native PowerShell) instead (see Archipelago framework section). To recreate a broken junction, `cmd /c rmdir <junction>` removes it safely without touching the target.
-- **`[Engine.GameEngine] ServerActors=` is silently ignored** by M212/HP2 (verified 2026-05-07). A valid entry pointing at a real, compiled class produces zero log evidence and zero `PreBeginPlay` invocation. Don't design around it. The mutator chain works; investigate mutator-via-URL or HGame's GameInfo subclass for runtime hooks.
+- **`[Engine.GameEngine] ServerActors=` is silently ignored** by M212/HP2 (verified 2026-05-07). A valid entry pointing at a real, compiled class produces zero log evidence and zero `PreBeginPlay` invocation. Don't design around it. Runtime hooks go through a `GameInfo` subclass instead (`DefaultGame=HPArchipelago.APGameInfo`); mutator-via-URL was a dead end.
 - **File encodings differ between user-data files** in `Documents\Harry - Coding Evolved\`:
     - `Game.log`, UTF-16LE (BOM `FF FE`). Use `Get-Content -Encoding Unicode` / `Set-Content -Encoding Unicode`.
     - `Game.ini`, `User.ini`, `HP.ini`, and `Default.ini` in `Modded\system\`, ANSI / Windows-1252, no BOM. Use `-Encoding Default`.
@@ -216,6 +215,6 @@ If you clone this repo on a new Windows machine, do these in order:
 - **UCC make always recompiles `UnrealShare.u`** (M212 ships sample `.uc` files there with newer mtimes than the shipped `.u`). The rebuild is benign, verified to not break the game. Don't try to "protect" UnrealShare with timestamp tricks; it's fine as-is.
 - **`LanguageCode=nl` log spam** is normal idle-UI noise driven by Windows REGIONAL FORMAT (not display language). M212 ships only `.int` and `.kor` locale files in `system\`, so any non-English regional format generates this at UI-tick rate. Doesn't indicate a fault.
 - **Folder naming is intentional.** `Bingo\` = retail vanilla, `Modded\` = M212. The M212 installer preserves your language; the `.lnk` inside `Modded\` may be in Swedish, that's expected.
-- **`IpDrv` networking** is restored from UT99 in M212's engine but hasn't been end-to-end tested by M212 in years (per Discord 2026-05-06). Treat as working but verify in M2.
+- **`IpDrv` networking** is restored from UT99 in M212's engine. M212 hadn't end-to-end tested it in years (per Discord 2026-05-06), but this mod's client/game bridge (`APIPCActor extends IpDrv.TcpLink`) runs over it and works end to end.
 - **M212 saves and `User.ini`** live in `Documents\Harry - Coding Evolved\`, separate from the retail install's `Documents\Harry Potter II\`. If you ever reinstall M212 and the option to "delete the documents folder when updating" is checked, your saves go away.
 - **Third-party renderers/overlays** (Dxtory, texture upscalers, FPS overlays) crash M212's engine. Disable them.
