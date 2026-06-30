@@ -417,7 +417,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Rictusempra Challenge - Chest 2": rictusempra & flipendo & alohomora,
     "Rictusempra Challenge - Chest 3": rictusempra & flipendo & alohomora,
     "Rictusempra Challenge - Chest 4": rictusempra & flipendo & alohomora,
-    "Rictusempra Challenge - Chest 5": rictusempra & flipendo & alohomora,
+    "Rictusempra Challenge - Chest 5": rictusempra & flipendo & lumos & alohomora,
     "Rictusempra Challenge - Chest 6": rictusempra & flipendo & alohomora,
     "Rictusempra Challenge - Complete": flipendo & rictusempra,
     "Rictusempra Challenge - Secret 1": rictusempra & flipendo & alohomora,
