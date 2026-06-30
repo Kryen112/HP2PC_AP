@@ -22,11 +22,12 @@ across all caption files. A line whose voiced target has no caption in the game
 (match commentary, ambient bumps, alternate takes) shows none, as unmodified.
 
 Two modes: 'within_actor' shuffles each speaker's lines among themselves (the
-character keeps their own voice), 'all_actors' shuffles across every speaker. A
-sentinel trailer in AllDialog.uax records (format, dialogue_seed, mode,
-table_hash) so re-running the same seed and mode is a no-op, while a new seed, a
-mode switch, or an apworld upgrade re-patches cleanly from the pristine .orig
-backups.
+character keeps their own voice), 'all_actors' shuffles across every speaker. The
+dialogue_pool BLACKLIST is excluded from both modes (kept as itself, never reused
+as a target) so the Peeves trap-toast cackle still plays as a cackle. A sentinel
+trailer in AllDialog.uax records (format, dialogue_seed, mode, table_hash) so
+re-running the same seed and mode is a no-op, while a new seed, a mode switch, or
+an apworld upgrade re-patches cleanly from the pristine .orig backups.
 
 Pure standard library so it ships in the apworld and runs client-side.
 """
@@ -39,10 +40,10 @@ import struct
 from collections import namedtuple
 
 try:
-    from .dialogue_pool import ACTORS
+    from .dialogue_pool import ACTORS, BLACKLIST
     from .ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 except ImportError:  # standalone CLI use from the apworld directory
-    from dialogue_pool import ACTORS
+    from dialogue_pool import ACTORS, BLACKLIST
     from ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 
 
@@ -64,13 +65,15 @@ _MODE_CODE = {WITHIN_ACTOR: 1, ALL_ACTORS: 2}
 # --- permutation + trailer ---
 
 def table_hash() -> bytes:
-    """Stable digest of the actor table (bucket membership/order). Any change
-    re-keys the trailer so an upgraded apworld re-patches.
+    """Stable digest of the actor table (bucket membership/order) and the
+    blacklist. Any change re-keys the trailer so an upgraded apworld re-patches.
     """
     h = hashlib.sha256()
     for actor in sorted(ACTORS):
         for name in ACTORS[actor]:
             h.update(f"{actor}|{name}\n".encode())
+    for name in sorted(BLACKLIST):
+        h.update(f"B|{name}\n".encode())
     return h.digest()[:16]
 
 
@@ -78,10 +81,15 @@ def compute_permutation(dialogue_seed: int, mode: str) -> dict[str, str]:
     """Seeded shuffle. 'all_actors' permutes every line across all speakers;
     'within_actor' permutes each speaker's lines only among themselves. A
     single-line bucket identity-maps. Keyed on the dialog id (export name).
+
+    Blacklisted ids identity-map (excluded from the shuffle, so their audio is
+    neither changed nor reused as a target): the Peeves trap-toast cackle always
+    plays as itself, the way the SFX patcher protects its feedback cues.
     """
     import random
 
     rng = random.Random(dialogue_seed)
+    blocked = {n.lower() for n in BLACKLIST}
     mapping: dict[str, str] = {}
     if mode == ALL_ACTORS:
         names = [n for actor in sorted(ACTORS) for n in ACTORS[actor]]
@@ -89,10 +97,14 @@ def compute_permutation(dialogue_seed: int, mode: str) -> dict[str, str]:
     else:
         groups = [ACTORS[actor] for actor in sorted(ACTORS)]
     for names in groups:
-        targets = names[:]
+        shuffleable = [n for n in names if n.lower() not in blocked]
+        targets = shuffleable[:]
         rng.shuffle(targets)
-        for src, dst in zip(names, targets):
+        for src, dst in zip(shuffleable, targets):
             mapping[src] = dst
+        for n in names:
+            if n.lower() in blocked:
+                mapping[n] = n
     return mapping
 
 

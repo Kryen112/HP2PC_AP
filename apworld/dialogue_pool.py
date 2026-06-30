@@ -5,6 +5,11 @@ export names (the dialog IDs) in AllDialog.uax. The client shuffles names within
 one bucket for 'within_actor' (each character keeps their own voice) or across
 all buckets for 'all_actors'. Names are matched case-insensitively (UE FName
 comparison), so the stored case is cosmetic. No length banding.
+
+BLACKLIST holds feedback cues that are never randomized and never used as a shuffle
+target (the Peeves trap-toast cackle), so they always play as themselves. It is
+generated from BLACKLIST in tools/gen_dialogue_pool.py; edit there and regenerate,
+do not hand-edit.
 """
 
 from __future__ import annotations
@@ -2557,12 +2562,25 @@ ACTORS: dict[str, list[str]] = {
     ],
 }
 
+BLACKLIST: set[str] = {
+    "PC_PVS_happy01fx",  # Peeves trap-toast cackle (APGameInfo.GetGrantSoundForItem)
+    "PC_PVS_happy02fx",  # Peeves trap-toast cackle (APGameInfo.GetGrantSoundForItem)
+    "PC_PVS_happy03fx",  # Peeves trap-toast cackle (APGameInfo.GetGrantSoundForItem)
+    "PC_PVS_happy04fx",  # Peeves trap-toast cackle (APGameInfo.GetGrantSoundForItem)
+    "PC_PVS_happy05fx",  # Peeves trap-toast cackle (APGameInfo.GetGrantSoundForItem)
+    "PC_PVS_happy06fx",  # Peeves trap-toast cackle (APGameInfo.GetGrantSoundForItem)
+}
+
 
 # Tripwire: the client shuffles within each bucket (or across all of them) and
 # matches names case-insensitively, so the table must be non-empty and every name
-# unique across all buckets. Fail loudly at import, not on a poisoned seed.
+# unique across all buckets, and every blacklist entry must name a real line. Fail
+# loudly at import, not on a poisoned seed.
 _ALL = [n for names in ACTORS.values() for n in names]
 assert _ALL, "dialogue pool is empty"
 _lower = [n.lower() for n in _ALL]
 _dupes = sorted({n for n in _lower if _lower.count(n) > 1})
 assert not _dupes, f"duplicate dialogue names across actors: {_dupes}"
+_known = set(_lower)
+_bl_unknown = sorted(n for n in (m.lower() for m in BLACKLIST) if n not in _known)
+assert not _bl_unknown, f"BLACKLIST names dialogue absent from the table: {_bl_unknown}"
