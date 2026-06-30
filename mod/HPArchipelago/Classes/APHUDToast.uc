@@ -795,6 +795,7 @@ function DrawTradersanityAPLabel(Canvas C)
     local float textW, textH, labelX, labelY;
     local Color colorText, colorShadow, colorSave;
     local Font fontSave;
+    local Texture apIcon;
 
     // Helper internally gates the 13 generic vendors on TradersanityMode and
     // the Weasley brothers on bQuidditchUpgrades, so the banner appears on
@@ -814,6 +815,21 @@ function DrawTradersanityAPLabel(Canvas C)
     if (slot < 0) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
     if (class'APVendorController'.default.TraderPurchased[slot] == 1) return;
+
+    // Swap the trade-bar icon to the AP logo here, per frame, so it is instant on
+    // engagement instead of lagging up to one Timer tick behind the bar opening.
+    // Past the unchecked + unpurchased guards, this is exactly the window the AP
+    // icon should show. The Timer's TradersanityIconSwapPass still owns the restore
+    // to the vanilla icon once the location is checked or purchased. The texture is
+    // cached, so this adds no per-frame load.
+    if (vm.textureItemToSell != None)
+    {
+        apIcon = class'APAppearanceMath'.static.GetAPItemTextureStatic();
+        if (apIcon != None && vm.textureItemToSell != apIcon)
+        {
+            vm.textureItemToSell = apIcon;
+        }
+    }
 
     hintName = class'APVendorController'.default.TraderHintItemName[slot];
     if (hintName != "")
