@@ -39,6 +39,10 @@ var float NextGrantDrainTime;
 var float NextGrantDrainEarliest;
 const POST_DEFER_STABILITY_SECS = 1.0;
 const POST_SNAPSHOT_WARMUP_SECS = 3.0;
+// Minimum gap between draining consecutive grants. Short, so a small burst lands
+// fast; the toast-capacity gate in TryDrainPendingGrants is what actually keeps
+// the on-screen queue from overflowing during a larger burst.
+const GRANT_DRAIN_SPACING_SECS = 0.15;
 
 // Reconnect state. If the client terminal closes / crashes mid-session, the
 // engine fires Closed() and the connection stays dead. Closed() schedules a
@@ -1077,6 +1081,7 @@ function TryDrainPendingGrants()
     local APGameInfo gi;
     local harry readyHarry;
     local APCardWatcher watcher;
+    local APHUDToast toast;
     local string ItemName;
     local string deferReason;
     local int apIdx;
@@ -1173,6 +1178,19 @@ function TryDrainPendingGrants()
     {
         return;
     }
+
+    // Pace received items to the toast panel's capacity: hold the next grant while
+    // the on-screen toast queue is full, so a burst never pushes an older toast off
+    // or lands one off-screen. Quiet re-check each tick (no stability bump) so the
+    // drain resumes the instant a toast expires and frees a slot. No live toast
+    // actor (title / loading / between levels) means nothing to overflow, so the
+    // grant is not held.
+    toast = class'APHUDToast'.static.GetInstance();
+    if (toast != None && !toast.HasToastRoom())
+    {
+        return;
+    }
+
     bLoggedGrantDeferral = False;
 
     ItemName = PendingGrants[0];
@@ -1226,7 +1244,7 @@ function TryDrainPendingGrants()
         bDrainPassHadHighStakes = 0;
     }
 
-    NextGrantDrainTime = Level.TimeSeconds + 0.5;
+    NextGrantDrainTime = Level.TimeSeconds + GRANT_DRAIN_SPACING_SECS;
 }
 
 defaultproperties

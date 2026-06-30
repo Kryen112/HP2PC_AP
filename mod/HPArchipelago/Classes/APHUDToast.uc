@@ -230,6 +230,14 @@ function RemoveToastAt(int idx)
     ToastCount--;
 }
 
+// True when the on-screen queue has a free slot, so a newly committed toast will
+// not push the oldest off. The grant drain reads this to pace a received-item
+// burst to the panel's capacity (APIPCActor.TryDrainPendingGrants).
+function bool HasToastRoom()
+{
+    return ToastCount < MAX_QUEUE;
+}
+
 // Reserve the next queue slot (dropping the oldest when full) and return its
 // index. The caller fills segments via AddSeg, then finalizes with CommitToast.
 // Not visible to RenderHud/Timer until CommitToast bumps ToastCount; safe

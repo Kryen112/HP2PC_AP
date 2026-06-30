@@ -2720,8 +2720,9 @@ function ApplyGrant(string Body)
 
     // HUD toast feedback. Fires once per successful grant arrival, past
     // FindGrantReadyHarry means delivery is happening (or about to). The grant
-    // queue's drain spacing (0.75s) prevents toast flooding. GetGrantSoundForItem
-    // picks a per-type sound so each item kind is audibly distinct.
+    // queue's toast-capacity gate paces these so a burst never overflows the panel.
+    // GetGrantSoundForItem picks a per-type sound so each item kind is audibly
+    // distinct.
     toast = class'APHUDToast'.static.GetInstance();
     if (toast != None)
     {
