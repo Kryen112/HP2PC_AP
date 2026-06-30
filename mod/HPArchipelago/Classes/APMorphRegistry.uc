@@ -7,9 +7,9 @@
 // known, and the sweep re-stamps every registered marker from the table.
 class APMorphRegistry extends Info;
 
-// Mirror APCardWatcher's id constants (the table indexes by apId - LOC_BASE,
-// same dedupe-window math as NonCardLocationChecked[]).
-const LOC_BASE = 5760000;
+// AppearanceCode is indexed by the same window slot as NonCardLocationChecked
+// (APLocationRegistry.SlotForApId). The window const stays for the table-clear
+// loop and the array dimension (M212 array dims take an integer literal).
 const NONCARD_LOC_WINDOW = 2048;
 const MORPH_REGISTRY_SIZE = 256;
 
@@ -17,7 +17,7 @@ const MORPH_REGISTRY_SIZE = 256;
 // save-graph hygiene, mirroring APBeanRoom / APContainerManager.
 var APMorphRegistry LatestInstance;
 
-// Per-AP-location appearance code, indexed by `apId - LOC_BASE` exactly like
+// Per-AP-location appearance code, indexed by the window slot exactly like
 // NonCardLocationChecked[] (same dedupe-window math, same cross-level
 // class-default persistence). Values: 0 = leave the marker's native vanilla look
 // (also the async-safe default until the table arrives); 1..101 = HP2 card (value
@@ -79,11 +79,11 @@ event PreBeginPlay()
 }
 
 // Ingest the client's "apId:code,apId:code,..." appearance table. Full AP
-// location ids on the wire (same convention as CHECK_LOCID); stored at
-// `apId - LOC_BASE`. Clears the whole table first so a resend is authoritative
-// (a location that dropped out of the table reverts to native). Class-default
-// + sticky like the goal config; idempotent. Sets bAppearanceReceived so the
-// sweep / self-apply paths come alive.
+// location ids on the wire (same convention as CHECK_LOCID); stored at the window
+// slot (APLocationRegistry.SlotForApId). Clears the whole table first so a resend
+// is authoritative (a location that dropped out of the table reverts to native).
+// Class-default + sticky like the goal config; idempotent. Sets bAppearanceReceived
+// so the sweep / self-apply paths come alive.
 static function SetAppearanceCSV(string csv)
 {
     local string rest;
@@ -100,8 +100,8 @@ static function SetAppearanceCSV(string csv)
     {
         apId = class'APCsvCodec'.static.NextCsvIntUpTo(rest, ":");
         code = class'APCsvCodec'.static.NextCsvIntUpTo(rest, ",");
-        slot = apId - LOC_BASE;
-        if (slot >= 0 && slot < NONCARD_LOC_WINDOW)
+        slot = class'APLocationRegistry'.static.SlotForApId(apId);
+        if (slot >= 0)
         {
             default.AppearanceCode[slot] = code;
             n++;
@@ -115,8 +115,8 @@ static function SetAppearanceCSV(string csv)
 static function int AppearanceForApId(int apId)
 {
     local int slot;
-    slot = apId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return 0;
+    slot = class'APLocationRegistry'.static.SlotForApId(apId);
+    if (slot < 0) return 0;
     return default.AppearanceCode[slot];
 }
 

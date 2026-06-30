@@ -7,11 +7,6 @@
 // NonCardLocationChecked ledger cross-class to skip already-collected locations.
 class APContainerManager extends Info;
 
-// Mirror APCardWatcher's id constants (the injectors index its class-default
-// NonCardLocationChecked ledger cross-class by apId - LOC_BASE).
-const LOC_BASE = 5760000;
-const NONCARD_LOC_WINDOW = 2048;
-
 // Process-wide singleton pointer (class-default). Instance copy kept None for
 // save-graph hygiene, mirroring APHUDToast / APBeanRoom.
 var APContainerManager LatestInstance;
@@ -147,8 +142,8 @@ function InjectContainerMarkerChest(chestbronze chest, int apId)
     local class<Actor> markerCls;
     local int i, maxN, slot;
 
-    slot = apId - LOC_BASE;
-    if (slot >= 0 && slot < NONCARD_LOC_WINDOW
+    slot = class'APLocationRegistry'.static.SlotForApId(apId);
+    if (slot >= 0
         && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
     {
         return;  // already collected -> leave the chest 100% vanilla
@@ -193,8 +188,8 @@ function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
     local class<Actor> markerCls;
     local int i, maxN, slot;
 
-    slot = apId - LOC_BASE;
-    if (slot >= 0 && slot < NONCARD_LOC_WINDOW
+    slot = class'APLocationRegistry'.static.SlotForApId(apId);
+    if (slot >= 0
         && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
     {
         return;
@@ -265,8 +260,8 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
 
     // Already collected -> leave the spawner 100% vanilla (no swap, no extra
     // eject slot), so a re-clear drops no phantom AP token.
-    slot = apId - LOC_BASE;
-    if (slot >= 0 && slot < NONCARD_LOC_WINDOW
+    slot = class'APLocationRegistry'.static.SlotForApId(apId);
+    if (slot >= 0
         && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
     {
         return;
@@ -440,8 +435,8 @@ function ArmSpawnThingyDecoration(HProp deco, int apId)
     local float d, bestD;
     local int slot;
 
-    slot = apId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(apId);
+    if (slot < 0) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
 
     // Pick the placed bean ejector nearest the decoration. SpawnThingys sit ~60-160u

@@ -144,10 +144,10 @@ function DrawGoalProgressPanel(Canvas C)
     // Archipelago-yellow for in-progress, green for completed, white for header
     // black shadow throughout. Yellow matches the HUD toast / vendor banner so
     // all three AP-info surfaces read as one family.
-    colorWhite.R = 255; colorWhite.G = 255; colorWhite.B = 255;
-    colorYellow.R = 255; colorYellow.G = 220; colorYellow.B = 100;
-    colorGreen.R  =  60; colorGreen.G  = 220; colorGreen.B  =  90;
-    colorShadow.R =   0; colorShadow.G =   0; colorShadow.B =   0;
+    colorWhite = class'APHUDToast'.static.APWhite();
+    colorYellow = class'APHUDToast'.static.APYellow();
+    colorGreen = class'APHUDToast'.static.APGoalGreen();
+    colorShadow = class'APHUDToast'.static.APBlack();
 
     fontSave  = C.Font;
     colorSave = C.DrawColor;
@@ -390,8 +390,8 @@ function DrawUnlockedPanel(Canvas C)
     hScale = Class'M212HScale'.Static.UWindowGetHeightScale(Root);
     bigFont = baseConsole(h.Player.Console).LocalBigFont;
 
-    colorWhite.R = 255; colorWhite.G = 255; colorWhite.B = 255;
-    colorShadow.R =   0; colorShadow.G =   0; colorShadow.B =   0;
+    colorWhite = class'APHUDToast'.static.APWhite();
+    colorShadow = class'APHUDToast'.static.APBlack();
 
     fontSave  = C.Font;
     colorSave = C.DrawColor;

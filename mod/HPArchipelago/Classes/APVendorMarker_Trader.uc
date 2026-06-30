@@ -21,13 +21,6 @@
 // Spawn with that vendor's AP location id (APLocationRegistry.GetVendorLocationId).
 class APVendorMarker_Trader extends WizardCardIcon;
 
-const LOC_BASE = 5760000;
-// Mirrors APCardWatcher.NONCARD_LOC_WINDOW
-// (and APContainerMarker); all must hold the same value (M212 UScript can't
-// reference another class's const, and array dims / guards take an integer
-// literal anyway). The Tradersanity band (800-812) is well inside this window.
-const NONCARD_LOC_WINDOW = 2048;
-
 var int CheckLocationId;
 
 // Drop straight down and settle, skipping WizardCardIcon.Spawned's
@@ -74,8 +67,8 @@ function Touch(Actor Other)
     if (harry(Other) == None) return;
     if (CheckLocationId <= 0) return;
 
-    slot = CheckLocationId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(CheckLocationId);
+    if (slot < 0) return;
 
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
     {

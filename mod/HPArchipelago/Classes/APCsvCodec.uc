@@ -1,7 +1,8 @@
-// Stateless CSV-field tokenisers shared by the IPC config parsers (GOALCFG,
-// TRADECFG, APPEARANCE, bean-room resync). UE1 UScript has no string split and
-// forbids fixed-size locals, so each parser pops one leading integer field at a
-// time off an `out string rest` cursor until it is empty.
+// Stateless field tokenisers shared by the IPC config parsers (GOALCFG,
+// TRADECFG, APPEARANCE, bean-room resync) and the Chr(30)-joined toast segment
+// records. UE1 UScript has no string split, so each parser pops one leading
+// field at a time (as a string or an int) off an `out string rest` cursor until
+// it is empty. All four helpers build on NextTokenUpTo.
 class APCsvCodec extends Object;
 
 // Pop the leading comma-delimited integer off `rest` (consumes it, including
@@ -12,37 +13,26 @@ static function int NextCsvInt(out string rest)
 }
 
 // Like NextCsvInt but the field separator is a parameter, so the APPEARANCE
-// payload's `apId:code,apId:code` form parses with one primitive (`:` then
-// `,`). Last field has no trailing separator, so take the whole remainder.
+// payload's `apId:code,apId:code` form parses with one primitive (`:` then `,`):
+// the sep-delimited token, read as an int.
 static function int NextCsvIntUpTo(out string rest, string sep)
 {
-    local int p, val;
+    return int(NextTokenUpTo(rest, sep));
+}
+
+// Pop the leading field delimited by `sep` off `rest` (consumes it, including
+// the separator). Last field has no trailing separator, so take the whole
+// remainder. Returns "" for an empty field; callers skip those. Used for the
+// comma-CSV resync lists and the Chr(30)-joined toast segment records.
+static function string NextTokenUpTo(out string rest, string sep)
+{
+    local int p;
+    local string val;
     p = InStr(rest, sep);
     if (p >= 0)
     {
-        val = int(Left(rest, p));
+        val = Left(rest, p);
         rest = Mid(rest, p + 1);
-    }
-    else
-    {
-        val = int(rest);
-        rest = "";
-    }
-    return val;
-}
-
-// Pop the leading comma-delimited string field off `rest` (consumes it,
-// including the comma). Last field has no trailing comma, so take the whole
-// remainder. Returns "" for an empty field; the resync parsers skip those.
-static function string NextCsvToken(out string rest)
-{
-    local int comma;
-    local string val;
-    comma = InStr(rest, ",");
-    if (comma >= 0)
-    {
-        val = Left(rest, comma);
-        rest = Mid(rest, comma + 1);
     }
     else
     {
@@ -50,4 +40,10 @@ static function string NextCsvToken(out string rest)
         rest = "";
     }
     return val;
+}
+
+// Pop the leading comma-delimited string field: NextTokenUpTo with a comma.
+static function string NextCsvToken(out string rest)
+{
+    return NextTokenUpTo(rest, ",");
 }

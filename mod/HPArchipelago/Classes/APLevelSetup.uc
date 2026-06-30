@@ -10,11 +10,6 @@
 // the blockers' own tag scan).
 class APLevelSetup extends Object;
 
-// Mirror APCardWatcher's id constants: ReplaceChallengeStars indexes the
-// watcher's NonCardLocationChecked ledger cross-class by apId - LOC_BASE.
-const LOC_BASE = 5760000;
-const NONCARD_LOC_WINDOW = 2048;
-
 // Snapshot-time: subclass-replace each unchecked vanilla ChallengeStar with
 // an APChallengeStarMarker carrying the AP location id baked in. The marker
 // inherits the entire ChallengeStar pickup pipeline (mesh, sound, fly-to-HUD,
@@ -43,8 +38,8 @@ static function ReplaceChallengeStars(Actor ctx)
         markerName = string(star.Name);
         locId = class'APLocationRegistry'.static.GetStarLocationId(levelName, markerName);
         if (locId == 0) continue;
-        slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(locId);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
 
         // Capture mover-attachment state before destroying the vanilla star.

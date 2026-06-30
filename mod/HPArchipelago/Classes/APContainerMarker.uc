@@ -21,11 +21,9 @@
 // the placed item's look (it only touches Actor-level draw fields).
 class APContainerMarker extends HProp;
 
+// AP location base id; kept for the CheckLocationId > LOC_BASE sanity guard. The
+// window slot math lives in APLocationRegistry.SlotForApId.
 const LOC_BASE = 5760000;
-// Mirrors NONCARD_LOC_WINDOW in APCardWatcher.uc / APVendorMarker_Trader.uc;
-// all must hold the same value (M212 can't cross-reference a
-// const, and guards take an integer literal anyway).
-const NONCARD_LOC_WINDOW = 2048;
 
 var int CheckLocationId;
 
@@ -43,8 +41,8 @@ function PostBeginPlay()
     // the appearance sweep and apply the placed item's look.
     if (CheckLocationId > LOC_BASE)
     {
-        slot = CheckLocationId - LOC_BASE;
-        if (slot >= 0 && slot < NONCARD_LOC_WINDOW
+        slot = class'APLocationRegistry'.static.SlotForApId(CheckLocationId);
+        if (slot >= 0
             && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
         {
             Destroy();
@@ -84,8 +82,8 @@ event Touch(Actor Other)
     if (harry(Other) == None) return;
     if (CheckLocationId <= 0) return;
 
-    slot = CheckLocationId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(CheckLocationId);
+    if (slot < 0) return;
 
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
     {

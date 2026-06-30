@@ -10,8 +10,6 @@ class APGoalTracker extends Object;
 // dimension, and these index its class-default ledgers cross-class).
 const NUM_SPELLS = 7;
 const NUM_BLOCKER_KEYS = 14;
-const LOC_BASE = 5760000;
-const NONCARD_LOC_WINDOW = 2048;
 
 // Clause-3/4/5 objective counts and the AP id base each band starts at. The 13
 // level completions are Whomping Willow, Bicorn, Boomslang, Goyle, Slytherin,
@@ -92,7 +90,8 @@ static function int LevelObjectiveIndexFor(string CapsLevelName)
 }
 
 // Mark a clause-3 level objective complete. Dedupe is uniform with
-// stars/duels/quidditch via the watcher's NonCardLocationChecked[apId-LOC_BASE],
+// stars/duels/quidditch via the watcher's NonCardLocationChecked (slot from
+// APLocationRegistry.SlotForApId),
 // and the sticky GoalLevelDone[idx] bit (the clause-3 gate state GoalSatisfied
 // reads) is also set. Fires the "X Level Complete" CHECK_LOCID 5760700+idx.
 // Shared by Mechanisms A (key-item), B (boss), C (exit probe), D (end star).
@@ -103,8 +102,8 @@ static function NotifyLevelObjective(int idx)
 
     if (idx < 0 || idx >= NUM_LEVEL_OBJECTIVES) return;
     locId = LEVEL_OBJECTIVE_LOC_BASE + idx;
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(locId);
+    if (slot < 0) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
     class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
     default.GoalLevelDone[idx] = 1;
@@ -221,8 +220,8 @@ static function int GetCheckedLevelObjectiveCount()
     for (idx = 0; idx < NUM_LEVEL_OBJECTIVES; idx++)
     {
         if (((default.GoalLevelMask >> idx) & 1) == 0) continue;
-        slot = (LEVEL_OBJECTIVE_LOC_BASE + idx) - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(LEVEL_OBJECTIVE_LOC_BASE + idx);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
     }
     return n;
@@ -233,8 +232,8 @@ static function int GetCheckedDuelCount()
     local int idx, slot, n;
     for (idx = 0; idx < NUM_DUELS; idx++)
     {
-        slot = (DUEL_LOC_BASE + idx) - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(DUEL_LOC_BASE + idx);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
     }
     return n;
@@ -245,8 +244,8 @@ static function int GetCheckedQuidditchMatchCount()
     local int idx, slot, n;
     for (idx = 0; idx < NUM_QUIDDITCH; idx++)
     {
-        slot = (QUIDDITCH_LOC_BASE + idx) - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(QUIDDITCH_LOC_BASE + idx);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
     }
     return n;

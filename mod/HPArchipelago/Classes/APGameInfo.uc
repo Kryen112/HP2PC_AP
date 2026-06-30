@@ -2541,6 +2541,131 @@ function MarkGrantAsHighStakes()
     ipc.bLastGrantWasHighStakes = 1;
 }
 
+// Apply an AP-granted spell: mark it AP-granted (class-default plus the live
+// watcher), add it to the spellbook, and drop the matching bookcase blocker for
+// the four gated spells. Returns False for a non-spell name so ApplyGrant's
+// dispatch falls through.
+function bool TryApplySpell(string ItemName, harry h)
+{
+    if (!IsKnownSpellName(ItemName))
+        return False;
+    Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - marking AP-granted + AddToSpellBookByString");
+    // Always set the class-default flag, works even when no watcher
+    // instance is alive (e.g. during Save0.usa load gap). Next level's
+    // watcher PreBeginPlay will copy default -> instance.
+    class'APCardWatcher'.static.MarkSpellAsAPGrantedDefault(ItemName);
+    if (class'APCardWatcher'.static.GetLatest() != None)
+    {
+        class'APCardWatcher'.static.GetLatest().MarkSpellAsGranted(ItemName);
+    }
+    h.AddToSpellBookByString(ItemName);
+    if (ItemName == "Rictusempra")
+    {
+        RemoveRictaBlocker();
+    }
+    else if (ItemName == "Skurge")
+    {
+        RemoveSkurgeBlocker();
+    }
+    else if (ItemName == "Diffindo")
+    {
+        RemoveDiffindoBlocker();
+    }
+    else if (ItemName == "Spongify")
+    {
+        RemoveSpongifyBlocker();
+    }
+    return True;
+}
+
+// Apply a bean pile / small bean denomination / potion / brewing ingredient /
+// chocolate frog. These are additive filler, not high-stakes, so ApplyGrant
+// returns without marking the grant. Returns False for any other name.
+function bool TryApplyConsumable(string ItemName, harry h)
+{
+    if (ItemName == "Small Jar of Beans")
+    {
+        GrantBeansNoBroadcast(h, 25);
+        Log("[Archipelago] ApplyGrant: granted Small Jar of Beans (+25)");
+        return True;
+    }
+    if (ItemName == "Medium Jar of Beans")
+    {
+        GrantBeansNoBroadcast(h, 50);
+        Log("[Archipelago] ApplyGrant: granted Medium Jar of Beans (+50)");
+        return True;
+    }
+    if (ItemName == "Large Jar of Beans")
+    {
+        GrantBeansNoBroadcast(h, 100);
+        Log("[Archipelago] ApplyGrant: granted Large Jar of Beans (+100)");
+        return True;
+    }
+    if (ItemName == "Massive Jar of Beans")
+    {
+        GrantBeansNoBroadcast(h, 250);
+        Log("[Archipelago] ApplyGrant: granted Massive Jar of Beans (+250)");
+        return True;
+    }
+    // Small bean denominations, same no-broadcast bean path as the Piles,
+    // just tiny amounts so common filler barely moves the bean total.
+    if (ItemName == "1 Bean")
+    {
+        GrantBeansNoBroadcast(h, 1);
+        Log("[Archipelago] ApplyGrant: granted 1 Bean (+1)");
+        return True;
+    }
+    if (ItemName == "5 Beans")
+    {
+        GrantBeansNoBroadcast(h, 5);
+        Log("[Archipelago] ApplyGrant: granted 5 Beans (+5)");
+        return True;
+    }
+    if (ItemName == "10 Beans")
+    {
+        GrantBeansNoBroadcast(h, 10);
+        Log("[Archipelago] ApplyGrant: granted 10 Beans (+10)");
+        return True;
+    }
+    // Wiggenweld Potion: usable inventory item that auto-refills HP at low
+    // health (and is manually-usable from the in-game menu). Mirrors vanilla
+    // `harry.AddWiggenwellPotion` path which calls IncrementCount on
+    // StatusGroupPotions/StatusItemWiggenwell. Adds +1 to the held-potion count.
+    if (ItemName == "Wiggenweld Potion")
+    {
+        h.managerStatus.IncrementCount(class'StatusGroupPotions', class'StatusItemWiggenwell', 1);
+        Log("[Archipelago] ApplyGrant: granted Wiggenweld Potion (+1 to StatusItemWiggenwell)");
+        return True;
+    }
+    // Wiggentree Bark + Flobberworm Mucous: cauldron-brewing ingredients held
+    // in the StatusGroupPotionIngr inventory. Mirrors StatusManager.AddBark /
+    // AddMucus. Adds +1 to the ingredient stack;
+    // player can then brew a Wiggenweld Potion from a cauldron when they have
+    // both ingredients.
+    if (ItemName == "Wiggentree Bark")
+    {
+        h.managerStatus.IncrementCount(class'StatusGroupPotionIngr', class'StatusItemWiggenBark', 1);
+        Log("[Archipelago] ApplyGrant: granted Wiggentree Bark (+1 to StatusItemWiggenBark)");
+        return True;
+    }
+    if (ItemName == "Flobberworm Mucous")
+    {
+        h.managerStatus.IncrementCount(class'StatusGroupPotionIngr', class'StatusItemFlobberMucus', 1);
+        Log("[Archipelago] ApplyGrant: granted Flobberworm Mucous (+1 to StatusItemFlobberMucus)");
+        return True;
+    }
+    // Chocolate Frog: partial HP refill. Vanilla `ChocolateFrog.nPickupIncrement=40`
+    // on a StatusGroupHealth/StatusItemHealth pickup. We replicate that by
+    // calling managerStatus.AddHealth(40), which caps at the current max.
+    if (ItemName == "Chocolate Frog")
+    {
+        h.managerStatus.AddHealth(40);
+        Log("[Archipelago] ApplyGrant: granted Chocolate Frog (+40 HP)");
+        return True;
+    }
+    return False;
+}
+
 function ApplyGrant(string Body)
 {
     local harry h;
@@ -2606,34 +2731,8 @@ function ApplyGrant(string Body)
         }
     }
 
-    if (IsKnownSpellName(ItemName))
+    if (TryApplySpell(ItemName, h))
     {
-        Log("[Archipelago] ApplyGrant: spell " $ ItemName $ " - marking AP-granted + AddToSpellBookByString");
-        // Always set the class-default flag, works even when no watcher
-        // instance is alive (e.g. during Save0.usa load gap). Next level's
-        // watcher PreBeginPlay will copy default -> instance.
-        class'APCardWatcher'.static.MarkSpellAsAPGrantedDefault(ItemName);
-        if (class'APCardWatcher'.static.GetLatest() != None)
-        {
-            class'APCardWatcher'.static.GetLatest().MarkSpellAsGranted(ItemName);
-        }
-        h.AddToSpellBookByString(ItemName);
-        if (ItemName == "Rictusempra")
-        {
-            RemoveRictaBlocker();
-        }
-        else if (ItemName == "Skurge")
-        {
-            RemoveSkurgeBlocker();
-        }
-        else if (ItemName == "Diffindo")
-        {
-            RemoveDiffindoBlocker();
-        }
-        else if (ItemName == "Spongify")
-        {
-            RemoveSpongifyBlocker();
-        }
         MarkGrantAsHighStakes();
         return;
     }
@@ -2656,84 +2755,8 @@ function ApplyGrant(string Body)
         return;
     }
 
-    if (ItemName == "Small Jar of Beans")
+    if (TryApplyConsumable(ItemName, h))
     {
-        GrantBeansNoBroadcast(h, 25);
-        Log("[Archipelago] ApplyGrant: granted Small Jar of Beans (+25)");
-        return;
-    }
-    if (ItemName == "Medium Jar of Beans")
-    {
-        GrantBeansNoBroadcast(h, 50);
-        Log("[Archipelago] ApplyGrant: granted Medium Jar of Beans (+50)");
-        return;
-    }
-    if (ItemName == "Large Jar of Beans")
-    {
-        GrantBeansNoBroadcast(h, 100);
-        Log("[Archipelago] ApplyGrant: granted Large Jar of Beans (+100)");
-        return;
-    }
-    if (ItemName == "Massive Jar of Beans")
-    {
-        GrantBeansNoBroadcast(h, 250);
-        Log("[Archipelago] ApplyGrant: granted Massive Jar of Beans (+250)");
-        return;
-    }
-    // Small bean denominations, same no-broadcast bean path as the Piles,
-    // just tiny amounts so common filler barely moves the bean total.
-    if (ItemName == "1 Bean")
-    {
-        GrantBeansNoBroadcast(h, 1);
-        Log("[Archipelago] ApplyGrant: granted 1 Bean (+1)");
-        return;
-    }
-    if (ItemName == "5 Beans")
-    {
-        GrantBeansNoBroadcast(h, 5);
-        Log("[Archipelago] ApplyGrant: granted 5 Beans (+5)");
-        return;
-    }
-    if (ItemName == "10 Beans")
-    {
-        GrantBeansNoBroadcast(h, 10);
-        Log("[Archipelago] ApplyGrant: granted 10 Beans (+10)");
-        return;
-    }
-    // Wiggenweld Potion: usable inventory item that auto-refills HP at low
-    // health (and is manually-usable from the in-game menu). Mirrors vanilla
-    // `harry.AddWiggenwellPotion` path which calls IncrementCount on
-    // StatusGroupPotions/StatusItemWiggenwell. Adds +1 to the held-potion count.
-    if (ItemName == "Wiggenweld Potion")
-    {
-        h.managerStatus.IncrementCount(class'StatusGroupPotions', class'StatusItemWiggenwell', 1);
-        Log("[Archipelago] ApplyGrant: granted Wiggenweld Potion (+1 to StatusItemWiggenwell)");
-        return;
-    }
-    // Wiggentree Bark + Flobberworm Mucous: cauldron-brewing ingredients held
-    // in the StatusGroupPotionIngr inventory. Mirrors StatusManager.AddBark /
-    // AddMucus (StatusManager.uc:248-263). Adds +1 to the ingredient stack;
-    // player can then brew a Wiggenweld Potion from a cauldron when they have
-    // both ingredients.
-    if (ItemName == "Wiggentree Bark")
-    {
-        h.managerStatus.IncrementCount(class'StatusGroupPotionIngr', class'StatusItemWiggenBark', 1);
-        Log("[Archipelago] ApplyGrant: granted Wiggentree Bark (+1 to StatusItemWiggenBark)");
-        return;
-    }
-    if (ItemName == "Flobberworm Mucous")
-    {
-        h.managerStatus.IncrementCount(class'StatusGroupPotionIngr', class'StatusItemFlobberMucus', 1);
-        Log("[Archipelago] ApplyGrant: granted Flobberworm Mucous (+1 to StatusItemFlobberMucus)");
-        return;
-    }
-    // Chocolate Frog: partial HP refill. Vanilla `ChocolateFrog.nPickupIncrement=40`
-    // on a StatusGroupHealth/StatusItemHealth pickup. We replicate that by
-    // calling managerStatus.AddHealth(40), which caps at the current max.
-    if (ItemName == "Chocolate Frog")
-    {
-        h.managerStatus.AddHealth(40);
-        Log("[Archipelago] ApplyGrant: granted Chocolate Frog (+40 HP)");
         return;
     }
 

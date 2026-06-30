@@ -285,6 +285,19 @@ event ReceivedText(string Text)
     }
 }
 
+// Match a command prefix on an IPC line. The prefix carries its own trailing
+// space, so callers never hand-count its length. On a match, returns True and
+// sets `rest` to the payload after the prefix; otherwise returns False and leaves
+// `rest` untouched (so an earlier non-matching arm in the dispatch chain never
+// clobbers a later arm's payload).
+function bool MatchCmd(string line, string prefix, out string rest)
+{
+    if (Left(line, Len(prefix)) != prefix)
+        return False;
+    rest = Mid(line, Len(prefix));
+    return True;
+}
+
 function HandleLine(string line)
 {
     local APCardWatcher w;
@@ -294,13 +307,12 @@ function HandleLine(string line)
 
     Log("[Archipelago] APIPCActor: ReceivedText: " $ line);
 
-    if (Left(line, 6) == "GRANT ")
+    if (MatchCmd(line, "GRANT ", rest))
     {
         // Wire form: `GRANT <apIndex> <payload>`. Split on the first space
         // after "GRANT ". A malformed line (no space) still applies, with
         // index -1 so the drain skips the APPLIED ack (item lands; ledger
         // just doesn't record it, graceful degradation, never a hang).
-        rest = Mid(line, 6);
         sp = InStr(rest, " ");
         if (sp < 0)
         {
@@ -312,44 +324,44 @@ function HandleLine(string line)
             QueueGrant(Mid(rest, sp + 1), int(Left(rest, sp)));
         }
     }
-    else if (Left(line, 5) == "SENT ")
+    else if (MatchCmd(line, "SENT ", rest))
     {
         // PrintJSON-driven "Sent X to Y" toast for items we sent to OTHER
         // slots. Client guarantees `receiving != self.slot` so own-slot
         // items don't double-toast (they go through ReceivedItems → GRANT
         // and produce a "Received X from Y" toast instead). No queueing,
         // toast is purely cosmetic, drop on the floor if no toast actor.
-        HandleSent(Mid(line, 5));
+        HandleSent(rest);
     }
-    else if (Left(line, 6) == "TOAST ")
+    else if (MatchCmd(line, "TOAST ", rest))
     {
         // Generic cosmetic toast in HP2's yellow system voice: DeathLink out,
         // AP server disconnect, randomizer-applied notices. Text is the full
         // literal formatted client-side. Drop on the floor if no toast actor.
-        HandleToast(Mid(line, 6), 0);
+        HandleToast(rest, 0);
     }
-    else if (Left(line, 7) == "TOASTW ")
+    else if (MatchCmd(line, "TOASTW ", rest))
     {
         // White lifecycle toast: another slot joined/left/finished, inbound
         // DeathLink. Mirrors how AP clients render these in neutral text.
-        HandleToast(Mid(line, 7), 1);
+        HandleToast(rest, 1);
     }
-    else if (Left(line, 8) == "GOALCFG ")
+    else if (MatchCmd(line, "GOALCFG ", rest))
     {
         // Open castle Great Hall key thresholds from the apworld slot_data, as
         // "cards,spells,levels,duels,quidditch,mask". Sticky class-default on
         // the watcher (mirrors bOpenCastleMode); resent every HELLO so a fresh
         // launch / reconnect re-arms it. Idempotent.
-        class'APGoalTracker'.static.SetGoalConfigCSV(Mid(line, 8));
+        class'APGoalTracker'.static.SetGoalConfigCSV(rest);
     }
-    else if (Left(line, 9) == "TRADECFG ")
+    else if (MatchCmd(line, "TRADECFG ", rest))
     {
         // Tradersanity price mode from the apworld slot_data, as a single
         // int (0 off / 1 vanilla / 2 random / 3 low). Sticky class-default
         // on the watcher (mirrors GOALCFG); resent every HELLO. Idempotent.
-        class'APVendorController'.static.SetTradersanityMode(int(Mid(line, 9)));
+        class'APVendorController'.static.SetTradersanityMode(int(rest));
     }
-    else if (Left(line, 13) == "TRADERPRICES ")
+    else if (MatchCmd(line, "TRADERPRICES ", rest))
     {
         // Per-vendor Tradersanity price factors pre-rolled in the apworld
         // from the seed, as `locId:factor,locId:factor,...` (factor = byte
@@ -358,59 +370,59 @@ function HandleLine(string line)
         // price range so a vendor's AP-check price is fixed for the seed
         // across level transitions AND save/exit, instead of re-rolling on
         // every level entry.
-        class'APVendorController'.static.SetTraderRolledFactors(Mid(line, 13));
+        class'APVendorController'.static.SetTraderRolledFactors(rest);
     }
-    else if (Left(line, 19) == "SKIP_VENDOR_VOICES ")
+    else if (MatchCmd(line, "SKIP_VENDOR_VOICES ", rest))
     {
         // Silence all in-trade vendor voice cues by zeroing each vendor's
         // VendorDialog string ids. DoCutTalk's empty-dialog branch fires the
         // cue immediately so the trade flows without audio. Sticky byte on the
         // watcher; resent every HELLO. The watcher re-applies the silence on
         // every Snapshot so a level change picks up the right state.
-        class'APVendorController'.static.SetSkipVendorVoices(byte(int(Mid(line, 19))));
+        class'APVendorController'.static.SetSkipVendorVoices(byte(int(rest)));
     }
-    else if (Left(line, 19) == "QUIDDITCH_UPGRADES ")
+    else if (MatchCmd(line, "QUIDDITCH_UPGRADES ", rest))
     {
         // Gates whether Fred (Nimbus 2001) and George (Quidditch Armour) get
         // the Tradersanity icon / banner / hint. Those two AP locations only
         // exist when the seed has enable_quidditch_upgrades on. Sticky byte
         // on the watcher; resent every HELLO.
-        class'APVendorController'.static.SetQuidditchUpgrades(byte(int(Mid(line, 19))));
+        class'APVendorController'.static.SetQuidditchUpgrades(byte(int(rest)));
     }
-    else if (Left(line, 14) == "RUNNING_LOGIC ")
+    else if (MatchCmd(line, "RUNNING_LOGIC ", rest))
     {
         // Running-in-logic flag from the apworld slot_data: when 1 the seed put
         // the Running logic flag in logic, so shift-to-run is made free (no bean
         // drain, no >0-bean gate) to keep that assumption sound. Sticky byte on
         // the watcher; resent every HELLO.
-        class'APSprintController'.static.SetAllowRunningLogic(byte(int(Mid(line, 14))));
+        class'APSprintController'.static.SetAllowRunningLogic(byte(int(rest)));
     }
-    else if (Left(line, 16) == "CONTAINERSANITY ")
+    else if (MatchCmd(line, "CONTAINERSANITY ", rest))
     {
         // containersanity option from slot_data. When 1, the watcher swaps/
         // injects the bean-container AP tokens per level. Sticky byte; resent
         // every HELLO.
-        class'APContainerManager'.static.SetContainersanity(byte(int(Mid(line, 16))));
+        class'APContainerManager'.static.SetContainersanity(byte(int(rest)));
     }
-    else if (Left(line, 5) == "HINT ")
+    else if (MatchCmd(line, "HINT ", rest))
     {
         // Tradersanity vendor hint payload: "HINT <locId> <item_name>".
         // Cached per-slot on APVendorController.TraderHintItemName so the in-trade
         // label can show the actual item name instead of generic "Archipelago
         // Item". Apworld sends one HINT per Tradersanity vendor location
         // after the scout response resolves, when hint-on-open is enabled.
-        HandleHint(Mid(line, 5));
+        HandleHint(rest);
     }
-    else if (Left(line, 10) == "CONNECTED ")
+    else if (MatchCmd(line, "CONNECTED ", rest))
     {
         // AP server address for the startup "Connected to host:port" toast,
         // client-formatted (scheme stripped). Sticky class-default on the
         // watcher (mirrors GOALCFG / TRADECFG); resent every HELLO. The toast
         // fire/arm is owned by APCardWatcher (Timer + .usa-restore re-arm),
         // so this line only records the address, idempotent on resend.
-        class'APStartupFeedback'.static.SetConnectedAddress(Mid(line, 10));
+        class'APStartupFeedback'.static.SetConnectedAddress(rest);
     }
-    else if (Left(line, 5) == "MODE ")
+    else if (MatchCmd(line, "MODE ", rest))
     {
         // The seed's declared game_mode from apworld slot_data (sticky
         // class-default on the watcher; resent every HELLO). Recorded in BOTH
@@ -419,13 +431,13 @@ function HandleLine(string line)
         // "open_castle" additionally latches bOpenCastleMode (a late belt
         // alongside the durable DLO probe); "MODE vanilla" only records the
         // declared mode, it never clears bOpenCastleMode (one-way invariant).
-        class'APModeDetector'.static.SetSeedDeclaredMode(Mid(line, 5));
-        if (Mid(line, 5) == "open_castle")
+        class'APModeDetector'.static.SetSeedDeclaredMode(rest);
+        if (rest == "open_castle")
         {
             class'APModeDetector'.static.EnterOpenCastleMode("IPC MODE open_castle");
         }
     }
-    else if (Left(line, 14) == "RESYNC_SPELLS ")
+    else if (MatchCmd(line, "RESYNC_SPELLS ", rest))
     {
         // Durable spell-grant resync from the apworld client, as a comma-
         // separated list of AP item names this slot has ever received (sourced
@@ -433,7 +445,7 @@ function HandleLine(string line)
         // Re-asserts default.APGrantedSpell[] AND re-adds each spell to the live
         // spellbook so a save-load that dropped the spell class ref recovers.
         // Sticky + idempotent mod-side; resent every HELLO and every Connected.
-        class'APCardWatcher'.static.ApplyResyncSpells(Mid(line, 14));
+        class'APCardWatcher'.static.ApplyResyncSpells(rest);
     }
     else if (line == "RESYNC_SPELLS")
     {
@@ -442,7 +454,7 @@ function HandleLine(string line)
         // that hasn't yet been granted any starters.
         class'APCardWatcher'.static.ApplyResyncSpells("");
     }
-    else if (Left(line, 19) == "RESYNC_BLOCKERKEYS ")
+    else if (MatchCmd(line, "RESYNC_BLOCKERKEYS ", rest))
     {
         // Durable bookcase-blocker-key resync. Re-asserts
         // default.APGrantedBlockerKey[] AND destroys any matching live bookcase
@@ -451,7 +463,7 @@ function HandleLine(string line)
         // ledger would otherwise block GRANT replay for already-applied keys).
         // Sent every Connected + HELLO. Covers both modes (open castle: per-key
         // blocker; vanilla: cumulative chain + standalone Duelling/Quidditch).
-        class'APCardWatcher'.static.ApplyResyncBlockerKeys(Mid(line, 19));
+        class'APCardWatcher'.static.ApplyResyncBlockerKeys(rest);
     }
     else if (line == "RESYNC_BLOCKERKEYS")
     {
@@ -459,18 +471,18 @@ function HandleLine(string line)
         // mirrors RESYNC_SPELLS's bare form so the wire is symmetric.
         class'APCardWatcher'.static.ApplyResyncBlockerKeys("");
     }
-    else if (Left(line, 16) == "RESYNC_KEYITEMS ")
+    else if (MatchCmd(line, "RESYNC_KEYITEMS ", rest))
     {
         // Potion-key-item resync (Boomslang/Bicorn/BitOGoyle). Always empty
         // today; the three are not AP items. Wired so future randomization of
         // any of them inherits save-load survivability without further mod work.
-        class'APCardWatcher'.static.ApplyResyncKeyItems(Mid(line, 16));
+        class'APCardWatcher'.static.ApplyResyncKeyItems(rest);
     }
     else if (line == "RESYNC_KEYITEMS")
     {
         class'APCardWatcher'.static.ApplyResyncKeyItems("");
     }
-    else if (Left(line, 13) == "RESYNC_CARDS ")
+    else if (MatchCmd(line, "RESYNC_CARDS ", rest))
     {
         // Durable wizard-card resync. Re-stamps default.APGrantedCard[] AND
         // re-asserts CardOwner_Harry for any received card the live folio is
@@ -479,7 +491,7 @@ function HandleLine(string line)
         // Payload is the card UScript class names, comma-separated. Sent every
         // Connected + HELLO. Cards have no .usa-backed store, so this is their
         // only save-load survivability (mirrors RESYNC_SPELLS / _BLOCKERKEYS).
-        class'APCardWatcher'.static.ApplyResyncCards(Mid(line, 13));
+        class'APCardWatcher'.static.ApplyResyncCards(rest);
     }
     else if (line == "RESYNC_CARDS")
     {
@@ -487,19 +499,19 @@ function HandleLine(string line)
         // bare RESYNC_SPELLS / RESYNC_BLOCKERKEYS forms so the wire is symmetric.
         class'APCardWatcher'.static.ApplyResyncCards("");
     }
-    else if (Left(line, 16) == "RESYNC_BEANROOM ")
+    else if (MatchCmd(line, "RESYNC_BEANROOM ", rest))
     {
         // Open-castle bean-room ledger restored from AP data storage on connect
         // / HELLO. Merges dispensers + floor-collected (set, never clear) and
         // restores dropped-bean positions on a cold load. Sticky + idempotent.
-        class'APBeanRoom'.static.ApplyResyncBeanRoom(Mid(line, 16));
+        class'APBeanRoom'.static.ApplyResyncBeanRoom(rest);
     }
     else if (line == "RESYNC_BEANROOM")
     {
         // Empty-list form (nothing persisted yet). No-op; keeps the wire symmetric.
         class'APBeanRoom'.static.ApplyResyncBeanRoom("");
     }
-    else if (Left(line, 8) == "CHECKED ")
+    else if (MatchCmd(line, "CHECKED ", rest))
     {
         // Per-slot checked-locations resync from the client, as a
         // comma-separated list of AP location ids the server already has as
@@ -510,32 +522,32 @@ function HandleLine(string line)
         // the .usa). After stamping, the watcher re-sweeps the live level so
         // chests/markers whose location is already checked bean-swap /
         // destroy immediately instead of waiting for another level transition.
-        class'APCardWatcher'.static.SetCheckedLocationsCSV(Mid(line, 8));
+        class'APCardWatcher'.static.SetCheckedLocationsCSV(rest);
         w = class'APCardWatcher'.static.GetLatest();
         if (w != None)
         {
             w.ReSweepCheckedChests();
         }
     }
-    else if (Left(line, 11) == "APPEARANCE ")
+    else if (MatchCmd(line, "APPEARANCE ", rest))
     {
         // #3 per-location appearance table from the client, as
         // "apId:code,apId:code,…" (full AP location ids). Sticky class-default
         // on APMorphRegistry (mirrors GOALCFG); resent every HELLO. Sweep the live
         // registry so an async mid-level arrival converges within a tick.
-        class'APMorphRegistry'.static.SetAppearanceCSV(Mid(line, 11));
+        class'APMorphRegistry'.static.SetAppearanceCSV(rest);
         mr = class'APMorphRegistry'.static.GetInstance(self);
         if (mr != None)
         {
             mr.RestampMarkerAppearance();
         }
     }
-    else if (Left(line, 7) == "RINGIN ")
+    else if (MatchCmd(line, "RINGIN ", rest))
     {
         // Net remote RingLink delta. Accumulate, order is irrelevant, only
         // the sum matters. Applied by TickRingLink on the next playable tick.
-        PendingRingDelta += int(Mid(line, 7));
-        Log("[Archipelago] APIPCActor: RINGIN " $ Mid(line, 7) $ " (PendingRingDelta=" $ string(PendingRingDelta) $ ")");
+        PendingRingDelta += int(rest);
+        Log("[Archipelago] APIPCActor: RINGIN " $ rest $ " (PendingRingDelta=" $ string(PendingRingDelta) $ ")");
     }
     else if (line == "DEATHLINK")
     {
@@ -545,7 +557,7 @@ function HandleLine(string line)
         // playable tick and owns the loop-prevention latch.
         class'APCardWatcher'.static.SetPendingDeathLink();
     }
-    else if (Left(line, 9) == "TRAPLINK ")
+    else if (MatchCmd(line, "TRAPLINK ", rest))
     {
         // Inbound TrapLink trap from another slot. Reuse the grant pipeline as
         // an index-less grant (apIndex -1): the drain's playable-state gating
@@ -554,7 +566,7 @@ function HandleLine(string line)
         // enters the durable ledger (a linked trap is transient, fire-once, no
         // replay). Body is `<trapname>|<source_player>`, so ApplyGrant's toast
         // reads "<trap> from <source>".
-        QueueGrant(Mid(line, 9), -1);
+        QueueGrant(rest, -1);
     }
 }
 

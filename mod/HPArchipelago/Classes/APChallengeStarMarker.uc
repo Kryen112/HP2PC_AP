@@ -14,12 +14,6 @@
 // fires no AP CHECK for them.
 class APChallengeStarMarker extends ChallengeStar;
 
-// 5760000 = locations.yaml `base_id`. Duplicated here as a literal because UE1
-// UScript const access across classes is awkward; the watcher's LOC_BASE /
-// NONCARD_LOC_WINDOW consts are the source of truth. Keep these in sync.
-const LOC_BASE = 5760000;
-const NONCARD_LOC_WINDOW = 2048;
-
 var int CheckLocationId;
 
 state PickupProp
@@ -32,8 +26,8 @@ state PickupProp
         Super.EndState();
 
         if (CheckLocationId <= 0) return;
-        slot = CheckLocationId - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+        slot = class'APLocationRegistry'.static.SlotForApId(CheckLocationId);
+        if (slot < 0) return;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
 
         class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;

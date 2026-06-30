@@ -12,11 +12,6 @@
 // state is shared with the watcher's level-exit / drain logic).
 class APLocationScanner extends Info;
 
-// Mirror APCardWatcher's id constants (the pollers index its NonCardLocationChecked
-// ledger cross-class by apId - LOC_BASE).
-const LOC_BASE = 5760000;
-const NONCARD_LOC_WINDOW = 2048;
-
 // Process-wide singleton pointer (class-default). Instance copy kept None for
 // save-graph hygiene.
 var APLocationScanner LatestInstance;
@@ -140,8 +135,8 @@ function ScanSecretMarkers(APIPCActor ipc)
         if (!marker.bFound) continue;
         locId = class'APLocationRegistry'.static.GetSecretLocationId(levelName, string(marker.Name));
         if (locId == 0) continue;
-        slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(locId);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
         class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APLocationScanner: secret bFound in " $ levelName
@@ -162,8 +157,8 @@ function ScanDuelWins(APIPCActor ipc, harry h)
     for (rank = 1; rank < h.DuelRankHarry && rank <= 10; rank++)
     {
         locId = 5760600 + (rank - 1);
-        slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(locId);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
         class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APLocationScanner: duel rank " $ rank
@@ -185,8 +180,8 @@ function ScanMatchWins(APIPCActor ipc, harry h)
     {
         if (!h.quidGameResults[i].bWon) continue;
         locId = 5760620 + i;
-        slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(locId);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
         class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APLocationScanner: quidditch match " $ (i + 1)
@@ -292,8 +287,8 @@ function ScanChallengeMastery(APIPCActor ipc, harry h)
         if (h.ChallengeScores[i].nMaxScore <= 0) continue;
         if (h.ChallengeScores[i].nHighScore < h.ChallengeScores[i].nMaxScore) continue;
         locId = 5760630 + i;
-        slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(locId);
+        if (slot < 0) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
         class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
         Log("[Archipelago] APLocationScanner: spell challenge " $ i $ " mastered (high="

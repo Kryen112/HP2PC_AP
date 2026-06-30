@@ -28,10 +28,6 @@ const STRIDE = 10;        // max segments one toast can hold (richest line is 9)
 const TOAST_DURATION = 5.0;
 const TICK_INTERVAL = 0.1;
 
-// AP non-card location window, mirroring the watcher's consts (the source of
-// truth). DrawTradersanityAPLabel indexes NonCardLocationChecked / TraderPurchased.
-const LOC_BASE = 5760000;
-const NONCARD_LOC_WINDOW = 2048;
 // Minimum life (seconds) a carried-over toast resumes with in the next level, so
 // a near-expired one still gets read time. See the carry buffer below.
 const CARRY_MIN_REMAINING = 2.0;
@@ -328,7 +324,7 @@ function EnqueueToast(string text, optional Sound overrideSound)
 // segment pool here, never re-parsed at render time.
 function EnqueueSegmentToast(string record, optional Sound overrideSound)
 {
-    local int idx, sepIdx;
+    local int idx;
     local string seg, rest;
 
     if (record == "") return;
@@ -337,17 +333,7 @@ function EnqueueSegmentToast(string record, optional Sound overrideSound)
     rest = record;
     while (rest != "")
     {
-        sepIdx = InStr(rest, Chr(30));
-        if (sepIdx < 0)
-        {
-            seg = rest;
-            rest = "";
-        }
-        else
-        {
-            seg = Left(rest, sepIdx);
-            rest = Mid(rest, sepIdx + 1);
-        }
+        seg = class'APCsvCodec'.static.NextTokenUpTo(rest, Chr(30));
         if (seg == "") continue;
         AddSeg(idx, Mid(seg, 1), class'APHUDToast'.static.RoleCharToCode(Left(seg, 1)));
     }
@@ -415,7 +401,7 @@ static function AddCarrySeg(int carryIdx, string text, byte code)
 // during the loading gap with no live toast to show it.
 static function BufferSegmentRecord(string record)
 {
-    local int idx, sepIdx;
+    local int idx;
     local string seg, rest;
 
     if (record == "") return;
@@ -424,17 +410,7 @@ static function BufferSegmentRecord(string record)
     rest = record;
     while (rest != "")
     {
-        sepIdx = InStr(rest, Chr(30));
-        if (sepIdx < 0)
-        {
-            seg = rest;
-            rest = "";
-        }
-        else
-        {
-            seg = Left(rest, sepIdx);
-            rest = Mid(rest, sepIdx + 1);
-        }
+        seg = class'APCsvCodec'.static.NextTokenUpTo(rest, Chr(30));
         if (seg == "") continue;
         AddCarrySeg(idx, Mid(seg, 1), RoleCharToCode(Left(seg, 1)));
     }
@@ -605,6 +581,31 @@ event Timer()
     }
 }
 
+// AP UI colour palette. One place for every colour the toasts and the pause-menu
+// goal panel draw, so the brand and role colours can't drift across call sites.
+// (A stays 0, matching the fresh local Colors these replace.)
+static function Color RGB(int r, int g, int b)
+{
+    local Color c;
+    c.R = r;
+    c.G = g;
+    c.B = b;
+    return c;
+}
+
+static function Color APYellow()          { return RGB(255, 220, 100); }  // system / brand
+static function Color APWhite()           { return RGB(255, 255, 255); }  // true white (goal panel)
+static function Color APBlack()           { return RGB(0,   0,   0);   }  // text shadow
+static function Color APGoalGreen()       { return RGB(60,  220, 90);  }  // goal-met (goal panel)
+static function Color APRoleWhite()       { return RGB(230, 230, 230); }  // toast white
+static function Color APRoleSelfSlot()    { return RGB(238, 0,   238); }  // self slot (magenta)
+static function Color APRoleOtherSlot()   { return RGB(238, 232, 205); }  // other slot (cream)
+static function Color APRoleProgression() { return RGB(159, 121, 238); }
+static function Color APRoleUseful()      { return RGB(79,  148, 205); }
+static function Color APRoleTrap()        { return RGB(237, 123, 110); }
+static function Color APRoleFiller()      { return RGB(9,   203, 203); }
+static function Color APRoleLocation()    { return RGB(50,  205, 50);  }  // toast green
+
 // Map a stored colour code to its RGB (legend at the top of the class).
 // NEWLINE never reaches here (RenderHud handles it as a layout break).
 function Color RoleColor(byte code)
@@ -613,15 +614,15 @@ function Color RoleColor(byte code)
 
     switch (code)
     {
-        case 1: c.R = 230; c.G = 230; c.B = 230; break;   // white
-        case 2: c.R = 238; c.G = 0;   c.B = 238; break;   // self slot (magenta)
-        case 3: c.R = 238; c.G = 232; c.B = 205; break;   // other slot (cream)
-        case 4: c.R = 159; c.G = 121; c.B = 238; break;   // progression
-        case 5: c.R = 79;  c.G = 148; c.B = 205; break;   // useful
-        case 6: c.R = 237; c.G = 123; c.B = 110; break;   // trap
-        case 7: c.R = 9;   c.G = 203; c.B = 203; break;   // filler
-        case 8: c.R = 50;  c.G = 205; c.B = 50;  break;   // location (green)
-        default: c.R = 255; c.G = 220; c.B = 100; break;  // yellow (system)
+        case 1: c = APRoleWhite();       break;   // white
+        case 2: c = APRoleSelfSlot();    break;   // self slot (magenta)
+        case 3: c = APRoleOtherSlot();   break;   // other slot (cream)
+        case 4: c = APRoleProgression(); break;
+        case 5: c = APRoleUseful();      break;
+        case 6: c = APRoleTrap();        break;
+        case 7: c = APRoleFiller();      break;
+        case 8: c = APRoleLocation();    break;   // location (green)
+        default: c = APYellow();         break;   // yellow (system)
     }
     return c;
 }
@@ -698,9 +699,7 @@ function RenderHud(Canvas C)
     C.TextSize("Ay", tmpW, lineHeight);
     lineHeight = lineHeight * 1.2;
 
-    colorShadow.R = 0;
-    colorShadow.G = 0;
-    colorShadow.B = 0;
+    colorShadow = APBlack();
 
     colorSave = C.DrawColor;
     styleSave = C.Style;
@@ -809,8 +808,8 @@ function DrawTradersanityAPLabel(Canvas C)
     locId = class'APVendorController'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
     if (locId <= 0) return;
 
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(locId);
+    if (slot < 0) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
     if (class'APVendorController'.default.TraderPurchased[slot] == 1) return;
 
@@ -841,12 +840,8 @@ function DrawTradersanityAPLabel(Canvas C)
     }
 
     // Archipelago-yellow on black shadow, matching the toast palette.
-    colorText.R = 255;
-    colorText.G = 220;
-    colorText.B = 100;
-    colorShadow.R = 0;
-    colorShadow.G = 0;
-    colorShadow.B = 0;
+    colorText = APYellow();
+    colorShadow = APBlack();
 
     C.TextSize(label, textW, textH);
     labelX = (C.SizeX - textW) / 2.0;

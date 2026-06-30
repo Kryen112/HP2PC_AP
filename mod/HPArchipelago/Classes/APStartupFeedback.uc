@@ -66,6 +66,20 @@ static function SetConnectedAddress(string addr)
     Log("[Archipelago] APStartupFeedback.SetConnectedAddress: '" $ default.ConnectedAddress $ "'");
 }
 
+// The local Harry when it exists, is alive, and is in a playable state (not
+// mid-cutscene/menu); None otherwise. Shared gate for the startup safety save
+// and the connection / mismatch / goal-unlock toasts.
+function harry PlayableHarry()
+{
+    local harry h;
+    local string deferReason;
+    h = harry(Level.PlayerHarryActor);
+    if (h != None && h.GetHealthCount() > 0
+        && class'APGameInfo'.static.IsPlayerInPlayableState(h, deferReason))
+        return h;
+    return None;
+}
+
 // Durable-ledger new-game signal + one-time startup safety save. `bFolioEmpty` is
 // the watcher's folio-empty sample taken at Snapshot entry (before the AP
 // re-assert): it reads empty only on a genuine new game, separating a real new
@@ -78,7 +92,6 @@ static function SetConnectedAddress(string addr)
 function EmitStartupSignals(harry h, bool bFolioEmpty, APIPCActor ipc)
 {
     local harry saveHarry;
-    local string deferReason;
 
     if (ipc != None && h.iGameState < STARTUP_SAFETY_SAVE_GAMESTATE
         && bFolioEmpty)
@@ -110,9 +123,8 @@ function EmitStartupSignals(harry h, bool bFolioEmpty, APIPCActor ipc)
     if (ipc != None && !ipc.bStartupSafetySaveDone && ipc.bSawStateBelowGreatHall
         && h.iGameState >= STARTUP_SAFETY_SAVE_GAMESTATE)
     {
-        saveHarry = harry(Level.PlayerHarryActor);
-        if (saveHarry != None && saveHarry.GetHealthCount() > 0
-            && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+        saveHarry = PlayableHarry();
+        if (saveHarry != None)
         {
             ipc.bStartupSafetySaveDone = True;
             Log("[Archipelago] APStartupFeedback: startup safety save (iGameState=" $ h.iGameState $ ")");
@@ -166,7 +178,6 @@ function EnsureFreshToast()
 function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
 {
     local harry saveHarry;
-    local string deferReason;
     local APHUDToast connToast;
     local bool seedIsOpenCastle;
 
@@ -174,9 +185,8 @@ function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
     {
         if (default.bConnToastScheduled == 0)
         {
-            saveHarry = harry(Level.PlayerHarryActor);
-            if (saveHarry != None && saveHarry.GetHealthCount() > 0
-                && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+            saveHarry = PlayableHarry();
+            if (saveHarry != None)
             {
                 default.bConnToastScheduled = 1;
                 default.ConnToastTicksLeft = CONN_TOAST_DELAY_TICKS;
@@ -210,9 +220,8 @@ function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
         seedIsOpenCastle = (class'APModeDetector'.default.SeedDeclaredMode == 2);
         if (seedIsOpenCastle != (class'APModeDetector'.default.bInstallIsOpenCastle == 1))
         {
-            saveHarry = harry(Level.PlayerHarryActor);
-            if (saveHarry != None && saveHarry.GetHealthCount() > 0
-                && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+            saveHarry = PlayableHarry();
+            if (saveHarry != None)
             {
                 connToast = class'APHUDToast'.static.GetInstance();
                 if (connToast != None)
@@ -240,9 +249,8 @@ function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
     if (class'APModeDetector'.default.bOpenCastleMode == 1 && wasGoalUnlocked == 1
         && wasInEndGame == 0 && bGoalUnlockToastShown == 0)
     {
-        saveHarry = harry(Level.PlayerHarryActor);
-        if (saveHarry != None && saveHarry.GetHealthCount() > 0
-            && class'APGameInfo'.static.IsPlayerInPlayableState(saveHarry, deferReason))
+        saveHarry = PlayableHarry();
+        if (saveHarry != None)
         {
             connToast = class'APHUDToast'.static.GetInstance();
             if (connToast != None)

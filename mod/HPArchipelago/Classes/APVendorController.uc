@@ -12,8 +12,8 @@
 // touches siBronze/siSilver/siGold or the card ownership ledger.
 class APVendorController extends Info;
 
-// id-window math for the shared ledger and the parallel class-default arrays.
-const LOC_BASE = 5760000;
+// Window width for the parallel class-default arrays and their clear loops; the
+// slot math itself lives in APLocationRegistry.SlotForApId.
 const NONCARD_LOC_WINDOW = 2048;
 
 // Process-wide singleton pointer (class-default). Instance copy kept None for
@@ -47,8 +47,8 @@ var byte bQuidditchUpgrades;
 // Per-location flag set on the first observation of the engaged VendorManager
 // entering MakePurchase (the player clicked Yes). Lets the label and icon-swap
 // drop the "this is an AP check" affordance immediately on Yes-click without
-// firing CHECK_LOCID early. Indexed by locId - LOC_BASE. Dimension MUST equal
-// NONCARD_LOC_WINDOW.
+// firing CHECK_LOCID early. Indexed by the window slot
+// (APLocationRegistry.SlotForApId). Dimension literal MUST equal NONCARD_LOC_WINDOW.
 var byte TraderPurchased[2048];
 // Per-location cached item name from the apworld's scout response (HINT IPC).
 // Empty if hint-on-open is off for this seed; the label falls back to the
@@ -267,8 +267,8 @@ static function SetTraderRolledFactors(string csv)
     {
         apId   = class'APCsvCodec'.static.NextCsvIntUpTo(rest, ":");
         factor = class'APCsvCodec'.static.NextCsvIntUpTo(rest, ",");
-        slot = apId - LOC_BASE;
-        if (slot >= 0 && slot < NONCARD_LOC_WINDOW)
+        slot = class'APLocationRegistry'.static.SlotForApId(apId);
+        if (slot >= 0)
         {
             if (factor < 0)   factor = 0;
             if (factor > 255) factor = 255;
@@ -286,8 +286,8 @@ static function SetVendorHintItemName(int locId, string itemName)
 {
     local int slot;
 
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(locId);
+    if (slot < 0) return;
     default.TraderHintItemName[slot] = itemName;
     Log("[Archipelago] APVendorController.SetVendorHintItemName: locId=" $ string(locId)
         $ " name='" $ itemName $ "'");
@@ -347,8 +347,8 @@ function MorphWeasleyPropInPlace(HProp prop, int wi, int locId)
     local APMorphRegistry mr;
 
     if (prop == None || prop.bDeleteMe) return;
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(locId);
+    if (slot < 0) return;
 
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
     {
@@ -391,8 +391,8 @@ function FireWeasleyCheck(int wi, int locId, bool bPaid)
     local int slot;
     local bool bPickedUp, bPaidNoToken;
 
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(locId);
+    if (slot < 0) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
 
     bPickedUp = (WeasleyDispensed[wi] == 1
@@ -412,6 +412,26 @@ function FireWeasleyCheck(int wi, int locId, bool bPaid)
     {
         Log("[Archipelago] APVendorController.FireWeasleyCheck: paid but no token resolved (loc id " $ locId $ ") - fired CHECK_LOCID directly");
     }
+}
+
+// Resolve the AP vendor the player is currently engaged with: its VendorManager,
+// the vendor Characters, its AP location id, and the NonCardLocationChecked slot.
+// Returns False (and the passes early-out) when no AP vendor is engaged. The
+// Tradersanity / Weasley eligibility gate lives in GetActiveAPVendorLocationId.
+function bool GetEngagedAPVendor(out VendorManager vm, out Characters engagedVendor,
+                                out int locId, out int slot)
+{
+    local string lvl;
+    if (HarryRef == None) return False;
+    vm = HarryRef.CurrVendorManager;
+    if (vm == None || vm.Vendor == None) return False;
+    engagedVendor = vm.Vendor;
+    lvl = string(Level.Outer.Name);
+    locId = class'APVendorController'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
+    if (locId == 0) return False;
+    slot = class'APLocationRegistry'.static.SlotForApId(locId);
+    if (slot < 0) return False;
+    return True;
 }
 
 // Edge-detect the player engaging a Tradersanity vendor's dialogue: on the
@@ -445,8 +465,8 @@ function TradersanityHintOnOpenPass()
 
     TraderHintLastEngagedLocId = locId;
 
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
+    slot = class'APLocationRegistry'.static.SlotForApId(locId);
+    if (slot < 0) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
 
     ipc = class'APIPCActor'.static.GetInstance();
@@ -491,24 +511,10 @@ function TradersanityIconSwapPass()
     local VendorManager vm;
     local Characters engagedVendor;
     local int locId, slot;
-    local string lvl;
     local Texture desired;
 
-    // No TradersanityMode early return: Fred/George ride on bQuidditchUpgrades
-    // alone, so the gate lives inside GetActiveAPVendorLocationId.
-    if (HarryRef == None) return;
-
-    vm = HarryRef.CurrVendorManager;
-    if (vm == None || vm.Vendor == None) return;
+    if (!GetEngagedAPVendor(vm, engagedVendor, locId, slot)) return;
     if (vm.textureItemToSell == None) return;
-
-    engagedVendor = vm.Vendor;
-    lvl = string(Level.Outer.Name);
-    locId = class'APVendorController'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
-    if (locId == 0) return;
-
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
 
     // AP icon ONLY while the location is unchecked AND the player hasn't already
     // clicked Yes for this vendor (TraderPurchased). The OR means a
@@ -537,22 +543,9 @@ function TradersanityMarkPurchasedPass()
     local VendorManager vm;
     local Characters engagedVendor;
     local int locId, slot;
-    local string lvl;
 
-    // Helper gates Tradersanity / Weasley separately, so no early return here.
-    if (HarryRef == None) return;
-
-    vm = HarryRef.CurrVendorManager;
-    if (vm == None || vm.Vendor == None) return;
+    if (!GetEngagedAPVendor(vm, engagedVendor, locId, slot)) return;
     if (vm.GetStateName() != 'MakePurchase') return;
-
-    engagedVendor = vm.Vendor;
-    lvl = string(Level.Outer.Name);
-    locId = class'APVendorController'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
-    if (locId == 0) return;
-
-    slot = locId - LOC_BASE;
-    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
     if (default.TraderPurchased[slot] == 1) return;
 
     default.TraderPurchased[slot] = 1;
@@ -812,8 +805,8 @@ function TradersanityPass()
         if (!IsTradersanitySellType(c)) continue;
         locId = class'APLocationRegistry'.static.GetVendorLocationId(lvl, string(c.Name));
         if (locId == 0) continue;
-        slot = locId - LOC_BASE;
-        if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(locId);
+        if (slot < 0) continue;
 
         idx = TraderRegIndex(c, lvl);
         if (idx < 0) continue;

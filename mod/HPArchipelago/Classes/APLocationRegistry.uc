@@ -1,5 +1,27 @@
 class APLocationRegistry extends Object;
 
+// AP location base id (apworld locations.py BASE_ID) and the width of the
+// non-card-location dedupe window. Single source of truth for the slot math
+// every non-card check shares. The per-location 2048-wide arrays
+// (NonCardLocationChecked, TraderPurchased, AppearanceCode, ...) keep a literal
+// dimension because M212 array dims need an integer literal, not a const; their
+// comments point back here.
+const LOC_BASE = 5760000;
+const NONCARD_LOC_WINDOW = 2048;
+
+// Window slot for a non-card AP location id: apId - LOC_BASE when it lands inside
+// the dedupe window, or -1 when it is out of range (a card id, an id past the
+// window, or a malformed id). Callers index any of the 2048-wide per-location
+// arrays by the returned slot and bail on -1.
+static function int SlotForApId(int apId)
+{
+    local int slot;
+    slot = apId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW)
+        return -1;
+    return slot;
+}
+
 static function int GetSecretLocationId(string LevelName, string MarkerName)
 {
     LevelName = Caps(LevelName);
