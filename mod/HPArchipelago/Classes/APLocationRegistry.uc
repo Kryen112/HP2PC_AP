@@ -633,6 +633,8 @@ static function int GetContainerLocationId(string LevelName, string MarkerName)
         // (the skeleton's ejects spiders; the AP token rides the first eject).
         if (MarkerName == "InvisibleSpawn0") return 5761301;
         if (MarkerName == "InvisibleSpawn11") return 5761302;
+        // Invisible Flipendo spawner inside the open toilet in Moaning Myrtle's bathroom.
+        if (MarkerName == "InvisibleSpawn1") return 5761306;
         if (MarkerName == "ChestWood10") return 5761264;
         if (MarkerName == "ChestWood11") return 5761265;
         if (MarkerName == "ChestWood12") return 5761266;

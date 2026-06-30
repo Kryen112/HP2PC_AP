@@ -19,6 +19,7 @@ DECORATION_LOCATIONS = (
     "Castle Exterior - Dragon Statue",
     "Castle Exterior - Plant Dragon 1",
     "Castle Exterior - Plant Dragon 2",
+    "Grand Staircase - Toilet",
 )
 
 # Statues at easy, freely-reachable spots: Flipendo is their only gate. The Castle
@@ -108,6 +109,45 @@ class TestSkeletonVanillaNeedsRictusempra(HP2TestBase):
         self.collect_all_but([], full)
         self.assertTrue(full.can_reach(loc, "Location", self.player),
                         "reachable with everything collected")
+
+
+class TestToiletNeedsChamberKeyAndFlipendo(HP2TestBase):
+    # Myrtle's-bathroom toilet sits behind the Chamber of Secrets entrance: open castle
+    # gates it on the Chamber of Secrets Key plus Flipendo to break it.
+    options = {"game_mode": "open_castle", "containersanity": True, "starting_spells": []}
+    run_default_tests = False
+
+    def test_key_and_flipendo_required(self) -> None:
+        loc = "Grand Staircase - Toilet"
+        full = CollectionState(self.multiworld)
+        self.collect_all_but([], full)
+        self.assertTrue(full.can_reach(loc, "Location", self.player),
+                        "reachable with everything collected")
+        for missing in ("Chamber of Secrets Key", "Flipendo"):
+            state = CollectionState(self.multiworld)
+            self.collect_all_but([missing], state)
+            self.assertFalse(state.can_reach(loc, "Location", self.player),
+                             f"{loc} reachable without {missing}")
+
+
+class TestToiletVanillaNeedsSpells(HP2TestBase):
+    # Vanilla reaches the bathroom via the story flow: Rictusempra and Skurge gate it.
+    # Flipendo also breaks the toilet but is precollected in vanilla, so removing it from
+    # the pool cannot strand the check; removing either learned spell does.
+    options = {"game_mode": "vanilla", "containersanity": True, "starting_spells": []}
+    run_default_tests = False
+
+    def test_spells_required(self) -> None:
+        loc = "Grand Staircase - Toilet"
+        full = CollectionState(self.multiworld)
+        self.collect_all_but([], full)
+        self.assertTrue(full.can_reach(loc, "Location", self.player),
+                        "reachable with everything collected")
+        for missing in ("Rictusempra", "Skurge"):
+            state = CollectionState(self.multiworld)
+            self.collect_all_but([missing], state)
+            self.assertFalse(state.can_reach(loc, "Location", self.player),
+                             f"vanilla {loc} reachable without {missing}")
 
 
 class TestWillowDragonStatueMissable(HP2TestBase):

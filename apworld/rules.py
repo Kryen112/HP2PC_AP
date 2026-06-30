@@ -579,6 +579,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Entry Hall - Witch Statue": flipendo,
     "Grand Staircase - Gregory the Smarmy Statue": flipendo,
     "Grand Staircase - Dragon Skeleton": flipendo,
+    "Grand Staircase - Toilet": chamber_of_secrets_key & flipendo,
     "Castle Exterior - Dragon Statue": flipendo,
     "Castle Exterior - Plant Dragon 1": flipendo,
     "Castle Exterior - Plant Dragon 2": flipendo,
@@ -631,6 +632,7 @@ _VANILLA_OVERRIDE: dict[str, _Access] = {
         alohomora & (rictusempra & skurge & flipendo & spongify & bicorn_level_key | running),
     "Castle Exterior - Secret 6": alohomora & skurge & rictusempra & flipendo & bicorn_level_key | running,
     "Grand Staircase - Card Vablatsky": alohomora & rictusempra & skurge,
+    "Grand Staircase - Toilet": rictusempra & skurge & flipendo,
 }
 
 # Gated only in vanilla. Open castle has no per-location rule for these: the

@@ -279,7 +279,7 @@ class EnableSpellChallengeTimes(Toggle):
 
 
 class Containersanity(Toggle):
-    """If true, ~282 in-world containers (chests without cards, cauldrons,
+    """If true, ~283 in-world containers (chests without cards, cauldrons,
     cigar / jewel / music boxes, decanters, oil cans, plant pots, vases,
     knights, ingredient spawners, and a handful of Flipendo-break statues)
     each become a location: hitting one with its spell (Alohomora or Flipendo)

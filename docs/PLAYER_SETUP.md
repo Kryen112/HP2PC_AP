@@ -9,7 +9,7 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 ## What you're getting
 
 - An Archipelago multiworld randomizer for HP2 (PC, KnowWonder 2002 release).
-- Up to ~578 checks across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases, ~282 containersanity containers, and up to 13 Tradersanity vendor checks. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
+- Up to ~579 checks across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases, ~283 containersanity containers, and up to 13 Tradersanity vendor checks. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
 - Goal: in vanilla, defeat the Basilisk; in open castle, satisfy your configured goal clauses to unlock the Great Hall (see "Game mode" below).
 - Plays solo or as a slot in a larger AP multiworld.
 
@@ -144,7 +144,7 @@ If you're playing solo (just you, no other AP slots):
    | `enable_quidditch_matches`     | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
    | `enable_spell_challenge_times` | off     | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.                |
    | `enable_quidditch_upgrades`    | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
-   | `containersanity`              | off     | ~282 in-world containers (chests without cards, cauldrons, cigar / jewel / music boxes, decanters, oil cans, plant pots, knights, ingredient jars, statues) each become a check. Opening one with its spell (Alohomora or Flipendo) ejects an AP token; walk over it to send the check. A big check-count increase, so off by default. |
+   | `containersanity`              | off     | ~283 in-world containers (chests without cards, cauldrons, cigar / jewel / music boxes, decanters, oil cans, plant pots, knights, ingredient jars, statues) each become a check. Opening one with its spell (Alohomora or Flipendo) ejects an AP token; walk over it to send the check. A big check-count increase, so off by default. |
 
    The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_missable_progression` (default off) controls whether progression items may be placed at missable locations in un-replayable levels (missable secrets, plus `containersanity` containers in those levels); safe default keeps those filler-only.
 

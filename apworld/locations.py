@@ -598,8 +598,6 @@ LOCATION_NAME_TO_ID: dict[str, int] = {
     "Castle Exterior - Chest 8": 5761295,
     "Castle Exterior - Chest 2": 5761296,
     "Castle Exterior - Chest 5": 5761297,
-    # Decoration containers: inert statues / skeleton / plant dragons the mod gives a
-    # Flipendo break. GROUNDS_NIGHT shares the Castle Exterior ids (one check per prop).
     "Whomping Willow - Dragon Statue": 5761298,
     "Skurge Challenge - Witch Statue": 5761299,
     "Entry Hall - Witch Statue": 5761300,
@@ -608,6 +606,7 @@ LOCATION_NAME_TO_ID: dict[str, int] = {
     "Castle Exterior - Dragon Statue": 5761303,
     "Castle Exterior - Plant Dragon 1": 5761304,
     "Castle Exterior - Plant Dragon 2": 5761305,
+    "Grand Staircase - Toilet": 5761306,
 }
 
 LOCATION_REGIONS: dict[str, str] = {
@@ -1213,6 +1212,7 @@ LOCATION_REGIONS: dict[str, str] = {
     "Entry Hall - Witch Statue": "EntryHall",
     "Grand Staircase - Gregory the Smarmy Statue": "GrandStaircase",
     "Grand Staircase - Dragon Skeleton": "GrandStaircase",
+    "Grand Staircase - Toilet": "GrandStaircase",
     "Castle Exterior - Dragon Statue": "CastleExterior",
     "Castle Exterior - Plant Dragon 1": "CastleExterior",
     "Castle Exterior - Plant Dragon 2": "CastleExterior",
@@ -1821,6 +1821,7 @@ LOCATION_GROUPS: dict[str, str] = {
     "Entry Hall - Witch Statue": "Containers",
     "Grand Staircase - Gregory the Smarmy Statue": "Containers",
     "Grand Staircase - Dragon Skeleton": "Containers",
+    "Grand Staircase - Toilet": "Containers",
     "Castle Exterior - Dragon Statue": "Containers",
     "Castle Exterior - Plant Dragon 1": "Containers",
     "Castle Exterior - Plant Dragon 2": "Containers",
