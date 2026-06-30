@@ -283,7 +283,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Goyle Level - Chest 1": diffindo & alohomora,
     "Goyle Level - Chest 11": diffindo & rictusempra & flipendo & lumos & alohomora,
     "Goyle Level - Chest 2": diffindo & rictusempra & flipendo & alohomora,
-    "Goyle Level - Chest 3": diffindo & rictusempra & flipendo & alohomora,
+    "Goyle Level - Chest 3": diffindo & rictusempra & flipendo & lumos & alohomora,
     "Goyle Level - Chest 4": diffindo & rictusempra & flipendo & alohomora,
     "Goyle Level - Chest 5": diffindo & rictusempra & flipendo & lumos & alohomora,
     "Goyle Level - Chest 6": diffindo & rictusempra & flipendo & alohomora,

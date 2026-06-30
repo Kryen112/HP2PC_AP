@@ -45,6 +45,25 @@ class TestOpenCastleLevelKeys(HP2TestBase):
             self.assertAccessDependency([loc], [[key]], only_check_listed=True)
 
 
+# Open-castle Goyle Level - Chest 3 sits in a dark area, so its rule adds Lumos on
+# top of the lit-area spell set, matching sibling Chests 5, 8, and 11. Pin it so a
+# future edit cannot silently drop the Lumos gate. containersanity on so the chest
+# location exists; starting_spells empty and Running off so Lumos is the isolated
+# pool-gated differentiator.
+class TestGoyleChest3NeedsLumos(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    def test_chest_3_needs_lumos(self) -> None:
+        self.assertAccessDependency(["Goyle Level - Chest 3"],
+                                    [["Lumos"]], only_check_listed=True)
+
+
 # Running-logic shortcut: Castle Exterior - Card Pokeby is gated behind a spell
 # chain OR Running. With Running off it genuinely needs the spells, so removing
 # Rictusempra strands it.
