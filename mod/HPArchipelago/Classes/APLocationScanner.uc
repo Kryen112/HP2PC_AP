@@ -133,7 +133,12 @@ function ScanSecretMarkers(APIPCActor ipc)
     foreach AllActors(class'SecretAreaMarker', marker)
     {
         if (!marker.bFound) continue;
-        locId = class'APLocationRegistry'.static.GetSecretLocationId(levelName, string(marker.Name));
+        // Swapped markers carry the AP id directly (their Name no longer matches
+        // the registry); vanilla ones still resolve by (level, Name).
+        if (APSecretMarker(marker) != None)
+            locId = APSecretMarker(marker).LocationId;
+        else
+            locId = class'APLocationRegistry'.static.GetSecretLocationId(levelName, string(marker.Name));
         if (locId == 0) continue;
         slot = class'APLocationRegistry'.static.SlotForApId(locId);
         if (slot < 0) continue;

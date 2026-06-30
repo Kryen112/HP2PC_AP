@@ -86,6 +86,81 @@ static function ReplaceChallengeStars(Actor ctx)
     }
 }
 
+// Snapshot-time: subclass-replace each unfound, unchecked vanilla SecretAreaMarker
+// with an APSecretMarker carrying the AP location id baked in. The marker inherits
+// the whole vanilla found pipeline (bFound, message, music) via OnFound's Super
+// call; it only adds an instant CHECK_LOCID, so the secret credits the frame the
+// player enters it rather than up to one poll tick later. Covers both entry paths:
+// bUseCollision secrets keep their collision so Touch still fires, trigger-armed
+// secrets keep their Tag so the external trigger still reaches the replacement.
+//
+// Spawn-first, then destroy: SecretAreaMarker is non-blocking (bBlockActors=False)
+// and bCollideWorld=False, so the new actor never encroaches on the original and
+// Spawn cannot fail on the overlap. A failed Spawn therefore leaves the original
+// intact (the poll still credits it by Name), so a swap miss never deletes a
+// secret. Already-found markers and already-checked locations are left vanilla;
+// the poll handles the former by Name and the latter is done.
+static function ReplaceSecretMarkers(Actor ctx)
+{
+    local SecretAreaMarker m;
+    local APSecretMarker apMarker;
+    local Vector loc;
+    local Rotator rot;
+    local Name vanillaTag;
+    local Sound foundSound;
+    local bool useCollision;
+    local float colRadius, colHeight;
+    local string levelName, markerName;
+    local int locId, slot, replaced;
+
+    levelName = string(ctx.Level.Outer.Name);
+    foreach ctx.AllActors(class'SecretAreaMarker', m)
+    {
+        if (ClassIsChildOf(m.Class, class'APSecretMarker')) continue;
+        if (m.bFound) continue;  // already entered this session; the poll credits it by Name
+
+        markerName = string(m.Name);
+        locId = class'APLocationRegistry'.static.GetSecretLocationId(levelName, markerName);
+        if (locId == 0) continue;
+        slot = class'APLocationRegistry'.static.SlotForApId(locId);
+        if (slot < 0) continue;
+        if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
+
+        loc = m.Location;
+        rot = m.Rotation;
+        vanillaTag = m.Tag;
+        foundSound = m.FoundSound;
+        useCollision = m.bUseCollision;
+        colRadius = m.CollisionRadius;
+        colHeight = m.CollisionHeight;
+
+        apMarker = ctx.Spawn(class'APSecretMarker', , , loc, rot);
+        if (apMarker == None)
+        {
+            Log("[Archipelago] APLevelSetup.ReplaceSecretMarkers: Spawn returned None at "
+                $ string(loc) $ " for AP id " $ locId $ " (left vanilla marker, poll will credit)");
+            continue;
+        }
+
+        apMarker.LocationId = locId;
+        if (vanillaTag != 'None') apMarker.Tag = vanillaTag;
+        if (foundSound != None) apMarker.FoundSound = foundSound;
+        apMarker.bUseCollision = useCollision;
+        // Match the original's reach, then enable Touch collision only for the
+        // walk-into secrets; trigger-armed ones stay collision-off and fire via Tag.
+        apMarker.SetCollisionSize(colRadius, colHeight);
+        apMarker.SetCollision(useCollision, False, False);
+
+        m.Destroy();
+        replaced++;
+    }
+    if (replaced > 0)
+    {
+        Log("[Archipelago] APLevelSetup.ReplaceSecretMarkers: replaced " $ replaced
+            $ " vanilla secret marker(s) with AP markers in " $ levelName);
+    }
+}
+
 // Open-castle-only Snapshot-path safety net for the Gryffindor spell giver. The
 // PRIMARY kill is APGameInfo.DestroyGryffindorSpellGiver (InitGame, pre-Harry).
 // By Snapshot the level-start dispatcher has usually already fired the

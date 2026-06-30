@@ -126,14 +126,15 @@ const SELLS_FMUCUS = 3;
 const SELLS_BRONZE = 4;
 const SELLS_SILVER = 5;
 
-// --- Fred / George (Nimbus 2001 / Quidditch Armour) in-place tokens ----------
-// The thrown VendorNimbusBroom / QArmor is morphed in place (never destroyed +
-// respawned) so it keeps the Velocity / PHYS_Falling / arc vanilla MakePurchase
-// gave it. WeasleyToken holds the morphed prop; the check fires when it is
-// picked up (ref None / bDeleteMe). WeasleyDispensed marks that a prop has been
-// bound this session. Index 0 = Nimbus 2001 (5760005), 1 = Quidditch Armour
-// (5760006). INSTANCE state: actor refs in a class-default array crash level
-// cleanup; re-acquired each level from the bPersistent prop.
+// --- Fred / George (Nimbus 2001 / Quidditch Armour) tokens -------------------
+// The thrown VendorNimbusBroom / QArmor is swapped for an APWeasley*Token at the
+// same spot, carrying the Velocity / PHYS_Falling / arc vanilla MakePurchase gave
+// it. The token's Touch fires the check instantly; WeasleyToken holds it and the
+// bDeleteMe poll (FireWeasleyCheck) is the safety net. WeasleyDispensed marks that
+// a token has been bound this session. Index 0 = Nimbus 2001 (5760005), 1 =
+// Quidditch Armour (5760006). INSTANCE state: actor refs in a class-default array
+// crash level cleanup; re-acquired each level from the bPersistent token, which
+// extends the vanilla base so the per-level foreach still finds and re-binds it.
 var Actor WeasleyToken[2];
 var byte  WeasleyDispensed[2];
 
@@ -308,8 +309,8 @@ static function SetVendorHintItemName(int locId, string itemName)
 }
 
 // Snapshot entry point. Captures the live Harry for the engaged-vendor passes,
-// morphs Fred/George thrown equipment into AP tokens, then runs the Tradersanity
-// vendor pass and the four AP-UX passes.
+// swaps Fred/George thrown equipment for AP touch-firing tokens, then runs the
+// Tradersanity vendor pass and the four AP-UX passes.
 function ReplaceVendorEquipment(harry h)
 {
     local VendorNimbusBroom broom;
@@ -321,11 +322,11 @@ function ReplaceVendorEquipment(harry h)
     {
         foreach AllActors(class'VendorNimbusBroom', broom)
         {
-            MorphWeasleyPropInPlace(broom, 0, 5760005);  // Castle Exterior - Nimbus 2001
+            EnsureWeasleyToken(broom, 0, 5760005);  // Castle Exterior - Nimbus 2001
         }
         foreach AllActors(class'QArmor', armor)
         {
-            MorphWeasleyPropInPlace(armor, 1, 5760006);  // Castle Exterior - Quidditch Armour
+            EnsureWeasleyToken(armor, 1, 5760006);  // Castle Exterior - Quidditch Armour
         }
         FireWeasleyCheck(0, 5760005, HarryRef != None && HarryRef.bHaveNimbus2001);
         FireWeasleyCheck(1, 5760006, HarryRef != None && HarryRef.bHaveQArmor);
@@ -349,16 +350,25 @@ function ReplaceVendorEquipment(harry h)
     TradersanityKillPostTradeOutOfStockPass();
 }
 
-// Morph a freshly-thrown VendorNimbusBroom / QArmor into this location's AP
-// pickup token without destroying it, so it keeps its vanilla throw arc. Null
-// the grant fields (StatusManager.PickupItem / GetHudLocation both early-return
-// on a null classStatusItem, so pickup adds no inventory) and set PickupFlyTo to
-// FT_None so the pickup skips the HUD fly. FireWeasleyCheck fires the check when
-// the token is picked up. Idempotent: an already-morphed prop is just re-bound.
-function MorphWeasleyPropInPlace(HProp prop, int wi, int locId)
+// Ensure Fred/George's thrown equipment is an AP touch-firing token. On the first
+// sighting of the vanilla VendorNimbusBroom / QArmor, swap it for an
+// APWeasley*Token at the same spot carrying its in-flight velocity, so the thrown
+// arc continues and Touch fires CHECK_LOCID the instant the player grabs it. The
+// token extends the vanilla base, so this same `foreach` re-finds it on later ticks
+// and after a hub re-entry; it is re-bound here (its grant is nulled, so the
+// classStatusItem==None test catches it) to keep FireWeasleyCheck's bPaidNoToken
+// safety net from firing while it sits uncollected. The grant is nulled because the
+// vanilla purchase already paid out the equipment; the AP item arrives over the
+// wire. FireWeasleyCheck's bDeleteMe poll stays as the safety net. Idempotent.
+function EnsureWeasleyToken(HProp prop, int wi, int locId)
 {
     local int slot;
     local APMorphRegistry mr;
+    local Vector loc, vel;
+    local Rotator rot;
+    local HProp token;
+    local APWeasleyBroomToken broomTok;
+    local APWeasleyArmorToken armorTok;
 
     if (prop == None || prop.bDeleteMe) return;
     slot = class'APLocationRegistry'.static.SlotForApId(locId);
@@ -374,23 +384,51 @@ function MorphWeasleyPropInPlace(HProp prop, int wi, int locId)
 
     if (prop.classStatusItem == None)
     {
-        // Already our token; re-bind quietly on a fresh per-level singleton.
+        // Already our token (grant nulled at swap): re-bind on a fresh per-level
+        // singleton so the bPaidNoToken safety net does not fire while uncollected.
         WeasleyToken[wi]     = prop;
         WeasleyDispensed[wi] = 1;
         return;
     }
 
-    prop.classStatusGroup = None;
-    prop.classStatusItem  = None;
-    prop.PickupFlyTo      = prop.EPickupFlyTo.FT_None;
-    class'APAppearanceMath'.static.ApplyAppearanceTo(prop, class'APMorphRegistry'.static.AppearanceForApId(locId));
+    // Vanilla prop: swap it for the touch-firing token. Destroy first: the prop
+    // and the token both inherit HProp bBlockActors=True, so spawning the token
+    // while the prop still occupies the spot would fail the engine encroachment
+    // check. Spawn at the freed spot carrying the prop's velocity so the thrown arc
+    // continues. A failed Spawn is covered by FireWeasleyCheck (the purchase set
+    // bHave*, so its bPaidNoToken safety net still credits the location).
+    loc = prop.Location;
+    rot = prop.Rotation;
+    vel = prop.Velocity;
+    Log("[Archipelago] APVendorController.EnsureWeasleyToken: swapping "
+        $ string(prop.Class.Name) $ " for AP token (loc id " $ locId $ ") - check fires on touch");
+    prop.Destroy();
+
+    if (wi == 0)
+    {
+        broomTok = Spawn(class'APWeasleyBroomToken', , , loc, rot);
+        if (broomTok != None) broomTok.CheckLocationId = locId;
+        token = broomTok;
+    }
+    else
+    {
+        armorTok = Spawn(class'APWeasleyArmorToken', , , loc, rot);
+        if (armorTok != None) armorTok.CheckLocationId = locId;
+        token = armorTok;
+    }
+    if (token == None)
+    {
+        Log("[Archipelago] APVendorController.EnsureWeasleyToken: Spawn returned None at "
+            $ string(loc) $ " for loc id " $ locId $ " (safety net will credit)");
+        return;
+    }
+
+    token.Velocity = vel;
+    class'APAppearanceMath'.static.ApplyAppearanceTo(token, class'APMorphRegistry'.static.AppearanceForApId(locId));
     mr = class'APMorphRegistry'.static.GetInstance(self);
-    if (mr != None) mr.RegisterMorphMarker(prop, locId);
-    WeasleyToken[wi]     = prop;
+    if (mr != None) mr.RegisterMorphMarker(token, locId);
+    WeasleyToken[wi]     = token;
     WeasleyDispensed[wi] = 1;
-    Log("[Archipelago] APVendorController.MorphWeasleyPropInPlace: morphed "
-        $ string(prop.Class.Name) $ " in place to AP token (loc id " $ locId
-        $ ") - keeps vanilla throw arc, check fires on pickup");
 }
 
 // Fire the Weasley AP check once. Primary trigger: the morphed token was picked
@@ -804,6 +842,9 @@ function TradersanityPass()
     local Characters c, v;
     local APIPCActor ipc;
     local PotionIngredients pi;
+    local APTraderToken traderTok;
+    local Vector pLoc, pVel;
+    local Rotator pRot;
     local string lvl;
     local int locId, slot, idx, i, bestIdx, bLoc;
     local float bestD, dd;
@@ -901,14 +942,18 @@ function TradersanityPass()
         }
     }
 
-    // Morph + claim the freshly-dropped sale prop for any vendor that just sold
-    // but has no token yet. Sequential top-level iterator (never nested in the
-    // Characters sweep) and mutate-only - no Spawn. The prop is re-skinned to the
-    // AP item's vanilla appearance for its location and becomes the vendor's
-    // pickup token; picking it up fires the check.
+    // Swap + claim the freshly-dropped sale prop for any vendor that just sold but
+    // has no token yet. Sequential top-level iterator (never nested in the
+    // Characters sweep). The vanilla prop is swapped for an APTraderToken at the
+    // same spot, re-skinned to the AP item's appearance; Touch fires the check the
+    // instant the player grabs it (the bDeleteMe poll above stays as the safety net).
     foreach AllActors(class'PotionIngredients', pi)
     {
         if (pi.bDeleteMe) continue;
+        // Skip our own token (a PotionIngredients subclass) so a swapped token is
+        // never re-claimed or re-swapped, including when the foreach visits one the
+        // same tick it spawns.
+        if (APTraderToken(pi) != None) continue;
         bestIdx = -1;
         bestD = TRADER_MATCH_RADIUS;
         for (i = 0; i < TRADER_REG_SIZE; i++)
@@ -931,28 +976,39 @@ function TradersanityPass()
             lvl, string(TraderVendor[bestIdx].Name));
         if (bLoc == 0) continue;
 
-        class'APAppearanceMath'.static.ApplyAppearanceTo(pi, class'APMorphRegistry'.static.AppearanceForApId(bLoc));
-        // The dropped prop is a real WiggentreeBark/FlobberwormMucus; its
-        // ingredient grant is the stock HProp pickup pipeline reading these two
-        // class fields. Null them on this instance so picking the morphed AP
-        // token up does not add the ingredient to inventory, while the pickup
-        // itself still destroys the actor so the check still fires.
-        pi.classStatusGroup = None;
-        pi.classStatusItem  = None;
+        // Destroy first: the prop and the token both inherit HProp
+        // bBlockActors=True, so spawning the token while the prop still occupies the
+        // spot would fail the engine encroachment check. Spawn at the freed spot
+        // carrying the prop's velocity so the bounce continues. The token's grant is
+        // nulled in its defaults (the vanilla purchase already paid out; the AP item
+        // arrives over the wire). A failed Spawn leaves Dispensed unset, so the
+        // TraderWait safety net below still credits the location.
+        pLoc = pi.Location;
+        pRot = pi.Rotation;
+        pVel = pi.Velocity;
+        pi.Destroy();
+        traderTok = Spawn(class'APTraderToken', , , pLoc, pRot);
+        if (traderTok == None)
+        {
+            Log("[Archipelago] APVendorController.TradersanityPass: Spawn APTraderToken returned None at "
+                $ string(pLoc) $ " for loc id " $ bLoc $ " (safety net will credit)");
+            continue;
+        }
+        traderTok.CheckLocationId = bLoc;
+        traderTok.Velocity = pVel;
+        class'APAppearanceMath'.static.ApplyAppearanceTo(traderTok, class'APMorphRegistry'.static.AppearanceForApId(bLoc));
         mr = class'APMorphRegistry'.static.GetInstance(self);
-        if (mr != None) mr.RegisterMorphMarker(pi, bLoc);
-        TraderToken[bestIdx]     = pi;
+        if (mr != None) mr.RegisterMorphMarker(traderTok, bLoc);
+        TraderToken[bestIdx]     = traderTok;
         TraderDispensed[bestIdx] = 1;
         TraderWait[bestIdx]      = 0;
-        // Put the vendor back to vanilla in this same tick the sale resolves so
-        // it sells its normal stock again immediately (not deferred to the token
-        // pickup). The check still fires when the token is picked up.
+        // Put the vendor back to vanilla in this same tick the sale resolves so it
+        // sells its normal stock again immediately (not deferred to the pickup).
         RevertTraderVendorOnce(TraderVendor[bestIdx], bestIdx,
             IsTraderCardVendor(bestIdx), bLoc);
         Log("[Archipelago] APVendorController.TradersanityPass: vendor "
-            $ string(TraderVendor[bestIdx].Name) $ " sold - morphed dropped "
-            $ string(pi.Class.Name) $ " to AP appearance (loc id " $ bLoc
-            $ "), vendor reverted, check fires on pickup");
+            $ string(TraderVendor[bestIdx].Name) $ " sold - swapped dropped prop for AP token (loc id "
+            $ bLoc $ "), vendor reverted, check fires on touch");
     }
 }
 

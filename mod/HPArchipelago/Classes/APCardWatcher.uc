@@ -2125,6 +2125,10 @@ function Snapshot()
     // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla
     // score. Already-checked stars stay vanilla, so replay still scores.
     class'APLevelSetup'.static.ReplaceChallengeStars(self);
+    // Subclass-replace each unfound, unchecked vanilla SecretAreaMarker with an
+    // APSecretMarker so entry fires CHECK_LOCID the same frame, not up to a poll
+    // tick later. ScanSecretMarkers stays as the safety net.
+    class'APLevelSetup'.static.ReplaceSecretMarkers(self);
     // Swap Ch7Gryffindor's placed FinalStar for an AP-aware end star that
     // credits the completion in EndState, then travels. Ch7Gryffindor has no
     // ChallengeScoreManager, so the vanilla star travels the same frame it is
