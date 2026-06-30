@@ -16,9 +16,10 @@ class APVendorController extends Info;
 // slot math itself lives in APLocationRegistry.SlotForApId.
 const NONCARD_LOC_WINDOW = 2048;
 
-// Process-wide singleton pointer (class-default). Instance copy kept None for
-// save-graph hygiene.
-var APVendorController LatestInstance;
+// Live per-level singleton is hosted on the per-level APGameInfo
+// (APGameInfo.VendorController), not a class-default pointer: a class-default Actor
+// ref would let the teardown GC reach this dying instance and fault on a freed
+// TraderToken[] / WeasleyToken[] slot. The GameInfo host is purged at travel.
 
 // Live Harry for the engaged VendorManager. Set each Snapshot by
 // ReplaceVendorEquipment; the hint / icon / purchased / out-of-stock passes
@@ -140,19 +141,23 @@ var byte  WeasleyDispensed[2];
 // context on first use of a level. Logic-only (no mesh) so runtime spawn is safe.
 static function APVendorController GetInstance(Actor ctx)
 {
-    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
-        return default.LatestInstance;
+    local APGameInfo gi;
+
     if (ctx == None) return None;
+    gi = APGameInfo(ctx.Level.Game);
+    if (gi == None) return None;
+    if (gi.VendorController != None && !gi.VendorController.bDeleteMe)
+        return gi.VendorController;
     return ctx.Spawn(class'APVendorController');
 }
 
 event PreBeginPlay()
 {
     Super.PreBeginPlay();
-    // Only default.LatestInstance is the singleton pointer; Spawn seeds the
-    // instance copy from the class default, so clear it.
-    LatestInstance = None;
-    default.LatestInstance = self;
+    // Register on the per-level GameInfo host (not a class-default pointer) so the
+    // dying instance is unreachable at the level-teardown GC.
+    if (APGameInfo(Level.Game) != None)
+        APGameInfo(Level.Game).VendorController = self;
 }
 
 // Price mode from the apworld slot_data (TRADECFG IPC). Class-default + sticky.
@@ -169,10 +174,19 @@ static function SetTradersanityMode(int m)
 static function SetSkipVendorVoices(byte v)
 {
     local APVendorController vc;
+    local APCardWatcher w;
+    local APGameInfo gi;
 
     default.bSkipVendorVoices = v;
     Log("[Archipelago] APVendorController.SetSkipVendorVoices: skip=" $ string(default.bSkipVendorVoices));
-    vc = default.LatestInstance;
+    // No class-default singleton pointer to read from a static context. Reach the
+    // live per-level instance via the watcher's current Level.Game host; if none is
+    // up yet, the per-level Snapshot pass re-applies the silence on the next load.
+    w = class'APCardWatcher'.static.GetLatest();
+    if (w == None) return;
+    gi = APGameInfo(w.Level.Game);
+    if (gi == None) return;
+    vc = gi.VendorController;
     if (vc != None && !vc.bDeleteMe) vc.ApplySkipVendorVoicesPass();
 }
 

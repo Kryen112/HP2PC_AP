@@ -49,6 +49,14 @@ var Actor SkurgeBlockerInstance;
 var Actor DiffindoBlockerInstance;
 var Actor SpongifyBlockerInstance;
 
+// Per-level hosts for the morph registry and vendor controller singletons. Held
+// here (reached O(1) via Level.Game), not on a class-default pointer: a class-
+// default Actor ref keeps the dying instance and its Actor-ref arrays reachable at
+// the level-teardown garbage collection and faults. This GameInfo is purged at
+// travel, so the hosted instances are collected without serializing those arrays.
+var APMorphRegistry MorphRegistry;
+var APVendorController VendorController;
+
 // Spawn point for the visible Slytherin Common Room end star
 // (Adv7SlythComRoom). WORLD coords, hand-tuned in-game via the APConsole
 // LogPos dev command the same way the *BlockerOffset literals were captured.

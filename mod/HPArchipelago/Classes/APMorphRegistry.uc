@@ -13,9 +13,9 @@ class APMorphRegistry extends Info;
 const NONCARD_LOC_WINDOW = 2048;
 const MORPH_REGISTRY_SIZE = 256;
 
-// Process-wide singleton pointer (class-default). Instance copy kept None for
-// save-graph hygiene, mirroring APBeanRoom / APContainerManager.
-var APMorphRegistry LatestInstance;
+// Live per-level singleton is hosted on the per-level APGameInfo
+// (APGameInfo.MorphRegistry), not a class-default pointer. See the MorphActor[]
+// block below for why a class-default Actor ref crashes the level-teardown GC.
 
 // Per-AP-location appearance code, indexed by the window slot exactly like
 // NonCardLocationChecked[] (same dedupe-window math, same cross-level
@@ -49,11 +49,15 @@ var byte bAppearanceRestampedThisLevel;
 // fatal M212 hazard: the class default object outlives every level, so on level
 // cleanup ULevel::CleanupDestroyed walks the persistent ObjectProperty array and
 // asserts (Obj->IsValid) on a freed marker from a torn-down level (the chest
-// FancySpawn + pickup-Destroy pattern guarantees stale slots). As instance state
-// on the per-level singleton it dies with the level; markers re-register into
-// each level's fresh singleton, with the PostBeginPlay self-apply as the
-// independent safety net since AppearanceCode[] IS class-default (only Object
-// refs are unsafe there). MORPH_REGISTRY_SIZE is generous: a level holds at most
+// FancySpawn + pickup-Destroy pattern guarantees stale slots). Instance storage
+// is necessary but not sufficient: the singleton pointer is ALSO kept off the
+// class default (hosted on the per-level APGameInfo), because a class-default
+// pointer to this instance lets the teardown GC reach it through the class object
+// and fault on a freed slot. With both off the class default the instance is
+// unreachable at travel and collected without serializing MorphActor[]; markers
+// re-register into each level's fresh singleton, with the PostBeginPlay self-apply
+// as the independent safety net since AppearanceCode[] IS class-default (only
+// Object refs are unsafe there). MORPH_REGISTRY_SIZE is generous: a level holds at most
 // a handful of card chests + the chest FancySpawn burst + a few stars + 2 vendors.
 var Actor MorphActor[256];
 var int   MorphApId[256];
@@ -71,19 +75,23 @@ var name  MorphClassName[256];
 // only (no mesh) so runtime spawn is safe.
 static function APMorphRegistry GetInstance(Actor ctx)
 {
-    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
-        return default.LatestInstance;
+    local APGameInfo gi;
+
     if (ctx == None) return None;
+    gi = APGameInfo(ctx.Level.Game);
+    if (gi == None) return None;
+    if (gi.MorphRegistry != None && !gi.MorphRegistry.bDeleteMe)
+        return gi.MorphRegistry;
     return ctx.Spawn(class'APMorphRegistry');
 }
 
 event PreBeginPlay()
 {
     Super.PreBeginPlay();
-    // Only default.LatestInstance is the singleton pointer; Spawn seeds the
-    // instance copy from the class default, so clear it.
-    LatestInstance = None;
-    default.LatestInstance = self;
+    // Register on the per-level GameInfo host (not a class-default pointer) so the
+    // dying instance is unreachable at the level-teardown GC.
+    if (APGameInfo(Level.Game) != None)
+        APGameInfo(Level.Game).MorphRegistry = self;
 }
 
 // Ingest the client's "apId:code,apId:code,..." appearance table. Full AP
@@ -218,9 +226,11 @@ defaultproperties
 {
     // Logic-only, no render/collision. bGameRelevant=False so each level
     // transition destroys this singleton: the instance MorphActor[] registry dies
-    // with the level (never a class-default Actor array, which would assert at
-    // cleanup), and bAppearanceRestampedThisLevel resets. The appearance table is
-    // class-default and persists regardless.
+    // with the level (never a class-default Actor array, which would crash the
+    // teardown GC), and bAppearanceRestampedThisLevel resets. The live singleton is
+    // reached via the per-level APGameInfo host, not a class-default pointer, so the
+    // dying instance is unreachable at travel. The appearance table is class-default
+    // and persists regardless.
     bHidden=True
     bGameRelevant=False
     bCollideActors=False
