@@ -19,7 +19,7 @@ from BaseClasses import (Item, ItemClassification, Location,
                          LocationProgressType, Region)
 from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
                      OptionError, OptionGroup, OptionSet, PerGameCommonOptions,
-                     Range, StartInventoryPool, Toggle)
+                     Range, StartInventoryPool, Toggle, Visibility)
 from worlds.AutoWorld import WebWorld, World
 from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
@@ -246,8 +246,12 @@ class AllowGlitchedLogic(Toggle):
     precollects it so any `... | Glitched` clauses in the rule tables pass.
     Off by default. The standard logic expects no glitches. Enabling it assumes
     the player can perform the glitches the tagged checks rely on.
+
+    Hidden from the player YAML template and option UIs (no glitch checks ship
+    this release). The option stays wired so it still parses if set by hand.
     """
     display_name = "Allow Glitched logic"
+    visibility = Visibility.none
 
 
 class EnableChallengeStars(DefaultOnToggle):

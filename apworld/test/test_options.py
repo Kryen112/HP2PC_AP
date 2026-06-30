@@ -2,6 +2,11 @@
 seed: the goal-clause fallbacks, the contradictory goal-vs-disabled-category
 case the world clamps, the starting-spell extremes, and traps disabled."""
 
+import unittest
+
+from Options import Visibility
+
+from .. import AllowGlitchedLogic
 from .bases import HP2TestBase
 
 
@@ -65,3 +70,11 @@ class TestAllStartingSpells(HP2TestBase):
 class TestTrapsDisabledFillHigh(HP2TestBase):
     """Empty trap set with a high trap-fill percent yields filler, not a crash."""
     options = {"game_mode": "vanilla", "traps": [], "trap_fill_percent": 50}
+
+
+class TestGlitchedLogicHidden(unittest.TestCase):
+    """Glitched logic ships no checks this release, so the option stays out of
+    the player YAML template and the option UIs while remaining set-able."""
+
+    def test_visibility_none(self) -> None:
+        self.assertEqual(AllowGlitchedLogic.visibility, Visibility.none)
