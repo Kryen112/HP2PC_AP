@@ -57,6 +57,14 @@ var byte bAppearanceRestampedThisLevel;
 // a handful of card chests + the chest FancySpawn burst + a few stars + 2 vendors.
 var Actor MorphActor[256];
 var int   MorphApId[256];
+// Parallel to MorphActor[]: the class name each reference had when it registered.
+// The sweep compares it against the live reference's current class before
+// painting. A morphable marker never changes class, so it always matches and
+// paints normally. If a slot's reference has drifted to a different actor (a real
+// world decoration, which never registers here), the class differs and the sweep
+// skips it, so a non-marker is never overwritten with an AP item look. Dimension
+// literal mirrors MorphActor[] (M212 array dims take an integer literal).
+var name  MorphClassName[256];
 
 // Found-or-spawned singleton accessor. Lazily spawns one via the caller's context
 // on first use of a level (a marker registering, or the watcher's sweep). Logic-
@@ -138,6 +146,7 @@ function RegisterMorphMarker(Actor a, int apId)
         if (MorphActor[i] == a)
         {
             MorphApId[i] = apId;
+            MorphClassName[i] = a.Class.Name;
             return;
         }
         if (free < 0 && (MorphActor[i] == None || MorphActor[i].bDeleteMe))
@@ -148,6 +157,7 @@ function RegisterMorphMarker(Actor a, int apId)
     if (free < 0) return;
     MorphActor[free] = a;
     MorphApId[free]  = apId;
+    MorphClassName[free] = a.Class.Name;
 }
 
 // Convergence sweep: re-stamp every registered marker from the live table.
@@ -168,6 +178,20 @@ function RestampMarkerAppearance()
         a = MorphActor[i];
         if (a == None) continue;
         if (a.bDeleteMe) continue;
+        // Guard against a drifted reference: only paint when the live actor is
+        // still the same class that registered here. A morphable marker keeps its
+        // class for life, so this never blocks a real marker. A mismatch means the
+        // slot now points at a different actor (a world decoration, never a
+        // marker), so skip it and free the slot instead of overwriting its look.
+        if (a.Class.Name != MorphClassName[i])
+        {
+            Log("[Archipelago] APMorphRegistry.RestampMarkerAppearance: slot " $ i
+                $ " registered as " $ string(MorphClassName[i]) $ " now references "
+                $ string(a.Class.Name) $ " (" $ string(a.Name) $ ") at " $ string(a.Location)
+                $ " - NOT morphing, this is not an AP marker");
+            MorphActor[i] = None;
+            continue;
+        }
         class'APAppearanceMath'.static.ApplyAppearanceTo(a, AppearanceForApId(MorphApId[i]));
         applied++;
     }
