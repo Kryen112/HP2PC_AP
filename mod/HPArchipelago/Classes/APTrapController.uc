@@ -491,6 +491,10 @@ static function TrapTick(harry h)
             h.bInvertMouse = (default.bConfundusOrigInvertMouse == 1);
         }
         default.bConfundusTrapActive = 0;
+        // Drop the screen tint. On a level change the fresh pawn already has a
+        // zero FlashFog, so this only matters for the same-level timeout, but it
+        // is a harmless no-op on the new pawn either way.
+        ClearConfundusTint(h);
         if (bLevelChanged)
         {
             Log("[Archipelago] APTrapController.TrapTick: confundus trap cleared on level change (pawn re-reads ini setting)");
@@ -576,4 +580,39 @@ static function LevicorpusHold(harry h)
     // Strafe inversion from the flipped right-axis is handled in the input layer by
     // SwapStrafeKeys, not here: this Tick runs after harry.PlayerMove has already
     // consumed aStrafe, so a per-frame negate would land too late.
+}
+
+// Per-frame screen tint for the Confundus Trap (watcher Tick, like LevicorpusHold).
+// The trap's only effect (inverted look) is otherwise invisible, so a held green
+// wash makes it unmistakable and pairs with the on-screen countdown. FlashFog is
+// the engine's screen-fog Plane (X/Y/Z colour, W blend); FadeViewController writes
+// it directly each tick for sustained fades, so a per-frame write here holds the
+// tint despite the native flash decay. Values are 0..1 like that flash path; the
+// exact colour and intensity are tuning values. Cleared by ClearConfundusTint when
+// the trap ends on the timer; the level-change path gets a fresh pawn whose
+// FlashFog is already zero. Only acts while the trap is active and Harry is bound.
+static function ConfundusTint(harry h)
+{
+    if (default.bConfundusTrapActive == 0 || h == None)
+    {
+        return;
+    }
+    h.FlashFog.X = 0.0;     // red
+    h.FlashFog.Y = 0.35;    // green
+    h.FlashFog.Z = 0.1;     // blue
+    h.FlashFog.W = 0.45;    // blend
+}
+
+// Zero the Confundus screen tint. Called from TrapTick when the trap ends on the
+// same-level timer. A no-op on a fresh level-change pawn (FlashFog already zero).
+static function ClearConfundusTint(harry h)
+{
+    if (h == None)
+    {
+        return;
+    }
+    h.FlashFog.X = 0.0;
+    h.FlashFog.Y = 0.0;
+    h.FlashFog.Z = 0.0;
+    h.FlashFog.W = 0.0;
 }

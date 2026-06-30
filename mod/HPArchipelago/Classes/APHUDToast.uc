@@ -675,10 +675,12 @@ function RenderHud(Canvas C)
 
     if (C == None) return;
 
-    // Banner first so it draws regardless of whether the toast queue is empty.
-    // Each pass is independently gated; the banner runs whenever a Tradersanity
-    // vendor is engaged, the toast loop runs whenever ToastCount > 0.
+    // Banner and trap status first so they draw regardless of whether the toast
+    // queue is empty. Each pass is independently gated: the banner runs whenever a
+    // Tradersanity vendor is engaged, the trap status whenever an invisible-effect
+    // trap is live, the toast loop whenever ToastCount > 0.
     DrawTradersanityAPLabel(C);
+    DrawTrapStatus(C);
 
     if (ToastCount <= 0) return;
 
@@ -854,6 +856,79 @@ function DrawTradersanityAPLabel(Canvas C)
 
     C.Font = fontSave;
     C.DrawColor = colorSave;
+}
+
+// Persistent on-screen indicator for the two traps whose effect is otherwise
+// invisible: Confundus (inverted look) and Obliviate (spellbook sealed). Every
+// other trap self-advertises (Goyle model, size, upside down, giant wand, random
+// jumps), so only these two need a cue. Gated on the live APTrapController
+// class-default flags, with a countdown read off the matching expiry. Drawn each
+// frame like the Tradersanity banner, independent of the toast queue, so it stays
+// up the whole effect. Trap-red on a black shadow, top-centre, one row per trap,
+// clear of the vendor banner above it.
+function DrawTrapStatus(Canvas C)
+{
+    local harry h;
+    local bool bConf, bObliv;
+    local float now, rem, textW, textH, rowY, scale;
+    local Color colorText, colorShadow, colorSave;
+    local Font fontSave;
+    local string label;
+
+    bConf  = (class'APTrapController'.default.bConfundusTrapActive == 1);
+    bObliv = (class'APTrapController'.default.bSpellTrapActive == 1);
+    if (!bConf && !bObliv) return;
+
+    h = harry(Level.PlayerHarryActor);
+    if (h == None || h.Player == None) return;
+
+    now = h.Level.TimeSeconds;
+    scale = C.GetHudScaleFactor();
+
+    fontSave = C.Font;
+    colorSave = C.DrawColor;
+    C.Font = baseConsole(h.Player.Console).LocalBigFont;
+    colorText = APRoleTrap();
+    colorShadow = APBlack();
+
+    // First row sits below the very top, clear of the Tradersanity vendor banner
+    // (drawn by the same RenderHud at y~2).
+    rowY = 28.0 * scale;
+
+    if (bConf)
+    {
+        rem = class'APTrapController'.default.ConfundusTrapExpiry - now;
+        label = "Confunded!  " $ string(CeilSeconds(rem)) $ "s";
+        C.TextSize(label, textW, textH);
+        C.SetPos((C.SizeX - textW) / 2.0, rowY);
+        C.DrawShadowText(label, colorText, colorShadow);
+        rowY += textH * 1.15;
+    }
+
+    if (bObliv)
+    {
+        rem = class'APTrapController'.default.SpellTrapExpiry - now;
+        label = "Obliviated: spells sealed  " $ string(CeilSeconds(rem)) $ "s";
+        C.TextSize(label, textW, textH);
+        C.SetPos((C.SizeX - textW) / 2.0, rowY);
+        C.DrawShadowText(label, colorText, colorShadow);
+    }
+
+    C.Font = fontSave;
+    C.DrawColor = colorSave;
+}
+
+// Whole seconds remaining, rounded up, floored at 0. Keeps the countdown from
+// reading 0 while the effect is still live and never shows a negative if a tick
+// lands just past the expiry before the trap flag clears.
+static function int CeilSeconds(float remaining)
+{
+    local int s;
+
+    if (remaining <= 0.0) return 0;
+    s = int(remaining);
+    if (remaining > float(s)) s++;
+    return s;
 }
 
 defaultproperties

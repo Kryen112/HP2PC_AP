@@ -1128,6 +1128,7 @@ event Tick(float DeltaTime)
     }
     class'APTrapController'.static.LevicorpusHold(HarryRef);
     class'APTrapController'.static.JellyLegsHold(HarryRef);
+    class'APTrapController'.static.ConfundusTint(HarryRef);
 }
 
 event Timer()
