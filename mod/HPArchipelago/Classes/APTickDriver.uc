@@ -10,6 +10,19 @@
 // notes that travelled with each block.
 class APTickDriver extends Object;
 
+// Cadence for the event-backed safety-net scanners (ScanSecretMarkers,
+// ReconcileVanillaCardPickups). Their primary detection is now event-driven
+// (APSecretMarker.OnFound / APCardMarker.Touch), so they only back those up and
+// run every Nth tick instead of every tick, to shave per-tick AllActors work.
+// 4 ticks == ~1s at the 0.25s Timer; a missed event is still caught within that
+// window. Does NOT cover the vendor pickup polls: their pass must run every tick
+// to detect a sale and swap the dropped prop before the player grabs it.
+const SAFETY_NET_INTERVAL = 4;
+
+// Process-wide phase counter for the cadence above. Class default (this class is
+// never instantiated); a plain int, so no save-graph or teardown-GC concern.
+var int SafetyNetTick;
+
 static function DriveTick(APCardWatcher w)
 {
     local APIPCActor ipc;
@@ -20,11 +33,18 @@ static function DriveTick(APCardWatcher w)
     local APLocationScanner ls;
     local APVendorController vc;
     local APStartupFeedback sf;
+    local bool bRunSafetyNets;
 
     // Use the singleton directly instead of Level.Game.IPCActor: save-load skips
     // APGameInfo.InitGame, leaving the post-save GameInfo with IPCActor=None even
     // though the persistent singleton is alive.
     ipc = class'APIPCActor'.static.GetInstance();
+
+    // Reduced cadence for the event-backed safety-net scanners (see
+    // SAFETY_NET_INTERVAL): their primary paths fire instantly, so this only sets
+    // how fast the backstop catches a missed event.
+    bRunSafetyNets = (default.SafetyNetTick == 0);
+    default.SafetyNetTick = (default.SafetyNetTick + 1) % SAFETY_NET_INTERVAL;
 
     // Cheap once-per-process menu patch (no-op after the first inject).
     class'APMenuCutsceneAid'.static.EnsureHomeMenuInjected(w.HarryRef);
@@ -51,8 +71,9 @@ static function DriveTick(APCardWatcher w)
     // Free pixies from the 3s fly-in invulnerability the moment a cutscene ends.
     w.PixieCutsceneTick();
 
-    // Vanilla wizard-card pickups -> CHECK + revert + stamp checked.
-    w.ReconcileVanillaCardPickups(ipc);
+    // Vanilla wizard-card pickups -> CHECK + revert + stamp checked. Backs up the
+    // primary APCardMarker.Touch path, so it runs on the safety-net cadence.
+    if (bRunSafetyNets) w.ReconcileVanillaCardPickups(ipc);
 
     // Tradersanity + Fred/George equipment, then card-vendor card replacement.
     // Independent of each other, so order does not matter.
@@ -65,7 +86,7 @@ static function DriveTick(APCardWatcher w)
     ls = class'APLocationScanner'.static.GetInstance(w);
     if (ls != None)
     {
-        ls.ScanSecretMarkers(ipc);
+        if (bRunSafetyNets) ls.ScanSecretMarkers(ipc);  // backs up APSecretMarker.OnFound
         ls.ScanDuelWins(ipc, w.HarryRef);
         ls.ScanMatchWins(ipc, w.HarryRef);
         ls.EnforceGenuineChallengeScores(w.HarryRef);
