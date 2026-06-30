@@ -299,20 +299,20 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
 }
 
 ITEM_GROUPS: dict[str, list[str]] = {
-    "Spells": ["Alohomora", "Diffindo", "Flipendo", "Lumos", "Rictusempra", "Skurge", "Spongify"],
+    "Spells": ["Lumos", "Flipendo", "Alohomora", "Rictusempra", "Diffindo", "Skurge", "Spongify"],
     "Key Items": [],
     "Blocker Keys": [
-        "Chamber of Secrets Key",
-        "Spongify Challenge Key",
-        "Skurge Challenge Key",
         "Rictusempra Challenge Key",
+        "Skurge Challenge Key",
         "Diffindo Challenge Key",
-        "Boomslang Level Key",
+        "Spongify Challenge Key",
         "Whomping Willow Key",
-        "Forbidden Forest Key",
-        "Slytherin Common Room Key",
-        "Goyle Level Key",
         "Bicorn Level Key",
+        "Boomslang Level Key",
+        "Goyle Level Key",
+        "Slytherin Common Room Key",
+        "Forbidden Forest Key",
+        "Chamber of Secrets Key",
         "Duelling Key",
         "Quidditch Key",
         "Gryffindor Challenge Key",
@@ -426,37 +426,54 @@ ITEM_GROUPS: dict[str, list[str]] = {
         "Gold Card - Slytherin",
     ],
     "Filler": [
+        "1 Bean",
+        "5 Beans",
+        "10 Beans",
         "Small Jar of Beans",
         "Medium Jar of Beans",
         "Large Jar of Beans",
         "Massive Jar of Beans",
-        "Wiggenweld Potion",
+        "Chocolate Frog",
         "Wiggentree Bark",
         "Flobberworm Mucous",
-        "Chocolate Frog",
-        "1 Bean",
-        "5 Beans",
-        "10 Beans",
+        "Wiggenweld Potion",
     ],
     "Traps": [
-        "Bean Thief Trap",
         "Polyjuice Potion Trap",
-        "Obliviate Trap",
-        "Drowsiness Draught Trap",
         "Engorgio Trap",
         "Reducio Trap",
-        "Confundus Trap",
         "Overcompensation Trap",
         "Levicorpus Trap",
         "Jelly-Legs Jinx Trap",
+        "Bean Thief Trap",
+        "Drowsiness Draught Trap",
+        "Confundus Trap",
+        "Obliviate Trap",
     ],
 }
 
 # Derived from ITEM_GROUPS so the flat lists can never drift from the groups.
-# Order is load-bearing: FILLER_NAMES maps 1:1 to the mod's 2001+ filler codes
-# (see Client.FILLER_CODE) and TRAP_NAMES fixes the reproducible trap-pick order.
+# Their order feeds the reproducible filler/trap RNG draws (a per-seed input),
+# but never an id: appearance and grant codes are name-keyed, not positional.
 FILLER_NAMES: list[str] = list(ITEM_GROUPS["Filler"])
 TRAP_NAMES: list[str] = list(ITEM_GROUPS["Traps"])
+
+# Filler appearance code: each filler pins to the mod's frozen 2001+ prop code
+# (APAppearanceMath.uc ApplyAppearanceTo). Name-keyed, so the ITEM_GROUPS
+# "Filler" ordering is free to read well without shifting any token's look.
+FILLER_APPEARANCE_CODE: dict[str, int] = {
+    "Small Jar of Beans": 2001,
+    "Medium Jar of Beans": 2002,
+    "Large Jar of Beans": 2003,
+    "Massive Jar of Beans": 2004,
+    "Wiggenweld Potion": 2005,
+    "Wiggentree Bark": 2006,
+    "Flobberworm Mucous": 2007,
+    "Chocolate Frog": 2008,
+    "1 Bean": 2009,
+    "5 Beans": 2010,
+    "10 Beans": 2011,
+}
 
 # Map UScript card class name → AP item display name. Used by the client
 # when forwarding 'GRANT <classname>' messages to the mod for cards.

@@ -96,8 +96,8 @@ from CommonClient import (ClientCommandProcessor, CommonContext,
 from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, music_patch, sound_patch
-from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_NAMES, ITEM_CLASSIFICATIONS,
-                    ITEM_GROUPS)
+from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
+                    ITEM_CLASSIFICATIONS, ITEM_GROUPS)
 from .locations import (CARD_CLASS_TO_LOCATION_NAME,
                         CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID)
@@ -305,9 +305,10 @@ BLOCKER_KEY_NAMES_SET = frozenset(ITEM_GROUPS['Blocker Keys'])
 # three inherits save-load survivability with zero extra wiring.
 KEY_ITEM_NAMES_SET = frozenset(['Boomslang', 'Bicorn', 'BitOGoyle'])
 
-# Filler appearance code. FILLER_NAMES order maps 1:1 to the mod's filler codes
-# starting at 2001 (one per filler, in FILLER_NAMES order).
-FILLER_CODE = {name: 2001 + i for i, name in enumerate(FILLER_NAMES)}
+# Filler appearance code: name -> the mod's frozen 2001+ prop code, defined in
+# items.py so it lives with the id space and stays name-keyed (it never shifts
+# when the ITEM_GROUPS "Filler" order changes).
+FILLER_CODE = FILLER_APPEARANCE_CODE
 
 # Equipment appearance code: vanilla HProp pickups morphed to their own
 # vanilla mesh, same as cards/spells/filler (mod codes 3001..3002).

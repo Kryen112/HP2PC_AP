@@ -157,9 +157,7 @@ class VanillaGateLevels(DefaultOnToggle):
     every earlier level key, matching vanilla's linear story order).
 
     If false, those 7 keys are precollected instead, so the regions open
-    immediately and no bookcases spawn (the classic precollect-everything
-    vanilla flow). Has no effect in open castle mode (all 14 keys are always AP
-    items there).
+    immediately and no bookcases spawn (the classic vanilla flow).
     """
     display_name = "Vanilla gate levels"
 
@@ -168,69 +166,23 @@ class StartingSpells(OptionSet):
     """Spells Harry starts with. Any spell not listed is an AP item instead.
 
     The `vanilla` game mode physically requires Lumos and Flipendo to finish
-    the Whomping Willow level, and the vanilla logic gates every Hogwarts and
-    Castle Exterior location behind both. If either is missing here in vanilla,
-    they are added automatically, since the seed would otherwise have nowhere
-    reachable to place them. Open castle leaves the set untouched.
+    the Whomping Willow level. If either is missing here in vanilla, they are
+    added automatically, since the seed would otherwise have nowhere reachable
+    to place them. Open castle leaves the set untouched.
 
-    Valid spells: Alohomora, Flipendo, Lumos, Rictusempra, Skurge, Diffindo, Spongify.
+    Valid spells: Lumos, Flipendo, Alohomora, Rictusempra, Skurge, Diffindo, Spongify.
     """
     display_name = "Starting Spells"
     valid_keys = frozenset(SPELL_ITEM_NAMES)
-    default = frozenset({"Flipendo", "Lumos", "Alohomora"})
-
-
-class EnableWizardCards(DefaultOnToggle):
-    """Card shuffle. The 101 wizard cards are always AP locations; this only
-    chooses how the card items are placed. On (default): cards are shuffled into
-    the multiworld pool. Off: each card is locked to its own original spot, so
-    the silver-card gate on the Gold Card Room stays honest (you still collect
-    silvers from their real locations).
-    """
-    display_name = "Enable Wizard Cards"
-
-
-class EnableSecrets(DefaultOnToggle):
-    """If true, the 109 Secrets become AP locations, plus open castle's 9 in
-    the Gryffindor challenge (118 total in open castle).
-
-    The `allow_missable_progression` missable-vs-replayable split is
-    vanilla-only. In open castle every level is infinitely replayable, so all
-    enabled secrets follow normal region-entry logic.
-    """
-    display_name = "Enable Secrets"
-
-
-class AllowMissableProgression(Toggle):
-    """Vanilla-only (ignored in open castle). If true, missable locations in
-    un-replayable vanilla levels (Willow, Bicorn, Boomslang, Goyle, Slytherin
-    Common, Forest, Chamber) are allowed to hold progression items. This covers
-    missable secrets (when `enable_secrets` is true) and, when `containersanity`
-    is on, the containers in those same one-way regions.
-
-    If false, those missable locations are filler-only, which is safer because
-    the player can't soft-lock by missing a one-way check. Locations in
-    replayable areas (hubs, the spell challenges) always allow progression
-    regardless of this setting; this flag only gates the un-replayable subset.
-
-    Open castle makes every level infinitely replayable, so nothing is
-    missable there and this option has no effect.
-    """
-    display_name = "Allow Missable Progression"
+    default = frozenset({"Lumos", "Flipendo", "Alohomora"})
 
 
 class AllowRunningLogic(Toggle):
-    """If true, locations and regions tagged with the `Running` logic flag are
-    treated as reachable via Harry's always-on run speed, without the spell they
-    would otherwise need. Applies in both game modes.
+    """If true, Running becomes a logic flag and certain regions or locations
+    become reachable earlier. Applies in both game modes.
 
-    Additive only: it never removes a requirement, so a seed solvable with it
-    off stays solvable with it on. `Running` is a logic flag, not an item: when
-    this is on the world precollects it so the `... | Running` clauses in the
-    rule tables pass. Off by default. The standard logic expects the
-    spell. The shift-to-run sprint is always available regardless of this option;
-    with it on the mod also makes that sprint free (no bean cost, and usable at
-    0 beans) so the running this logic relies on is genuinely always available.
+    This makes sprinting free (no bean cost, and usable at 0 beans), so the
+    running this logic relies on is genuinely always available.
     """
     display_name = "Allow Running logic"
 
@@ -254,10 +206,27 @@ class AllowGlitchedLogic(Toggle):
     visibility = Visibility.none
 
 
+class EnableWizardCards(DefaultOnToggle):
+    """Card shuffle. The 101 wizard cards are always AP locations; this only
+    chooses how the card items are placed.
+
+    true: cards are shuffled into the multiworld pool.
+    false: each card is locked to its own original spot.
+    """
+    display_name = "Enable Wizard Cards"
+
+
+class EnableSecrets(DefaultOnToggle):
+    """If true, the 109 Secrets become AP locations, plus open castle's 9 in
+    the Gryffindor challenge (118 total in open castle).
+    """
+    display_name = "Enable Secrets"
+
+
 class EnableChallengeStars(DefaultOnToggle):
-    """If true, the Challenge Stars become AP locations: 44 across the 4
-    spell-challenges (Rictusempra, Skurge, Diffindo, Spongify), plus open
-    castle's 10 in the Gryffindor challenge (54 total in open castle).
+    """If true, the Challenge Stars become AP locations:
+    44 across the 4 spell-challenges (Rictusempra, Skurge, Diffindo, Spongify),
+    plus 10 in open castle's Gryffindor challenge (54 total in open castle).
     """
     display_name = "Enable Challenge Stars"
 
@@ -285,11 +254,7 @@ class EnableSpellChallengeTimes(Toggle):
 class Containersanity(Toggle):
     """If true, ~283 in-world containers (chests without cards, cauldrons,
     cigar / jewel / music boxes, decanters, oil cans, plant pots, vases,
-    knights, ingredient spawners, and a handful of Flipendo-break statues)
-    each become a location: hitting one with its spell (Alohomora or Flipendo)
-    yields an AP token. A big check-count increase, so off by default. The 7 in
-    the open-castle bean reward room exist only in open castle. Locations-only
-    (filler pads the pool).
+    knights, ingredient spawners, statues, toilets) each become a location.
     """
     display_name = "Containersanity"
 
@@ -301,14 +266,28 @@ class EnableQuidditchUpgrades(Toggle):
     display_name = "Enable Quidditch upgrades"
 
 
-# --- OPEN CASTLE section: the Great Hall key. The 5 clauses below are AND'd;
-# a clause set to 0 / off drops out. Open castle only (ignored in vanilla). If
-# a yaml resolves all five to 0/off, _open_castle_goal_config falls back to
-# "all 7 spells" so there is always a gate. NamedRange gives named anchors
-# plus a free integer, and supports yaml `random` / `random-low` / `random-high`.
+class AllowMissableProgression(Toggle):
+    """Vanilla-only (ignored in open castle). If true, missable locations in
+    un-replayable vanilla levels (Willow, Bicorn, Boomslang, Goyle, Slytherin
+    Common, Forest and Chamber) are allowed to hold progression items. This covers
+    missable secrets (when `enable_secrets` is true) and, when `containersanity`
+    is on, the containers in those same one-way regions.
+
+    If false, those missable locations are filler-only, which is safer because
+    the player can't soft-lock by missing a one-way check. Locations in
+    replayable areas (hubs, the spell challenges) always allow progression
+    regardless of this setting; this flag only gates the un-replayable subset.
+
+    Open castle makes every level infinitely replayable, so nothing is
+    missable there and this option has no effect.
+    """
+    display_name = "Allow Missable Progression"
+
+
 class OpenCastleGoalCards(NamedRange):
     """Open castle only. Wizard cards needed to open the Great Hall. 0
-    disables this clause. Counts cards Harry actually owns (including AP-granted)."""
+    disables this clause. Counts cards Harry actually owns (including AP-granted).
+    """
     display_name = "Open castle goal: cards"
     range_start = 0
     range_end = 101
@@ -319,7 +298,8 @@ class OpenCastleGoalCards(NamedRange):
 class OpenCastleGoalSpells(NamedRange):
     """Open castle only. Spells needed to open the Great Hall. 0 disables
     this clause. (If every open castle goal clause is 0/off, this is forced
-    to 7.)"""
+    to 7.)
+    """
     display_name = "Open castle goal: spells"
     range_start = 0
     range_end = 7
@@ -329,8 +309,9 @@ class OpenCastleGoalSpells(NamedRange):
 
 class OpenCastleGoalLevels(NamedRange):
     """Open castle only. Level objectives finished to open the Great Hall. 0
-    disables. 13 objectives, fixed: 3 key-item levels + 2 bosses + 2 story
-    levels + 5 challenges + the Gold Card Room (needs 20 silver cards)."""
+    disables. 13 objectives: 3 key-item levels + 2 bosses + 2 story levels
+    + 5 challenges + the Gold Card Room.
+    """
     display_name = "Open castle goal: level objectives"
     range_start = 0
     range_end = 13
@@ -372,20 +353,22 @@ class TrapLink(Toggle):
 
 class Traps(OptionSet):
     """Which trap types may appear in your item pool. Traps replace a fraction
-    (set by `trap_fill_percent`) of the filler. Pick any subset; the empty set
-    means no traps at all. Default is every trap on.
+    (set by `trap_fill_percent`) of the filler. Pick any subset.
+
+    An empty set means no traps at all.
 
     Valid traps:
-    Bean Thief Trap (steals up to 200 beans),
-    Polyjuice Potion Trap (turns Harry into Goyle for the rest of the level),
-    Obliviate Trap (spellbook withheld ~30s),
-    Drowsiness Draught Trap (sleepy slow ~6s),
-    Engorgio Trap (giant Harry for the rest of the level),
-    Reducio Trap (tiny Harry for the rest of the level),
-    Confundus Trap (inverted camera look ~20s),
-    Overcompensation Trap (giant wand for the rest of the level),
-    Levicorpus Trap (Harry hangs upside down for the rest of the level),
-    Jelly-Legs Jinx Trap (jumping disabled ~20s while Harry jumps at random)."""
+    Polyjuice Potion Trap (turns Harry into Goyle for the rest of the level)
+    Engorgio Trap (giant Harry for the rest of the level)
+    Reducio Trap (tiny Harry for the rest of the level)
+    Overcompensation Trap (giant wand for the rest of the level)
+    Levicorpus Trap (Harry hangs upside down for the rest of the level)
+    Jelly-Legs Jinx Trap (jumping disabled ~20s while Harry jumps at random)
+    Bean Thief Trap (steals up to 200 beans)
+    Drowsiness Draught Trap (sleepy slow ~20s)
+    Confundus Trap (inverted camera look ~20s)
+    Obliviate Trap (spellbook withheld ~30s)
+    """
     display_name = "Traps"
     valid_keys = frozenset(TRAP_NAMES)
     default = frozenset(TRAP_NAMES)
@@ -403,7 +386,7 @@ class TrapFillPercent(Range):
 class Tradersanity(Choice):
     """Every non-Weasley card vendor and ingredient vendor sells one AP
     location check on its first sale, then permanently reverts to selling its
-    normal card or ingredient. The price mode sets what that AP sale costs:
+    normal cards or ingredient. The price mode sets what that AP sale costs:
 
     off: vendors sell their normal stock only, no AP checks.
 
@@ -426,7 +409,8 @@ class Tradersanity(Choice):
 class TradersanityHintOnOpen(Toggle):
     """If true, opening a Tradersanity vendor's dialogue for the first time
     publishes a broadcast hint for that vendor's AP check.
-    No effect when `tradersanity` is off."""
+    No effect when `tradersanity` is off.
+    """
     display_name = "Tradersanity hint on open"
     default = 1
 
@@ -442,13 +426,15 @@ class MusicRandomizer(Toggle):
     """If true, every music track is swapped for another from the same pool.
     Requires the client to be run in administrator mode if the game files
     live inside your program files.
+
     Upon first connect, you need to tell your client where your game files live.
 
     There are 2 music pools:
     A long-form background music pool and a shorter pool of jingles.
 
     Music can be reshuffled if needed with the /reroll_music command.
-    Music can be restored to their original with the /restore_music command."""
+    Music can be restored to their original with the /restore_music command.
+    """
     display_name = "Music randomizer"
 
 
@@ -456,16 +442,18 @@ class SoundRandomizer(Choice):
     """Shuffle the sound effects, deterministically per seed.
     Requires the client to be run in administrator mode if the game files
     live inside your program files.
+
     Upon first connect, you need to tell your client where your game files live.
 
     `off` (default): sound effects are left alone.
     `on`: every sound effect is swapped for another of similar length (sounds
     shuffle within their own length band: short / medium / long).
-    `no_footsteps`: the same, but Harry's footstep sounds are left alone, since
+    `no_footsteps`: the same, but footstep sounds are left alone, since
     randomizing them can be overwhelming.
 
     Sounds can be reshuffled with the /reroll_sounds command.
-    Sounds can be restored to their original with the /restore_sounds command."""
+    Sounds can be restored to their original with the /restore_sounds command.
+    """
     display_name = "Sound randomizer"
     option_off = 0
     option_on = 1
@@ -477,6 +465,7 @@ class DialogueRandomizer(Choice):
     """Shuffle the spoken dialogue / voice lines.
     Requires the client to be run in administrator mode if the game files
     live inside your program files.
+
     Upon first connect, you need to tell your client where your game files live.
 
     `off` (default): dialogue is left alone.
@@ -485,12 +474,9 @@ class DialogueRandomizer(Choice):
     `all_actors`: lines are shuffled across every character, so anyone can speak
     anyone's line.
 
-    Subtitles are shuffled to match, so the on-screen caption reads the line you
-    actually hear. A few lines have no subtitle in the game (match commentary,
-    ambient mutters, alternate takes); those show none, just like the original.
-
     Dialogue can be reshuffled with the /reroll_dialogue command.
-    Dialogue can be restored to its original with the /restore_dialogue command."""
+    Dialogue can be restored to its original with the /restore_dialogue command.
+    """
     display_name = "Dialogue randomizer"
     option_off = 0
     option_within_actor = 1
@@ -500,71 +486,47 @@ class DialogueRandomizer(Choice):
 
 @dataclass
 class HP2Options(PerGameCommonOptions):
-    # PerGameCommonOptions includes start_inventory (just-add) but NOT
-    # StartInventoryPool (add-and-remove-from-pool). Keep it available for
-    # the data YAMLs; the `starting_spells` set drives which spells the world
-    # precollects.
     start_inventory_from_pool: StartInventoryPool
     game_mode: GameMode
     starting_spells: StartingSpells
-    # Logic-flag toggles, both modes. Each precollects a code-less event item
-    # (Running / Glitched) when on, relaxing the `... | Running` / `... |
-    # Glitched` clauses in the rule tables. Pure generation logic, no item,
-    # no pool entry, nothing the mod needs at runtime.
     allow_running_logic: AllowRunningLogic
     allow_glitched_logic: AllowGlitchedLogic
-    # Per-category check toggles. Each gates both the matching locations and
-    # any paired items (currently: wizard cards, vendor equipment). Generator
-    # emits both sides into the stable id space, HP2World filters at build
-    # time. Spells + classrooms have no toggle: a spell-randomized run is the
-    # core experience, so spells are always in the pool and classrooms are
-    # always seed locations. With every toggle false the seed has only the 4
-    # classrooms and 4 non-starter spells.
-    enable_wizard_cards: EnableWizardCards
-    enable_secrets: EnableSecrets
-    allow_missable_progression: AllowMissableProgression
-    enable_challenge_stars: EnableChallengeStars
-    enable_quidditch_upgrades: EnableQuidditchUpgrades
-    enable_duelling: EnableDuelling
-    enable_quidditch_matches: EnableQuidditchMatches
-    enable_spell_challenge_times: EnableSpellChallengeTimes
-    containersanity: Containersanity
-    ring_link: RingLink
-    # AP Bounce-channel option (Toggle, default off). Pure runtime channel,
-    # no fill/logic impact; the client reads it from slot_data on Connected,
-    # (de)registers the TrapLink tag, broadcasts received traps and applies
-    # inbound ones.
-    trap_link: TrapLink
-    # Built-in AP Bounce-channel option (Toggle, default off). Pure runtime
-    # channel, no fill/logic impact; the client reads it from slot_data on
-    # Connected and (de)registers the DeathLink tag.
-    death_link: DeathLink
-    traps: Traps
-    trap_fill_percent: TrapFillPercent
-    tradersanity: Tradersanity
-    tradersanity_hint_on_open: TradersanityHintOnOpen
-    skip_vendor_voices: SkipVendorVoices
-    music_randomizer: MusicRandomizer
-    sound_randomizer: SoundRandomizer
-    dialogue_randomizer: DialogueRandomizer
-    # Rendered under their own OptionGroup headers (see
-    # HP2WebWorld.option_groups), so the dataclass position here does not
-    # affect template ordering.
+    # Vanilla options
     vanilla_gate_levels: VanillaGateLevels
+    allow_missable_progression: AllowMissableProgression
+    # Open castle options
     open_castle_goal_cards: OpenCastleGoalCards
     open_castle_goal_spells: OpenCastleGoalSpells
     open_castle_goal_levels: OpenCastleGoalLevels
     open_castle_goal_duels: OpenCastleGoalDuels
     open_castle_goal_quidditch: OpenCastleGoalQuidditch
+    # Per-category check toggles
+    enable_wizard_cards: EnableWizardCards
+    enable_secrets: EnableSecrets
+    enable_challenge_stars: EnableChallengeStars
+    containersanity: Containersanity
+    tradersanity: Tradersanity
+    enable_quidditch_upgrades: EnableQuidditchUpgrades
+    tradersanity_hint_on_open: TradersanityHintOnOpen
+    skip_vendor_voices: SkipVendorVoices
+    enable_duelling: EnableDuelling
+    enable_quidditch_matches: EnableQuidditchMatches
+    enable_spell_challenge_times: EnableSpellChallengeTimes
+    # Traps
+    traps: Traps
+    trap_fill_percent: TrapFillPercent
+    # Cross-game fun
+    death_link: DeathLink
+    trap_link: TrapLink
+    ring_link: RingLink
+    # Audio randomizers
+    music_randomizer: MusicRandomizer
+    sound_randomizer: SoundRandomizer
+    dialogue_randomizer: DialogueRandomizer
 
 
 class HP2WebWorld(WebWorld):
-    """Web frontend metadata for archipelago.gg.
-
-    The VANILLA / OPEN CASTLE option groups split the template: shared options
-    stay in the auto "Game Options" block above; mode-specific options sit
-    under their own banner. Padded names render as a wide ``#`` box header.
-    """
+    """Web frontend metadata for archipelago.gg."""
     option_groups = [
         OptionGroup("           VANILLA           ", [
             VanillaGateLevels, AllowMissableProgression,
@@ -572,6 +534,21 @@ class HP2WebWorld(WebWorld):
         OptionGroup("         OPEN CASTLE         ", [
             OpenCastleGoalCards, OpenCastleGoalSpells, OpenCastleGoalLevels,
             OpenCastleGoalDuels, OpenCastleGoalQuidditch,
+        ]),
+        OptionGroup("      CATEGORY TOGGLES       ", [
+            EnableWizardCards, EnableSecrets, EnableChallengeStars,
+            Containersanity, Tradersanity, EnableQuidditchUpgrades,
+            TradersanityHintOnOpen, SkipVendorVoices, EnableDuelling,
+            EnableQuidditchMatches, EnableSpellChallengeTimes
+        ]),
+        OptionGroup("        TRAP SETTINGS        ", [
+            Traps, TrapFillPercent,
+        ]),
+        OptionGroup("           LINKING           ", [
+            DeathLink, TrapLink, RingLink,
+        ]),
+        OptionGroup("      AUDIO RANDOMIZERS      ", [
+            MusicRandomizer, SoundRandomizer, DialogueRandomizer,
         ]),
     ]
 

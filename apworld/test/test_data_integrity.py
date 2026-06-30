@@ -5,8 +5,9 @@ create_items / create_regions rely on."""
 import unittest
 
 from ..access import _BRONZE_CARD_NAMES, _SILVER_CARD_NAMES
-from ..items import (BASE_ID as ITEM_BASE_ID, FILLER_NAMES, ITEM_CLASSIFICATIONS,
-                     ITEM_GROUPS, ITEM_NAME_TO_ID, TRAP_NAMES)
+from ..items import (BASE_ID as ITEM_BASE_ID, FILLER_APPEARANCE_CODE,
+                     FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
+                     ITEM_NAME_TO_ID, TRAP_NAMES)
 from ..locations import (BASE_ID as LOCATION_BASE_ID, LOCATION_GROUPS,
                          LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                          MISSABLE_LOCATION_DEPS_VANILLA, MISSABLE_LOCATIONS)
@@ -57,11 +58,33 @@ class TestDataIntegrity(unittest.TestCase):
 
     def test_filler_and_trap_lists_match_item_groups(self) -> None:
         # FILLER_NAMES / TRAP_NAMES are derived from ITEM_GROUPS; their order is
-        # load-bearing (filler-code mapping, reproducible trap picks). Guard both.
+        # the reproducible filler/trap RNG draw input. Guard against drift.
         self.assertEqual(FILLER_NAMES, ITEM_GROUPS["Filler"],
                          "FILLER_NAMES drifted from ITEM_GROUPS['Filler']")
         self.assertEqual(TRAP_NAMES, ITEM_GROUPS["Traps"],
                          "TRAP_NAMES drifted from ITEM_GROUPS['Traps']")
+
+    def test_filler_appearance_codes_pinned(self) -> None:
+        # The mod's APAppearanceMath.uc hardcodes prop codes 2001..2011, one per
+        # filler. The map is name-keyed (not FILLER_NAMES order) so reordering the
+        # "Filler" group cannot shift a token's look. Pin the exact contract.
+        expected = {
+            "Small Jar of Beans": 2001,
+            "Medium Jar of Beans": 2002,
+            "Large Jar of Beans": 2003,
+            "Massive Jar of Beans": 2004,
+            "Wiggenweld Potion": 2005,
+            "Wiggentree Bark": 2006,
+            "Flobberworm Mucous": 2007,
+            "Chocolate Frog": 2008,
+            "1 Bean": 2009,
+            "5 Beans": 2010,
+            "10 Beans": 2011,
+        }
+        self.assertEqual(FILLER_APPEARANCE_CODE, expected,
+                         "filler appearance codes drifted from the mod's 2001..2011 props")
+        self.assertEqual(set(FILLER_APPEARANCE_CODE), set(FILLER_NAMES),
+                         "filler appearance map and FILLER_NAMES cover different fillers")
 
     def test_vanilla_rules_derive_from_open_castle(self) -> None:
         # Open castle is the base table. Vanilla = open castle, with _VANILLA_EXTRA
