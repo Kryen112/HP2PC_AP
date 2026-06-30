@@ -116,7 +116,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Chamber of Secrets - Chest 4": spongify & diffindo & skurge & alohomora,
     "Chamber of Secrets - Chest 5": spongify & diffindo & skurge & alohomora,
     "Chamber of Secrets - Chest 6": spongify & diffindo & skurge & (flipendo | running) & alohomora,
-    "Chamber of Secrets - Chest 7": alohomora,
+    "Chamber of Secrets - Chest 7": spongify & diffindo & skurge & rictusempra & flipendo & lumos & alohomora,
     "Chamber of Secrets - Complete": spongify & diffindo & skurge & rictusempra & flipendo,
     "Chamber of Secrets - Flobberworm Mucous Jar 1": chamber_first_fall & flipendo,
     "Chamber of Secrets - Flobberworm Mucous Jar 2": spongify & diffindo & skurge & rictusempra & flipendo,
