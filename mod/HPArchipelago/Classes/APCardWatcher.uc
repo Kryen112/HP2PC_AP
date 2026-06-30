@@ -15,6 +15,12 @@ const LOC_BASE = 5760000;
 // this falls outside the array, so its dedupe is skipped. Sized to cover
 // every band with headroom.
 const NONCARD_LOC_WINDOW = 2048;
+// Max characters per CHECKEDOUT chunk line. The full checked-id list outgrows
+// the engine's per-line TcpLink transmit limit (one over-length SendText
+// truncates mid-id, null-pads, and the next IPC line bleeds into the tail), so
+// NextCheckedOutChunk caps each line well under it. Generous margin: each line
+// also carries "CHECKEDOUT " and a trailing newline on top of this.
+const CHECKEDOUT_CHUNK_CHARS = 600;
 // Class-default dedup for non-card AP locations (secrets, stars, vendors,
 // duels, matches, level completions). Indexed by `apId - LOC_BASE`.
 // Class-default so it persists across level transitions in a session, like
@@ -971,35 +977,52 @@ static function SetCheckedLocationsCSV(string csv)
 }
 
 // Inverse of SetCheckedLocationsCSV: serialize the process-lifetime checked
-// arrays back to a comma-separated list of AP location ids. Sent to the client
-// on every bridge (re)connect (APIPCActor.SendCheckedOut) so a check fired
-// while the client wasn't bridged (client launched after the pickup, or
-// client restarted mid-session) is replayed to AP. The client dedupes against
-// the server's checked_locations, so replaying an already-known id is a no-op.
-// Cards resolve via CardIdToApId (the band mapping is scrambled); non-card
-// slots are slot + LOC_BASE. Empty string when nothing collected yet.
-static function string BuildCheckedOutCSV()
+// arrays back to comma-separated AP location ids, emitted as one or more
+// length-bounded chunks. SendCheckedOut ships each chunk as its own CHECKEDOUT
+// line on every bridge (re)connect, so a check fired while the client wasn't
+// bridged (client launched after the pickup, or client restarted mid-session)
+// is replayed to AP. The client dedupes each line against the server's
+// checked_locations, so chunk boundaries and already-known ids are both no-ops.
+//
+// Chunking exists because the full id list outgrows the engine's per-line
+// TcpLink transmit limit; one over-length SendText truncates mid-id and
+// corrupts the rest of the IPC stream. Each chunk stays under
+// CHECKEDOUT_CHUNK_CHARS.
+//
+// `cursor` spans both arrays: 1..MAX_CARD_ID walks cards (resolved via
+// CardIdToApId, since the band mapping is scrambled), then
+// MAX_CARD_ID+1..MAX_CARD_ID+NONCARD_LOC_WINDOW walks non-card slots
+// (slot = cursor - MAX_CARD_ID - 1, id = slot + LOC_BASE). Start at 1, call
+// until it returns False. Advances `cursor` past everything it emitted and
+// returns True while a non-empty chunk remains.
+static function bool NextCheckedOutChunk(out int cursor, out string chunk)
 {
     local int id, slot;
-    local string csv;
 
-    for (id = 1; id <= MAX_CARD_ID; id++)
+    chunk = "";
+    while (cursor >= 1 && cursor <= MAX_CARD_ID)
     {
+        id = cursor;
+        cursor++;
         if (default.LocationChecked[id] == 1)
         {
-            if (csv != "") csv = csv $ ",";
-            csv = csv $ string(class'APCardAppearance'.static.CardIdToApId(id));
+            if (chunk != "") chunk = chunk $ ",";
+            chunk = chunk $ string(class'APCardAppearance'.static.CardIdToApId(id));
+            if (Len(chunk) >= CHECKEDOUT_CHUNK_CHARS) return True;
         }
     }
-    for (slot = 0; slot < NONCARD_LOC_WINDOW; slot++)
+    while (cursor > MAX_CARD_ID && cursor <= MAX_CARD_ID + NONCARD_LOC_WINDOW)
     {
+        slot = cursor - MAX_CARD_ID - 1;
+        cursor++;
         if (default.NonCardLocationChecked[slot] == 1)
         {
-            if (csv != "") csv = csv $ ",";
-            csv = csv $ string(slot + LOC_BASE);
+            if (chunk != "") chunk = chunk $ ",";
+            chunk = chunk $ string(slot + LOC_BASE);
+            if (Len(chunk) >= CHECKEDOUT_CHUNK_CHARS) return True;
         }
     }
-    return csv;
+    return chunk != "";
 }
 
 // Convergence sweep after a CHECKED resync. Walks the current level's

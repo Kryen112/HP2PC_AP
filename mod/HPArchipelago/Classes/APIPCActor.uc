@@ -56,18 +56,6 @@ var float ReconnectBackoff;
 // client's link to the AP server.
 var int NotConnectedToastTicks;
 const NOT_CONNECTED_TOAST_TICKS = 40;
-// Reconcile heartbeat. Counts Timer ticks (0.25s each) while STATE_Connected; at
-// CHECK_RECONCILE_TICKS it re-ships CHECKEDOUT (the full believed-checked set)
-// and resets. The only other replay is on (re)connect (Opened). A CHECK_LOCID
-// fired into a momentarily down or stalled link is logged "sent" but dropped by
-// the MODE_Text SendText no-op, and the caller's optimistic dedup latches it
-// locally, so on a continuous link (level travel reuses the singleton, never
-// reconnects) nothing re-ships it. This closes that gap: a dropped check
-// self-heals within ~30s. The client dedupes the resend against the server's
-// checked_locations, so it is idempotent. Reset on Opened (which ships at t=0).
-// Tick-counted so it survives the per-level clock reset across travel.
-var int CheckReconcileTicks;
-const CHECK_RECONCILE_TICKS = 120;
 // ReceivedText delivers raw TCP chunks, not one-line-per-event. When the client
 // burst-writes a resync (e.g. 39 GRANTs back-to-back), TCP coalesces them into
 // one or a few packets; UE1 fires ReceivedText with the whole blob. We have to
@@ -238,9 +226,6 @@ event Opened()
     // Replay locally-collected checks so any fired while the bridge was down
     // (client launched after a pickup, or client restarted) reaches AP.
     SendCheckedOut();
-    // Heartbeat is now baselined: the line above shipped the set at t=0, so the
-    // first periodic reconcile fires CHECK_RECONCILE_TICKS later.
-    CheckReconcileTicks = 0;
     // Same idea for the goal: if the player reached the ending while the bridge
     // was down, re-fire GOAL_COMPLETE on connect. Client dedupes via
     // finished_game, so a replay after the goal already registered is a no-op.
@@ -658,26 +643,6 @@ event Timer()
     TryDrainPendingGrants();
     TickRingLink();
     TickNotConnectedToast();
-    TickCheckReconcile();
-}
-
-// Periodic reconcile of locally-collected checks (see CheckReconcileTicks).
-// No-op while the link is down: the resend would silently drop and TryReconnect
-// owns recovery there. Empty payload is suppressed inside SendCheckedOut.
-function TickCheckReconcile()
-{
-    if (LinkState != STATE_Connected)
-    {
-        CheckReconcileTicks = 0;
-        return;
-    }
-    CheckReconcileTicks++;
-    if (CheckReconcileTicks < CHECK_RECONCILE_TICKS)
-    {
-        return;
-    }
-    CheckReconcileTicks = 0;
-    SendCheckedOut(True);
 }
 
 // Recurring reminder while the IPC link to the client is down. Hop-1 only: keyed
@@ -845,10 +810,11 @@ function SendCheck(int CardId)
 {
     // SendText is a silent no-op on a non-Connected link, so a fire into a down
     // or mid-connect link would log a false "sent". Log it as deferred instead;
-    // the caller still latches the dedup and the reconcile heartbeat re-ships it.
+    // the caller still latches the dedup, so the next (re)connect SendCheckedOut
+    // replays it to AP.
     if (!IsLinkConnected())
     {
-        Log("[Archipelago] APIPCActor: CHECK " $ CardId $ " deferred (link down) - reconcile heartbeat will re-ship");
+        Log("[Archipelago] APIPCActor: CHECK " $ CardId $ " deferred (link down) - replayed on reconnect");
         return;
     }
     SendText("CHECK " $ CardId $ Chr(10));
@@ -863,11 +829,11 @@ function SendCheck(int CardId)
 function SendCheckLocationId(int LocationId)
 {
     // See SendCheck: a down-link SendText silently drops, so log deferred (not
-    // "sent"). The caller's NonCardLocationChecked latch keeps the id in
-    // BuildCheckedOutCSV, so the reconcile heartbeat re-ships it within ~30s.
+    // "sent"). The caller's NonCardLocationChecked latch keeps the id in the
+    // checked-out ledger, so the next (re)connect SendCheckedOut replays it.
     if (!IsLinkConnected())
     {
-        Log("[Archipelago] APIPCActor: CHECK_LOCID " $ LocationId $ " deferred (link down) - reconcile heartbeat will re-ship");
+        Log("[Archipelago] APIPCActor: CHECK_LOCID " $ LocationId $ " deferred (link down) - replayed on reconnect");
         return;
     }
     SendText("CHECK_LOCID " $ LocationId $ Chr(10));
@@ -1064,28 +1030,33 @@ function SendNewGame()
 // inverse of the CHECKED resync the client sends us). Covers checks fired into
 // a down bridge: the client launched after the pickup, or restarted
 // mid-session. The client forwards any the AP server is missing; empty payload
-// (nothing collected yet) is suppressed so the client sees no line.
-// bHeartbeat marks the periodic reconcile resend (TickCheckReconcile) so it logs
-// one short line instead of dumping the full (growing) CSV every interval; the
-// (re)connect path keeps the verbose payload log for diagnosis.
-function SendCheckedOut(optional bool bHeartbeat)
+// (nothing collected yet) is suppressed so the client sees no line. Reconnect is
+// the only replay trigger: on a live link each pickup ships its own CHECK_LOCID,
+// so there is no periodic resend of the full set.
+function SendCheckedOut()
 {
-    local string csv;
+    local string chunk;
+    local int cursor, nLines;
 
-    csv = class'APCardWatcher'.static.BuildCheckedOutCSV();
-    if (csv == "")
+    // One line per chunk. The full id list outgrows the per-line TcpLink
+    // transmit limit, and an over-length SendText truncates mid-id and corrupts
+    // the next IPC line, so NextCheckedOutChunk hands back sub-limit pieces. The
+    // client treats each CHECKEDOUT line as additive, so N lines = one snapshot.
+    cursor = 1;
+    nLines = 0;
+    while (class'APCardWatcher'.static.NextCheckedOutChunk(cursor, chunk))
+    {
+        if (chunk != "")
+        {
+            SendText("CHECKEDOUT " $ chunk $ Chr(10));
+            nLines++;
+        }
+    }
+    if (nLines == 0)
     {
         return;
     }
-    SendText("CHECKEDOUT " $ csv $ Chr(10));
-    if (bHeartbeat)
-    {
-        Log("[Archipelago] APIPCActor: reconcile heartbeat re-shipped CHECKEDOUT");
-    }
-    else
-    {
-        Log("[Archipelago] APIPCActor: sent CHECKEDOUT " $ csv);
-    }
+    Log("[Archipelago] APIPCActor: sent CHECKEDOUT (" $ string(nLines) $ " chunk(s))");
 }
 
 // Pushes the earliest-allowed drain time forward by `seconds` from now. Only
