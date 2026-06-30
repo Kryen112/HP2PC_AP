@@ -174,7 +174,10 @@ class StartingSpells(OptionSet):
     """
     display_name = "Starting Spells"
     valid_keys = frozenset(SPELL_ITEM_NAMES)
-    default = frozenset({"Lumos", "Flipendo", "Alohomora"})
+    # Tuple, not a set, so the generated template lists the default spells in a
+    # stable readable order (a set renders in hash order). The runtime value is
+    # a set either way (OptionSet.__init__).
+    default = ("Lumos", "Flipendo", "Alohomora")
 
 
 class AllowRunningLogic(Toggle):
@@ -371,7 +374,9 @@ class Traps(OptionSet):
     """
     display_name = "Traps"
     valid_keys = frozenset(TRAP_NAMES)
-    default = frozenset(TRAP_NAMES)
+    # Tuple, not a set, so the generated template lists traps in TRAP_NAMES order
+    # (a set renders in hash order). The runtime value is a set either way.
+    default = tuple(TRAP_NAMES)
 
 
 class TrapFillPercent(Range):

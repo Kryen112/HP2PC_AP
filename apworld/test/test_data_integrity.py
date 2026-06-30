@@ -4,6 +4,7 @@ create_items / create_regions rely on."""
 
 import unittest
 
+from .. import StartingSpells, Traps
 from ..access import _BRONZE_CARD_NAMES, _SILVER_CARD_NAMES
 from ..items import (BASE_ID as ITEM_BASE_ID, FILLER_APPEARANCE_CODE,
                      FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
@@ -85,6 +86,19 @@ class TestDataIntegrity(unittest.TestCase):
                          "filler appearance codes drifted from the mod's 2001..2011 props")
         self.assertEqual(set(FILLER_APPEARANCE_CODE), set(FILLER_NAMES),
                          "filler appearance map and FILLER_NAMES cover different fillers")
+
+    def test_set_option_defaults_are_ordered_and_complete(self) -> None:
+        # Traps / StartingSpells default to ordered tuples so the generated
+        # template lists them in a stable readable order (a set default renders
+        # in hash order). Guard the order and that the membership is unchanged.
+        self.assertEqual(tuple(Traps.default), tuple(TRAP_NAMES),
+                         "Traps default lost its TRAP_NAMES order")
+        self.assertEqual(set(Traps.default), set(TRAP_NAMES),
+                         "Traps default no longer enables every trap")
+        self.assertEqual(StartingSpells.default, ("Lumos", "Flipendo", "Alohomora"),
+                         "StartingSpells default changed")
+        self.assertTrue(set(StartingSpells.default) <= set(ITEM_GROUPS["Spells"]),
+                        "StartingSpells default contains a non-spell")
 
     def test_vanilla_rules_derive_from_open_castle(self) -> None:
         # Open castle is the base table. Vanilla = open castle, with _VANILLA_EXTRA
