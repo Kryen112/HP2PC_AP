@@ -284,6 +284,9 @@ static function int GetVendorLocationId(string LevelName, string MarkerName)
     return 0;
 }
 
+// Sell-type ordinal for an AP vendor, decoded by APVendorController's
+// SELLS_* consts: 2 = WBARK (Wiggentree Bark), 3 = FMUCUS (Flobberworm Mucus),
+// 4 = BRONZE cards, 5 = SILVER cards. 0 means the marker is not an AP vendor.
 static function int GetVendorSells(string LevelName, string MarkerName)
 {
     LevelName = Caps(LevelName);

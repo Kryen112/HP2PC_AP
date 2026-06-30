@@ -30,6 +30,12 @@ var byte BeanPresentNow[512];
 var byte BeanPresentLastTick[512];
 var byte bFloorBeansTagged;
 
+// Bean-ledger and drop-snapshot sizes. The arrays are dimensioned with the
+// literal value (M212 forbids a const in an array dimension); the loop bounds
+// and range checks below use the const so the two stay in step.
+const BEAN_LEDGER_SIZE = 512;
+const MAX_DROP_BEANS = 64;
+
 // Chest/gargoyle one-time + dropped-bean persistence. The room reloads fresh on
 // every entry, so natively chests/gargoyle re-open (farm) and dropped beans
 // vanish. DispenserOpened (class-default, persisted) marks ChestGold0-5 (idx 0-5)
@@ -95,7 +101,7 @@ function ScanBeanRoom()
         bFloorBeansTagged = 1;
     }
 
-    for (i = 0; i < 512; i++)
+    for (i = 0; i < BEAN_LEDGER_SIZE; i++)
     {
         BeanPresentNow[i] = 0;
     }
@@ -105,7 +111,7 @@ function ScanBeanRoom()
         if (b == None || b.bDeleteMe) continue;
         if (b.Tag != 'APFloorBean') continue; // floor beans only; ignore chest/gargoyle beans
         idx = int(Mid(string(b.Name), 9));    // strip the "Jellybean" prefix (9 chars)
-        if (idx < 0 || idx >= 512) continue;
+        if (idx < 0 || idx >= BEAN_LEDGER_SIZE) continue;
         if (default.BeanRoomCollected[idx] == 1)
         {
             b.Destroy();                      // collected on a prior visit
@@ -114,7 +120,7 @@ function ScanBeanRoom()
         BeanPresentNow[idx] = 1;
     }
 
-    for (i = 0; i < 512; i++)
+    for (i = 0; i < BEAN_LEDGER_SIZE; i++)
     {
         if (BeanPresentLastTick[i] == 1 && BeanPresentNow[i] == 0
             && default.BeanRoomCollected[i] == 0)
@@ -250,7 +256,7 @@ function ManageBeanDrops()
     {
         if (b == None || b.bDeleteMe) continue;
         if (b.Tag != 'APDropBean') continue;
-        if (default.DropBeanCount >= 64) break;
+        if (default.DropBeanCount >= MAX_DROP_BEANS) break;
         default.DropBeanPos[default.DropBeanCount] = b.Location;
         default.DropBeanCount++;
     }
@@ -272,14 +278,14 @@ static function string BuildBeanRoomState()
         csv = csv $ string(default.DispenserOpened[i]) $ ",";
 
     nFloor = 0;
-    for (i = 0; i < 512; i++)
+    for (i = 0; i < BEAN_LEDGER_SIZE; i++)
         if (default.BeanRoomCollected[i] == 1) nFloor++;
     csv = csv $ string(nFloor);
-    for (i = 0; i < 512; i++)
+    for (i = 0; i < BEAN_LEDGER_SIZE; i++)
         if (default.BeanRoomCollected[i] == 1) csv = csv $ "," $ string(i);
 
     csv = csv $ "," $ string(default.DropBeanCount);
-    for (i = 0; i < default.DropBeanCount && i < 64; i++)
+    for (i = 0; i < default.DropBeanCount && i < MAX_DROP_BEANS; i++)
     {
         vp = default.DropBeanPos[i];
         csv = csv $ "," $ string(int(vp.X)) $ "," $ string(int(vp.Y)) $ "," $ string(int(vp.Z));
@@ -312,14 +318,14 @@ static function ApplyResyncBeanRoom(string payload)
     {
         if (rest == "") break;
         idx = class'APCsvCodec'.static.NextCsvInt(rest);
-        if (idx >= 0 && idx < 512) default.BeanRoomCollected[idx] = 1;
+        if (idx >= 0 && idx < BEAN_LEDGER_SIZE) default.BeanRoomCollected[idx] = 1;
     }
 
     nDrop = class'APCsvCodec'.static.NextCsvInt(rest);
     if (default.DropBeanCount == 0 && nDrop > 0)
     {
         m = nDrop;
-        if (m > 64) m = 64;
+        if (m > MAX_DROP_BEANS) m = MAX_DROP_BEANS;
         for (i = 0; i < m; i++)
         {
             if (rest == "") break;
@@ -340,7 +346,7 @@ static function WipeBeanRoomState()
 {
     local int i;
     for (i = 0; i < 8; i++) default.DispenserOpened[i] = 0;
-    for (i = 0; i < 512; i++) default.BeanRoomCollected[i] = 0;
+    for (i = 0; i < BEAN_LEDGER_SIZE; i++) default.BeanRoomCollected[i] = 0;
     default.DropBeanCount = 0;
     Log("[Archipelago] WipeBeanRoomState: cleared (new game)");
 }

@@ -180,7 +180,6 @@ function Touch(Actor Other)
     local APIPCActor ipc;
     local APCardWatcher w;
     local harry h;
-    local Rotator rotPickupFX;
 
     h = harry(Other);
     if (h == None) return;
@@ -224,20 +223,10 @@ function Touch(Actor Other)
         w.ClearVendorOwnershipForLocation(CardLocationId);
     }
 
-    // AP-themed pickup feedback: spawn the 6 Archipelago-logo-coloured star
-    // bursts, then play the per-tier pickup sound (set in each
-    // generated APCardMarker_<X> subclass: pickup_WC_bronze/silver/gold).
-    // The Pitch=16464 rotation matches vanilla WizardCardIcon.Touch's rotPickupFX
-    // so the stars emit upward instead of into the floor.
-    rotPickupFX.Pitch = 16464;
-    rotPickupFX.Yaw = 0;
-    rotPickupFX.Roll = 0;
-    Spawn(class'APStarsRed',    , , Location, rotPickupFX);
-    Spawn(class'APStarsOrange', , , Location, rotPickupFX);
-    Spawn(class'APStarsYellow', , , Location, rotPickupFX);
-    Spawn(class'APStarsGreen',  , , Location, rotPickupFX);
-    Spawn(class'APStarsBlue',   , , Location, rotPickupFX);
-    Spawn(class'APStarsPurple', , , Location, rotPickupFX);
+    // AP-themed pickup feedback: spawn the star burst, then play the per-tier
+    // pickup sound (set in each generated APCardMarker_<X> subclass:
+    // pickup_WC_bronze/silver/gold).
+    class'APStarsBase'.static.SpawnPickupBurst(self, Location);
 
     if (soundPickup != None)
     {

@@ -266,8 +266,8 @@ function MarkKeyItemAsGranted(string KeyItemName)
 // True if Harry's ingredient-i StatusItem nCount is >0. Only reliable for
 // Boomslang(0) (a working PotionIngredients pickup); it gives an early
 // in-level fire there. Bicorn(1) and BitOGoyle(2) never raise nCount in this
-// build (broken Adv3DungeonQuest Bicorn prop / orphaned StatusItemBitOGoyle,
-// §12 #16/#17) - they are credited by leaving their terminal level instead
+// build (broken Adv3DungeonQuest Bicorn prop / orphaned StatusItemBitOGoyle).
+// They are credited by leaving their terminal level instead
 // (CheckExitedLevelObjective). Kept as a fast-path; the exit detector is the
 // robust source of truth for all three.
 function bool HasKeyItem(int i)
@@ -537,20 +537,8 @@ event PreBeginPlay()
     // APGrantedBlockerKey[] is indexed by this. Keep in sync with items.yaml
     // blocker_keys section and with TryApplyBlockerKey / RemoveOpenCastle<X>Blocker
     // dispatch in APGameInfo.
-    BlockerKeyNames[0]  = "Chamber of Secrets Key";
-    BlockerKeyNames[1]  = "Spongify Challenge Key";
-    BlockerKeyNames[2]  = "Skurge Challenge Key";
-    BlockerKeyNames[3]  = "Rictusempra Challenge Key";
-    BlockerKeyNames[4]  = "Diffindo Challenge Key";
-    BlockerKeyNames[5]  = "Boomslang Level Key";
-    BlockerKeyNames[6]  = "Whomping Willow Key";
-    BlockerKeyNames[7]  = "Forbidden Forest Key";
-    BlockerKeyNames[8]  = "Slytherin Common Room Key";
-    BlockerKeyNames[9]  = "Goyle Level Key";
-    BlockerKeyNames[10] = "Bicorn Level Key";
-    BlockerKeyNames[11] = "Duelling Key";
-    BlockerKeyNames[12] = "Quidditch Key";
-    BlockerKeyNames[13] = "Gryffindor Challenge Key";
+    for (i = 0; i < NUM_BLOCKER_KEYS; i++)
+        BlockerKeyNames[i] = BlockerKeyName(i);
 
     // Inherit cross-session AP-grant flags from class default so a freshly
     // spawned watcher (e.g. after a save-load while AP grants arrived
@@ -642,7 +630,6 @@ static function MarkCardAsAPGrantedDefault(int id, int tier)
 // MarkSpellAs* helpers are flag writes.
 static function ApplyResyncSpells(string CsvNames)
 {
-    local int p;
     local string rest, name;
     local APCardWatcher w;
     local harry h;
@@ -661,17 +648,7 @@ static function ApplyResyncSpells(string CsvNames)
     rest = CsvNames;
     while (rest != "")
     {
-        p = InStr(rest, ",");
-        if (p < 0)
-        {
-            name = rest;
-            rest = "";
-        }
-        else
-        {
-            name = Left(rest, p);
-            rest = Mid(rest, p + 1);
-        }
+        name = class'APCsvCodec'.static.NextCsvToken(rest);
         if (name == "") continue;
 
         MarkSpellAsAPGrantedDefault(name);
@@ -697,7 +674,6 @@ static function ApplyResyncSpells(string CsvNames)
 // (resync arrived before any level Game exists).
 static function ApplyResyncBlockerKeys(string CsvNames)
 {
-    local int p;
     local string rest, name;
     local APCardWatcher w;
     local APGameInfo gi;
@@ -714,17 +690,7 @@ static function ApplyResyncBlockerKeys(string CsvNames)
     rest = CsvNames;
     while (rest != "")
     {
-        p = InStr(rest, ",");
-        if (p < 0)
-        {
-            name = rest;
-            rest = "";
-        }
-        else
-        {
-            name = Left(rest, p);
-            rest = Mid(rest, p + 1);
-        }
+        name = class'APCsvCodec'.static.NextCsvToken(rest);
         if (name == "") continue;
 
         if (gi != None)
@@ -746,7 +712,6 @@ static function ApplyResyncBlockerKeys(string CsvNames)
 // all restored when the .usa never saw the AP grant.
 static function ApplyResyncKeyItems(string CsvNames)
 {
-    local int p;
     local string rest, name;
     local APCardWatcher w;
     local APGameInfo gi;
@@ -767,17 +732,7 @@ static function ApplyResyncKeyItems(string CsvNames)
     rest = CsvNames;
     while (rest != "")
     {
-        p = InStr(rest, ",");
-        if (p < 0)
-        {
-            name = rest;
-            rest = "";
-        }
-        else
-        {
-            name = Left(rest, p);
-            rest = Mid(rest, p + 1);
-        }
+        name = class'APCsvCodec'.static.NextCsvToken(rest);
         if (name == "") continue;
 
         if (gi != None && h != None)
@@ -803,7 +758,7 @@ static function ApplyResyncKeyItems(string CsvNames)
 // dropped a card from the folio is unrecoverable. Idempotent.
 static function ApplyResyncCards(string CsvNames)
 {
-    local int p, id, tier;
+    local int id, tier;
     local string rest, name;
     local APCardWatcher w;
     local class<WizardCardIcon> cardClass;
@@ -813,17 +768,7 @@ static function ApplyResyncCards(string CsvNames)
     rest = CsvNames;
     while (rest != "")
     {
-        p = InStr(rest, ",");
-        if (p < 0)
-        {
-            name = rest;
-            rest = "";
-        }
-        else
-        {
-            name = Left(rest, p);
-            rest = Mid(rest, p + 1);
-        }
+        name = class'APCsvCodec'.static.NextCsvToken(rest);
         if (name == "") continue;
 
         cardClass = class<WizardCardIcon>(DynamicLoadObject("HGame." $ name, class'Class'));
@@ -867,22 +812,37 @@ static function ApplyResyncCards(string CsvNames)
 // the string doesn't match a known key. APGameInfo.TryApplyBlockerKey uses this
 // both to stamp the class-default flag and to dispatch to the right
 // RemoveOpenCastle<X>Blocker helper.
+// Single source of truth for the 14 bookcase-blocker key names, index 0-13.
+// The instance BlockerKeyNames[] (filled in PreBeginPlay) and the name->index
+// lookup below both derive from this, and the open-castle blocker dispatch in
+// APGameInfo keys off the same indices.
+static function string BlockerKeyName(int i)
+{
+    switch (i)
+    {
+        case 0:  return "Chamber of Secrets Key";
+        case 1:  return "Spongify Challenge Key";
+        case 2:  return "Skurge Challenge Key";
+        case 3:  return "Rictusempra Challenge Key";
+        case 4:  return "Diffindo Challenge Key";
+        case 5:  return "Boomslang Level Key";
+        case 6:  return "Whomping Willow Key";
+        case 7:  return "Forbidden Forest Key";
+        case 8:  return "Slytherin Common Room Key";
+        case 9:  return "Goyle Level Key";
+        case 10: return "Bicorn Level Key";
+        case 11: return "Duelling Key";
+        case 12: return "Quidditch Key";
+        case 13: return "Gryffindor Challenge Key";
+    }
+    return "";
+}
+
 static function int BlockerKeyIndexFromName(string KeyName)
 {
-    if (KeyName == "Chamber of Secrets Key")    return 0;
-    if (KeyName == "Spongify Challenge Key")    return 1;
-    if (KeyName == "Skurge Challenge Key")      return 2;
-    if (KeyName == "Rictusempra Challenge Key") return 3;
-    if (KeyName == "Diffindo Challenge Key")    return 4;
-    if (KeyName == "Boomslang Level Key")       return 5;
-    if (KeyName == "Whomping Willow Key")       return 6;
-    if (KeyName == "Forbidden Forest Key")      return 7;
-    if (KeyName == "Slytherin Common Room Key") return 8;
-    if (KeyName == "Goyle Level Key")           return 9;
-    if (KeyName == "Bicorn Level Key")          return 10;
-    if (KeyName == "Duelling Key")              return 11;
-    if (KeyName == "Quidditch Key")             return 12;
-    if (KeyName == "Gryffindor Challenge Key")  return 13;
+    local int i;
+    for (i = 0; i < NUM_BLOCKER_KEYS; i++)
+        if (BlockerKeyName(i) == KeyName) return i;
     return -1;
 }
 
@@ -2396,8 +2356,8 @@ function ScanDeathLink(APIPCActor ipc)
 // Slytherin Common Room. We do NOT poll per-item state: the ingredient
 // StatusItem path is broken in this build (orphaned StatusItemBitOGoyle; the
 // Bicorn prop has null class refs so StatusManager.PickupItem early-returns
-// and nCount never rises - §12 #16/#17), and harry.PreviousLevelName is
-// blanked by the return auto-save before Snapshot runs (§12 #15). Instead we
+// and nCount never rises), and harry.PreviousLevelName is
+// blanked by the return auto-save before Snapshot runs. Instead we
 // track OUR own per-level bind history: the watcher Snapshots in every level,
 // so when this bind's level differs from the last bind's and the last one was
 // an exit-credited level, it is complete. Catches scripted-cutscene exits a
@@ -2476,7 +2436,7 @@ function CheckExitedLevelObjective()
     }
     // idx 0-2: leaving the terminal ingredient level == obtained the
     // ingredient, so the polyjuice key-item AP location is checked too (its
-    // StatusItem nCount path is unrecoverable in this build, §12 #16/#17).
+    // StatusItem nCount path is unrecoverable in this build).
     if (idx <= 2)
     {
         WasKeyItemOwned[idx] = 1;

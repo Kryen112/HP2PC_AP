@@ -10,6 +10,23 @@
 // marker.
 class APStarsBase extends WizardPickups;
 
+// Spawn the 6 Archipelago-logo-coloured pickup star bursts at loc. ctx is the
+// picked-up actor (the burst spawns into its level). Pitch=16464 matches vanilla
+// WizardCardIcon.Touch's rotPickupFX so the stars emit upward, not into the floor.
+static function SpawnPickupBurst(Actor ctx, Vector loc)
+{
+    local Rotator rot;
+    rot.Pitch = 16464;
+    rot.Yaw = 0;
+    rot.Roll = 0;
+    ctx.Spawn(class'APStarsRed',    None, '', loc, rot);
+    ctx.Spawn(class'APStarsOrange', None, '', loc, rot);
+    ctx.Spawn(class'APStarsYellow', None, '', loc, rot);
+    ctx.Spawn(class'APStarsGreen',  None, '', loc, rot);
+    ctx.Spawn(class'APStarsBlue',   None, '', loc, rot);
+    ctx.Spawn(class'APStarsPurple', None, '', loc, rot);
+}
+
 defaultproperties
 {
     ParticlesPerSec=(Base=1000.00,Rand=0.00)

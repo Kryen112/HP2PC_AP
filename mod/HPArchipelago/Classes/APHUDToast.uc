@@ -27,6 +27,11 @@ const MAX_QUEUE = 8;
 const STRIDE = 10;        // max segments one toast can hold (richest line is 9)
 const TOAST_DURATION = 5.0;
 const TICK_INTERVAL = 0.1;
+
+// AP non-card location window, mirroring the watcher's consts (the source of
+// truth). DrawTradersanityAPLabel indexes NonCardLocationChecked / TraderPurchased.
+const LOC_BASE = 5760000;
+const NONCARD_LOC_WINDOW = 2048;
 // Minimum life (seconds) a carried-over toast resumes with in the next level, so
 // a near-expired one still gets read time. See the carry buffer below.
 const CARRY_MIN_REMAINING = 2.0;
@@ -804,8 +809,8 @@ function DrawTradersanityAPLabel(Canvas C)
     locId = class'APVendorController'.static.GetActiveAPVendorLocationId(engagedVendor, lvl);
     if (locId <= 0) return;
 
-    slot = locId - 5760000;
-    if (slot < 0 || slot >= 1024) return;
+    slot = locId - LOC_BASE;
+    if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
     if (class'APVendorController'.default.TraderPurchased[slot] == 1) return;
 

@@ -69,7 +69,6 @@ begin:
 function Touch(Actor Other)
 {
     local APIPCActor ipc;
-    local Rotator rotPickupFX;
     local int slot;
 
     if (harry(Other) == None) return;
@@ -94,17 +93,8 @@ function Touch(Actor Other)
         PlaySound(soundPickup);
     }
 
-    // AP pickup burst, matching APCardMarker styling.
-    // Pitch=16464 emits the stars upward.
-    rotPickupFX.Pitch = 16464;
-    rotPickupFX.Yaw = 0;
-    rotPickupFX.Roll = 0;
-    Spawn(class'APStarsRed',    , , Location, rotPickupFX);
-    Spawn(class'APStarsOrange', , , Location, rotPickupFX);
-    Spawn(class'APStarsYellow', , , Location, rotPickupFX);
-    Spawn(class'APStarsGreen',  , , Location, rotPickupFX);
-    Spawn(class'APStarsBlue',   , , Location, rotPickupFX);
-    Spawn(class'APStarsPurple', , , Location, rotPickupFX);
+    // AP pickup burst.
+    class'APStarsBase'.static.SpawnPickupBurst(self, Location);
 
     ipc = class'APIPCActor'.static.GetInstance();
     if (ipc != None)

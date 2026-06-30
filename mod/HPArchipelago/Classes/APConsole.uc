@@ -17,7 +17,7 @@
 //
 //   DumpActors      log every actor (optionally class-name-substring-filtered)
 //                     with class/name/tag/location. Used to identify the boss
-//                     and level-exit-trigger classes the §6 goal detector keys
+//                     and level-exit-trigger classes the goal detector keys
 //                     off.
 //
 //   PlaceBookcase   spawns a BookcaseGlassDoors at harry's current Location,

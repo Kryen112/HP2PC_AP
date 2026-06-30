@@ -13,6 +13,17 @@ const NUM_BLOCKER_KEYS = 14;
 const LOC_BASE = 5760000;
 const NONCARD_LOC_WINDOW = 2048;
 
+// Clause-3/4/5 objective counts and the AP id base each band starts at. The 13
+// level completions are Whomping Willow, Bicorn, Boomslang, Goyle, Slytherin,
+// Forbidden Forest, Chamber, Rictusempra, Skurge, Diffindo, Spongify, Gryffindor
+// and Gold Card Room (idx 0-12).
+const NUM_LEVEL_OBJECTIVES = 13;
+const NUM_DUELS = 10;
+const NUM_QUIDDITCH = 6;
+const LEVEL_OBJECTIVE_LOC_BASE = 5760700;
+const DUEL_LOC_BASE = 5760600;
+const QUIDDITCH_LOC_BASE = 5760620;
+
 // Open castle Great Hall key config. Delivered once per process by the client as
 // "GOALCFG c,s,l,d,q,mask" (from apworld slot_data) and written by
 // SetGoalConfigCSV; sticky across level transitions / save-load. GoalSatisfied
@@ -90,8 +101,8 @@ static function NotifyLevelObjective(int idx)
     local APIPCActor ipc;
     local int locId, slot;
 
-    if (idx < 0 || idx >= 16) return;
-    locId = 5760700 + idx;
+    if (idx < 0 || idx >= NUM_LEVEL_OBJECTIVES) return;
+    locId = LEVEL_OBJECTIVE_LOC_BASE + idx;
     slot = locId - LOC_BASE;
     if (slot < 0 || slot >= NONCARD_LOC_WINDOW) return;
     if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
@@ -142,7 +153,7 @@ static function bool GoalSatisfied()
     if (default.GoalLevels > 0)
     {
         n = 0;
-        for (i = 0; i < 16; i++)
+        for (i = 0; i < NUM_LEVEL_OBJECTIVES; i++)
             if (((default.GoalLevelMask >> i) & 1) == 1 && default.GoalLevelDone[i] == 1)
                 n++;
         if (n < default.GoalLevels) return False;
@@ -158,7 +169,7 @@ static function bool GoalSatisfied()
     if (default.GoalQuidditch == 1)
     {
         if (w.HarryRef == None) return False;
-        for (i = 0; i < 6; i++)
+        for (i = 0; i < NUM_QUIDDITCH; i++)
             if (!w.HarryRef.quidGameResults[i].bWon) return False;
     }
 
@@ -207,10 +218,10 @@ static function bool IsBlockerKeyGranted(int i)
 static function int GetCheckedLevelObjectiveCount()
 {
     local int idx, slot, n;
-    for (idx = 0; idx < 13; idx++)
+    for (idx = 0; idx < NUM_LEVEL_OBJECTIVES; idx++)
     {
         if (((default.GoalLevelMask >> idx) & 1) == 0) continue;
-        slot = (5760700 + idx) - LOC_BASE;
+        slot = (LEVEL_OBJECTIVE_LOC_BASE + idx) - LOC_BASE;
         if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
     }
@@ -220,9 +231,9 @@ static function int GetCheckedLevelObjectiveCount()
 static function int GetCheckedDuelCount()
 {
     local int idx, slot, n;
-    for (idx = 0; idx < 10; idx++)
+    for (idx = 0; idx < NUM_DUELS; idx++)
     {
-        slot = (5760600 + idx) - LOC_BASE;
+        slot = (DUEL_LOC_BASE + idx) - LOC_BASE;
         if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
     }
@@ -232,9 +243,9 @@ static function int GetCheckedDuelCount()
 static function int GetCheckedQuidditchMatchCount()
 {
     local int idx, slot, n;
-    for (idx = 0; idx < 6; idx++)
+    for (idx = 0; idx < NUM_QUIDDITCH; idx++)
     {
-        slot = (5760620 + idx) - LOC_BASE;
+        slot = (QUIDDITCH_LOC_BASE + idx) - LOC_BASE;
         if (slot < 0 || slot >= NONCARD_LOC_WINDOW) continue;
         if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
     }

@@ -95,8 +95,8 @@ function DropOwnedGoldCardCurtains()
     local APCardWatcher w;
 
     w = class'APCardWatcher'.static.GetLatest();
-    Log("[Archipelago] DropOwnedGoldCardCurtains: entry, siGold=" $ string(w.siGold));
     if (w == None || w.siGold == None) return;
+    Log("[Archipelago] DropOwnedGoldCardCurtains: entry, siGold=" $ string(w.siGold));
 
     firedCount = 0;
     foreach AllActors(class'APCardMarker', marker)

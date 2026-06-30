@@ -1313,7 +1313,7 @@ function BlockOpenCastleGreatHallEntryIfMissing()
     // level-load (Spawn returns None on encroachment), which would leave the
     // corridor open, so the spread keeps it sealed when one slot is blocked.
     // All share the tag, so RemoveOpenCastleGreatHallBlocker clears every one at
-    // goal unlock. First coord is the §3 Phase-0 PlaceBookcase capture.
+    // goal unlock. The first coord is the captured PlaceBookcase position.
     loc.X = 1061.760376; loc.Y = -831.163818; loc.Z = -273;
     rot.Yaw = 16321;  rot.Roll = 0;
     SpawnOpenCastleBookcase('APOpenCastleGreatHallBlocker', loc, rot);

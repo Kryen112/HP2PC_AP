@@ -5,22 +5,10 @@
 class APCsvCodec extends Object;
 
 // Pop the leading comma-delimited integer off `rest` (consumes it, including
-// the comma). Last field has no trailing comma, so take the whole remainder.
+// the comma): the same token NextCsvToken pops, read as an int.
 static function int NextCsvInt(out string rest)
 {
-    local int comma, val;
-    comma = InStr(rest, ",");
-    if (comma >= 0)
-    {
-        val = int(Left(rest, comma));
-        rest = Mid(rest, comma + 1);
-    }
-    else
-    {
-        val = int(rest);
-        rest = "";
-    }
-    return val;
+    return int(NextCsvToken(rest));
 }
 
 // Like NextCsvInt but the field separator is a parameter, so the APPEARANCE
@@ -38,6 +26,27 @@ static function int NextCsvIntUpTo(out string rest, string sep)
     else
     {
         val = int(rest);
+        rest = "";
+    }
+    return val;
+}
+
+// Pop the leading comma-delimited string field off `rest` (consumes it,
+// including the comma). Last field has no trailing comma, so take the whole
+// remainder. Returns "" for an empty field; the resync parsers skip those.
+static function string NextCsvToken(out string rest)
+{
+    local int comma;
+    local string val;
+    comma = InStr(rest, ",");
+    if (comma >= 0)
+    {
+        val = Left(rest, comma);
+        rest = Mid(rest, comma + 1);
+    }
+    else
+    {
+        val = rest;
         rest = "";
     }
     return val;
