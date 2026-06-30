@@ -488,3 +488,86 @@ class TestVablatskyOpenCastle(HP2TestBase):
     def test_needs_chamber_key(self) -> None:
         self.assertAccessDependency(["Grand Staircase - Card Vablatsky"],
                                     [["Chamber of Secrets Key"]], only_check_listed=True)
+
+
+# Duelling / Quidditch keys gate only their own category's region. When the
+# category is off and the key is not an open castle goal requirement, the key is
+# precollected (granted at start, no bookcase) instead of sitting in the pool
+# gating an empty region. When the category is on, or the open castle goal needs
+# the key, it stays a found item.
+class TestDuellingKeyPrecollectedWhenOff(HP2TestBase):
+    options = {"game_mode": "vanilla", "enable_duelling": False}
+    run_default_tests = False
+
+    def test_key_precollected_not_pooled(self) -> None:
+        pool = {item.name for item in self.multiworld.itempool}
+        precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        self.assertNotIn("Duelling Key", pool, "duels off: the key must not sit in the pool")
+        self.assertIn("Duelling Key", precollected, "duels off: the key must be precollected")
+
+
+class TestQuidditchKeyPrecollectedWhenOff(HP2TestBase):
+    options = {"game_mode": "vanilla", "enable_quidditch_matches": False}
+    run_default_tests = False
+
+    def test_key_precollected_not_pooled(self) -> None:
+        pool = {item.name for item in self.multiworld.itempool}
+        precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        self.assertNotIn("Quidditch Key", pool, "matches off: the key must not sit in the pool")
+        self.assertIn("Quidditch Key", precollected, "matches off: the key must be precollected")
+
+
+class TestDuellingKeyPooledWhenOn(HP2TestBase):
+    options = {"game_mode": "vanilla", "enable_duelling": True}
+    run_default_tests = False
+
+    def test_key_pooled_not_precollected(self) -> None:
+        pool = {item.name for item in self.multiworld.itempool}
+        precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        self.assertIn("Duelling Key", pool, "duels on: the key gates real checks, so it stays in the pool")
+        self.assertNotIn("Duelling Key", precollected)
+
+
+# The deliberate payoff: in open castle the Duelling Club is standalone-gated, so
+# precollecting its key opens the region from spawn and the bean-grind OR-path to
+# the costly vendors is reachable in sphere 0.
+class TestDuellingKeyOpenCastleReachableFromStart(HP2TestBase):
+    options = {"game_mode": "open_castle", "enable_duelling": False}
+    run_default_tests = False
+
+    def test_duelling_club_reachable_with_only_precollected(self) -> None:
+        precollected = [item.name for item in self.multiworld.precollected_items[self.player]]
+        self.assertIn("Duelling Key", precollected)
+        state = self.state_with(precollected)
+        self.assertTrue(
+            state.can_reach("DuellingClub", "Region", self.player),
+            "a precollected Duelling Key should open the club from spawn for the bean grind")
+
+
+# Open castle goal requires the Duelling Key while duels are NOT randomized: the
+# key must stay a found item (precollecting it would beat the goal for free), and
+# the seed must still be solvable.
+class TestDuellingKeyPooledWhenGoalRequiresIt(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "enable_duelling": False,
+        "open_castle_goal_cards": 0,
+        "open_castle_goal_spells": 0,
+        "open_castle_goal_levels": 0,
+        "open_castle_goal_duels": True,
+        "open_castle_goal_quidditch": False,
+    }
+    run_default_tests = False
+
+    def test_key_pooled_not_precollected(self) -> None:
+        pool = {item.name for item in self.multiworld.itempool}
+        precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        self.assertIn("Duelling Key", pool, "the goal needs the key found, so it stays in the pool")
+        self.assertNotIn("Duelling Key", precollected)
+
+    def test_goal_needs_the_key(self) -> None:
+        without_key = self.state_all_but(["Duelling Key"])
+        self.assertFalse(self.multiworld.can_beat_game(without_key),
+                         "the duels goal must not be beatable without the Duelling Key")
+        self.assertTrue(self.multiworld.can_beat_game(self.state_all_but([])),
+                        "the goal must be beatable once every item is collected")

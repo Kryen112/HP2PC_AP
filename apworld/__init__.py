@@ -804,7 +804,8 @@ class HP2World(World):
         # Precollected = the spells the player chose via `starting_spells`,
         # plus the bookcase-blocker keys not entering the pool this seed (see
         # `keys` selection below) so logic.yaml references to them auto-pass.
-        # Open castle keeps all 14 keys in the pool; vanilla precollects the
+        # Open castle keeps all 14 keys in the pool (apart from a Duelling /
+        # Quidditch key the block below precollects); vanilla precollects the
         # subset that isn't gating a vanilla bookcase, since the mod-side
         # bookcases gate each region until the matching key arrives via AP.
         #
@@ -824,6 +825,21 @@ class HP2World(World):
             keys = BLOCKER_KEY_NAMES - VANILLA_BLOCKED_KEY_NAMES
         else:
             keys = set(BLOCKER_KEY_NAMES)
+        # The Duelling and Quidditch keys gate only their own category's region
+        # (its duels / matches). Duelling Club access is also an OR input to the
+        # costly-vendor bean gate in _gate_bean_costly_vendors, so the Duelling
+        # key carries that extra role. When the category is off and the key is
+        # not an open castle goal requirement, leaving it in the pool would gate
+        # an empty region behind a bookcase the mod never opens. Precollect it
+        # instead: a granted key suppresses the blocker, so the region opens from
+        # spawn and the Duelling bean-grind OR-path is reachable in sphere 0.
+        open_castle = self._is_open_castle()
+        if (not self.options.enable_duelling.value
+                and not (open_castle and self.options.open_castle_goal_duels.value)):
+            keys.add("Duelling Key")
+        if (not self.options.enable_quidditch_matches.value
+                and not (open_castle and self.options.open_castle_goal_quidditch.value)):
+            keys.add("Quidditch Key")
         return spells | keys
 
     def _apply_missable_exclusions(self) -> None:
