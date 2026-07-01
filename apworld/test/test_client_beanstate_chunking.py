@@ -1,10 +1,9 @@
 """The mod ships the open-castle bean-room ledger as a chunked
 BEANSTATE_BEGIN / BEANSTATE <chunk> ... / BEANSTATE_END envelope because the full
 line outgrows its per-line TcpLink transmit cap (an over-length frame loses its
-terminator and swallows the next message, which is how an Entry Hall secret's
-CHECK_LOCID once went missing). These tests drive the client's real dispatch and
-handlers to prove the chunks rejoin byte-for-byte and a partial snapshot is never
-committed.
+terminator and swallows the next message). These tests drive the client's real
+dispatch and handlers to prove the chunks rejoin byte-for-byte and a partial
+snapshot is never committed.
 """
 
 import asyncio
@@ -57,7 +56,8 @@ class TestBeanstateChunking(unittest.TestCase):
 
     def test_multi_chunk_roundtrip(self) -> None:
         # Comma-joined list well over the chunk size, so it splits across several
-        # BEANSTATE lines (the real ledger that triggered the bug was ~1088 chars).
+        # BEANSTATE lines, as a full bean-room ledger does at roughly a thousand
+        # characters.
         payload = ",".join(str(n) for n in range(500))
         self.assertGreater(len(payload), CHUNK_SIZE)
         self.feed(envelope(payload))
@@ -67,6 +67,7 @@ class TestBeanstateChunking(unittest.TestCase):
         # A boundary that lands inside a number must still rejoin exactly, which
         # is why the client concatenates verbatim rather than on commas.
         payload = "123456789," * 200
+        self.assertGreater(len(payload), CHUNK_SIZE)
         self.feed(envelope(payload))
         self.assertEqual(self.ctx.beanroom_state, payload)
 

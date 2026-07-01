@@ -114,6 +114,30 @@ class TestBicornChest8NeedsLumosChest5DoesNot(HP2TestBase):
             "Bicorn Chest 5 is a lit-area chest and must not require Lumos")
 
 
+# Rictusempra Challenge - Chest 5 sits in a dark spot, so its rule adds Lumos on top
+# of the lit-area set, unlike sibling Chests 1-4 and 6. Pin both sides so a future
+# edit cannot silently drop the Lumos gate or spread it to the lit chests. Same
+# isolation as the Bicorn/Goyle chest tests above.
+class TestRictusempraChest5NeedsLumos(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    def test_chest_5_needs_lumos(self) -> None:
+        self.assertAccessDependency(["Rictusempra Challenge - Chest 5"],
+                                    [["Lumos"]], only_check_listed=True)
+
+    def test_chest_4_does_not_need_lumos(self) -> None:
+        state = self.state_all_but(["Lumos"])
+        self.assertTrue(
+            state.can_reach("Rictusempra Challenge - Chest 4", "Location", self.player),
+            "Rictusempra Chest 4 is a lit-area chest and must not require Lumos")
+
+
 # Skurge Challenge - Complete accepts Running in place of Lumos, matching its
 # sibling Skurge locations whose lit-area gate is (Lumos OR Running). With Running
 # on, the finish is reachable without Lumos; with Running off, Lumos stays the only
@@ -306,6 +330,35 @@ class TestChamberFirstFallVanillaStillNeedsSpongify(HP2TestBase):
     def test_cauldron_1_still_needs_spongify(self) -> None:
         self.assertAccessDependency(["Chamber of Secrets - Cauldron 1"],
                                     [["Spongify"]], only_check_listed=True)
+
+
+# Cauldron 10, Flobberworm Mucous Jar 3, and Wiggentree Bark Jar 3 sit in the deep
+# chamber behind the full spell set, matching Cauldron 8/9, Mucous Jar 2, and Bark
+# Jar 2. Pin each spell individually so a future edit cannot silently loosen one of
+# these back to bare Flipendo. Region entry (Chamber of Secrets Key + Alohomora)
+# stays collected, so the five spells are the isolated gate.
+class TestChamberDeepSetNeedsFullSpellSet(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    DEEP_SET = ["Spongify", "Diffindo", "Skurge", "Rictusempra", "Flipendo"]
+    LOCATIONS = [
+        "Chamber of Secrets - Cauldron 10",
+        "Chamber of Secrets - Flobberworm Mucous Jar 3",
+        "Chamber of Secrets - Wiggentree Bark Jar 3",
+    ]
+
+    def test_each_deep_location_needs_every_spell(self) -> None:
+        # One dependency per spell: dropping any single one (Flipendo included)
+        # must strand the location, so a loosen back to bare Flipendo is caught.
+        for loc in self.LOCATIONS:
+            for spell in self.DEEP_SET:
+                self.assertAccessDependency([loc], [[spell]], only_check_listed=True)
 
 
 # Gold Card Room is gated behind the silver-card collection (40 in vanilla, 20 in
