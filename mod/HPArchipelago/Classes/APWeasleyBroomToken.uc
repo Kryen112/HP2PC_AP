@@ -16,7 +16,11 @@ var int CheckLocationId;
 
 event Touch(Actor Other)
 {
-    if (harry(Other) == None) return;
+    // Mirror the vanilla pickup grace period (HProp.CanPickupNow): no grab while
+    // still engaged with the vendor, so the thrown broom flies through Harry and is
+    // collected once he disengages, exactly like the vanilla drop. VendorNimbusBroom
+    // sets bPickupOnTouch, so this passes.
+    if (!CanPickupNow(Other)) return;
     class'APVendorTokenFire'.static.FireAndConsume(self, CheckLocationId);
 }
 
@@ -24,4 +28,9 @@ defaultproperties
 {
     classStatusGroup=None
     classStatusItem=None
+    // The swap Spawn can catch the thrown broom the tick it drops at the vendor,
+    // so a blocking token fails the encroachment check there. VendorNimbusBroom
+    // leaves bBlockActors at the Pawn default (True); clear it. bCollideWorld and
+    // bBlockPlayers stay as the base sets them, so it still lands and stays grabbable.
+    bBlockActors=False
 }
