@@ -15,12 +15,14 @@ const LOC_BASE = 5760000;
 // this falls outside the array, so its dedupe is skipped. Sized to cover
 // every band with headroom.
 const NONCARD_LOC_WINDOW = 2048;
-// Max characters per CHECKEDOUT chunk line. The full checked-id list outgrows
-// the engine's per-line TcpLink transmit limit (one over-length SendText
-// truncates mid-id, null-pads, and the next IPC line bleeds into the tail), so
-// NextCheckedOutChunk caps each line well under it. Generous margin: each line
-// also carries "CHECKEDOUT " and a trailing newline on top of this.
-const CHECKEDOUT_CHUNK_CHARS = 600;
+// Max characters per CHECKEDOUT chunk payload. Kept below APIPCActor's
+// IPC_MAX_FRAME_CHARS once the "CHECKEDOUT " prefix and trailing newline are
+// added, so the framed line clears the SendLine ceiling. A chunk can overshoot
+// this by one id before the length check, so the framed line lands near 570,
+// under the 600 ceiling. The full checked-id list would otherwise outgrow the
+// engine's per-line TcpLink transmit limit (one over-length frame truncates
+// mid-id, null-pads, and the next IPC line bleeds into the tail).
+const CHECKEDOUT_CHUNK_CHARS = 550;
 // Class-default dedup for non-card AP locations (secrets, stars, vendors,
 // duels, matches, level completions). Indexed by `apId - LOC_BASE`.
 // Class-default so it persists across level transitions in a session, like
@@ -2317,7 +2319,7 @@ function ScanDeathLink(APIPCActor ipc)
         // otherwise a next-tick retry can re-attempt once the IPC settles.
         if (ipc != None)
         {
-            ipc.SendText("DRAIN_ROLLBACK" $ Chr(10));
+            ipc.SendLine("DRAIN_ROLLBACK" $ Chr(10));
             Log("[Archipelago] APCardWatcher: post-death recovery - sent DRAIN_ROLLBACK");
             default.bWasDead = 0;
         }

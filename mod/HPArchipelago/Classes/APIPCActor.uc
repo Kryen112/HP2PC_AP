@@ -44,6 +44,22 @@ const POST_SNAPSHOT_WARMUP_SECS = 3.0;
 // the on-screen queue from overflowing during a larger burst.
 const GRANT_DRAIN_SPACING_SECS = 0.15;
 
+// Max characters per BEANSTATE chunk payload. Kept below IPC_MAX_FRAME_CHARS once
+// the "BEANSTATE " prefix and trailing newline are added, so the framed line
+// clears the SendLine ceiling instead of being refused. SendBeanRoomState ships
+// the ledger in pieces this size and the client rejoins them verbatim. Mirrors
+// APCardWatcher.CHECKEDOUT_CHUNK_CHARS.
+const BEANSTATE_CHUNK_CHARS = 550;
+
+// Hard ceiling on any single outbound IPC frame, enforced at the SendLine choke
+// point: no message may exceed this. The chunked senders cap their payload at
+// BEANSTATE_CHUNK_CHARS / CHECKEDOUT_CHUNK_CHARS (550), so even with a command
+// word and trailing newline the widest framed line lands near 570, under this.
+// A frame past the ceiling is refused and logged rather than shipped, since the
+// engine's per-line TcpLink transmit path corrupts the stream near ~1KB. Any
+// payload that large must ship as a reassembled chunk envelope, never one frame.
+const IPC_MAX_FRAME_CHARS = 600;
+
 // Reconnect state. If the client terminal closes / crashes mid-session, the
 // engine fires Closed() and the connection stays dead. Closed() schedules a
 // retry; Timer() drives the actual attempts with exponential backoff so a
@@ -226,7 +242,7 @@ event Opened()
     // apply against a count that moved while the link was down.
     bBaselineValid = False;
     PendingRingDelta = 0;
-    SendText("HELLO" $ Chr(10));
+    SendLine("HELLO" $ Chr(10));
     // Replay locally-collected checks so any fired while the bridge was down
     // (client launched after a pickup, or client restarted) reaches AP.
     SendCheckedOut();
@@ -241,7 +257,7 @@ event Opened()
     // if this level loaded while the bridge was down.
     if (CurrentLevelName != "")
     {
-        SendText("LEVEL " $ CurrentLevelName $ Chr(10));
+        SendLine("LEVEL " $ CurrentLevelName $ Chr(10));
         Log("[Archipelago] APIPCActor: replayed LEVEL " $ CurrentLevelName);
     }
 }
@@ -793,7 +809,7 @@ function MutateBeansNoBroadcast(harry h, int Delta)
 
 function SendRingOut(int Delta)
 {
-    SendText("RINGOUT " $ Delta $ Chr(10));
+    SendLine("RINGOUT " $ Delta $ Chr(10));
     Log("[Archipelago] APIPCActor: sent RINGOUT " $ Delta);
 }
 
@@ -821,8 +837,28 @@ function SendCheck(int CardId)
         Log("[Archipelago] APIPCActor: CHECK " $ CardId $ " deferred (link down) - replayed on reconnect");
         return;
     }
-    SendText("CHECK " $ CardId $ Chr(10));
+    SendLine("CHECK " $ CardId $ Chr(10));
     Log("[Archipelago] APIPCActor: sent CHECK " $ CardId);
+}
+
+// Single choke point for every outbound IPC frame, with two guarantees. First,
+// any frame past the safe transmit ceiling is refused and logged rather than
+// silently corrupting the stream: large payloads must ship as a reassembled
+// chunk envelope (a blind split would produce lines the client cannot parse as
+// commands). Second, `frame` (which already carries its trailing newline) is led
+// with one more newline, so that if a preceding frame ever lost its terminator
+// to the per-line TcpLink transmit cap, this frame still begins on its own line
+// and cannot be swallowed. The client skips the resulting empty lines.
+function SendLine(string frame)
+{
+    if (Len(frame) > IPC_MAX_FRAME_CHARS)
+    {
+        Log("[Archipelago] APIPCActor: REFUSED over-length IPC frame ("
+            $ Len(frame) $ " chars, cap " $ IPC_MAX_FRAME_CHARS $ "): "
+            $ Left(frame, 40) $ " ... - must ship as a chunk envelope");
+        return;
+    }
+    SendText(Chr(10) $ frame);
 }
 
 // CHECK_LOCID carries a raw AP location id (e.g. 5760318) instead of a game-side
@@ -840,13 +876,13 @@ function SendCheckLocationId(int LocationId)
         Log("[Archipelago] APIPCActor: CHECK_LOCID " $ LocationId $ " deferred (link down) - replayed on reconnect");
         return;
     }
-    SendText("CHECK_LOCID " $ LocationId $ Chr(10));
+    SendLine("CHECK_LOCID " $ LocationId $ Chr(10));
     Log("[Archipelago] APIPCActor: sent CHECK_LOCID " $ LocationId);
 }
 
 function SendCheckSpell(string SpellName)
 {
-    SendText("CHECK_SPELL " $ SpellName $ Chr(10));
+    SendLine("CHECK_SPELL " $ SpellName $ Chr(10));
     Log("[Archipelago] APIPCActor: sent CHECK_SPELL " $ SpellName);
 }
 
@@ -861,7 +897,7 @@ function SendLevel(string LevelName)
     clean = StripNewlines(LevelName);
     if (clean == "") return;
     CurrentLevelName = clean;
-    SendText("LEVEL " $ clean $ Chr(10));
+    SendLine("LEVEL " $ clean $ Chr(10));
     Log("[Archipelago] APIPCActor: sent LEVEL " $ clean);
 }
 
@@ -898,13 +934,13 @@ function SendSay(string Msg)
 
     clean = StripNewlines(Msg);
     if (clean == "") return;
-    SendText("SAY " $ clean $ Chr(10));
+    SendLine("SAY " $ clean $ Chr(10));
     Log("[Archipelago] APIPCActor: sent SAY " $ clean);
 }
 
 function SendCheckKeyItem(string KeyItemName)
 {
-    SendText("CHECK_KEYITEM " $ KeyItemName $ Chr(10));
+    SendLine("CHECK_KEYITEM " $ KeyItemName $ Chr(10));
     Log("[Archipelago] APIPCActor: sent CHECK_KEYITEM " $ KeyItemName);
 }
 
@@ -914,13 +950,13 @@ function SendCheckKeyItem(string KeyItemName)
 // option disabled.
 function SendVendorOpened(int LocationId)
 {
-    SendText("VENDOR_OPENED " $ LocationId $ Chr(10));
+    SendLine("VENDOR_OPENED " $ LocationId $ Chr(10));
     Log("[Archipelago] APIPCActor: sent VENDOR_OPENED " $ LocationId);
 }
 
 function SendGoalComplete()
 {
-    SendText("GOAL_COMPLETE" $ Chr(10));
+    SendLine("GOAL_COMPLETE" $ Chr(10));
     Log("[Archipelago] APIPCActor: sent GOAL_COMPLETE");
 }
 
@@ -929,8 +965,26 @@ function SendGoalComplete()
 // leaves the bean room. Payload is APBeanRoom.BuildBeanRoomState's flat list.
 function SendBeanRoomState(string payload)
 {
-    SendText("BEANSTATE " $ payload $ Chr(10));
-    Log("[Archipelago] APIPCActor: sent BEANSTATE (len " $ Len(payload) $ ")");
+    local string remaining;
+    local int chunks;
+
+    // Ship as a BEANSTATE_BEGIN / BEANSTATE <chunk> ... / BEANSTATE_END envelope.
+    // The full ledger outgrows the per-line TcpLink transmit cap, so it goes in
+    // length-bounded pieces the client concatenates verbatim. Splitting on raw
+    // character count (not commas) is safe because the client rejoins byte for
+    // byte between the markers.
+    SendLine("BEANSTATE_BEGIN" $ Chr(10));
+    remaining = payload;
+    while (Len(remaining) > BEANSTATE_CHUNK_CHARS)
+    {
+        SendLine("BEANSTATE " $ Left(remaining, BEANSTATE_CHUNK_CHARS) $ Chr(10));
+        remaining = Mid(remaining, BEANSTATE_CHUNK_CHARS);
+        chunks++;
+    }
+    SendLine("BEANSTATE " $ remaining $ Chr(10));
+    SendLine("BEANSTATE_END" $ Chr(10));
+    Log("[Archipelago] APIPCActor: sent BEANSTATE (len " $ Len(payload) $ " in "
+        $ (chunks + 1) $ " chunk(s))");
 }
 
 // DeathLink out. Cause is optional flavour; the client gates on the
@@ -950,7 +1004,7 @@ function SendDeath(string Cause)
         return;
     }
     NextDeathSendTime = Level.TimeSeconds + SEND_DEATH_MIN_INTERVAL_SECS;
-    SendText("DEATH " $ Cause $ Chr(10));
+    SendLine("DEATH " $ Cause $ Chr(10));
     Log("[Archipelago] APIPCActor: sent DEATH " $ Cause);
 }
 
@@ -991,7 +1045,7 @@ function SendApplied(int idx)
     {
         return;
     }
-    SendText("APPLIED " $ idx $ Chr(10));
+    SendLine("APPLIED " $ idx $ Chr(10));
     Log("[Archipelago] APIPCActor: sent APPLIED " $ idx);
 }
 
@@ -1026,7 +1080,7 @@ function SendNewGame()
     // A genuine new game has not reached the ending; drop the goal-replay latch
     // so a goal from a prior playthrough in this process isn't re-fired.
     bGoalReached = False;
-    SendText("NEWGAME" $ Chr(10));
+    SendLine("NEWGAME" $ Chr(10));
     Log("[Archipelago] APIPCActor: sent NEWGAME (iGameState 0 - genuine new game)");
 }
 
@@ -1052,7 +1106,7 @@ function SendCheckedOut()
     {
         if (chunk != "")
         {
-            SendText("CHECKEDOUT " $ chunk $ Chr(10));
+            SendLine("CHECKEDOUT " $ chunk $ Chr(10));
             nLines++;
         }
     }

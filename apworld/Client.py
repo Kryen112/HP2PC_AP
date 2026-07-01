@@ -25,8 +25,12 @@ Mod-side protocol (newline-delimited text):
     NEWGAME                     (game → client, genuine new game (iGameState 0) → wipe ledger)
     CHECKEDOUT <id_csv>         (game → client, on bridge connect: AP location ids the mod has
                                 locally checked → replay to AP for any the server is missing)
-    BEANSTATE <payload>         (game → client, on leaving the open-castle bean room: its ledger
-                                to persist in AP storage so the room survives a restart)
+    BEANSTATE_BEGIN             (game → client, start of a chunked bean-room ledger snapshot,
+                                sent on leaving the open-castle bean room)
+    BEANSTATE <chunk>           (game → client, one verbatim slice of the ledger; the whole line
+                                outgrows the mod's per-line TcpLink cap, so it ships in chunks)
+    BEANSTATE_END               (game → client, end of the snapshot: concatenate the chunks and
+                                persist to AP storage so the room survives a restart)
     GRANT <index> <payload>\x1f<segrecord>  (client → game, forward item received; index = AP
                                 ReceivedItems index; \x1f splits the apply payload from a
                                 colourised toast segment record)
@@ -566,6 +570,11 @@ class HP2Context(CommonContext):
         # to the mod (RESYNC_BEANROOM) on every connect / HELLO.
         self.beanroom_key: Optional[str] = None
         self.beanroom_state: str = ""
+        # Accumulator for a chunked BEANSTATE snapshot. The mod sends the ledger
+        # as BEANSTATE_BEGIN / BEANSTATE <chunk> ... / BEANSTATE_END (its single
+        # line outgrows the mod's per-line TcpLink transmit cap); chunks are
+        # concatenated verbatim here and committed to beanroom_state on END.
+        self._beanstate_accum: str = ""
         self.beanroom_loaded: bool = False
         # When True, our in-memory consumed_indices wins over the server's stored
         # value on the next Retrieved (we overwrite the server instead of merging).
@@ -1758,6 +1767,10 @@ class HP2Context(CommonContext):
                 if not line_bytes:
                     break
                 line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
+                # Outbound frames are newline-led (see the mod's SendLine), so a
+                # blank line between messages is expected framing, not content.
+                if not line:
+                    continue
                 logger.info(f"[game→client] {line}")
                 await self._handle_game_line(line)
         except (ConnectionResetError, ConnectionAbortedError):
@@ -1796,6 +1809,8 @@ class HP2Context(CommonContext):
         # so the first token routes unambiguously.
         handler = {
             "APPLIED": self._on_applied,
+            "BEANSTATE_BEGIN": self._on_beanstate_begin,
+            "BEANSTATE_END": self._on_beanstate_end,
             "BEANSTATE": self._on_beanstate,
             "DRAIN_ROLLBACK": self._on_drain_rollback,
             "NEWGAME": self._on_newgame,
@@ -1830,10 +1845,27 @@ class HP2Context(CommonContext):
             self._persist_ledger()
         return
 
+    async def _on_beanstate_begin(self, line: str) -> None:
+        # Start of a chunked bean-room ledger snapshot (sent on leaving the
+        # room). Reset the accumulator; the BEANSTATE chunk lines that follow
+        # are concatenated verbatim and committed on BEANSTATE_END.
+        self._beanstate_accum = ""
+        return
+
     async def _on_beanstate(self, line: str) -> None:
-        # Open-castle bean-room ledger snapshot from the mod (sent on leaving
-        # the room). Persist verbatim to AP storage so it survives a restart.
-        self.beanroom_state = line[len("BEANSTATE "):]
+        # One chunk of the current snapshot. Append verbatim: the mod splits on
+        # raw character count, so byte-for-byte concatenation reproduces the
+        # original payload. A lone chunk outside a BEGIN/END pair (never sent by
+        # the current mod) is harmless: it only lands on END.
+        self._beanstate_accum += line[len("BEANSTATE "):]
+        return
+
+    async def _on_beanstate_end(self, line: str) -> None:
+        # Snapshot complete. Commit and persist to AP storage so the room's
+        # collected / opened state survives a game restart. A snapshot whose END
+        # never arrives (mid-send disconnect) leaves beanroom_state untouched, so
+        # a partial ledger is never persisted.
+        self.beanroom_state = self._beanstate_accum
         self._persist_beanroom()
         return
 
@@ -1885,6 +1917,7 @@ class HP2Context(CommonContext):
         # Fresh playthrough: clear the persisted bean-room ledger so its room
         # starts full (the mod wipes its class-default copy on NEWGAME too).
         self.beanroom_state = ""
+        self._beanstate_accum = ""
         self._persist_beanroom()
         self._send_resync_spells()
         self._forward_all_received()
