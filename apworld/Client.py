@@ -445,6 +445,84 @@ class HP2CommandProcessor(ClientCommandProcessor):
         asyncio.create_task(ctx._launch_game_manual())
         return True
 
+    def _cmd_hint(self, category: str = "", tier: str = "") -> bool:
+        """Hint your next in-logic item of a kind, spending hint points on it
+        exactly like !hint. Usage: /hint spell | /hint key | /hint card
+        [bronze|silver|gold]. Picks the earliest in-logic item of that kind you
+        have not collected yet. Bare /hint card follows the seed goal: any card
+        when the goal counts cards, silver otherwise."""
+        ctx: "HP2Context" = self.ctx
+        if ctx.server is None or ctx.slot is None:
+            self.output("Connect to a seed first, so /hint knows your items.")
+            return True
+        if not ctx.hint_order:
+            self.output("This seed carries no /hint data (generated before /hint "
+                        "existed). Use !hint <item> instead.")
+            return True
+        kind = category.lower().rstrip("s")
+        if kind not in ("spell", "key", "card"):
+            self.output("Usage: /hint spell | /hint key | /hint card "
+                        "[bronze|silver|gold]")
+            return True
+        candidates = list(ctx.hint_order.get(kind, []))
+        label = kind
+        if kind == "card":
+            tier_groups = {
+                "bronze": "Cards (Bronze)",
+                "silver": "Cards (Silver)",
+                "gold": "Cards (Gold)",
+            }
+            wanted_tier = tier.lower().rstrip("s")
+            if wanted_tier:
+                if wanted_tier not in tier_groups:
+                    self.output("Card tier must be bronze, silver or gold.")
+                    return True
+                wanted = frozenset(ITEM_GROUPS.get(tier_groups[wanted_tier], []))
+                candidates = [n for n in candidates if n in wanted]
+                label = f"{wanted_tier} card"
+            elif self._card_goal_counts_all_tiers():
+                label = "card"
+            else:
+                wanted = frozenset(ITEM_GROUPS.get("Cards (Silver)", []))
+                candidates = [n for n in candidates if n in wanted]
+                label = "silver card"
+        elif tier:
+            self.output(f"/hint {kind} takes no extra argument.")
+            return True
+        if not candidates:
+            self.output(f"This seed has no {label}s to hint.")
+            return True
+        received = {
+            ctx.item_names.lookup_in_game(item.item, GAME_NAME)
+            for item in ctx.received_by_index.values()
+        }
+        remaining = [name for name in candidates if name not in received]
+        if not remaining:
+            self.output(f"You already have every {label}.")
+            return True
+        target = remaining[0]
+        self.output(f"Hinting your next {label}: {target}")
+        # Reached only while connected (guarded above), so this !hint frame
+        # sends now; the offline queue in _send_or_queue_ap_msg is not used here.
+        asyncio.create_task(ctx._send_or_queue_ap_msg(
+            {"cmd": "Say", "text": f"!hint {target}"},
+            label=f"/hint request for {target!r}",
+        ))
+        return True
+
+    def _card_goal_counts_all_tiers(self) -> bool:
+        """Bare /hint card default. Open castle with a card-count goal treats any
+        tier as progress, so hint the next card of any tier. Otherwise (vanilla,
+        or open castle with no card goal) only silver cards gate anything, so
+        default to silver."""
+        ctx: "HP2Context" = self.ctx
+        if not ctx.is_open_castle or not ctx.open_castle_goalcfg:
+            return False
+        try:
+            return int(ctx.open_castle_goalcfg.split(",")[0]) > 0
+        except (ValueError, IndexError):
+            return False
+
     def _cmd_progress(self) -> bool:
         """Show progress toward the open castle goal: cards / spells / level
         objectives / duels / quidditch matches against the thresholds the seed
@@ -634,6 +712,9 @@ class HP2Context(CommonContext):
         # on Connected; pushed to the mod on every game HELLO (sticky +
         # idempotent mod-side, so a fresh game launch / reconnect re-arms it).
         self.open_castle_goalcfg: Optional[str] = None
+        # Sphere-ordered spell / key / card item names for the /hint command,
+        # from slot_data on Connected. Empty when the seed omits it.
+        self.hint_order: dict[str, list[str]] = {}
         # Tradersanity price mode as the "TRADECFG <int>" payload (0 off /
         # 1 vanilla / 2 random / 3 low), or None if not yet received. Parsed
         # from slot_data on Connected; pushed every game HELLO (sticky +
@@ -900,6 +981,10 @@ class HP2Context(CommonContext):
                 self._send_to_game("GOALCFG " + self.open_castle_goalcfg)
         else:
             self.open_castle_goalcfg = None
+
+        # Sphere-ordered item names for /hint (see _cmd_hint). Empty when the
+        # seed's slot_data omits it; the command says so and defers to !hint.
+        self.hint_order = sd.get("hint_order") or {}
 
         # Tradersanity price mode (both game modes; slot_data carries it
         # for vanilla and open castle). Sticky like open_castle_goalcfg:

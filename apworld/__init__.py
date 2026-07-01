@@ -1198,9 +1198,51 @@ class HP2World(World):
         if dialogue_mode != "off":
             sd["dialogue_mode"] = dialogue_mode
             sd["dialogue_seed"] = self.random.randint(0, 2**31 - 1)
+        # Sphere-ordered spell / key / card item names so the client's /hint
+        # command can offer the player's next in-logic item of each kind. Both
+        # modes carry it.
+        sd["hint_order"] = self._compute_hint_order()
         if not self._is_open_castle():
             sd["game_mode"] = "vanilla"
             return sd
         sd["game_mode"] = "open_castle"
         sd.update(self._open_castle_goal_config())
         return sd
+
+    def _compute_hint_order(self) -> dict:
+        """This slot's own spell, key and card items grouped by kind and ordered
+        by the sphere their placement first opens in. The client reads this so
+        /hint can offer the earliest in-logic item the player has not collected.
+        Cards are one combined list across tiers; the client filters by tier."""
+        sphere_index: dict = {}
+        for index, sphere in enumerate(self.multiworld.get_spheres()):
+            for location in sphere:
+                sphere_index[location] = index
+        categories = {
+            "spell": frozenset(ITEM_GROUPS.get("Spells", [])),
+            "key": frozenset(ITEM_GROUPS.get("Blocker Keys", [])),
+            "card": CARD_ITEM_NAMES,
+        }
+        reached: dict = {key: [] for key in categories}
+        unreached: dict = {key: [] for key in categories}
+        for location in self.multiworld.get_locations():
+            item = location.item
+            if item is None or item.player != self.player:
+                continue
+            for key, names in categories.items():
+                if item.name in names:
+                    # get_spheres gives every filled location a sphere, so a
+                    # placed item lands in reached. unreached only guards the
+                    # unplaced case and stops the sort comparing None to int.
+                    sphere = sphere_index.get(location)
+                    if sphere is None:
+                        unreached[key].append(item.name)
+                    else:
+                        reached[key].append((sphere, item.name))
+                    break
+        order: dict = {}
+        for key in categories:
+            names = [name for _, name in sorted(reached[key])]
+            names.extend(sorted(unreached[key]))
+            order[key] = names
+        return order
