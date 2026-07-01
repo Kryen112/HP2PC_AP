@@ -28,6 +28,18 @@ const STRIDE = 10;        // max segments one toast can hold (richest line is 9)
 const TOAST_DURATION = 5.0;
 const TICK_INTERVAL = 0.1;
 
+// Fixed toast box width. Every toast draws to one width so the column is uniform
+// and the text floats left; a line longer than this ellipsizes rather than
+// widening the box. The width is measured at render time from the wider of these
+// two worst-case normal lines (own-game item / location, 7-char name): line 1 is
+// the two-name "sent" phrasing with the longest item, line 2 the longest location
+// in parentheses. Foreign item / location names and longer player names exceed it
+// and get the ellipsis. If the real names drift, the clamp shifts slightly and the
+// ellipsis absorbs it.
+const TOAST_SAMPLE_LINE1 = "Playerr sent Bronze Card - Marjoribanks to Playerr";
+const TOAST_SAMPLE_LINE2 = "(Slytherin Common Room - Flobberworm Mucous Jar)";
+const TOAST_ELLIPSIS = "...";
+
 // Minimum life (seconds) a carried-over toast resumes with in the next level, so
 // a near-expired one still gets read time. See the carry buffer below.
 const CARRY_MIN_REMAINING = 2.0;
@@ -86,10 +98,11 @@ var transient bool bDrainedCarry;
 // and registers via TryRegisterWithHUD on its first Timer tick.
 var transient HPHud RegisteredHud;
 
-// Background texture drawn behind each toast line. `HGame.Icons.leftPanel`
-// is the same panel CutSceneManager uses for its cutscene border bars and
-// FEFolioPage uses for the description-text backdrop, a known-good translucent
-// panel that reads well on top of arbitrary scene content.
+// Background texture drawn behind each toast. `HGame.Icons.FEInGameBackTexture1`
+// is frame 1 of the pause menu's animated backdrop (FEBook.InGameBackground): the
+// top ~40% is a golden header frame, the rest clean starry sky. The toast draws
+// only the clean-sky part, opaque, so it reads like a slice of the folio screen
+// without the header band.
 var Texture ToastBackground;
 // "Whoosh" played per toast, the same sound vanilla plays when a vendor card
 // flies out into the world (Characters.uc:698 PlaySound `vendor_spawn_WC`).
@@ -138,7 +151,7 @@ event PreBeginPlay()
     // same texture works at runtime for HUD draws.
     if (ToastBackground == None)
     {
-        ToastBackground = Texture(DynamicLoadObject("HGame.Icons.leftPanel", class'Texture'));
+        ToastBackground = Texture(DynamicLoadObject("HGame.Icons.FEInGameBackTexture1", class'Texture'));
     }
     if (ToastSound == None)
     {
@@ -635,6 +648,22 @@ function Color RoleColor(byte code)
     return c;
 }
 
+// Longest prefix of `s` that, with the ellipsis appended, fits within `maxW`
+// pixels. Used to cut an overflowing toast line down to the fixed box width. Only
+// runs on a line that actually overflows, so the per-character walk is cheap.
+function string TruncateWithEllipsis(Canvas C, string s, float maxW)
+{
+    local float w, hh;
+
+    while (Len(s) > 0)
+    {
+        C.TextSize(s $ TOAST_ELLIPSIS, w, hh);
+        if (w <= maxW) return s $ TOAST_ELLIPSIS;
+        s = Left(s, Len(s) - 1);
+    }
+    return TOAST_ELLIPSIS;
+}
+
 // Measure toast `toastIdx`: its widest rendered line and its line count (split
 // on NEWLINE segments). Each line is measured as one concatenated string so the
 // width matches what DrawShadowText actually renders. TextSize is exact per
@@ -674,9 +703,11 @@ function RenderHud(Canvas C)
     local int i, j, n, baseIdx, lineCount;
     local float baseY, lineHeight, scale, marginX, padX, padY;
     local float maxLineW, prefixW, prefixH, tmpW;
+    local float maxContentW, sampleW, skyV0, skyVL;
     local float boxX, boxY, boxW, boxH, curX, curY, runningY;
     local Color colorShadow, colorSave, segColor;
     local int styleSave;
+    local bool lineFull;
     local harry h;
     local string txt, lineText;
     local byte code;
@@ -709,6 +740,16 @@ function RenderHud(Canvas C)
     C.TextSize("Ay", tmpW, lineHeight);
     lineHeight = lineHeight * 1.2;
 
+    // One fixed content width for every toast: the wider of the two worst-case
+    // normal lines. Boxes share this width (uniform left column) and longer lines
+    // ellipsize instead of stretching the box. Clamped to the screen so a low
+    // resolution / high HUD scale never pushes the box off the right edge.
+    C.TextSize(TOAST_SAMPLE_LINE1, maxContentW, tmpW);
+    C.TextSize(TOAST_SAMPLE_LINE2, sampleW, tmpW);
+    if (sampleW > maxContentW) maxContentW = sampleW;
+    if (maxContentW > C.SizeX - marginX * 2 - padX * 2)
+        maxContentW = C.SizeX - marginX * 2 - padX * 2;
+
     colorShadow = APBlack();
 
     colorSave = C.DrawColor;
@@ -721,31 +762,45 @@ function RenderHud(Canvas C)
         if (n <= 0) continue;
         baseIdx = i * STRIDE;
 
+        // Line count still comes from the segments; the width is fixed, not
+        // content-derived, so every box matches. The holder stays on the right
+        // (uniform right edge); the text floats left inside each box.
         ComputeToastDims(C, i, maxLineW, lineCount);
 
-        boxW = maxLineW + padX * 2;
+        boxW = maxContentW + padX * 2;
         boxH = lineCount * lineHeight + padY * 2;
         boxX = C.SizeX - boxW - marginX;
         boxY = runningY;
 
-        // Translucent background panel spanning every line of this toast.
+        // Menu-sky background spanning every line: a crop of the pause menu's
+        // backdrop, taken below its golden header frame (the texture's top ~40%) and
+        // drawn opaque (styleSave is the opaque text style saved above). The crop
+        // height tracks the box aspect, so the sky scales uniformly instead of
+        // smearing into horizontal streaks.
         if (ToastBackground != None)
         {
-            C.Style = 2; // STY_Translucent (matches CutSceneManager border draw)
-            C.DrawColor.R = 80;
-            C.DrawColor.G = 80;
-            C.DrawColor.B = 80;
+            skyVL = ToastBackground.VSize * boxH / boxW;
+            skyV0 = ToastBackground.VSize * 0.52;
+            if (skyV0 + skyVL > ToastBackground.VSize)
+                skyV0 = ToastBackground.VSize - skyVL;
+            C.Style = styleSave;
+            C.DrawColor.R = 255;
+            C.DrawColor.G = 255;
+            C.DrawColor.B = 255;
             C.SetPos(boxX, boxY);
-            C.DrawTile(ToastBackground, boxW, boxH, 0.0, 0.0, ToastBackground.USize, ToastBackground.VSize);
+            C.DrawTile(ToastBackground, boxW, boxH, 0.0, skyV0, ToastBackground.USize, skyVL);
         }
 
         // Segments on top. Each segment's X is the measured width of the line
         // text drawn before it (one TextSize on the running prefix), so spacing
-        // matches a single-string render exactly and never accumulates drift.
+        // matches a single-string render exactly and never accumulates drift. A
+        // line whose text passes the fixed content width is cut with an ellipsis
+        // and the rest of that line is skipped.
         C.Style = styleSave;
         C.DrawColor = colorSave;
         curY = boxY + padY;
         lineText = "";
+        lineFull = False;
         for (j = 0; j < n; j++)
         {
             code = ToastSegs[baseIdx + j].ColorCode;
@@ -753,9 +808,13 @@ function RenderHud(Canvas C)
             {
                 curY += lineHeight;
                 lineText = "";
+                lineFull = False;
                 continue;
             }
+            if (lineFull) continue;   // remainder of an already-ellipsized line
             txt = ToastSegs[baseIdx + j].Text;
+            if (txt == "") continue;
+
             if (lineText == "")
             {
                 prefixW = 0.0;
@@ -765,13 +824,24 @@ function RenderHud(Canvas C)
                 C.TextSize(lineText, prefixW, prefixH);
             }
             curX = boxX + padX + prefixW;
-            if (txt != "")
+            segColor = RoleColor(code);
+
+            C.TextSize(lineText $ txt, tmpW, prefixH);
+            if (tmpW <= maxContentW)
             {
-                segColor = RoleColor(code);
                 C.SetPos(curX, curY);
                 C.DrawShadowText(txt, segColor, colorShadow);
+                lineText = lineText $ txt;
             }
-            lineText = lineText $ txt;
+            else
+            {
+                // Overflow: draw the largest fitting slice of this segment plus the
+                // ellipsis, then skip the rest of this line.
+                txt = TruncateWithEllipsis(C, txt, maxContentW - prefixW);
+                C.SetPos(curX, curY);
+                C.DrawShadowText(txt, segColor, colorShadow);
+                lineFull = True;
+            }
         }
 
         runningY += boxH + (2 * scale);
