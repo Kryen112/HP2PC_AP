@@ -45,6 +45,32 @@ class TestOpenCastleLevelKeys(HP2TestBase):
             self.assertAccessDependency([loc], [[key]], only_check_listed=True)
 
 
+# Forbidden Forest is enterable from the start when Running logic is on: the
+# open-castle region rule is forbidden_forest_key OR Running. With Running off
+# the key stays the only gate (covered by TestOpenCastleLevelKeys above); with
+# Running on the precollected flag opens the region without the key.
+class TestForbiddenForestRunningShortcut(HP2TestBase):
+    options = {"game_mode": "open_castle", "allow_running_logic": True, "starting_spells": []}
+    run_default_tests = False
+
+    def test_region_reachable_without_key_via_running(self) -> None:
+        state = self.state_all_but(["Forbidden Forest Key"])
+        self.assertTrue(
+            state.can_reach("ForbiddenForest", "Region", self.player),
+            "Running should open the Forbidden Forest region without the key")
+
+
+class TestForbiddenForestKeyGatedWithoutRunning(HP2TestBase):
+    options = {"game_mode": "open_castle", "allow_running_logic": False, "starting_spells": []}
+    run_default_tests = False
+
+    def test_region_needs_key_without_running(self) -> None:
+        state = self.state_all_but(["Forbidden Forest Key"])
+        self.assertFalse(
+            state.can_reach("ForbiddenForest", "Region", self.player),
+            "without Running the Forbidden Forest region still needs its key")
+
+
 # Open-castle Goyle Level - Chest 3 sits in a dark area, so its rule adds Lumos on
 # top of the lit-area spell set, matching sibling Chests 5, 8, and 11. Pin it so a
 # future edit cannot silently drop the Lumos gate. containersanity on so the chest

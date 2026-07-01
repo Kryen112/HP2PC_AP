@@ -154,7 +154,7 @@ REGION_ENTRY_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "DuellingClub": duelling_key,
     "DumbledoreStudy": alohomora,
     "EntryHall": always,
-    "ForbiddenForest": forbidden_forest_key,
+    "ForbiddenForest": forbidden_forest_key | running,
     "GoldCardRoom": _silver_cards(20),
     "GoyleLevel": goyle_level_key,
     "GrandStaircase": always,
