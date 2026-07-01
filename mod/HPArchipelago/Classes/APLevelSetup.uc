@@ -240,6 +240,71 @@ static function ReplaceGryffindorEndStar(Actor ctx)
     }
 }
 
+// The four spell challenges (Ch1Rictusempra, Ch2Skurge, Ch3Diffindo, Ch4Spongify;
+// LevelObjectiveIndexFor idx 7..10) ship a FinalStar plus a ChallengeScoreManager.
+// Picking it up ends the challenge and the completion cutscene returns to the hub
+// before ScanFinalStarCompletion's present->absent poll credits it, so the
+// "... Challenge - Complete" check and the par-honest score capture miss (see
+// APSpellChallengeFinalStar). Swap the placed FinalStar for the AP-aware one that
+// credits both on pickup then hands off to the vanilla completion. Preserve the
+// editor wiring the vanilla completion depends on: Event (FinalStar.EndState fires
+// it to drive the tally / return cutscene), Tag (any external trigger), and Base
+// (a star can ride a mover). Level-gated via LevelObjectiveIndexFor; skips an
+// already-swapped star so a second Snapshot is idempotent.
+static function ReplaceSpellChallengeFinalStar(Actor ctx)
+{
+    local FinalStar fs;
+    local APSpellChallengeFinalStar apStar;
+    local Vector loc;
+    local Rotator rot;
+    local Actor vanillaBase;
+    local Name vanillaTag, vanillaEvent;
+    local int idx, replaced;
+
+    idx = class'APGoalTracker'.static.LevelObjectiveIndexFor(Caps(string(ctx.Level.Outer.Name)));
+    if (idx < 7 || idx > 10) return;
+
+    foreach ctx.AllActors(class'FinalStar', fs)
+    {
+        if (fs == None || fs.bDeleteMe) continue;
+        // Skip a swap from a prior Snapshot this level (and never revisit the one
+        // spawned below in this same iteration).
+        if (ClassIsChildOf(fs.Class, class'APSpellChallengeFinalStar')) continue;
+
+        loc = fs.Location;
+        rot = fs.Rotation;
+        vanillaBase = fs.Base;
+        vanillaTag = fs.Tag;
+        vanillaEvent = fs.Event;
+        fs.Destroy();
+        apStar = ctx.Spawn(class'APSpellChallengeFinalStar', , , loc, rot);
+        if (apStar == None)
+        {
+            Log("[Archipelago] APLevelSetup.ReplaceSpellChallengeFinalStar: Spawn returned None at "
+                $ string(loc));
+            continue;
+        }
+        if (vanillaEvent != 'None')
+        {
+            apStar.Event = vanillaEvent;
+        }
+        if (vanillaTag != 'None')
+        {
+            apStar.Tag = vanillaTag;
+        }
+        if (vanillaBase != None)
+        {
+            apStar.SetBase(vanillaBase);
+        }
+        replaced++;
+    }
+    if (replaced > 0)
+    {
+        Log("[Archipelago] APLevelSetup.ReplaceSpellChallengeFinalStar: replaced " $ replaced
+            $ " vanilla FinalStar(s) with AP final star (idx=" $ idx $ ")");
+    }
+}
+
 // Subclass-replace Ch6WizardCard's far-end TriggerChangeLevel (tag changelevel1)
 // with an APTriggerChangeLevel so reaching the end of the Gold Card Room credits
 // clause-3 objective idx 12 (the room's 13th level-completion). The room's OTHER

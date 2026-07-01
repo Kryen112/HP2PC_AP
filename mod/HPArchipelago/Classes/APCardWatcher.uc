@@ -2135,6 +2135,11 @@ function Snapshot()
     // destroyed and ScanFinalStarCompletion's poll can never see it. No-op
     // outside CH7GRYFFINDOR.
     class'APLevelSetup'.static.ReplaceGryffindorEndStar(self);
+    // Swap the four spell challenges' placed FinalStar (Rictusempra, Skurge,
+    // Diffindo, Spongify) for an AP-aware one that credits the completion and the
+    // par-honest end score on pickup, since ScanFinalStarCompletion's poll misses
+    // the fast completion-cutscene travel. No-op outside those four levels.
+    class'APLevelSetup'.static.ReplaceSpellChallengeFinalStar(self);
     // Swap Ch6WizardCard's far-end TriggerChangeLevel (tag changelevel1) for an
     // AP-aware trigger that credits clause-3 objective idx 12 before the stock
     // reload. No-op outside CH6WIZARDCARD.
