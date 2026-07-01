@@ -90,6 +90,30 @@ class TestGoyleChest3NeedsLumos(HP2TestBase):
                                     [["Lumos"]], only_check_listed=True)
 
 
+# The same lit/dark sibling logic applies in the Bicorn Level: Chest 8 is the dark
+# chest (Lumos on top of the lit-area set), while Chest 5 is lit (no Lumos). Pin
+# both so a future edit cannot silently move or drop the Lumos gate between them.
+# Same isolation as the Goyle test above.
+class TestBicornChest8NeedsLumosChest5DoesNot(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    def test_chest_8_needs_lumos(self) -> None:
+        self.assertAccessDependency(["Bicorn Level - Chest 8"],
+                                    [["Lumos"]], only_check_listed=True)
+
+    def test_chest_5_does_not_need_lumos(self) -> None:
+        state = self.state_all_but(["Lumos"])
+        self.assertTrue(
+            state.can_reach("Bicorn Level - Chest 5", "Location", self.player),
+            "Bicorn Chest 5 is a lit-area chest and must not require Lumos")
+
+
 # Skurge Challenge - Complete accepts Running in place of Lumos, matching its
 # sibling Skurge locations whose lit-area gate is (Lumos OR Running). With Running
 # on, the finish is reachable without Lumos; with Running off, Lumos stays the only
