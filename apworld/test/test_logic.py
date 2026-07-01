@@ -90,6 +90,30 @@ class TestGoyleChest3NeedsLumos(HP2TestBase):
                                     [["Lumos"]], only_check_listed=True)
 
 
+# Skurge Challenge - Complete accepts Running in place of Lumos, matching its
+# sibling Skurge locations whose lit-area gate is (Lumos OR Running). With Running
+# on, the finish is reachable without Lumos; with Running off, Lumos stays the only
+# path. starting_spells empty so Lumos sits in the pool rather than precollected.
+class TestSkurgeCompleteRunningSubsForLumos(HP2TestBase):
+    options = {"game_mode": "open_castle", "allow_running_logic": True, "starting_spells": []}
+    run_default_tests = False
+
+    def test_complete_reachable_without_lumos_via_running(self) -> None:
+        state = self.state_all_but(["Lumos"])
+        self.assertTrue(
+            state.can_reach("Skurge Challenge - Complete", "Location", self.player),
+            "Running should let Skurge Challenge - Complete finish without Lumos")
+
+
+class TestSkurgeCompleteNeedsLumosWithoutRunning(HP2TestBase):
+    options = {"game_mode": "open_castle", "allow_running_logic": False, "starting_spells": []}
+    run_default_tests = False
+
+    def test_complete_needs_lumos_without_running(self) -> None:
+        self.assertAccessDependency(["Skurge Challenge - Complete"],
+                                    [["Lumos"]], only_check_listed=True)
+
+
 # Running-logic shortcut: Castle Exterior - Card Pokeby is gated behind a spell
 # chain OR Running. With Running off it genuinely needs the spells, so removing
 # Rictusempra strands it.

@@ -461,7 +461,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Skurge Challenge - Chest 4": skurge & flipendo & (lumos | running) & alohomora,
     "Skurge Challenge - Chest 5": skurge & alohomora,
     "Skurge Challenge - Cigar Box": skurge & flipendo & (lumos | running) & alohomora,
-    "Skurge Challenge - Complete": skurge & flipendo & lumos,
+    "Skurge Challenge - Complete": skurge & flipendo & (lumos | running),
     "Skurge Challenge - Decanter 1": skurge & flipendo,
     "Skurge Challenge - Decanter 2": skurge & flipendo & (lumos | running),
     "Skurge Challenge - Flobberworm Mucous Jar": skurge & flipendo & (lumos | running),
