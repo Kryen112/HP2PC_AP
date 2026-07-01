@@ -963,6 +963,7 @@ function DrawTradersanityAPLabel(Canvas C)
 function DrawTrapStatus(Canvas C)
 {
     local harry h;
+    local HPHud hud;
     local bool bConf, bObliv;
     local float now, rem, textW, textH, rowY, scale;
     local Color colorText, colorShadow, colorSave;
@@ -989,6 +990,17 @@ function DrawTrapStatus(Canvas C)
     // (drawn by the same RenderHud at y~2).
     rowY = 28.0 * scale;
 
+    // A live spell challenge parks its score/timer icon dead-centre at the very
+    // top, so the top-centre trap rows land right on the hourglass. When that icon
+    // is up, drop the rows just below its boxes so both stay readable. Cheap pointer
+    // read off the HUD, not an AllActors scan (this runs every frame).
+    hud = HPHud(h.myHUD);
+    if (hud != None && hud.managerChallenge != None
+        && hud.managerChallenge.IsInState('ChallengeInProgress'))
+    {
+        rowY = ChallengeIconContentBottom(C);
+    }
+
     if (bConf)
     {
         rem = class'APTrapController'.default.ConfundusTrapExpiry - now;
@@ -1010,6 +1022,21 @@ function DrawTrapStatus(Canvas C)
 
     C.Font = fontSave;
     C.DrawColor = colorSave;
+}
+
+// Y coordinate, in canvas pixels, just under the challenge score icon's visible
+// content. ChallengeScoreManager parks the 128x128 HP2ChallengeScore icon with
+// its top at 4 units, scaled by SizeX/640 and the aspect height scale. The
+// hourglass and score boxes fill only the top 76 texture rows (the rest is
+// transparent), so anchoring to row 76 plus a small gap drops the trap rows just
+// beneath the boxes instead of below the empty padding.
+static function float ChallengeIconContentBottom(Canvas C)
+{
+    local float fScaleFactor, heightScale;
+
+    fScaleFactor = C.SizeX / 640.0;
+    heightScale  = class'M212HScale'.static.CanvasGetHeightScale(C);
+    return (4.0 + 76.0 + 6.0) * fScaleFactor * heightScale;
 }
 
 // Whole seconds remaining, rounded up, floored at 0. Keeps the countdown from
