@@ -2373,20 +2373,21 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 //                   next level transition, whichever comes first.
 //   Drowsiness    - the game's own sleepy status effect; harry.Timer() counts
 //                   it back down once per second (self-reverting).
-//   Engorgio /    - DrawScale and collision cylinder up / down for the rest of
-//   Reducio         the level (JumpZ untouched so the jump apex stays vanilla);
-//                   reverts on the next level's fresh pawn, like Polyjuice.
+//   Engorgio /    - DrawScale and collision cylinder up / down (JumpZ untouched
+//   Reducio         so the jump apex stays vanilla); APCardWatcher restores the
+//                   default scale on a timer or the next level transition,
+//                   whichever comes first.
 //   Confundus     - forces harry.bInvertMouse; APCardWatcher restores the real
 //                   setting on a timer or the next level transition.
 //   Overcompensation - swaps the held wand to the enlarged APWandGiant mesh
 //                   (DrawScale doesn't render on the bone-attached wand); lasts
 //                   the level and reverts when APCardWatcher sees the next level
 //                   change, like the Polyjuice trap.
-//   Levicorpus    - flips Harry upside down (Roll 32768) for the rest of the
-//                   level; APCardWatcher holds the roll each tick and swaps the
-//                   strafe key bindings so the flipped right-axis does not reverse
-//                   strafing; the next level's fresh pawn spawns upright and the
-//                   bindings are swapped back, like the Polyjuice trap.
+//   Levicorpus    - flips Harry upside down (Roll 32768); APCardWatcher holds
+//                   the roll each tick and swaps the strafe key bindings so the
+//                   flipped right-axis does not reverse strafing; ends on a
+//                   timer or the next level transition, whichever comes first,
+//                   righting Harry and swapping the bindings back.
 //   Jelly-Legs    - hijacks jumping for ~20s: APCardWatcher pins
 //                   harry.bCorraledByMover so manual and auto jump are both
 //                   blocked (DoJump gates on it) and injects random jumps itself.
@@ -2460,32 +2461,26 @@ function bool TryApplyTrap(string Name, harry h)
     {
         // Reuse the game's own sleepy status effect: GroundSpeed drops to
         // fSleepySpeed (50 vs 210) with the sleepy walk animation set, and
-        // harry.Timer()'s SleepyAnimTimerSub counts it back down once per
-        // second, restoring speed/anim at 0, so it self-terminates with no
-        // watcher bookkeeping. SleepyAnimTimerAdd clamps to iMaxSleepyAnim
-        // (default 6, the cap organic pixie dust relies on), so use it only to
-        // trigger the slow/anim, then set the countdown to 20s directly. Sub
-        // only decrements and never re-clamps, so the longer timer rides down
-        // cleanly without raising the cap for pixie-dust sleepiness.
-        h.SleepyAnimTimerAdd(h.iMaxSleepyAnim);
-        h.iSleepyAnimTimer = 20;
-        Log("[Archipelago] ApplyGrant: Drowsiness Draught Trap - sleepy slow applied for 20s (self-reverts)");
+        // harry.Timer() counts it back down once per second, so the engine
+        // owns the revert. The controller flag only gates the HUD countdown.
+        class'APTrapController'.static.MarkDrowsinessTrapActive(h);
+        Log("[Archipelago] ApplyGrant: Drowsiness Draught Trap - sleepy slow applied (self-reverts)");
         return True;
     }
 
     if (Name == "Engorgio Trap")
     {
-        // Scale the model and hitbox up for the rest of the level. Like Polyjuice
-        // it reverts on the next level's fresh pawn; the watcher just clears its flag.
+        // Scale the model and hitbox up. The watcher restores the default scale
+        // on a timer or the next level, whichever comes first.
         class'APTrapController'.static.MarkSizeTrapActive(h, 1.4);
-        Log("[Archipelago] ApplyGrant: Engorgio Trap - DrawScale + hitbox up (reverts on next level)");
+        Log("[Archipelago] ApplyGrant: Engorgio Trap - DrawScale + hitbox up (reverts on timer or next level)");
         return True;
     }
 
     if (Name == "Reducio Trap")
     {
         class'APTrapController'.static.MarkSizeTrapActive(h, 0.6);
-        Log("[Archipelago] ApplyGrant: Reducio Trap - DrawScale + hitbox down (reverts on next level)");
+        Log("[Archipelago] ApplyGrant: Reducio Trap - DrawScale + hitbox down (reverts on timer or next level)");
         return True;
     }
 
@@ -2511,12 +2506,12 @@ function bool TryApplyTrap(string Name, harry h)
 
     if (Name == "Levicorpus Trap")
     {
-        // Flip Harry upside down (180 degree roll) for the rest of the level.
-        // The watcher re-applies the roll each tick so walking physics can't
-        // right him, swaps the strafe bindings so the flip doesn't reverse
-        // strafing, and the next level's fresh pawn spawns upright.
+        // Flip Harry upside down (180 degree roll). The watcher re-applies the
+        // roll each tick so walking physics can't right him and swaps the strafe
+        // bindings so the flip doesn't reverse strafing; both revert on a timer
+        // or the next level, whichever comes first.
         class'APTrapController'.static.MarkLevicorpusTrapActive(h);
-        Log("[Archipelago] ApplyGrant: Levicorpus Trap - Harry flipped upside down (reverts on next level)");
+        Log("[Archipelago] ApplyGrant: Levicorpus Trap - Harry flipped upside down (reverts on timer or next level)");
         return True;
     }
 

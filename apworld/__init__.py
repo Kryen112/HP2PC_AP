@@ -367,10 +367,10 @@ class Traps(OptionSet):
 
     Valid traps:
     Polyjuice Potion Trap (turns Harry into Goyle for the rest of the level)
-    Engorgio Trap (giant Harry for the rest of the level)
-    Reducio Trap (tiny Harry for the rest of the level)
+    Engorgio Trap (giant Harry ~30s)
+    Reducio Trap (tiny Harry ~30s)
     Overcompensation Trap (giant wand for the rest of the level)
-    Levicorpus Trap (Harry hangs upside down for the rest of the level)
+    Levicorpus Trap (Harry hangs upside down ~30s)
     Jelly-Legs Jinx Trap (jumping disabled ~20s while Harry jumps at random)
     Bean Thief Trap (steals up to 200 beans)
     Drowsiness Draught Trap (sleepy slow ~20s)

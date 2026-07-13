@@ -952,27 +952,33 @@ function DrawTradersanityAPLabel(Canvas C)
     C.DrawColor = colorSave;
 }
 
-// Persistent on-screen indicator for the two traps whose effect is otherwise
-// invisible: Confundus (inverted look) and Obliviate (spellbook sealed). Every
-// other trap self-advertises (Goyle model, size, upside down, giant wand, random
-// jumps), so only these two need a cue. Gated on the live APTrapController
-// class-default flags, with a countdown read off the matching expiry. Drawn each
-// frame like the Tradersanity banner, independent of the toast queue, so it stays
-// up the whole effect. Trap-red on a black shadow, top-centre, one row per trap,
-// clear of the vendor banner above it.
+// Persistent on-screen countdown, one row per active timed trap: Confundus
+// (inverted look), Obliviate (spellbook sealed), Engorgio / Reducio (size),
+// Levicorpus (upside down), Jelly-Legs (jump hijack), and Drowsiness (sleepy
+// slow). The invisible traps need the cue to be seen at all; the visible ones
+// read out how long is left. Gated on the live APTrapController class-default
+// flags. The first four count down a Level.TimeSeconds expiry, Jelly-Legs the
+// watcher's 0.25s tick countdown, and Drowsiness the engine's own once-per-
+// second sleepy countdown. Drawn each frame like the Tradersanity banner,
+// independent of the toast queue, so it stays up the whole effect. Trap-red on
+// a black shadow, top-centre, clear of the vendor banner above it.
 function DrawTrapStatus(Canvas C)
 {
     local harry h;
     local HPHud hud;
-    local bool bConf, bObliv;
+    local bool bConfundus, bObliviate, bSize, bLevicorpus, bJellyLegs, bDrowsiness;
     local float now, rem, textW, textH, rowY, scale;
     local Color colorText, colorShadow, colorSave;
     local Font fontSave;
     local string label;
 
-    bConf  = (class'APTrapController'.default.bConfundusTrapActive == 1);
-    bObliv = (class'APTrapController'.default.bSpellTrapActive == 1);
-    if (!bConf && !bObliv) return;
+    bConfundus  = (class'APTrapController'.default.bConfundusTrapActive == 1);
+    bObliviate  = (class'APTrapController'.default.bSpellTrapActive == 1);
+    bSize       = (class'APTrapController'.default.bSizeTrapActive == 1);
+    bLevicorpus = (class'APTrapController'.default.bLevicorpusTrapActive == 1);
+    bJellyLegs  = (class'APTrapController'.default.bJellyLegsTrapActive == 1);
+    bDrowsiness = (class'APTrapController'.default.bDrowsinessTrapActive == 1);
+    if (!bConfundus && !bObliviate && !bSize && !bLevicorpus && !bJellyLegs && !bDrowsiness) return;
 
     h = harry(Level.PlayerHarryActor);
     if (h == None || h.Player == None) return;
@@ -1001,7 +1007,7 @@ function DrawTrapStatus(Canvas C)
         rowY = ChallengeIconContentBottom(C);
     }
 
-    if (bConf)
+    if (bConfundus)
     {
         rem = class'APTrapController'.default.ConfundusTrapExpiry - now;
         label = "Confunded!  " $ string(CeilSeconds(rem)) $ "s";
@@ -1011,13 +1017,65 @@ function DrawTrapStatus(Canvas C)
         rowY += textH * 1.15;
     }
 
-    if (bObliv)
+    if (bObliviate)
     {
         rem = class'APTrapController'.default.SpellTrapExpiry - now;
         label = "Obliviated: spells sealed  " $ string(CeilSeconds(rem)) $ "s";
         C.TextSize(label, textW, textH);
         C.SetPos((C.SizeX - textW) / 2.0, rowY);
         C.DrawShadowText(label, colorText, colorShadow);
+        rowY += textH * 1.15;
+    }
+
+    if (bSize)
+    {
+        rem = class'APTrapController'.default.SizeTrapExpiry - now;
+        // The controller records the trap's target scale, so the row names the
+        // spell even while a refused grow keeps the pawn at the old size.
+        if (class'APTrapController'.default.SizeTrapScale > h.Default.DrawScale)
+        {
+            label = "Engorgio!  " $ string(CeilSeconds(rem)) $ "s";
+        }
+        else
+        {
+            label = "Reducio!  " $ string(CeilSeconds(rem)) $ "s";
+        }
+        C.TextSize(label, textW, textH);
+        C.SetPos((C.SizeX - textW) / 2.0, rowY);
+        C.DrawShadowText(label, colorText, colorShadow);
+        rowY += textH * 1.15;
+    }
+
+    if (bLevicorpus)
+    {
+        rem = class'APTrapController'.default.LevicorpusTrapExpiry - now;
+        label = "Levicorpus!  " $ string(CeilSeconds(rem)) $ "s";
+        C.TextSize(label, textW, textH);
+        C.SetPos((C.SizeX - textW) / 2.0, rowY);
+        C.DrawShadowText(label, colorText, colorShadow);
+        rowY += textH * 1.15;
+    }
+
+    if (bJellyLegs)
+    {
+        // Tick countdown, 0.25s per watcher Timer tick.
+        rem = class'APTrapController'.default.JellyLegsTicksLeft * 0.25;
+        label = "Jelly-Legs!  " $ string(CeilSeconds(rem)) $ "s";
+        C.TextSize(label, textW, textH);
+        C.SetPos((C.SizeX - textW) / 2.0, rowY);
+        C.DrawShadowText(label, colorText, colorShadow);
+        rowY += textH * 1.15;
+    }
+
+    if (bDrowsiness)
+    {
+        // The engine's own sleepy countdown, whole seconds.
+        rem = float(h.iSleepyAnimTimer);
+        label = "Drowsy!  " $ string(CeilSeconds(rem)) $ "s";
+        C.TextSize(label, textW, textH);
+        C.SetPos((C.SizeX - textW) / 2.0, rowY);
+        C.DrawShadowText(label, colorText, colorShadow);
+        rowY += textH * 1.15;
     }
 
     C.Font = fontSave;

@@ -1,4 +1,4 @@
-// AP trap subsystem: the seven trap activators (called from APGameInfo.TryApplyTrap)
+// AP trap subsystem: the trap activators (called from APGameInfo.TryApplyTrap)
 // and the per-tick runtime that terminates them. All static and class-default so
 // a trap applied with no live watcher instance still survives the per-level
 // watcher respawn and save-load (a cleared spellbook or forced setting must be
@@ -19,19 +19,26 @@ var class<baseSpell> SpellTrapBackup[32];
 // (bIsGoyle=false) pawn; this sticky just records the active state and is cleared
 // on the level change so it stays accurate.
 var byte bPolyjuiceTrapActive;
-// Level the pawn last observed (Level.Outer.Name). A trap helper stamps the
-// apply-level here; TrapTick compares each tick and treats any change as the
-// "left the level" boundary that ends the Polyjuice/spell/size/confundus/wand-size/
-// levicorpus traps. Level NAME (not watcher instance) is the discriminator so open
-// castle's streamed-sublevel watcher churn never false-triggers.
+// Level the pawn last observed (Level.Outer.Name). Every activation of a
+// level-bounded trap (fresh or stacked) stamps the apply-level here; TrapTick
+// compares each tick and treats any change as the "left the level" boundary that
+// ends the Polyjuice/spell/size/confundus/wand-size/levicorpus traps. Drowsiness
+// never stamps: the engine's own countdown ends it and a fresh pawn spawns
+// awake. Level NAME (not watcher instance) is the discriminator so open castle's
+// streamed-sublevel watcher churn never false-triggers.
 var name TrapLastLevelName;
 // Engorgio / Reducio Traps: bSizeTrapActive==1 while harry.DrawScale and the
 // collision cylinder are scaled away from normal (JumpZ stays at its default so
-// the world-space jump apex is vanilla and level logic holds). Like the Polyjuice
-// trap the effect lasts the rest of the level; the next level loads a fresh pawn
-// at its default DrawScale and collision, so the revert is automatic and TrapTick
-// only has to clear the flag on a level change.
+// the world-space jump apex is vanilla and level logic holds). Restored to the
+// pawn defaults when Level.TimeSeconds reaches SizeTrapExpiry OR the level
+// changes (the fresh pawn already loads its default scale and collision),
+// whichever comes first, so a bad scale can never soft-lock a level.
+// SizeTrapScale records the trap's target scale; the HUD countdown labels its
+// row Engorgio or Reducio from it.
+const SIZE_TRAP_DURATION = 30.0;
 var byte bSizeTrapActive;
+var float SizeTrapExpiry;
+var float SizeTrapScale;
 // Confundus Trap: bConfundusTrapActive==1 while harry.bInvertMouse is forced on.
 // bConfundusOrigInvertMouse holds the player's real setting so the restore returns
 // it rather than blindly clearing; restored on the timer OR a level change (the
@@ -51,21 +58,24 @@ var byte bConfundusOrigInvertMouse;
 // flag (cross-class) to gate its giant-tip rescale.
 var byte bWandSizeTrapActive;
 // Levicorpus Trap: bLevicorpusTrapActive==1 while Harry hangs upside down
-// (Rotation/DesiredRotation Roll forced to 32768 = 180 degrees). Like the
-// Polyjuice trap it lasts the rest of the level and the next level's fresh pawn
-// spawns upright, so TrapTick just clears the flag on a level change. The native
+// (Rotation/DesiredRotation Roll forced to 32768 = 180 degrees). Ends when
+// Level.TimeSeconds reaches LevicorpusTrapExpiry OR the level changes, whichever
+// comes first: the timer path un-rolls the pawn itself, the fresh level-change
+// pawn spawns upright, so a flipped Harry can never soft-lock a level. The native
 // walking physics rights the pawn every frame, so the roll is re-pinned per frame
 // in the watcher's Tick (LevicorpusHold), not on the 0.25s Timer. The 180 roll
 // flips the right-axis the native PlayerMove strafes along, so the strafe keys are
 // rebound to inverted raw axis commands on activation (APTrapKit.SwapStrafeKeys)
-// and reverted to the StrafeLeft/StrafeRight aliases on the level change
+// and reverted to the StrafeLeft/StrafeRight aliases when the trap ends
 // (APTrapKit.RestoreStrafeKeys). Bindings persist in User.ini, so a save/quit while
 // flipped would otherwise strand the swap; the swapped binding is self-identifying
 // (a raw `Axis aStrafe` command, which the player config never uses), so
 // HealOrphanedStrafe reverts it on the first bind when no trap is live. The roll
 // also flips the root motion of a ledge pull-up, so LevicorpusHold rights the pawn
 // for the duration of the climb (Mounting/MountFinish) and re-flips it afterwards.
+const LEVICORPUS_TRAP_DURATION = 30.0;
 var byte bLevicorpusTrapActive;
+var float LevicorpusTrapExpiry;
 // Jelly-Legs Jinx Trap: bJellyLegsTrapActive==1 while jumping is hijacked. Manual
 // and auto jump are both suppressed by pinning harry.bCorraledByMover (the only
 // DoJump gate with no movement side effects), re-pinned each frame in the watcher's
@@ -83,6 +93,12 @@ const JELLYLEGS_JUMP_MAX_TICKS = 14;   // ~3.5s, longest gap between forced jump
 var byte bJellyLegsTrapActive;
 var int JellyLegsTicksLeft;
 var int NextJumpTicksLeft;
+// Drowsiness Draught Trap: the effect and its revert are the game's own sleepy
+// status (harry.iSleepyAnimTimer counts down once per second in harry.Timer,
+// restoring speed/anim at zero). bDrowsinessTrapActive only gates the HUD
+// countdown row; TrapTick clears it when the engine countdown reaches zero.
+const DROWSINESS_TRAP_DURATION = 20;
+var byte bDrowsinessTrapActive;
 
 // ---------------------------------------------------------------------------
 // Activators (called from APGameInfo.TryApplyTrap)
@@ -106,7 +122,8 @@ static function BackupAndClearSpellBook(harry h)
     // real spells) is preserved and restored when it finally ends.
     if (default.bSpellTrapActive == 1)
     {
-        default.SpellTrapExpiry = h.Level.TimeSeconds + SPELL_TRAP_DURATION;
+        default.SpellTrapExpiry   = h.Level.TimeSeconds + SPELL_TRAP_DURATION;
+        default.TrapLastLevelName = h.Level.Outer.Name;
         Log("[Archipelago] APTrapController.BackupAndClearSpellBook: already active - extended expiry to Level.TimeSeconds " $ string(default.SpellTrapExpiry) $ ", original backup preserved");
         return;
     }
@@ -138,27 +155,56 @@ static function MarkPolyjuiceTrapActiveDefault(harry h)
 }
 
 // Engorgio / Reducio Trap entry point. Scales the model and the collision cylinder
-// together (the game's own DrawScale-coupled SetCollisionSize idiom) so the hitbox
-// always bounds the visible mesh, then records the apply-level. JumpZ is left at
-// its default on purpose: the world-space jump apex must stay vanilla or level
-// traversal logic breaks, so a shrunk Harry only appears to out-jump his height and
-// a giant to under-jump it while both reach the same ledges as normal. Like
-// Polyjuice the effect lasts the rest of the level and reverts on the next level's
-// fresh pawn (default DrawScale and collision); TrapTick just clears the flag.
-// Stacking guard: a second size trap while one is active simply re-applies the new
-// scale, and because radius/height derive from the pawn defaults a later Reducio
-// cleanly overrides an earlier Engorgio.
+// together via ApplySizeScale, then arms the restore timer + level-change record.
+// JumpZ is left at its default on purpose: the world-space jump apex must stay
+// vanilla or level traversal logic breaks, so a shrunk Harry only appears to
+// out-jump his height and a giant to under-jump it while both reach the same
+// ledges as normal. TrapTick does the matching restore on the timer or the level
+// change, whichever comes first. Stacking guard: a second size trap while one is
+// active re-applies the new scale and extends the expiry, and because
+// radius/height derive from the pawn defaults a later Reducio cleanly overrides
+// an earlier Engorgio.
 static function MarkSizeTrapActive(harry h, float newScale)
 {
-    local float newRadius, newHeight, deltaHeight;
-    local vector lift;
-
     if (h == None)
     {
         return;
     }
 
-    h.DrawScale = newScale;
+    if (!ApplySizeScale(h, newScale))
+    {
+        // No headroom for a grow (e.g. a shrunk Harry beneath a ledge). Arm the
+        // trap anyway: the scale stays put and the expiry restore self-heals.
+        Log("[Archipelago] APTrapController.MarkSizeTrapActive: resize to DrawScale " $ string(newScale) $ " refused (no headroom) - scale unchanged");
+    }
+
+    if (default.bSizeTrapActive == 1)
+    {
+        default.SizeTrapExpiry    = h.Level.TimeSeconds + SIZE_TRAP_DURATION;
+        default.SizeTrapScale     = newScale;
+        default.TrapLastLevelName = h.Level.Outer.Name;
+        Log("[Archipelago] APTrapController.MarkSizeTrapActive: already active - rescaled to DrawScale " $ string(newScale) $ ", extended expiry to Level.TimeSeconds " $ string(default.SizeTrapExpiry));
+        return;
+    }
+    default.bSizeTrapActive   = 1;
+    default.SizeTrapExpiry    = h.Level.TimeSeconds + SIZE_TRAP_DURATION;
+    default.SizeTrapScale     = newScale;
+    default.TrapLastLevelName = h.Level.Outer.Name;
+    Log("[Archipelago] APTrapController.MarkSizeTrapActive: DrawScale + hitbox -> " $ string(newScale) $ " (expires at Level.TimeSeconds " $ string(default.SizeTrapExpiry) $ " or on level change)");
+}
+
+// Scale the model and the collision cylinder together (the game's own
+// DrawScale-coupled SetCollisionSize idiom) so the hitbox always bounds the
+// visible mesh. Radius/height derive from the pawn defaults, so any scale lands
+// exactly; passing h.Default.DrawScale is the restore. A grow can be refused
+// under low geometry (SetCollisionSize will not encroach): the lift is undone
+// and DrawScale is left untouched so mesh and cylinder never diverge, and False
+// reports the miss so the caller can retry. Success is read off the resulting
+// CollisionHeight, not a native return value.
+static function bool ApplySizeScale(harry h, float newScale)
+{
+    local float newRadius, newHeight, deltaHeight;
+    local vector lift;
 
     newRadius   = h.Default.CollisionRadius * newScale;
     newHeight   = h.Default.CollisionHeight * newScale;
@@ -167,9 +213,15 @@ static function MarkSizeTrapActive(harry h, float newScale)
     if (deltaHeight >= 0.0)
     {
         // Grow: lift first so the taller cylinder grows up into open air, not down
-        // into the floor (SetCollisionSize refuses an encroaching resize).
+        // into the floor.
         h.Move(lift);
         h.SetCollisionSize(newRadius, newHeight);
+        if (h.CollisionHeight < newHeight - 0.1)
+        {
+            lift.Z = -lift.Z;
+            h.Move(lift);
+            return False;
+        }
     }
     else
     {
@@ -177,15 +229,8 @@ static function MarkSizeTrapActive(harry h, float newScale)
         h.SetCollisionSize(newRadius, newHeight);
         h.Move(lift);
     }
-
-    if (default.bSizeTrapActive == 1)
-    {
-        Log("[Archipelago] APTrapController.MarkSizeTrapActive: already active - rescaled to DrawScale " $ string(newScale));
-        return;
-    }
-    default.bSizeTrapActive   = 1;
-    default.TrapLastLevelName = h.Level.Outer.Name;
-    Log("[Archipelago] APTrapController.MarkSizeTrapActive: DrawScale + hitbox -> " $ string(newScale) $ " (reverts on next level)");
+    h.DrawScale = newScale;
+    return True;
 }
 
 // Overcompensation Trap entry point. Swaps the held wand to the enlarged APWandGiant
@@ -223,6 +268,7 @@ static function MarkWandSizeTrapActive(harry h)
     class'APTrapKit'.static.SwapInWandTipLumosLight(wand);
     if (default.bWandSizeTrapActive == 1)
     {
+        default.TrapLastLevelName = h.Level.Outer.Name;
         Log("[Archipelago] APTrapController.MarkWandSizeTrapActive: already active - wand kept enlarged");
         return;
     }
@@ -245,6 +291,7 @@ static function MarkConfundusTrapActive(harry h)
     if (default.bConfundusTrapActive == 1)
     {
         default.ConfundusTrapExpiry = h.Level.TimeSeconds + CONFUNDUS_TRAP_DURATION;
+        default.TrapLastLevelName   = h.Level.Outer.Name;
         h.bInvertMouse = True;
         Log("[Archipelago] APTrapController.MarkConfundusTrapActive: already active - extended expiry to Level.TimeSeconds " $ string(default.ConfundusTrapExpiry) $ ", original setting preserved");
         return;
@@ -264,16 +311,16 @@ static function MarkConfundusTrapActive(harry h)
     Log("[Archipelago] APTrapController.MarkConfundusTrapActive: bInvertMouse forced on (orig=" $ string(default.bConfundusOrigInvertMouse) $ ", expires at Level.TimeSeconds " $ string(default.ConfundusTrapExpiry) $ " or on level change)");
 }
 
-// Levicorpus Trap entry point. Flips Harry upside down and records the apply-level.
-// Rotation is a const native var so the flip goes through SetRotation;
-// DesiredRotation.Roll is set directly so the pawn wants to stay flipped. Like
-// Polyjuice the effect lasts the rest of the level and reverts on the next level's
-// fresh upright pawn; the watcher's Tick (LevicorpusHold) re-pins the roll each
-// frame and TrapTick clears the flag on a level change. The flip also inverts
-// strafe (the native PlayerMove builds movement from the rolled Rotation), so
-// SwapStrafeKeys rebinds the strafe keys to inverted raw axis commands on this
-// fresh activation; TrapTick reverts them on the level change. The stacking guard
-// skips the second flag-set (SwapStrafeKeys is itself a no-op once the keys are raw).
+// Levicorpus Trap entry point. Flips Harry upside down, arms the restore timer
+// and records the apply-level. Rotation is a const native var so the flip goes
+// through SetRotation; DesiredRotation.Roll is set directly so the pawn wants to
+// stay flipped. The watcher's Tick (LevicorpusHold) re-pins the roll each frame;
+// TrapTick ends the trap on the timer or the level change, whichever comes first.
+// The flip also inverts strafe (the native PlayerMove builds movement from the
+// rolled Rotation), so SwapStrafeKeys rebinds the strafe keys to inverted raw
+// axis commands on this fresh activation; TrapTick reverts them when the trap
+// ends. The stacking guard extends the expiry without a second flag-set
+// (SwapStrafeKeys is itself a no-op once the keys are raw).
 static function MarkLevicorpusTrapActive(harry h)
 {
     local Rotator R;
@@ -288,13 +335,16 @@ static function MarkLevicorpusTrapActive(harry h)
     h.DesiredRotation.Roll = 32768;
     if (default.bLevicorpusTrapActive == 1)
     {
-        Log("[Archipelago] APTrapController.MarkLevicorpusTrapActive: already active - Harry kept flipped");
+        default.LevicorpusTrapExpiry = h.Level.TimeSeconds + LEVICORPUS_TRAP_DURATION;
+        default.TrapLastLevelName    = h.Level.Outer.Name;
+        Log("[Archipelago] APTrapController.MarkLevicorpusTrapActive: already active - extended expiry to Level.TimeSeconds " $ string(default.LevicorpusTrapExpiry));
         return;
     }
     default.bLevicorpusTrapActive = 1;
+    default.LevicorpusTrapExpiry  = h.Level.TimeSeconds + LEVICORPUS_TRAP_DURATION;
     default.TrapLastLevelName     = h.Level.Outer.Name;
     class'APTrapKit'.static.SwapStrafeKeys(h);
-    Log("[Archipelago] APTrapController.MarkLevicorpusTrapActive: Harry flipped upside down (reverts on next level)");
+    Log("[Archipelago] APTrapController.MarkLevicorpusTrapActive: Harry flipped upside down (expires at Level.TimeSeconds " $ string(default.LevicorpusTrapExpiry) $ " or on level change)");
 }
 
 // Jelly-Legs Jinx Trap entry point. Pins harry.bCorraledByMover so DoJump no-ops
@@ -311,6 +361,7 @@ static function MarkJellyLegsTrapActive(harry h)
     if (default.bJellyLegsTrapActive == 1)
     {
         default.JellyLegsTicksLeft = JELLYLEGS_TRAP_TICKS;
+        default.TrapLastLevelName  = h.Level.Outer.Name;
         Log("[Archipelago] APTrapController.MarkJellyLegsTrapActive: already active - lifetime refreshed");
         return;
     }
@@ -319,6 +370,30 @@ static function MarkJellyLegsTrapActive(harry h)
     default.NextJumpTicksLeft    = JELLYLEGS_JUMP_MIN_TICKS + Rand(JELLYLEGS_JUMP_MAX_TICKS - JELLYLEGS_JUMP_MIN_TICKS + 1);
     default.TrapLastLevelName    = h.Level.Outer.Name;
     Log("[Archipelago] APTrapController.MarkJellyLegsTrapActive: jump hijacked for " $ string(JELLYLEGS_TRAP_TICKS) $ " ticks, random jumps armed");
+}
+
+// Drowsiness Draught Trap entry point. Reuses the game's own sleepy status
+// effect: GroundSpeed drops to fSleepySpeed with the sleepy walk animation set,
+// and harry.Timer()'s SleepyAnimTimerSub counts it back down once per second,
+// restoring speed/anim at zero, so the engine owns the revert.
+// SleepyAnimTimerAdd clamps to iMaxSleepyAnim (default 6, the cap organic pixie
+// dust relies on), so it only triggers the slow/anim; the countdown is then set
+// to the trap duration directly. Sub only decrements and never re-clamps, so the
+// longer timer rides down cleanly, but an organic pixie-dust touch mid-trap runs
+// Add's unconditional clamp and truncates the countdown to the 6s cap (accepted:
+// the HUD reads the same timer, so the display stays truthful, and raising the
+// cap would serialize a lie into the save). A second Drowsiness simply re-arms
+// the full countdown.
+static function MarkDrowsinessTrapActive(harry h)
+{
+    if (h == None)
+    {
+        return;
+    }
+    h.SleepyAnimTimerAdd(h.iMaxSleepyAnim);
+    h.iSleepyAnimTimer = DROWSINESS_TRAP_DURATION;
+    default.bDrowsinessTrapActive = 1;
+    Log("[Archipelago] APTrapController.MarkDrowsinessTrapActive: sleepy slow applied for " $ string(DROWSINESS_TRAP_DURATION) $ "s (engine countdown reverts)");
 }
 
 // ---------------------------------------------------------------------------
@@ -426,23 +501,45 @@ static function HealOrphanedStrafe(harry h)
     class'APTrapKit'.static.RestoreStrafeKeys(h);
 }
 
-// Called once per Timer tick (after Snapshot, the pawn valid). Terminates the
-// Polyjuice and Obliviate traps: Polyjuice clears on the level change (pawn already
-// reverted); Obliviate restores the backed-up spellbook on the SpellTrapExpiry
-// timeout OR the level change, whichever comes first, so spells are never
-// permanently lost (a cleared SpellBook travels to the next level). Level NAME is
-// the change discriminator, robust against open castle's per-sublevel watcher
-// respawn (Level.Outer.Name is stable across those).
+// Reload guard for a Level.TimeSeconds expiry. Loading a save resets the level
+// clock to near zero while the class-default trap state survives the session, so
+// an armed expiry stamped on the old clock can strand a trap far-future. Every
+// arm/extend sets exactly now + duration, so any expiry further out than that is
+// stale; re-arm it to a fresh full duration.
+static function float ClampTrapExpiry(harry h, float expiry, float duration)
+{
+    if (expiry - h.Level.TimeSeconds > duration)
+    {
+        return h.Level.TimeSeconds + duration;
+    }
+    return expiry;
+}
+
+// Called once per Timer tick (after Snapshot, the pawn valid). Terminates every
+// trap the runtime owns. The timed traps (Obliviate, size, Confundus, Levicorpus)
+// end on their Level.TimeSeconds expiry OR the level change, whichever comes
+// first: the timeout path actively restores what the trap altered, the
+// level-change path leans on the fresh pawn where it can. The rest-of-level
+// traps (Polyjuice, wand size) end on the level change alone, and Jelly-Legs
+// counts its same-level lifetime down in JellyLegsTick so only its level-change
+// early end lives here. Level NAME is the change discriminator, robust against
+// open castle's per-sublevel watcher respawn (Level.Outer.Name is stable across
+// those).
 static function TrapTick(harry h)
 {
     local int i;
     local name curLevel;
     local bool bLevelChanged;
+    local Rotator R;
 
     if (h == None)
     {
         return;
     }
+    default.SpellTrapExpiry      = ClampTrapExpiry(h, default.SpellTrapExpiry,      SPELL_TRAP_DURATION);
+    default.SizeTrapExpiry       = ClampTrapExpiry(h, default.SizeTrapExpiry,       SIZE_TRAP_DURATION);
+    default.ConfundusTrapExpiry  = ClampTrapExpiry(h, default.ConfundusTrapExpiry,  CONFUNDUS_TRAP_DURATION);
+    default.LevicorpusTrapExpiry = ClampTrapExpiry(h, default.LevicorpusTrapExpiry, LEVICORPUS_TRAP_DURATION);
     curLevel = h.Level.Outer.Name;
     // Only meaningful while a trap is active, where a helper has stamped
     // TrapLastLevelName to a real apply-level; the pre-trap '' -> levelname
@@ -473,12 +570,27 @@ static function TrapTick(harry h)
         }
     }
 
-    if (default.bSizeTrapActive == 1 && bLevelChanged)
+    if (default.bSizeTrapActive == 1
+        && (bLevelChanged || h.Level.TimeSeconds >= default.SizeTrapExpiry))
     {
-        // Lasts the rest of the level like Polyjuice; the fresh pawn already loaded
-        // its default DrawScale and collision, so just clear the flag.
-        default.bSizeTrapActive = 0;
-        Log("[Archipelago] APTrapController.TrapTick: size trap cleared on level change (pawn already at default scale)");
+        // On a level change the fresh pawn already loaded its default DrawScale
+        // and collision, so only the same-level timeout needs the active restore.
+        if (bLevelChanged)
+        {
+            default.bSizeTrapActive = 0;
+            Log("[Archipelago] APTrapController.TrapTick: size trap cleared on level change (pawn already at default scale)");
+        }
+        else
+        {
+            // A refused grow-back (no headroom) leaves the pawn at the trap
+            // scale, and the expired timer retries here every tick until the
+            // full-size cylinder fits.
+            if (ApplySizeScale(h, h.Default.DrawScale))
+            {
+                default.bSizeTrapActive = 0;
+                Log("[Archipelago] APTrapController.TrapTick: size trap ended on timer - DrawScale + hitbox restored");
+            }
+        }
     }
 
     if (default.bConfundusTrapActive == 1
@@ -520,16 +632,33 @@ static function TrapTick(harry h)
         Log("[Archipelago] APTrapController.TrapTick: Overcompensation trap ended on level change - wand mesh restored");
     }
 
-    if (default.bLevicorpusTrapActive == 1 && bLevelChanged)
+    if (default.bLevicorpusTrapActive == 1
+        && (bLevelChanged || h.Level.TimeSeconds >= default.LevicorpusTrapExpiry))
     {
-        // Lasts the rest of the level like Polyjuice; the fresh pawn spawns upright,
-        // so the roll needs no undo. The strafe bindings are global, though, so swap
-        // them back here (the swap is its own inverse). The per-frame upside-down
+        // The fresh level-change pawn spawns upright, so only the same-level
+        // timeout needs the active un-roll (LevicorpusHold stops re-pinning once
+        // the flag clears, but the walking physics would take a moment to right
+        // him). The strafe bindings are global either way, so swap them back on
+        // both paths (the swap is its own inverse). The per-frame upside-down
         // hold lives in the watcher Tick (LevicorpusHold): the 0.25s Timer is too
         // coarse to fight the walking physics each frame.
+        if (!bLevelChanged)
+        {
+            R = h.Rotation;
+            R.Roll = 0;
+            h.SetRotation(R);
+            h.DesiredRotation.Roll = 0;
+        }
         class'APTrapKit'.static.RestoreStrafeKeys(h);
         default.bLevicorpusTrapActive = 0;
-        Log("[Archipelago] APTrapController.TrapTick: Levicorpus trap cleared on level change (fresh pawn upright, strafe bindings restored)");
+        if (bLevelChanged)
+        {
+            Log("[Archipelago] APTrapController.TrapTick: Levicorpus trap cleared on level change (fresh pawn upright, strafe bindings restored)");
+        }
+        else
+        {
+            Log("[Archipelago] APTrapController.TrapTick: Levicorpus trap ended on timer - Harry righted, strafe bindings restored");
+        }
     }
 
     if (default.bJellyLegsTrapActive == 1 && bLevelChanged)
@@ -539,6 +668,15 @@ static function TrapTick(harry h)
         // fresh pawn spawns un-corralled, so clearing the gate here is harmless.
         EndJellyLegsTrap(h);
         Log("[Archipelago] APTrapController.TrapTick: Jelly-Legs trap cleared on level change (jump restored)");
+    }
+
+    if (default.bDrowsinessTrapActive == 1 && h.iSleepyAnimTimer <= 0)
+    {
+        // The engine owns the effect and its revert (harry.Timer counts the
+        // sleepy countdown once per second, and a fresh level-change pawn
+        // spawns awake at zero); this flag only gates the HUD countdown row.
+        default.bDrowsinessTrapActive = 0;
+        Log("[Archipelago] APTrapController.TrapTick: Drowsiness trap ended (engine countdown at zero)");
     }
 
     default.TrapLastLevelName = curLevel;
