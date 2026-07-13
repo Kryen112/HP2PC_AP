@@ -1,8 +1,8 @@
-from .access import (_Access, _bronze_cards, alohomora, bicorn_level_key,
-                     boomslang_level_key, chamber_of_secrets_key, diffindo,
-                     flipendo, forbidden_forest_key, goyle_level_key, lumos,
-                     rictusempra, running, skurge, slytherin_common_room_key,
-                     spongify)
+from .access import (_Access, _bronze_cards, alohomora, chamber_of_secrets_key,
+                     diffindo, flipendo, keys_through_bicorn,
+                     keys_through_forbidden_forest,
+                     keys_through_slytherin_common_room, lumos, rictusempra,
+                     running, skurge, spongify)
 
 # Chamber of Secrets level logic (both modes): the drop in needs Spongify to land
 # safely, but this many bronze cards (two extra health rows) tank the 2.5-row fall
@@ -590,11 +590,11 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
 # Vanilla layers extra spell/key gating on top of the open castle rule: for
 # these locations vanilla = the open castle rule AND the requirements here.
 _VANILLA_EXTRA: dict[str, _Access] = {
-    "Castle Exterior - Card Marjoribanks": rictusempra & skurge & bicorn_level_key | running,
-    "Castle Exterior - Card Pokeby": rictusempra & skurge & bicorn_level_key | running,
-    "Castle Exterior - Chest 8": skurge & rictusempra & bicorn_level_key | running,
-    "Castle Exterior - Chest 9": skurge & rictusempra & diffindo & bicorn_level_key | running,
-    "Castle Exterior - Secret 7": skurge & rictusempra & flipendo & bicorn_level_key | running,
+    "Castle Exterior - Card Marjoribanks": rictusempra & skurge & keys_through_bicorn | running,
+    "Castle Exterior - Card Pokeby": rictusempra & skurge & keys_through_bicorn | running,
+    "Castle Exterior - Chest 8": skurge & rictusempra & keys_through_bicorn | running,
+    "Castle Exterior - Chest 9": skurge & rictusempra & diffindo & keys_through_bicorn | running,
+    "Castle Exterior - Secret 7": skurge & rictusempra & flipendo & keys_through_bicorn | running,
     "Entry Hall - Card Gunhilda": rictusempra | skurge & diffindo,
     "Entry Hall - Card Montmorency": rictusempra | diffindo,
     "Entry Hall - Card Shingleton": rictusempra | diffindo,
@@ -621,16 +621,16 @@ _VANILLA_EXTRA: dict[str, _Access] = {
     "Grand Staircase - Knight": rictusempra,
     "Grand Staircase - Music Box": rictusempra,
     "Grand Staircase - Dragon Skeleton": rictusempra,
-    "Castle Exterior - Plant Dragon 1": skurge & rictusempra & alohomora & bicorn_level_key | running,
-    "Castle Exterior - Plant Dragon 2": skurge & rictusempra & diffindo & alohomora & bicorn_level_key | running,
+    "Castle Exterior - Plant Dragon 1": skurge & rictusempra & alohomora & keys_through_bicorn | running,
+    "Castle Exterior - Plant Dragon 2": skurge & rictusempra & diffindo & alohomora & keys_through_bicorn | running,
 }
 
 # Vanilla and open castle diverge here (open castle is not a relaxation of the
 # vanilla rule), so vanilla states its rule in full.
 _VANILLA_OVERRIDE: dict[str, _Access] = {
     "Castle Exterior - Card Youdle":
-        alohomora & (rictusempra & skurge & flipendo & spongify & bicorn_level_key | running),
-    "Castle Exterior - Secret 6": alohomora & skurge & rictusempra & flipendo & bicorn_level_key | running,
+        alohomora & (rictusempra & skurge & flipendo & spongify & keys_through_bicorn | running),
+    "Castle Exterior - Secret 6": alohomora & skurge & rictusempra & flipendo & keys_through_bicorn | running,
     "Grand Staircase - Card Vablatsky": alohomora & rictusempra & skurge,
     "Grand Staircase - Toilet": rictusempra & skurge & flipendo,
 }
@@ -639,28 +639,28 @@ _VANILLA_OVERRIDE: dict[str, _Access] = {
 # spell-learn checks do not exist there, and the vendors and Quidditch matches
 # defer entirely to their region entry rule.
 _VANILLA_ONLY: dict[str, _Access] = {
-    "Castle Exterior - Card Vendor 1": alohomora & skurge & rictusempra & flipendo & bicorn_level_key | running,
+    "Castle Exterior - Card Vendor 1": alohomora & skurge & rictusempra & flipendo & keys_through_bicorn | running,
     "Castle Exterior - Nimbus 2001": rictusempra,
     "Castle Exterior - Quidditch Armour": rictusempra,
     "Entry Hall - Ingredient Vendor 1": rictusempra,
     "Entry Hall - Ingredient Vendor 2": rictusempra | skurge & diffindo,
     "Entry Hall - Ingredient Vendor 3": rictusempra | skurge & diffindo,
-    "Learned Diffindo": alohomora & rictusempra & skurge & diffindo & bicorn_level_key,
+    "Learned Diffindo": alohomora & rictusempra & skurge & diffindo & keys_through_bicorn,
     "Learned Rictusempra": rictusempra,
     "Learned Skurge": rictusempra & skurge,
     "Learned Spongify": (
-        alohomora & rictusempra & skurge & diffindo & spongify & bicorn_level_key
-        & boomslang_level_key & goyle_level_key & slytherin_common_room_key),
+        alohomora & rictusempra & skurge & diffindo & spongify
+        & keys_through_slytherin_common_room),
     "Quidditch - Match 1 (Hufflepuff)": rictusempra,
     "Quidditch - Match 2 (Ravenclaw)": rictusempra & skurge,
     "Quidditch - Match 3 (Slytherin)": rictusempra & skurge & alohomora,
-    "Quidditch - Match 4 (Hufflepuff)": rictusempra & skurge & diffindo & alohomora & bicorn_level_key,
+    "Quidditch - Match 4 (Hufflepuff)": rictusempra & skurge & diffindo & alohomora & keys_through_bicorn,
     "Quidditch - Match 5 (Ravenclaw)": (
-        rictusempra & skurge & diffindo & spongify & alohomora & bicorn_level_key
-        & boomslang_level_key & goyle_level_key & slytherin_common_room_key),
+        rictusempra & skurge & diffindo & spongify & alohomora
+        & keys_through_slytherin_common_room),
     "Quidditch - Match 6 (Slytherin)": (
-        rictusempra & skurge & diffindo & spongify & alohomora & bicorn_level_key
-        & boomslang_level_key & goyle_level_key & slytherin_common_room_key),
+        rictusempra & skurge & diffindo & spongify & alohomora
+        & keys_through_slytherin_common_room),
 }
 
 
@@ -684,11 +684,7 @@ GOAL_RULES_VANILLA: dict[str, _Access] = {
     & rictusempra
     & skurge
     & spongify
-    & bicorn_level_key
-    & boomslang_level_key
-    & goyle_level_key
-    & slytherin_common_room_key
-    & forbidden_forest_key
+    & keys_through_forbidden_forest
     & chamber_of_secrets_key,
 }
 

@@ -25,7 +25,8 @@ from worlds.LauncherComponents import Component, Type, components
 from worlds.LauncherComponents import launch as launch_component
 
 from .items import (FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
-                    ITEM_NAME_TO_ID, TRAP_NAMES)
+                    ITEM_NAME_TO_ID, PROGRESSIVE_LEVEL_KEY_NAME,
+                    PROGRESSIVE_LEVEL_KEY_ORDER, TRAP_NAMES)
 from .locations import (CARD_ITEM_NAME_TO_LOCATION_NAME,
                         GOLD_CARD_ROOM_LOCATIONS, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID, LOCATION_REGIONS,
@@ -75,22 +76,23 @@ CARD_ITEM_NAMES: frozenset[str] = frozenset(
 )
 # Bookcase-blocker keys. In open castle, all 14 are AP items gating every
 # level transition. In vanilla with vanilla_gate_levels on, the 7 in
-# VANILLA_BLOCKED_KEY_NAMES are also AP items (the mod spawns a bookcase
-# blocking each region until the key arrives) and the other 7 are precollected
-# so their logic.yaml terms pass trivially without entering the pool. With
-# vanilla_gate_levels off, all 14 are precollected and no bookcase spawns.
+# VANILLA_BLOCKED_KEY_NAMES gate a region behind a mod-spawned bookcase:
+# Duelling and Quidditch stay named AP items, while the 5 story-chain keys are
+# replaced in the pool by 5 Progressive Level Key copies (the Nth copy stands
+# for the Nth key in PROGRESSIVE_LEVEL_KEY_ORDER; the client expands copies to
+# concrete keys for the mod). The other 7 keys are precollected so their rule
+# terms pass trivially without entering the pool. With vanilla_gate_levels
+# off, all 14 named keys are precollected and no bookcase spawns.
 BLOCKER_KEY_NAMES: set[str] = set(ITEM_GROUPS.get("Blocker Keys", []))
 # Keys that gate a region behind a bookcase in vanilla when
 # vanilla_gate_levels is on (linear story order).
-# Bicorn/Boomslang/Goyle/Slytherin/Forbidden Forest are a cumulative chain (a
-# region needs its own key plus every earlier level key); Duelling and
-# Quidditch are standalone (own key only, gating just their duels / matches).
-# The other 7 keys are always vanilla-precollected.
-VANILLA_BLOCKED_KEY_NAMES: set[str] = {
-    "Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
-    "Slytherin Common Room Key", "Forbidden Forest Key",
-    "Duelling Key", "Quidditch Key",
-}
+# The story chain (PROGRESSIVE_LEVEL_KEY_ORDER) is cumulative: a region needs
+# every chain key through its own, which is why one progressive item models it
+# exactly. Duelling and Quidditch are standalone (own key only, gating just
+# their duels / matches). The other 7 keys are always vanilla-precollected.
+VANILLA_BLOCKED_KEY_NAMES: set[str] = (
+    set(PROGRESSIVE_LEVEL_KEY_ORDER) | {"Duelling Key", "Quidditch Key"}
+)
 
 # Regions that exist only in an open castle seed. Their level is never entered
 # in a vanilla playthrough, so every location in them must not be created as a
@@ -133,9 +135,10 @@ class GameMode(Choice):
     """Which install layout this seed targets.
 
     `vanilla` (default): retail HP2 + M212 patch, the normal story flow.
-    Whether the 7 region keys gate their regions behind bookcases or are
-    precollected is governed by `vanilla_gate_levels`. The other 7 keys are
-    always precollected here.
+    Whether the 7 story regions gate behind bookcases (the Progressive Level
+    Key chain plus the Duelling / Quidditch keys) or open immediately is
+    governed by `vanilla_gate_levels`. The other 7 keys are always
+    precollected here.
 
     `open_castle`: the HP2 Bingo community pack's distribution maps (every
     door unlocked from spawn). All 14 bookcase-blocker keys are AP items
@@ -150,13 +153,15 @@ class GameMode(Choice):
 
 
 class VanillaGateLevels(DefaultOnToggle):
-    """Vanilla only. If true, the 7 region keys (Bicorn, Boomslang, Goyle,
-    Slytherin Common Room, Forbidden Forest, Duelling, Quidditch) are AP items:
-    the mod spawns a bookcase blocking each region until its key arrives, and
-    the 5 level regions form a cumulative chain (each needs its own key plus
-    every earlier level key, matching vanilla's linear story order).
+    """Vanilla only. If true, the 7 story regions are gated: the mod spawns a
+    bookcase blocking each region until its key arrives. The 5 level regions
+    (Bicorn, Boomslang, Goyle, Slytherin Common Room, Forbidden Forest) form a
+    cumulative chain matching vanilla's linear story order, so they are gated
+    by 5 copies of one Progressive Level Key item: each copy received unlocks
+    the next level in that order. Duelling and Quidditch are standalone and
+    keep their own named keys.
 
-    If false, those 7 keys are precollected instead, so the regions open
+    If false, all region keys are precollected instead, so the regions open
     immediately and no bookcases spawn (the classic vanilla flow).
     """
     display_name = "Vanilla gate levels"
@@ -684,6 +689,19 @@ class HP2World(World):
     def _is_open_castle(self) -> bool:
         return self.options.game_mode.current_key == "open_castle"
 
+    def _progressive_level_keys_active(self) -> bool:
+        # The story-chain keys ride as Progressive Level Key copies exactly
+        # when vanilla gates its levels. Open castle standalone-gates every
+        # region, so it always keeps the named keys.
+        return not self._is_open_castle() and bool(self.options.vanilla_gate_levels)
+
+    def _pool_copies(self, item_name: str) -> int:
+        # The progressive key enters the pool once per chain step; every other
+        # item contributes a single copy.
+        if item_name == PROGRESSIVE_LEVEL_KEY_NAME:
+            return len(PROGRESSIVE_LEVEL_KEY_ORDER)
+        return 1
+
     def _region_rules(self) -> dict:
         return REGION_ENTRY_RULES_OPEN_CASTLE if self._is_open_castle() else REGION_ENTRY_RULES_VANILLA
 
@@ -745,6 +763,14 @@ class HP2World(World):
         # enabled iff its name is in the chosen set.
         if item_name in ITEM_GROUPS.get("Traps", []):
             return item_name in self.options.traps.value
+        # The progressive key and the named story-chain keys are mutually
+        # exclusive per seed: progressive copies replace the named keys when
+        # vanilla gates its levels; otherwise the named keys stay (precollected
+        # in vanilla, pooled in open castle) and no progressive copy exists.
+        if item_name == PROGRESSIVE_LEVEL_KEY_NAME:
+            return self._progressive_level_keys_active()
+        if item_name in PROGRESSIVE_LEVEL_KEY_ORDER and self._progressive_level_keys_active():
+            return False
         for group_name, opt_attr in self._ITEM_GROUP_TO_OPT.items():
             if item_name in ITEM_GROUPS.get(group_name, []):
                 # .value for the same reason as _location_enabled: bool(option) is
@@ -803,8 +829,10 @@ class HP2World(World):
         spells = set(self.options.starting_spells.value) & set(ITEM_GROUPS.get("Spells", []))
         # Open castle: no keys precollected (all 14 are AP items). Vanilla with
         # vanilla_gate_levels on: precollect every key except the 7 that gate a
-        # region behind a bookcase. Vanilla with it off: precollect all 14 so
-        # every region opens immediately and no bookcase spawns.
+        # region behind a bookcase (the 5 story-chain keys among those ride as
+        # Progressive Level Key copies instead, see _item_enabled). Vanilla
+        # with it off: precollect all 14 so every region opens immediately and
+        # no bookcase spawns.
         if self._is_open_castle():
             keys: set[str] = set()
         elif self.options.vanilla_gate_levels:
@@ -908,21 +936,25 @@ class HP2World(World):
                     loc = self.multiworld.get_location(own_loc, self.player)
                     loc.place_locked_item(self.create_item(name))
                     continue
-            self.multiworld.itempool.append(self.create_item(name))
+            for _ in range(self._pool_copies(name)):
+                self.multiworld.itempool.append(self.create_item(name))
 
         # delta uses the FILTERED location count, not the full id-space size,
-        # so disabled categories don't bloat the pool with orphan filler.
+        # so disabled categories don't bloat the pool with orphan filler. The
+        # placeable count is copy-aware (the progressive key fills one location
+        # per chain step).
         active_location_count = sum(
             1 for loc_name in LOCATION_NAME_TO_ID if self._location_enabled(loc_name)
         )
-        delta = active_location_count - len(placeable_non_filler)
+        placeable_copies = sum(self._pool_copies(name) for name in placeable_non_filler)
+        delta = active_location_count - placeable_copies
         if delta < 0:
             # More mandatory progression items (level keys + spells) than check
             # locations: the seed cannot place them and fill would crash. Reject
             # with guidance instead of a cryptic FillError. Only open castle can
             # hit this, when too few check categories are enabled.
             raise OptionError(
-                f"{self.game}: {len(placeable_non_filler)} progression items "
+                f"{self.game}: {placeable_copies} progression items "
                 f"(level keys and spells) but only {active_location_count} check "
                 "locations this seed. Enable at least one more check category "
                 "(wizard cards, secrets, challenge stars, duelling, quidditch "
@@ -1072,8 +1104,11 @@ class HP2World(World):
         if not goal_locations and goal_rule is None:
             # Defensive fallback: the goal table always defines DEFAULT_GOAL, so
             # this branch does not run today. It keeps the world solvable (own
-            # every progression item) if a future edit ever empties that table.
-            progression = list(PROGRESSION_ITEM_NAMES)
+            # every progression item that exists this seed) if a future edit
+            # ever empties that table.
+            progression = [
+                name for name in PROGRESSION_ITEM_NAMES if self._item_enabled(name)
+            ]
             self.multiworld.completion_condition[self.player] = (
                 lambda state: all(state.has(name, self.player) for name in progression)
             )
@@ -1213,14 +1248,17 @@ class HP2World(World):
         """This slot's own spell, key and card items grouped by kind and ordered
         by the sphere their placement first opens in. The client reads this so
         /hint can offer the earliest in-logic item the player has not collected.
-        Cards are one combined list across tiers; the client filters by tier."""
+        Cards are one combined list across tiers; the client filters by tier.
+        The Progressive Level Key appears once per placed copy (the client
+        matches received copies against entries count-wise)."""
         sphere_index: dict = {}
         for index, sphere in enumerate(self.multiworld.get_spheres()):
             for location in sphere:
                 sphere_index[location] = index
         categories = {
             "spell": frozenset(ITEM_GROUPS.get("Spells", [])),
-            "key": frozenset(ITEM_GROUPS.get("Blocker Keys", [])),
+            "key": frozenset(ITEM_GROUPS.get("Blocker Keys", []))
+            | {PROGRESSIVE_LEVEL_KEY_NAME},
             "card": CARD_ITEM_NAMES,
         }
         reached: dict = {key: [] for key in categories}

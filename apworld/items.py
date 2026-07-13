@@ -24,6 +24,7 @@ ITEM_NAME_TO_ID: dict[str, int] = {
     "Duelling Key": 5750261,
     "Quidditch Key": 5750262,
     "Gryffindor Challenge Key": 5750263,
+    "Progressive Level Key": 5750264,
     "Nimbus 2001": 5750008,
     "Quidditch Armour": 5750009,
     "Bronze Card - Agrippa": 5750100,
@@ -172,6 +173,7 @@ ITEM_CLASSIFICATIONS: dict[str, ItemClassification] = {
     "Duelling Key": ItemClassification.progression,
     "Quidditch Key": ItemClassification.progression,
     "Gryffindor Challenge Key": ItemClassification.progression,
+    "Progressive Level Key": ItemClassification.progression,
     "Nimbus 2001": ItemClassification.useful,
     "Quidditch Armour": ItemClassification.useful,
     "Bronze Card - Agrippa": ItemClassification.useful,
@@ -451,6 +453,22 @@ ITEM_GROUPS: dict[str, list[str]] = {
         "Obliviate Trap",
     ],
 }
+
+# Vanilla story-chain keys in linear story order. With vanilla_gate_levels on
+# the pool carries one Progressive Level Key copy per entry instead of these
+# named keys; the Nth copy received stands for the Nth key here. The client
+# translates each copy into its concrete key for the mod (the frozen .uc grant
+# protocol only speaks the named keys). Deliberately NOT in the Blocker Keys
+# group: precollect selection and the mod-facing key ledger must keep seeing
+# only concrete key names.
+PROGRESSIVE_LEVEL_KEY_NAME = "Progressive Level Key"
+PROGRESSIVE_LEVEL_KEY_ORDER: list[str] = [
+    "Bicorn Level Key",
+    "Boomslang Level Key",
+    "Goyle Level Key",
+    "Slytherin Common Room Key",
+    "Forbidden Forest Key",
+]
 
 # Derived from ITEM_GROUPS so the flat lists can never drift from the groups.
 # Their order feeds the reproducible filler/trap RNG draws (a per-seed input),

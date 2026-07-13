@@ -233,7 +233,7 @@ class TestRunningOnSkipsSpellChain(HP2TestBase):
     run_default_tests = False
 
     def test_pokeby_reachable_via_running(self) -> None:
-        state = self.state_all_but(["Rictusempra", "Skurge", "Bicorn Level Key"])
+        state = self.state_all_but(["Rictusempra", "Skurge", "Progressive Level Key"])
         self.assertTrue(
             state.can_reach("Castle Exterior - Card Pokeby", "Location", self.player),
             "Running should bypass the Rictusempra/Skurge/Bicorn-key chain")
@@ -470,27 +470,20 @@ class TestVendorEquipmentOpenCastleFree(HP2TestBase):
 
 
 # Vanilla gates levels in a CUMULATIVE chain (unlike open castle's standalone
-# keys): each deeper region needs every earlier level key too. Each chain key is
-# therefore independently necessary -> removing any one strands the location.
-# assertAccessDependency can't express an AND-chain, so this checks necessity by
-# removal. vanilla_gate_levels default-on keeps these chain keys in the pool.
-VANILLA_CHAIN = {
-    "Boomslang Level - Card Toke":
-        ("Bicorn Level Key", "Boomslang Level Key"),
-    "Goyle Level - Card Bloxam":
-        ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key"),
-    "Slytherin Common Room - Card Pilliwickle":
-        ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
-         "Slytherin Common Room Key"),
-    "Forbidden Forest - Card Fancourt":
-        ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
-         "Slytherin Common Room Key", "Forbidden Forest Key"),
-    "Duelling Club - Duel Rank 1":
-        ("Bicorn Level Key", "Duelling Key"),
-}
+# keys), modelled as Progressive Level Key copies: the Nth copy unlocks the Nth
+# level in story order. With vanilla_gate_levels default-on the pool carries 5
+# copies and none of the named story keys. One representative location per
+# chain level, in unlock order.
+VANILLA_CHAIN_LOCATIONS = [
+    "Bicorn Level - Card Agrippa",
+    "Boomslang Level - Card Toke",
+    "Goyle Level - Card Bloxam",
+    "Slytherin Common Room - Card Pilliwickle",
+    "Forbidden Forest - Card Fancourt",
+]
 
 
-class TestVanillaBlockerChains(HP2TestBase):
+class TestVanillaProgressiveChain(HP2TestBase):
     options = {
         "game_mode": "vanilla",
         "starting_spells": [],
@@ -499,15 +492,83 @@ class TestVanillaBlockerChains(HP2TestBase):
     }
     run_default_tests = False
 
-    def test_every_chain_key_is_necessary(self) -> None:
-        for loc, chain in VANILLA_CHAIN.items():
-            full = self.state_all_but([])
-            self.assertTrue(full.can_reach(loc, "Location", self.player),
-                            f"{loc} should be reachable with the whole chain collected")
-            for missing in chain:
-                state = self.state_all_but([missing])
-                self.assertFalse(state.can_reach(loc, "Location", self.player),
-                                 f"{loc} reachable without {missing}: vanilla chain not enforced")
+    def test_pool_swaps_named_story_keys_for_progressive(self) -> None:
+        pool = [item.name for item in self.multiworld.itempool]
+        precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        self.assertEqual(pool.count("Progressive Level Key"), 5,
+                         "vanilla gate-on pools exactly 5 progressive key copies")
+        for named in ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
+                      "Slytherin Common Room Key", "Forbidden Forest Key"):
+            self.assertNotIn(named, pool, f"{named} must not sit in the pool")
+            self.assertNotIn(named, precollected, f"{named} must not be precollected")
+
+    def test_duelling_and_quidditch_keys_stay_named(self) -> None:
+        pool = [item.name for item in self.multiworld.itempool]
+        self.assertIn("Duelling Key", pool, "the Duelling Key stays a named pool item")
+
+    def test_each_copy_unlocks_the_next_level(self) -> None:
+        state = self.state_all_but(["Progressive Level Key"])
+        for loc in VANILLA_CHAIN_LOCATIONS:
+            self.assertFalse(state.can_reach(loc, "Location", self.player),
+                             f"{loc} reachable with 0 progressive keys")
+        for copies, loc in enumerate(VANILLA_CHAIN_LOCATIONS, start=1):
+            state.collect(self.world.create_item("Progressive Level Key"), prevent_sweep=True)
+            self.assertTrue(state.can_reach(loc, "Location", self.player),
+                            f"{loc} should open at {copies} progressive key(s)")
+            if copies < len(VANILLA_CHAIN_LOCATIONS):
+                deeper = VANILLA_CHAIN_LOCATIONS[copies]
+                self.assertFalse(state.can_reach(deeper, "Location", self.player),
+                                 f"{deeper} must stay locked at {copies} progressive key(s)")
+
+    def test_duelling_club_needs_first_key_and_duelling_key(self) -> None:
+        loc = "Duelling Club - Duel Rank 1"
+        without_duelling = self.state_all_but(["Duelling Key"])
+        self.assertFalse(without_duelling.can_reach(loc, "Location", self.player),
+                         "the Duelling Club still needs its own named key")
+        without_progressive = self.state_all_but(["Progressive Level Key"])
+        self.assertFalse(without_progressive.can_reach(loc, "Location", self.player),
+                         "the Duelling Club needs the first chain unlock")
+        without_progressive.collect(
+            self.world.create_item("Progressive Level Key"), prevent_sweep=True)
+        self.assertTrue(without_progressive.can_reach(loc, "Location", self.player),
+                        "one progressive key plus the Duelling Key opens the club")
+
+
+# vanilla_gate_levels off: the classic flow. All named keys are precollected,
+# nothing is progressive, and every story region opens from the start.
+class TestVanillaGateLevelsOffKeepsNamedKeys(HP2TestBase):
+    options = {"game_mode": "vanilla", "vanilla_gate_levels": False, "starting_spells": []}
+    run_default_tests = False
+
+    def test_named_keys_precollected_no_progressive(self) -> None:
+        pool = [item.name for item in self.multiworld.itempool]
+        precollected = {item.name for item in self.multiworld.precollected_items[self.player]}
+        self.assertNotIn("Progressive Level Key", pool)
+        self.assertNotIn("Progressive Level Key", precollected)
+        for named in ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
+                      "Slytherin Common Room Key", "Forbidden Forest Key"):
+            self.assertIn(named, precollected, f"{named} must be precollected with gating off")
+            self.assertNotIn(named, pool)
+
+    def test_chain_locations_reachable_without_progressive(self) -> None:
+        state = self.state_all_but(["Progressive Level Key"])
+        for loc in VANILLA_CHAIN_LOCATIONS:
+            self.assertTrue(state.can_reach(loc, "Location", self.player),
+                            f"{loc} should be open with gating off")
+
+
+# Open castle is untouched by the progressive conversion: every named key stays
+# a standalone pool item and no progressive copy exists.
+class TestOpenCastleKeepsNamedKeys(HP2TestBase):
+    options = {"game_mode": "open_castle", "starting_spells": []}
+    run_default_tests = False
+
+    def test_named_keys_pooled_no_progressive(self) -> None:
+        pool = [item.name for item in self.multiworld.itempool]
+        self.assertNotIn("Progressive Level Key", pool)
+        for named in ("Bicorn Level Key", "Boomslang Level Key", "Goyle Level Key",
+                      "Slytherin Common Room Key", "Forbidden Forest Key"):
+            self.assertIn(named, pool, f"{named} must stay a pool item in open castle")
 
 
 # Hub-world vanilla extras. In open castle the hub regions (Entry Hall, Grand
@@ -601,7 +662,7 @@ class TestVanillaSecret6Override(HP2TestBase):
     def test_vanilla_needs_the_chain_without_running(self) -> None:
         self.assertTrue(self.state_all_but([]).can_reach(self.LOC, "Location", self.player),
                         "reachable with the full chain")
-        for missing in ("Skurge", "Rictusempra", "Bicorn Level Key"):
+        for missing in ("Skurge", "Rictusempra", "Progressive Level Key"):
             self.assertFalse(self.state_all_but([missing]).can_reach(self.LOC, "Location", self.player),
                              f"vanilla Secret 6 reachable without {missing}")
 

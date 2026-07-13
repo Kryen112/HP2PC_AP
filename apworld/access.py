@@ -2,7 +2,7 @@ from typing import Callable
 
 from BaseClasses import CollectionState
 
-from .items import ITEM_GROUPS
+from .items import ITEM_GROUPS, PROGRESSIVE_LEVEL_KEY_NAME
 
 # Card-name lists for the count rules below. Derived from ITEM_GROUPS so the
 # logic can never desync from the item definitions. has_from_list_unique only
@@ -43,6 +43,10 @@ def _silver_cards(count: int) -> _Access:
     return _Access(lambda state, player: state.has_from_list_unique(_SILVER_CARD_NAMES, player, count))
 
 
+def _progressive_level_keys(count: int) -> _Access:
+    return _Access(lambda state, player: state.has(PROGRESSIVE_LEVEL_KEY_NAME, player, count))
+
+
 never = _Access(lambda state, player: False)
 always = _Access(lambda state, player: True)
 
@@ -71,3 +75,23 @@ bicorn_level_key = _item("Bicorn Level Key")
 duelling_key = _item("Duelling Key")
 quidditch_key = _item("Quidditch Key")
 gryffindor_challenge_key = _item("Gryffindor Challenge Key")
+
+# Vanilla story-chain key requirement through each level, in story order. Each
+# step passes on either form the seed uses: the named keys (precollected when
+# vanilla_gate_levels is off) or enough Progressive Level Key copies (the pool
+# form when vanilla_gate_levels is on). Open castle rules keep the bare named
+# keys since its regions are standalone-gated, never chained.
+keys_through_bicorn = bicorn_level_key | _progressive_level_keys(1)
+keys_through_boomslang = (
+    bicorn_level_key & boomslang_level_key
+) | _progressive_level_keys(2)
+keys_through_goyle = (
+    bicorn_level_key & boomslang_level_key & goyle_level_key
+) | _progressive_level_keys(3)
+keys_through_slytherin_common_room = (
+    bicorn_level_key & boomslang_level_key & goyle_level_key & slytherin_common_room_key
+) | _progressive_level_keys(4)
+keys_through_forbidden_forest = (
+    bicorn_level_key & boomslang_level_key & goyle_level_key & slytherin_common_room_key
+    & forbidden_forest_key
+) | _progressive_level_keys(5)

@@ -87,6 +87,7 @@ import sys
 import time
 import urllib.parse
 import warnings
+from collections import Counter
 from typing import Optional, TYPE_CHECKING
 
 # Silence the upstream setuptools deprecation that fires every time AP imports
@@ -101,7 +102,8 @@ from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, music_patch, sound_patch
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
-                    ITEM_CLASSIFICATIONS, ITEM_GROUPS)
+                    ITEM_CLASSIFICATIONS, ITEM_GROUPS,
+                    PROGRESSIVE_LEVEL_KEY_NAME, PROGRESSIVE_LEVEL_KEY_ORDER)
 from .locations import (CARD_CLASS_TO_LOCATION_NAME,
                         CARD_GAME_ID_TO_LOCATION_NAME, LOCATION_GROUPS,
                         LOCATION_NAME_TO_ID)
@@ -320,8 +322,10 @@ EQUIPMENT_CODE = {'Nimbus 2001': 3001, 'Quidditch Armour': 3002}
 
 # Bookcase-blocker key appearance code. The 14 region keys all share the
 # vanilla "silver key" FX sprite (mod code 3003). Sourced from the canonical
-# ITEM_GROUPS entry so the set never drifts from items.yaml.
+# ITEM_GROUPS entry so the set never drifts from items.yaml. The Progressive
+# Level Key stands in for a story-chain key, so it shares the same sprite.
 KEY_CODE = {name: 3003 for name in ITEM_GROUPS['Blocker Keys']}
+KEY_CODE[PROGRESSIVE_LEVEL_KEY_NAME] = 3003
 
 # Foreign (non-HP2) item codes. The only surviving #1 contribution: the
 # AP-logo plate, arrow variant when the foreign item is progression or trap
@@ -492,11 +496,19 @@ class HP2CommandProcessor(ClientCommandProcessor):
         if not candidates:
             self.output(f"This seed has no {label}s to hint.")
             return True
-        received = {
+        # Count-wise filtering: an item placed as multiple copies (the
+        # Progressive Level Key) lists one hint_order entry per copy, so each
+        # received copy consumes exactly one entry instead of hiding them all.
+        received = Counter(
             ctx.item_names.lookup_in_game(item.item, GAME_NAME)
             for item in ctx.received_by_index.values()
-        }
-        remaining = [name for name in candidates if name not in received]
+        )
+        remaining = []
+        for name in candidates:
+            if received[name] > 0:
+                received[name] -= 1
+                continue
+            remaining.append(name)
         if not remaining:
             self.output(f"You already have every {label}.")
             return True
@@ -2471,11 +2483,39 @@ class HP2Context(CommonContext):
         """Spell item names received from AP. Read by `_send_resync_spells`."""
         return self._granted_names_in(SPELL_ITEM_NAMES_SET)
 
+    def _progressive_key_copies_received(self, before_index: "int | None" = None) -> int:
+        """Progressive Level Key copies this slot has received, optionally only
+        those at a ReceivedItems index below before_index. The server's
+        ReceivedItems order is append-only and replayed in full on every
+        Connected, so a copy's position (and therefore which concrete key it
+        stands for) is stable across reconnects."""
+        return sum(
+            1 for idx, item in self.received_by_index.items()
+            if (before_index is None or idx < before_index)
+            and self.item_names.lookup_in_game(item.item, GAME_NAME)
+            == PROGRESSIVE_LEVEL_KEY_NAME
+        )
+
+    def _progressive_key_concrete_name(self, idx: int) -> str:
+        """Concrete story-chain key the progressive copy at index idx grants:
+        the Nth copy in receive order maps to the Nth key in
+        PROGRESSIVE_LEVEL_KEY_ORDER. Copies past the chain end (cheat-sent
+        extras) repeat the final key; a duplicate key grant is idempotent
+        mod-side."""
+        copies_before = self._progressive_key_copies_received(before_index=idx)
+        order = PROGRESSIVE_LEVEL_KEY_ORDER
+        return order[min(copies_before, len(order) - 1)]
+
     @property
     def granted_blocker_key_names(self) -> set[str]:
         """Bookcase-blocker keys received from AP. Read by
-        `_send_resync_blocker_keys` on every Connected + game HELLO."""
-        return self._granted_names_in(BLOCKER_KEY_NAMES_SET)
+        `_send_resync_blocker_keys` on every Connected + game HELLO.
+        Progressive Level Key copies expand to their concrete chain keys, so
+        the mod-facing ledger only ever names real keys."""
+        names = self._granted_names_in(BLOCKER_KEY_NAMES_SET)
+        copies = self._progressive_key_copies_received()
+        names.update(PROGRESSIVE_LEVEL_KEY_ORDER[:copies])
+        return names
 
     @property
     def granted_card_class_names(self) -> set[str]:
@@ -2607,6 +2647,18 @@ class HP2Context(CommonContext):
         # item name through ApplyGrant's spell / key-item / filler branches.
         ucls = ITEM_NAME_TO_CARD_CLASS.get(item_name)
         payload = ucls if ucls else item_name
+        toast_name = item_name
+        flags = item.flags
+        if item_name == PROGRESSIVE_LEVEL_KEY_NAME:
+            # The mod's grant protocol only speaks concrete key names, so each
+            # progressive copy forwards as the next story-chain key. The toast
+            # names the level it opened alongside the AP item name; the
+            # decorated name defeats _item_role's own-name lookup, so recover
+            # unclassified (cheat-sent) flags from the plain name here.
+            payload = self._progressive_key_concrete_name(idx)
+            toast_name = f"{item_name} ({payload.removesuffix(' Key')})"
+            if not (flags & ITEM_FLAG_ANY_CLASSIFIED):
+                flags = int(ITEM_CLASSIFICATIONS[item_name])
         sender_name = self.player_names.get(item.player, f"player_{item.player}")
         sender_is_self = item.player == self.slot
         receiver_name = self.player_names.get(self.slot, "Harry")
@@ -2614,7 +2666,7 @@ class HP2Context(CommonContext):
         if item.location > 0:
             location_name = self.location_names.lookup_in_slot(item.location, item.player) or ""
         segrecord = self._build_item_segrecord(
-            sender_name, sender_is_self, item_name, item.flags,
+            sender_name, sender_is_self, toast_name, flags,
             receiver_name, True, location_name,
         )
         logger.info(

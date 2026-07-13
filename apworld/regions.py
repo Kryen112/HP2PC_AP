@@ -12,6 +12,11 @@ from .access import (
     forbidden_forest_key,
     goyle_level_key,
     gryffindor_challenge_key,
+    keys_through_bicorn,
+    keys_through_boomslang,
+    keys_through_forbidden_forest,
+    keys_through_goyle,
+    keys_through_slytherin_common_room,
     lumos,
     never,
     quidditch_key,
@@ -59,15 +64,14 @@ REGION_ENTRY_RULES_VANILLA: dict[str, _Access] = {
     # flipendo & rictusempra) already subsumes the Complete location's own
     # flipendo & rictusempra.
     "BeanBonusRoom": lumos & flipendo & rictusempra,
-    "BicornLevel": lumos & flipendo & alohomora & rictusempra & skurge & bicorn_level_key,
+    "BicornLevel": lumos & flipendo & alohomora & rictusempra & skurge & keys_through_bicorn,
     "BoomslangLevel": lumos
     & flipendo
     & alohomora
     & rictusempra
     & skurge
     & diffindo
-    & bicorn_level_key
-    & boomslang_level_key,
+    & keys_through_boomslang,
     "CastleExterior": lumos & flipendo,
     "ChamberOfSecrets": lumos
     & flipendo
@@ -76,22 +80,17 @@ REGION_ENTRY_RULES_VANILLA: dict[str, _Access] = {
     & skurge
     & diffindo
     & spongify
-    & bicorn_level_key
-    & boomslang_level_key
-    & goyle_level_key
-    & slytherin_common_room_key
-    & forbidden_forest_key
+    & keys_through_forbidden_forest
     & chamber_of_secrets_key,
     "DiffindoChallenge": lumos & flipendo & diffindo,
-    "DuellingClub": lumos & flipendo & alohomora & rictusempra & skurge & bicorn_level_key & duelling_key,
+    "DuellingClub": lumos & flipendo & alohomora & rictusempra & skurge & keys_through_bicorn & duelling_key,
     "DumbledoreStudy": lumos
     & flipendo
     & alohomora
     & rictusempra
     & skurge
     & diffindo
-    & bicorn_level_key
-    & boomslang_level_key,
+    & keys_through_boomslang,
     "EntryHall": lumos & flipendo,
     "ForbiddenForest": lumos
     & flipendo
@@ -100,11 +99,7 @@ REGION_ENTRY_RULES_VANILLA: dict[str, _Access] = {
     & skurge
     & diffindo
     & spongify
-    & bicorn_level_key
-    & boomslang_level_key
-    & goyle_level_key
-    & slytherin_common_room_key
-    & forbidden_forest_key,
+    & keys_through_forbidden_forest,
     "GoldCardRoom": lumos & flipendo & _silver_cards(40),
     "GoyleLevel": lumos
     & flipendo
@@ -112,9 +107,7 @@ REGION_ENTRY_RULES_VANILLA: dict[str, _Access] = {
     & rictusempra
     & skurge
     & diffindo
-    & bicorn_level_key
-    & boomslang_level_key
-    & goyle_level_key,
+    & keys_through_goyle,
     "GrandStaircase": lumos & flipendo,
     "GryffindorChallenge": never,
     "Quidditch": lumos & flipendo & rictusempra & quidditch_key,
@@ -126,10 +119,7 @@ REGION_ENTRY_RULES_VANILLA: dict[str, _Access] = {
     & rictusempra
     & skurge
     & diffindo
-    & bicorn_level_key
-    & boomslang_level_key
-    & goyle_level_key
-    & slytherin_common_room_key,
+    & keys_through_slytherin_common_room,
     "SpongifyChallenge": lumos
     & flipendo
     & alohomora
@@ -137,10 +127,7 @@ REGION_ENTRY_RULES_VANILLA: dict[str, _Access] = {
     & skurge
     & diffindo
     & spongify
-    & bicorn_level_key
-    & boomslang_level_key
-    & goyle_level_key
-    & slytherin_common_room_key,
+    & keys_through_slytherin_common_room,
     "WhompingWillow": always,
 }
 

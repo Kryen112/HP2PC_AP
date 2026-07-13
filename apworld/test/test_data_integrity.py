@@ -8,7 +8,8 @@ from .. import StartingSpells, Traps
 from ..access import _BRONZE_CARD_NAMES, _SILVER_CARD_NAMES
 from ..items import (BASE_ID as ITEM_BASE_ID, FILLER_APPEARANCE_CODE,
                      FILLER_NAMES, ITEM_CLASSIFICATIONS, ITEM_GROUPS,
-                     ITEM_NAME_TO_ID, TRAP_NAMES)
+                     ITEM_NAME_TO_ID, PROGRESSIVE_LEVEL_KEY_NAME,
+                     PROGRESSIVE_LEVEL_KEY_ORDER, TRAP_NAMES)
 from ..locations import (BASE_ID as LOCATION_BASE_ID, LOCATION_GROUPS,
                          LOCATION_NAME_TO_ID, LOCATION_REGIONS,
                          MISSABLE_LOCATION_DEPS_VANILLA, MISSABLE_LOCATIONS)
@@ -38,6 +39,21 @@ class TestDataIntegrity(unittest.TestCase):
     def test_classifications_reference_real_items(self) -> None:
         extra = set(ITEM_CLASSIFICATIONS) - set(ITEM_NAME_TO_ID)
         self.assertEqual(extra, set(), f"classifications for unknown items: {sorted(extra)}")
+
+    def test_progressive_level_key_contract(self) -> None:
+        # The chain order backs the client's copy-to-concrete-key translation
+        # and the rule counts: it must name real, distinct Blocker Keys. The
+        # progressive item itself stays OUT of the Blocker Keys group so
+        # precollect selection and the mod-facing key ledger only ever see
+        # concrete key names.
+        self.assertIn(PROGRESSIVE_LEVEL_KEY_NAME, ITEM_NAME_TO_ID)
+        self.assertNotIn(PROGRESSIVE_LEVEL_KEY_NAME, ITEM_GROUPS["Blocker Keys"])
+        self.assertEqual(len(PROGRESSIVE_LEVEL_KEY_ORDER),
+                         len(set(PROGRESSIVE_LEVEL_KEY_ORDER)),
+                         "chain order repeats a key")
+        for name in PROGRESSIVE_LEVEL_KEY_ORDER:
+            self.assertIn(name, ITEM_GROUPS["Blocker Keys"],
+                          f"chain entry {name!r} is not a Blocker Key")
 
     def test_filler_and_traps_are_items(self) -> None:
         for name in FILLER_NAMES + TRAP_NAMES:
