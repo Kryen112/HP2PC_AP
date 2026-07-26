@@ -100,7 +100,7 @@ from CommonClient import (ClientCommandProcessor, CommonContext,
                           get_base_parser, gui_enabled, server_loop)
 from NetUtils import ClientStatus, SlotType
 
-from . import HP2World, dialogue_patch, music_patch, sound_patch
+from . import HP2World, dialogue_patch, installer, music_patch, sound_patch
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
                     ITEM_CLASSIFICATIONS, ITEM_GROUPS,
                     PROGRESSIVE_LEVEL_KEY_NAME, PROGRESSIVE_LEVEL_KEY_ORDER)
@@ -135,6 +135,33 @@ def _auto_launch_enabled() -> bool:
         return bool(HP2World.settings.auto_launch_game)
     except Exception:
         return False
+
+
+def _auto_install_enabled() -> bool:
+    """Whether the client keeps the install's mod package current on connect.
+    Read at call time so a host.yaml edit needs no client restart. On read error,
+    default to off so a misread never rewrites an install."""
+    try:
+        return bool(HP2World.settings.auto_install_mod)
+    except Exception:
+        return False
+
+
+def _game_process_running() -> bool:
+    """Whether a Game.exe process is up. The installer must not rewrite files a
+    running game has loaded, so any doubt (tasklist erroring or timing out)
+    counts as running. Off Windows there is no tasklist; an overwrite there only
+    lands on the next launch, so it does not block the install."""
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        result = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq Game.exe", "/NH"],
+            capture_output=True, text=True, timeout=3,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    return "Game.exe" in result.stdout
 
 
 # /reroll overrides per randomizer kind ("sound" / "music"), keyed by
@@ -447,6 +474,18 @@ class HP2CommandProcessor(ClientCommandProcessor):
             self.output("Connect to a seed first, so the client knows which version to launch.")
             return True
         asyncio.create_task(ctx._launch_game_manual())
+        return True
+
+    def _cmd_installmod(self) -> bool:
+        """Install or update the mod (HPArchipelago.u plus the ini wiring) in the
+        connected seed's install folder. The client already does this on connect
+        (auto_install_mod); use /installmod after turning that off, or when an
+        update was skipped because the game was running."""
+        ctx: "HP2Context" = self.ctx
+        if ctx.seed_mode is None:
+            self.output("Connect to a seed first, so the client knows which install to update.")
+            return True
+        asyncio.create_task(ctx._install_mod())
         return True
 
     def _cmd_hint(self, category: str = "", tier: str = "") -> bool:
@@ -1652,6 +1691,11 @@ class HP2Context(CommonContext):
         files are still being rewritten, and lets the launch reuse the folder the
         audio step already resolved, so the player is never asked twice."""
         safe, install = await self._apply_audio_randomizers(sd)
+        # The mod must be current before the game boots, so it sits between the
+        # randomizers and the launch; it resolves (and prompts once for) the
+        # folder itself when the audio step did not need one.
+        if _auto_install_enabled():
+            install = await self._ensure_mod_current(install) or install
         if not _auto_launch_enabled():
             return
         # Launch on every AP (re)connect, not just the first of the session, so a
@@ -1700,7 +1744,81 @@ class HP2Context(CommonContext):
                 pass
         install = await self._resolve_launch_folder()
         if install:
+            if _auto_install_enabled():
+                await self._ensure_mod_current(install)
             self._launch_game(install)
+
+    def _game_is_up(self) -> bool:
+        """Whether a game is live from the installer's point of view: bridged,
+        booting from our own launch, or visible as a process."""
+        game_bridged = self.game_writer is not None and not self.game_writer.is_closing()
+        return self._game_launched or game_bridged or _game_process_running()
+
+    async def _ensure_mod_current(self, install: Optional[str]) -> Optional[str]:
+        """Keep the seed's install running this apworld's mod package: resolve
+        the install folder (prompting once when it is unset), then deploy when
+        the packaged bytes differ. Returns the resolved folder so the launch can
+        reuse it. Never rewrites files a running game has loaded."""
+        if not install or not os.path.exists(sound_patch.package_path(install)):
+            install = await self._resolve_launch_folder()
+        if not install:
+            return None
+        try:
+            current = await asyncio.get_event_loop().run_in_executor(
+                None, installer.mod_is_current, install)
+        except Exception as exc:
+            ui_logger.warning(f"Could not check the installed mod: {exc}")
+            return install
+        if current:
+            return install
+        if self._game_is_up():
+            ui_logger.warning(
+                "This apworld carries a different mod build than the install, but "
+                "the game is up. Close Harry Potter and type /installmod, then "
+                "relaunch."
+            )
+            return install
+        ui_logger.info(
+            "This apworld carries a different mod build than the install; updating it.")
+        await self._install_mod(install)
+        return install
+
+    async def _install_mod(self, install: Optional[str] = None) -> None:
+        """Deploy the apworld's mod package and ini wiring into the seed's
+        install. Backs the /installmod command and the on-connect auto install."""
+        if not install:
+            install = await self._resolve_launch_folder()
+        if not install:
+            ui_logger.warning("No install folder resolved; cannot install the mod.")
+            return
+        if self._game_is_up():
+            ui_logger.warning("The game is up. Close Harry Potter first, then type /installmod.")
+            return
+        loop = asyncio.get_event_loop()
+        try:
+            # Bound the wait: a denied Program Files write can hang the file op
+            # instead of failing fast, which would otherwise leave no message.
+            log_lines = await asyncio.wait_for(
+                loop.run_in_executor(None, installer.deploy, install), timeout=20)
+        except asyncio.TimeoutError:
+            ui_logger.error(
+                "Mod install: writing the install did not finish (the write looks "
+                "blocked). If the install is under Program Files, run the "
+                "Archipelago launcher as administrator, then reconnect."
+            )
+            return
+        except (OSError, ValueError) as exc:
+            ui_logger.error(
+                f"Mod install failed: {exc} If the install is under Program Files, "
+                f"run the Archipelago launcher as administrator."
+            )
+            return
+        for line in log_lines:
+            ui_logger.info(f"Mod install: {line}")
+        if log_lines:
+            ui_logger.info("Mod installed. It loads when Harry Potter starts.")
+        else:
+            ui_logger.info("Mod install: the install is already up to date.")
 
     def _launch_game(self, install: str) -> None:
         """Start Game.exe from the install's system folder. The UE1 engine needs
@@ -1734,9 +1852,9 @@ class HP2Context(CommonContext):
         field = "open_castle_install_folder" if open_castle else "vanilla_install_folder"
         ui_logger.info(
             f"First connect: pick your Harry Potter 2 {mode} install folder so the "
-            f"client can launch the game (and apply any randomizers). It is the folder "
-            f"that contains the 'system' folder with Game.exe. Saved to host.yaml, so "
-            f"you are asked only once per mode."
+            f"client can keep the mod installed, launch the game, and apply any "
+            f"randomizers. It is the folder that contains the 'system' folder with "
+            f"Game.exe. Saved to host.yaml, so you are asked only once per mode."
         )
         try:
             from Utils import open_directory

@@ -44,7 +44,7 @@ In open castle, the pause menu draws a live goal-progress panel (cards / spells 
 
 ### Client commands worth knowing
 
-`/progress` prints your goal status. `/play` (re)launches the game. The randomizers each have a reshuffle/restore pair: `/reroll_sounds` `/restore_sounds`, `/reroll_music` `/restore_music`, `/reroll_dialogue` `/restore_dialogue` (see the randomizer sections above).
+`/progress` prints your goal status. `/play` (re)launches the game. `/installmod` installs or updates the mod in the seed's install (the client also does this on connect). The randomizers each have a reshuffle/restore pair: `/reroll_sounds` `/restore_sounds`, `/reroll_music` `/restore_music`, `/reroll_dialogue` `/restore_dialogue` (see the randomizer sections above).
 
 ## Prerequisites
 
@@ -53,7 +53,7 @@ In open castle, the pause menu draws a live goal-progress panel (cards / spells 
 | **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                            |
 | **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                                                                        |
 | **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                      |
-| **HP2PC_AP release files**                       | Downloaded individually from the GitHub release: `HPArchipelago.u`, `Default.ini`, `harry_potter_2_pc.apworld`, and this `PLAYER_SETUP.md`. The Python client is bundled inside the apworld; no separate exe. |
+| **HP2PC_AP release files**                       | Downloaded from the GitHub release: `harry_potter_2_pc.apworld` and this `PLAYER_SETUP.md`. The compiled mod, its config wiring, and the Python client are all bundled inside the apworld; no separate files. |
 
 OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
 
@@ -68,55 +68,7 @@ Follow only steps 1, 2, 3 and 5, no need for windowed steps etc.
 
 Run M212's installer. Point it at your HP2 install.
 
-### 3. Drop the mod files
-
-You should have downloaded these four files from the GitHub release:
-
-- `HPArchipelago.u` (the compiled mod)
-- `Default.ini` (pre-patched engine config, replaces the one shipped with M212)
-- `harry_potter_2_pc.apworld` (the AP world + bundled client)
-- `PLAYER_SETUP.md` (this file)
-
-Copy `HPArchipelago.u` and `Default.ini` into your M212 install, overwriting the existing `Default.ini`:
-
-```
-<HP2 install>\system\HPArchipelago.u
-<HP2 install>\system\Default.ini
-```
-
-If Windows blocks saving in Program Files, copy the files via Windows Explorer and approve the admin prompt, or move your HP2 install out of Program Files entirely (e.g. to `C:\Games\HP2\`).
-
-**Only if you've launched HP2 before** (i.e. `C:\Users\<you>\Documents\Harry - Coding Evolved\` already exists with `HP.ini` and/or `Game.ini` in it), do this cleanup:
-
-- Delete your `HP.ini`.
-- For `Game.ini` (if it exists), either delete it OR open it and under the `[Engine.Engine]` section add:
-
-  ```
-  DefaultGame=HPArchipelago.APGameInfo
-  ```
-
-  (replacing any existing `DefaultGame=` line). The edit path preserves your per-user settings like resolution and audio volume; the delete path is simpler if you don't care.
-
-Your `Save\` folder is fine to keep. If `Harry - Coding Evolved\` doesn't exist yet (fresh M212 install, never launched), skip this; `Default.ini` is all you need; the engine will generate any per-user files on first launch.
-
-> Why this matters: `HP.ini` and `Game.ini` are user-data overrides. If they exist from a prior launch, they take precedence over `Default.ini` and will silently override the mod's settings back to vanilla.
-
-> The shipped `Default.ini` is already patched with `EditPackages=IpDrv`, `EditPackages=HPArchipelago`, and `DefaultGame=HPArchipelago.APGameInfo`. No hand-editing required.
-
-### Optional: install the HP2 Bingo distribution too
-
-The randomizer also supports the **HP2 Bingo** community pack (open castle from spawn). You can keep your vanilla install AND a separate HP2 Bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
-
-If you only want vanilla story play, skip to step 4. If you want open castle:
-
-1. **Install HP2 retail to a separate folder** (e.g. `C:\Program Files (x86)\EA Games\Bingo`) so it doesn't collide with the vanilla install.
-2. **Get the Bingo Client** from the HP2 speedrunning community (https://www.speedrun.com/hpcc/resources) (the **[2PC] Bingo Client V4.5** download). Copy its `Harry Potter and the Chamber of Secrets\` contents over the install from the previous step.
-3. **Run the M212 installer again**, pointing at your HP2 Bingo folder. M212 layers cleanly over the HP2 Bingo map edits.
-4. **Copy `HPArchipelago.u` and `Default.ini`** into `<HP2 Bingo install>\system\`, same as step 3 above. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files), so no separate INI cleanup is needed.
-
-That's the install side. The yaml side is one line; see "Configure your slot" below for the `game_mode: open_castle` option.
-
-### 4. Install Archipelago and the apworld
+### 3. Install Archipelago and the apworld
 
 Install Archipelago using its Windows installer. Default location works (`C:\ProgramData\Archipelago\` on most systems).
 
@@ -127,6 +79,37 @@ Drop `harry_potter_2_pc.apworld` into Archipelago's custom worlds folder:
 ```
 
 That's it. Archipelago discovers it automatically next time you launch, and `HP2 PC Client` will appear as a button in the Archipelago Launcher.
+
+### 4. The mod: the client installs it for you
+
+There are no mod files to copy by hand. The first time you connect the client to a seed, it pops a folder picker asking for your HP2 install (the folder containing `system\Game.exe`; saved to `host.yaml`, so you are asked once per mode) and then sets that install up:
+
+- copies the compiled `HPArchipelago.u` (carried inside the apworld) into `<HP2 install>\system\`
+- patches `<HP2 install>\system\Default.ini` in place: `EditPackages=IpDrv` + `EditPackages=HPArchipelago` into the package list and `DefaultGame=HPArchipelago.APGameInfo` into `[Engine.Engine]`
+- applies the same fixes to the per-user overrides in `Documents\Harry - Coding Evolved\` (`HP.ini`, `Game.ini`) if you launched HP2 before, since those would otherwise silently shadow `Default.ini` back to vanilla; your own settings (resolution, volume) survive, nothing is deleted
+- keeps one-time backups of every file it touches, under `<HP2 install>\_archipelago_backup\` and `Documents\Harry - Coding Evolved\_archipelago_backup\`
+
+Every later connect re-checks the installed mod against the apworld's copy byte for byte, so **updating the randomizer is just replacing the `.apworld` file**: the client updates the game install on the next connect. If the game is running at that moment, the client says so; close the game and type `/installmod`.
+
+> **Permissions:** the client writes inside your install, so if HP2 lives under `Program Files`, run ArchipelagoLauncher as administrator (right-click, "Run as administrator"), or move the install somewhere writable (e.g. `C:\Games\HP2\`). This is the same requirement the audio randomizers have.
+
+> Prefer to manage the files yourself? Set `auto_install_mod: false` under `harry_potter_2_pc_options` in host.yaml; `/installmod` still deploys on demand.
+
+> **Updating from an older release** (where you copied `HPArchipelago.u` and `Default.ini` by hand): nothing to undo. Replace the `.apworld` in `custom_worlds\` and connect; the client sees the outdated `HPArchipelago.u` and updates it, and the ini patching recognizes the old hand-installed lines and normalizes them in place (no duplicates, your settings stay). If your install is under `Program Files`, run ArchipelagoLauncher as administrator for that connect, even if you never needed it before.
+
+### Optional: install the HP2 Bingo distribution too
+
+The randomizer also supports the **HP2 Bingo** community pack (open castle from spawn). You can keep your vanilla install AND a separate HP2 Bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
+
+If you only want vanilla story play, skip this section. If you want open castle:
+
+1. **Install HP2 retail to a separate folder** (e.g. `C:\Program Files (x86)\EA Games\Bingo`) so it doesn't collide with the vanilla install.
+2. **Get the Bingo Client** from the HP2 speedrunning community (https://www.speedrun.com/hpcc/resources) (the **[2PC] Bingo Client V4.5** download). Copy its `Harry Potter and the Chamber of Secrets\` contents over the install from the previous step.
+3. **Run the M212 installer again**, pointing at your HP2 Bingo folder. M212 layers cleanly over the HP2 Bingo map edits.
+
+There are no mod files to copy here either: the first time you connect to an `open_castle` seed, the client asks for this install's folder and sets it up the same way. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files) and are handled automatically too.
+
+That's the install side. The yaml side is one line; see "Configure your slot" below for the `game_mode: open_castle` option.
 
 ## Generate a seed (solo play)
 
@@ -251,6 +234,7 @@ It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u`
     vanilla_install_folder: "<path to your vanilla-mode install>"
     open_castle_install_folder: "<path to your open-castle-mode install>"
     auto_launch_game: true   # default; set false to launch the game yourself
+    auto_install_mod: true   # default; set false to manage the mod files yourself
   ```
 
 - **When it applies.** Patching runs a moment after you connect (it rewrites a large file in the background). With auto-launch on (the default), the client finishes patching before it starts the game, so the first launch already has the shuffled sounds and you don't have to time anything. If you launch the game yourself, wait for the client window to show `Sound randomizer applied ...` first (and if the game was already running, restart it once, since the package is read at launch). If you instead see a "could not write / run as administrator" line, see Permissions below.
@@ -301,10 +285,9 @@ Quick checklist after first launch:
 
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
-- Check `<HP2 install>\system\HPArchipelago.u` exists.
-- Check `<HP2 install>\system\Default.ini` is the shipped one; open it and confirm `EditPackages=HPArchipelago` is present (search for it).
-- If `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` exists, it overrides `Default.ini`, delete it.
-- If `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.ini` exists, it overrides both. Either delete it, or open it and make sure `[Engine.Engine]` has `DefaultGame=HPArchipelago.APGameInfo` (not `DefaultGame=Engine.GameInfo`).
+- Close the game and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires every ini, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
+- If the install log warned that your `HP.ini` carries a package list it does not recognize, delete `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` and run `/installmod` again.
+- Manual checks, if you want to see for yourself: `<HP2 install>\system\HPArchipelago.u` exists; `<HP2 install>\system\Default.ini` has `EditPackages=HPArchipelago`; `Documents\Harry - Coding Evolved\Game.ini` (if present) has `DefaultGame=HPArchipelago.APGameInfo` under `[Engine.Engine]`, not `DefaultGame=Engine.GameInfo`.
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
 
 **Silent NPCs / no dialog plays in cutscenes**:

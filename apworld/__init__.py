@@ -579,8 +579,9 @@ class HP2Settings(settings.Group):
     # not framework-required. With auto_launch_game on (the default) the client
     # pops a one-time folder picker on first connect to learn the folder it
     # launches (and patches), saving the choice here so it asks once per mode.
-    # Read by the sound / music / dialogue randomizers and the auto-launcher. Each
-    # is the install root, containing system\ (Game.exe, HPSounds.u) and Music\.
+    # Read by the mod installer, the sound / music / dialogue randomizers, and the
+    # auto-launcher. Each is the install root, containing system\ (Game.exe,
+    # HPSounds.u) and Music\.
     class VanillaInstallFolder(settings.UserFolderPath):
         """Install folder for vanilla-mode seeds: the install root, containing the
         'system' folder (with Game.exe and HPSounds.u) and the 'Music' folder. Used
@@ -600,9 +601,17 @@ class HP2Settings(settings.Group):
         connects to a seed (once per client session, after any randomizers finish).
         On by default. Set to false to launch the game yourself or with /play."""
 
+    class AutoInstallMod(settings.Bool):
+        """Keep the game mod current automatically: when the client connects,
+        compare the compiled HPArchipelago.u packaged in this apworld against the
+        seed's install and deploy it (with the ini wiring) if it differs, before
+        the game launches. On by default. Set to false to manage the mod files
+        yourself; /installmod deploys on demand."""
+
     vanilla_install_folder: VanillaInstallFolder = VanillaInstallFolder("")
     open_castle_install_folder: OpenCastleInstallFolder = OpenCastleInstallFolder("")
     auto_launch_game: Union[AutoLaunchGame, bool] = True
+    auto_install_mod: Union[AutoInstallMod, bool] = True
 
 
 class HP2World(World):

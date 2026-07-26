@@ -29,8 +29,11 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 | `apworld/`                   | Python AP world definition + bundled `Client.py` (packaged into `harry_potter_2_pc.apworld`) |
 | `apworld/{items,locations}.py` | Item / location id tables, groups, and classifications                                     |
 | `apworld/{regions,rules}.py`, `apworld/access.py` | Access logic as boolean predicates over item names                          |
-| `build_apworld.py`           | Packages the apworld into `harry_potter_2_pc.apworld` and installs it locally (no code generation) |
-| `mod/HPArchipelago/Classes/` | UnrealScript mod source, compiled with `ucc make`                                          || `docs/PLAYER_SETUP.md`       | Install + first-run guide for end users                                                    |
+| `build_apworld.py`           | Verifies + stages the compiled mod, packages the apworld into `harry_potter_2_pc.apworld`, and installs it locally (no code generation) |
+| `mod/HPArchipelago/Classes/` | UnrealScript mod source, compiled with `ucc make`                                          |
+| `mod/Compiled/`              | The canonical compiled `HPArchipelago.u` + its source-hash manifest (recorded by `scripts/capture_mod.py`, shipped inside the apworld) |
+| `apworld/installer.py`       | Client-side mod installer: deploys the packaged `.u` and patches the game inis in place    |
+| `docs/PLAYER_SETUP.md`       | Install + first-run guide for end users                                                    |
 | `docs/DEV_SETUP.md`          | Dev environment + UScript build loop                                                       |
 
 ## Read this first
@@ -52,4 +55,4 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 - **Sphere 0:** 4 spell-teaching classrooms (no items required to reach in the open-hub model).
 - **Filler:** 8 types: Small/Medium/Large/Massive Jar of Beans, Wiggenweld Potion, Wiggentree Bark, Flobberworm Mucous, Chocolate Frog.
 - **Gold Card Room:** the 11 gold cards live in their own region behind the silver-key door. Logic gates each gold-card location on the silver-card count plus the per-card spell requirements: vanilla requires all 40 silvers (matches the boss-of-house gate); open castle requires 20 silvers (matches the in-game `CardLockTrigger` which only wires Lock1+Lock2). Silver-card items cannot land in gold-card locations. The room's far-end exit trigger is also a **Gold Card Room - Complete** check, the 13th open-castle level objective (`open_castle_goal_levels`); it needs the same access as the deepest gold card. When card shuffle is off the cards are locked to their own spots rather than removed, so this silver gate stays honest.
-- **Distribution:** single `harry_potter_2_pc.apworld` (client bundled) + the UScript mod. The launcher shows "HP2 PC Client" once the apworld is dropped into the user's `custom_worlds/` folder.
+- **Distribution:** a single `harry_potter_2_pc.apworld` carrying the client and the compiled UScript mod. The launcher shows "HP2 PC Client" once the apworld is dropped into the user's `custom_worlds/` folder, and the client installs (and keeps updated) the mod and its ini wiring in the game install on connect.

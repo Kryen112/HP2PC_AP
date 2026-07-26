@@ -7,10 +7,17 @@ venv/
 *.egg-info/
 .pytest_cache/
 
-# UnrealScript build artifacts
+# UnrealScript build artifacts. The one exception is the canonical compiled
+# package: exactly one HPArchipelago.u ships per release, committed next to
+# its source-hash manifest and verified by build_apworld.py.
 *.u
+!/mod/Compiled/HPArchipelago.u
 *.tmp
 *.log
+
+# Mod package staged into the apworld by build_apworld.py. The canonical
+# copy is mod/Compiled.
+/apworld/data/
 
 # IDE
 .vscode/

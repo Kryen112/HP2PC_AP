@@ -136,7 +136,7 @@ That's it. No `icacls` grants. Earlier we tried granting Modify permissions on `
 
 ## Build loop (UScript mod)
 
-Status: scripted helper not yet written. Manual steps for now. Both steps require elevated PowerShell because `Modded\` is in `Program Files (x86)`.
+Status: the machine-local `..\scripts\rebuild_mod.ps1` (outside the repo; holds this machine's absolute paths) runs the whole loop: mirror, `UCC make`, the Bingo copy, the capture, and the apworld rebuild. The manual steps it automates: requires elevated PowerShell because `Modded\` is in `Program Files (x86)`.
 
 1. Edit UScript source under `mod/HPArchipelago/Classes/*.uc` in the repo.
 2. Mirror the package folder into the engine and compile, in one shot:
@@ -149,7 +149,15 @@ Status: scripted helper not yet written. Manual steps for now. Both steps requir
    .\UCC.exe make
    Pop-Location
    ```
-3. The compiled `HPArchipelago.u` ends up in `Modded\system\`. UCC always recompiles `UnrealShare.u` too (M212 ships sample classes whose `.uc` mtimes are newer than the shipped `.u`); the rebuilt `UnrealShare.u` is benign, verified to not break the game. `.u` files stay out of git per `.gitignore`.
+3. The compiled `HPArchipelago.u` ends up in `Modded\system\`. UCC always recompiles `UnrealShare.u` too (M212 ships sample classes whose `.uc` mtimes are newer than the shipped `.u`); the rebuilt `UnrealShare.u` is benign, verified to not break the game.
+4. Record the build as the canonical shipped package (rebuild_mod.ps1 does this and step 5 automatically; no elevation needed, it only reads from `Modded\`):
+
+   ```powershell
+   py -3.12 scripts/capture_mod.py 'C:\Program Files (x86)\Harry Potter 2\Modded\System\HPArchipelago.u'
+   ```
+
+   This copies the package to `mod/Compiled/HPArchipelago.u` (the one `.u` in git) and writes the `HPArchipelago.u.sources` sha256 manifest next to it. It refuses to record a package whose mirrored source under `Modded\HPArchipelago\` differs from the repo's `mod/HPArchipelago/`, so a stale build can never become canonical.
+5. Rebuild the apworld (`py -3.12 build_apworld.py`): it re-verifies the manifest, stages the package into `apworld/data/mod/`, zips, and installs to `custom_worlds`. The client deploys the staged package into player installs on connect (`apworld/installer.py`), patching `Default.ini`, `HP.ini`, and `Game.ini` in place. Skipping capture + rebuild after a `UCC make` leaves a stale apworld whose auto-install overwrites the fresh build on the next client connect. All other `.u` files stay out of git per `.gitignore`.
 
 ## Run loop
 
