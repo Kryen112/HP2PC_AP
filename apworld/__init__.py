@@ -192,8 +192,7 @@ class AllowRunningLogic(Choice):
     `on`: Running becomes a logic flag and certain regions or locations become
     reachable earlier.
     `difficult`: everything `on` covers, plus the running tricks with tight
-    timing or precise positioning (running past the Bicorn-gated Castle
-    Exterior checks, into the Forbidden Forest, and onto the Quidditch pitch).
+    timing or precise positioning, e.g. in Castle Exterior.
 
     Anything above `off` makes sprinting free (no bean cost, and usable at 0
     beans), so the running this logic relies on is genuinely always available.
