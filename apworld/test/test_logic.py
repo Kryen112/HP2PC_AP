@@ -372,6 +372,37 @@ class TestGoldCardRoomSilverGate(HP2TestBase):
                                     [_SILVER_CARD_NAMES], only_check_listed=True)
 
 
+# The Gold Card Room's deep section sits past a dark, Flipendo-gated passage, so
+# the five cards back there plus Complete need Lumos and Flipendo on top of the
+# skurge cards' rule. Vanilla masks this (its region entry already needs
+# lumos & flipendo); open castle enters on silver cards alone, so without the
+# per-card gate the deep cards read as reachable while missing both spells. The
+# shallow skurge card (Hufflepuff) is reachable without Lumos and pins the split.
+class TestGoldCardRoomDeepLumosFlipendo(HP2TestBase):
+    options = {"game_mode": "open_castle", "starting_spells": []}
+    run_default_tests = False
+
+    DEEP = [
+        "Gold Card Room - Card Knightley",
+        "Gold Card Room - Card Paracelsus",
+        "Gold Card Room - Card Pinkstone",
+        "Gold Card Room - Card Potter",
+        "Gold Card Room - Card Ravenclaw",
+        "Gold Card Room - Complete",
+    ]
+
+    def test_deep_cards_need_lumos_and_flipendo(self) -> None:
+        for spell in ("Lumos", "Flipendo"):
+            self.assertAccessDependency(self.DEEP, [[spell]], only_check_listed=True)
+
+    def test_shallow_skurge_card_reachable_without_lumos(self) -> None:
+        state = self.state_all_but(["Lumos"])
+        self.assertTrue(
+            state.can_reach("Gold Card Room - Card Hufflepuff", "Location", self.player),
+            "Hufflepuff is in the lit section and must not require Lumos",
+        )
+
+
 # Open-castle goal: a spells-only goal must require every spell to complete.
 class TestOpenCastleSpellGoal(HP2TestBase):
     options = {
