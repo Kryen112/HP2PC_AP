@@ -655,7 +655,7 @@ _VANILLA_ONLY: dict[str, _Access] = {
         & keys_through_slytherin_common_room),
     "Quidditch - Match 1 (Hufflepuff)": rictusempra,
     "Quidditch - Match 2 (Ravenclaw)": rictusempra & skurge,
-    "Quidditch - Match 3 (Slytherin)": rictusempra & skurge & alohomora,
+    "Quidditch - Match 3 (Slytherin)": rictusempra & skurge & alohomora & keys_through_bicorn,
     "Quidditch - Match 4 (Hufflepuff)": rictusempra & skurge & diffindo & alohomora & keys_through_bicorn,
     "Quidditch - Match 5 (Ravenclaw)": (
         rictusempra & skurge & diffindo & spongify & alohomora
