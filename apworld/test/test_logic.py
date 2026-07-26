@@ -45,19 +45,20 @@ class TestOpenCastleLevelKeys(HP2TestBase):
             self.assertAccessDependency([loc], [[key]], only_check_listed=True)
 
 
-# Forbidden Forest is enterable from the start when Running logic is on: the
-# open-castle region rule is forbidden_forest_key OR Running. With Running off
-# the key stays the only gate (covered by TestOpenCastleLevelKeys above); with
-# Running on the precollected flag opens the region without the key.
+# Forbidden Forest is enterable from the start on the difficult running tier: the
+# open-castle region rule is forbidden_forest_key OR Difficult Running. The run in
+# is one of the tight ones, so plain `on` does not cover it and the key stays the
+# only gate there (as it does with running off, covered by TestOpenCastleLevelKeys
+# above); on `difficult` the precollected flag opens the region without the key.
 class TestForbiddenForestRunningShortcut(HP2TestBase):
-    options = {"game_mode": "open_castle", "allow_running_logic": True, "starting_spells": []}
+    options = {"game_mode": "open_castle", "allow_running_logic": "difficult", "starting_spells": []}
     run_default_tests = False
 
     def test_region_reachable_without_key_via_running(self) -> None:
         state = self.state_all_but(["Forbidden Forest Key"])
         self.assertTrue(
             state.can_reach("ForbiddenForest", "Region", self.player),
-            "Running should open the Forbidden Forest region without the key")
+            "Difficult Running should open the Forbidden Forest region without the key")
 
 
 class TestForbiddenForestKeyGatedWithoutRunning(HP2TestBase):
@@ -69,6 +70,17 @@ class TestForbiddenForestKeyGatedWithoutRunning(HP2TestBase):
         self.assertFalse(
             state.can_reach("ForbiddenForest", "Region", self.player),
             "without Running the Forbidden Forest region still needs its key")
+
+
+class TestForbiddenForestKeyGatedOnPlainRunning(HP2TestBase):
+    options = {"game_mode": "open_castle", "allow_running_logic": "on", "starting_spells": []}
+    run_default_tests = False
+
+    def test_region_needs_key_on_plain_running(self) -> None:
+        state = self.state_all_but(["Forbidden Forest Key"])
+        self.assertFalse(
+            state.can_reach("ForbiddenForest", "Region", self.player),
+            "the plain Running tier must not open the Forbidden Forest region")
 
 
 # Open-castle Goyle Level - Chest 3 sits in a dark area, so its rule adds Lumos on
@@ -163,8 +175,8 @@ class TestSkurgeCompleteNeedsLumosWithoutRunning(HP2TestBase):
 
 
 # Running-logic shortcut: Castle Exterior - Card Pokeby is gated behind a spell
-# chain OR Running. With Running off it genuinely needs the spells, so removing
-# Rictusempra strands it.
+# chain OR Difficult Running. With running off it genuinely needs the spells, so
+# removing Rictusempra strands it.
 class TestRunningOffNeedsSpellChain(HP2TestBase):
     options = {"game_mode": "vanilla", "allow_running_logic": False, "starting_spells": []}
     run_default_tests = False
@@ -226,17 +238,29 @@ class TestQuidditchMatchesOffAbsent(HP2TestBase):
         self.assertRaises(KeyError, self.world.get_location, "Quidditch - Match 1 (Hufflepuff)")
 
 
-# Running on: the spell chain becomes optional, so Pokeby is reachable without
-# Rictusempra/Skurge/the Bicorn key (Running is precollected, Alohomora is in pool).
+# Difficult running: the spell chain becomes optional, so Pokeby is reachable
+# without Rictusempra/Skurge/the Bicorn key (Difficult Running is precollected,
+# Alohomora is in pool). The plain `on` tier does not cover this run.
 class TestRunningOnSkipsSpellChain(HP2TestBase):
-    options = {"game_mode": "vanilla", "allow_running_logic": True, "starting_spells": []}
+    options = {"game_mode": "vanilla", "allow_running_logic": "difficult", "starting_spells": []}
     run_default_tests = False
 
     def test_pokeby_reachable_via_running(self) -> None:
         state = self.state_all_but(["Rictusempra", "Skurge", "Progressive Level Key"])
         self.assertTrue(
             state.can_reach("Castle Exterior - Card Pokeby", "Location", self.player),
-            "Running should bypass the Rictusempra/Skurge/Bicorn-key chain")
+            "Difficult Running should bypass the Rictusempra/Skurge/Bicorn-key chain")
+
+
+class TestPlainRunningKeepsSpellChain(HP2TestBase):
+    options = {"game_mode": "vanilla", "allow_running_logic": "on", "starting_spells": []}
+    run_default_tests = False
+
+    def test_pokeby_needs_chain_on_plain_running(self) -> None:
+        state = self.state_all_but(["Rictusempra", "Skurge", "Progressive Level Key"])
+        self.assertFalse(
+            state.can_reach("Castle Exterior - Card Pokeby", "Location", self.player),
+            "the plain Running tier must not bypass the Pokeby spell chain")
 
 
 # Vanilla physically needs Lumos + Flipendo (Whomping Willow), so they are forced
@@ -440,10 +464,10 @@ class TestMoreRunningOffChains(HP2TestBase):
 
 
 # Vanilla Card Marjoribanks gates on Alohomora and Diffindo plus EITHER the
-# spell chain OR Running. Diffindo sits outside the chain, so it is required even
-# on the Running shortcut (Running alone does not bypass it).
+# spell chain OR Difficult Running. Diffindo sits outside the chain, so it is
+# required even on the running shortcut (running alone does not bypass it).
 class TestVanillaMarjoribanksRunningStillNeedsDiffindo(HP2TestBase):
-    options = {"game_mode": "vanilla", "allow_running_logic": True, "starting_spells": []}
+    options = {"game_mode": "vanilla", "allow_running_logic": "difficult", "starting_spells": []}
     run_default_tests = False
 
     LOC = "Castle Exterior - Card Marjoribanks"
@@ -458,11 +482,11 @@ class TestVanillaMarjoribanksRunningStillNeedsDiffindo(HP2TestBase):
             self.state_all_but([]).can_reach(self.LOC, "Location", self.player))
 
 
-# Vanilla Secret 7 gates on Diffindo plus EITHER the spell chain OR Running.
-# Diffindo is the always-required gate; Alohomora is NOT required (it gates the
-# sibling secrets, not this one).
+# Vanilla Secret 7 gates on Diffindo plus EITHER the spell chain OR Difficult
+# Running. Diffindo is the always-required gate; Alohomora is NOT required (it
+# gates the sibling secrets, not this one).
 class TestVanillaSecret7GatedByDiffindoNotAlohomora(HP2TestBase):
-    options = {"game_mode": "vanilla", "allow_running_logic": True, "starting_spells": []}
+    options = {"game_mode": "vanilla", "allow_running_logic": "difficult", "starting_spells": []}
     run_default_tests = False
 
     LOC = "Castle Exterior - Secret 7"

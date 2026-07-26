@@ -1,6 +1,6 @@
 from .access import (_Access, _bronze_cards, alohomora, chamber_of_secrets_key,
-                     diffindo, flipendo, keys_through_bicorn,
-                     keys_through_forbidden_forest,
+                     difficult_running, diffindo, flipendo,
+                     keys_through_bicorn, keys_through_forbidden_forest,
                      keys_through_slytherin_common_room, lumos, rictusempra,
                      running, skurge, spongify)
 
@@ -81,7 +81,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Castle Exterior - Card Sykes": spongify,
     "Castle Exterior - Card Twonk": alohomora & diffindo,
     "Castle Exterior - Card Wadcock": alohomora,
-    "Castle Exterior - Card Youdle": (flipendo | spongify | running) & alohomora,
+    "Castle Exterior - Card Youdle": (flipendo | spongify | difficult_running) & alohomora,
     "Castle Exterior - Chest 1": alohomora,
     "Castle Exterior - Chest 2": alohomora,
     "Castle Exterior - Chest 3": alohomora,
@@ -96,7 +96,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Castle Exterior - Secret 3": alohomora & diffindo & lumos,
     "Castle Exterior - Secret 4": alohomora & diffindo & spongify & lumos,
     "Castle Exterior - Secret 5": spongify,
-    "Castle Exterior - Secret 6": flipendo | spongify | running,
+    "Castle Exterior - Secret 6": flipendo | spongify | difficult_running,
     "Castle Exterior - Secret 7": diffindo,
     "Castle Exterior - Secret 8": alohomora,
     "Chamber of Secrets - Card Elphick": spongify & diffindo & skurge & rictusempra & flipendo,
@@ -348,7 +348,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Gryffindor Challenge - Cauldron 4": diffindo & spongify & alohomora & flipendo,
     "Gryffindor Challenge - Cauldron 5": diffindo & spongify & alohomora & flipendo,
     "Gryffindor Challenge - Challenge Star 10": diffindo & spongify & alohomora & (flipendo | running),
-    "Gryffindor Challenge - Challenge Star 2": (diffindo | running) & spongify,
+    "Gryffindor Challenge - Challenge Star 2": (diffindo | difficult_running) & spongify,
     "Gryffindor Challenge - Challenge Star 3": diffindo & spongify & alohomora,
     "Gryffindor Challenge - Challenge Star 4": diffindo & spongify & alohomora & (flipendo | running),
     "Gryffindor Challenge - Challenge Star 5": diffindo & spongify & alohomora & (flipendo | running),
@@ -590,11 +590,11 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
 # Vanilla layers extra spell/key gating on top of the open castle rule: for
 # these locations vanilla = the open castle rule AND the requirements here.
 _VANILLA_EXTRA: dict[str, _Access] = {
-    "Castle Exterior - Card Marjoribanks": rictusempra & skurge & keys_through_bicorn | running,
-    "Castle Exterior - Card Pokeby": rictusempra & skurge & keys_through_bicorn | running,
-    "Castle Exterior - Chest 8": skurge & rictusempra & keys_through_bicorn | running,
-    "Castle Exterior - Chest 9": skurge & rictusempra & diffindo & keys_through_bicorn | running,
-    "Castle Exterior - Secret 7": skurge & rictusempra & flipendo & keys_through_bicorn | running,
+    "Castle Exterior - Card Marjoribanks": rictusempra & skurge & keys_through_bicorn | difficult_running,
+    "Castle Exterior - Card Pokeby": rictusempra & skurge & keys_through_bicorn | difficult_running,
+    "Castle Exterior - Chest 8": skurge & rictusempra & keys_through_bicorn | difficult_running,
+    "Castle Exterior - Chest 9": skurge & rictusempra & diffindo & keys_through_bicorn | difficult_running,
+    "Castle Exterior - Secret 7": skurge & rictusempra & flipendo & keys_through_bicorn | difficult_running,
     "Entry Hall - Card Gunhilda": rictusempra | skurge & diffindo,
     "Entry Hall - Card Montmorency": rictusempra | diffindo,
     "Entry Hall - Card Shingleton": rictusempra | diffindo,
@@ -621,16 +621,17 @@ _VANILLA_EXTRA: dict[str, _Access] = {
     "Grand Staircase - Knight": rictusempra,
     "Grand Staircase - Music Box": rictusempra,
     "Grand Staircase - Dragon Skeleton": rictusempra,
-    "Castle Exterior - Plant Dragon 1": skurge & rictusempra & alohomora & keys_through_bicorn | running,
-    "Castle Exterior - Plant Dragon 2": skurge & rictusempra & diffindo & alohomora & keys_through_bicorn | running,
+    "Castle Exterior - Plant Dragon 1": skurge & rictusempra & alohomora & keys_through_bicorn | difficult_running,
+    "Castle Exterior - Plant Dragon 2": skurge & rictusempra & diffindo & alohomora & keys_through_bicorn | difficult_running,
 }
 
 # Vanilla and open castle diverge here (open castle is not a relaxation of the
 # vanilla rule), so vanilla states its rule in full.
 _VANILLA_OVERRIDE: dict[str, _Access] = {
     "Castle Exterior - Card Youdle":
-        alohomora & (rictusempra & skurge & flipendo & spongify & keys_through_bicorn | running),
-    "Castle Exterior - Secret 6": alohomora & skurge & rictusempra & flipendo & keys_through_bicorn | running,
+        alohomora & (rictusempra & skurge & flipendo & spongify & keys_through_bicorn | difficult_running),
+    "Castle Exterior - Secret 6":
+        alohomora & skurge & rictusempra & flipendo & keys_through_bicorn | difficult_running,
     "Grand Staircase - Card Vablatsky": alohomora & rictusempra & skurge,
     "Grand Staircase - Toilet": rictusempra & skurge & flipendo,
 }
@@ -639,7 +640,8 @@ _VANILLA_OVERRIDE: dict[str, _Access] = {
 # spell-learn checks do not exist there, and the vendors and Quidditch matches
 # defer entirely to their region entry rule.
 _VANILLA_ONLY: dict[str, _Access] = {
-    "Castle Exterior - Card Vendor 1": alohomora & skurge & rictusempra & flipendo & keys_through_bicorn | running,
+    "Castle Exterior - Card Vendor 1":
+        alohomora & skurge & rictusempra & flipendo & keys_through_bicorn | difficult_running,
     "Castle Exterior - Nimbus 2001": rictusempra,
     "Castle Exterior - Quidditch Armour": rictusempra,
     "Entry Hall - Ingredient Vendor 1": rictusempra,

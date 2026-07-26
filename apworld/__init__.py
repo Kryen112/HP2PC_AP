@@ -185,14 +185,24 @@ class StartingSpells(OptionSet):
     default = ("Lumos", "Flipendo", "Alohomora")
 
 
-class AllowRunningLogic(Toggle):
-    """If true, Running becomes a logic flag and certain regions or locations
-    become reachable earlier. Applies in both game modes.
+class AllowRunningLogic(Choice):
+    """How much running the logic assumes. Applies in both game modes.
 
-    This makes sprinting free (no bean cost, and usable at 0 beans), so the
-    running this logic relies on is genuinely always available.
+    `off`: no running is expected.
+    `on`: Running becomes a logic flag and certain regions or locations become
+    reachable earlier.
+    `difficult`: everything `on` covers, plus the running tricks with tight
+    timing or precise positioning (running past the Bicorn-gated Castle
+    Exterior checks, into the Forbidden Forest, and onto the Quidditch pitch).
+
+    Anything above `off` makes sprinting free (no bean cost, and usable at 0
+    beans), so the running this logic relies on is genuinely always available.
     """
     display_name = "Allow Running logic"
+    option_off = 0
+    option_on = 1
+    option_difficult = 2
+    default = 0
 
 
 class AllowGlitchedLogic(Toggle):
@@ -889,13 +899,18 @@ class HP2World(World):
             loc.progress_type = LocationProgressType.EXCLUDED
 
     def create_items(self) -> None:
-        # Logic flags (Running / Glitched) are player-selected capabilities, not
-        # items: when enabled, precollect each as a code-less event item so the
-        # `... | Running` / `... | Glitched` clauses in the rule tables pass.
-        # Never placed, never sent over the wire. The mod runs/glitches the
-        # same regardless; this only relaxes generation logic.
+        # Logic flags (Running / Difficult Running / Glitched) are
+        # player-selected capabilities, not items: when enabled, precollect each
+        # as a code-less event item so the `... | Running` / `... | Difficult
+        # Running` / `... | Glitched` clauses in the rule tables pass. Never
+        # placed, never sent over the wire. The mod runs/glitches the same
+        # regardless; this only relaxes generation logic. Running is tiered:
+        # `difficult` grants both flags, so a difficult seed is a superset of an
+        # `on` seed.
+        running_tier = self.options.allow_running_logic.value
         for flag_name, option in (
-            ("Running", self.options.allow_running_logic),
+            ("Running", running_tier >= AllowRunningLogic.option_on),
+            ("Difficult Running", running_tier >= AllowRunningLogic.option_difficult),
             ("Glitched", self.options.allow_glitched_logic),
         ):
             if option:
@@ -1204,11 +1219,14 @@ class HP2World(World):
             "enable_traps": bool(self.options.traps.value and self.options.trap_fill_percent.value > 0),
             # Logic-flag toggles. The tracker reads both to flip its matching
             # setting marker so its reachability matches the seed.
-            # allow_running_logic also reaches the mod (RUNNING_LOGIC IPC): when on
-            # it makes the shift-to-run sprint free so the always-available running
-            # the logic assumes is sound. allow_glitched_logic is mod-irrelevant
-            # (glitching is always physically possible).
-            "allow_running_logic": bool(self.options.allow_running_logic.value),
+            # allow_running_logic rides as its tier index (0 off / 1 on /
+            # 2 difficult) so the tracker can pick the right stage. It also
+            # reaches the mod (RUNNING_LOGIC IPC), which only cares whether any
+            # running is expected: above off it makes the shift-to-run sprint
+            # free so the always-available running the logic assumes is sound.
+            # allow_glitched_logic is mod-irrelevant (glitching is always
+            # physically possible).
+            "allow_running_logic": int(self.options.allow_running_logic.value),
             "allow_glitched_logic": bool(self.options.allow_glitched_logic.value),
         }
         # Music randomizer (both game modes). The client swaps the Music/*.ogg

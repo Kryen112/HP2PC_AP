@@ -60,6 +60,7 @@ skurge = _item("Skurge")
 spongify = _item("Spongify")
 # Logic flags
 running = _item("Running")
+difficult_running = _item("Difficult Running")
 # Blocker keys
 chamber_of_secrets_key = _item("Chamber of Secrets Key")
 spongify_challenge_key = _item("Spongify Challenge Key")
