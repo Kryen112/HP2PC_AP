@@ -157,11 +157,13 @@ def _game_process_running() -> bool:
     try:
         result = subprocess.run(
             ["tasklist", "/FI", "IMAGENAME eq Game.exe", "/NH"],
-            capture_output=True, text=True, timeout=3,
+            capture_output=True, timeout=3,
             creationflags=subprocess.CREATE_NO_WINDOW)
     except (OSError, subprocess.SubprocessError):
         return True
-    return "Game.exe" in result.stdout
+    # Bytes on purpose: tasklist writes in the OEM console codepage, which
+    # text mode would mis-decode on non-US-English Windows.
+    return b"Game.exe" in result.stdout
 
 
 # /reroll overrides per randomizer kind ("sound" / "music"), keyed by
