@@ -174,6 +174,47 @@ class TestSkurgeCompleteNeedsLumosWithoutRunning(HP2TestBase):
                                     [["Lumos"]], only_check_listed=True)
 
 
+# Skurge Challenge Chests 5 and 6 sit past the level's Flipendo gate and dark
+# stretch like their sibling containers, so they carry the full lit-area set
+# instead of Skurge plus Alohomora. Removing any one of the three strands them.
+class TestSkurgeDeepChestsNeedFullSet(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    def test_each_spell_required(self) -> None:
+        for loc in ("Skurge Challenge - Chest 5", "Skurge Challenge - Chest 6"):
+            self.assertTrue(
+                self.state_all_but([]).can_reach(loc, "Location", self.player),
+                f"{loc} reachable with everything collected")
+            for missing in ("Flipendo", "Lumos", "Alohomora"):
+                state = self.state_all_but([missing])
+                self.assertFalse(state.can_reach(loc, "Location", self.player),
+                                 f"{loc} reachable without {missing}")
+
+
+# The dark half of that set is (Lumos OR Running), matching the sibling chests.
+class TestSkurgeDeepChestsRunningSubsForLumos(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": True,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    def test_reachable_without_lumos_via_running(self) -> None:
+        state = self.state_all_but(["Lumos"])
+        for loc in ("Skurge Challenge - Chest 5", "Skurge Challenge - Chest 6"):
+            self.assertTrue(
+                state.can_reach(loc, "Location", self.player),
+                f"Running should reach {loc} without Lumos")
+
+
 # Running-logic shortcut: Castle Exterior - Card Pokeby is gated behind a spell
 # chain OR Difficult Running. With running off it genuinely needs the spells, so
 # removing Rictusempra strands it.

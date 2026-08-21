@@ -459,7 +459,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Skurge Challenge - Chest 2": skurge & flipendo & lumos & alohomora,
     "Skurge Challenge - Chest 3": skurge & flipendo & (lumos | running) & alohomora,
     "Skurge Challenge - Chest 4": skurge & flipendo & (lumos | running) & alohomora,
-    "Skurge Challenge - Chest 5": skurge & alohomora,
+    "Skurge Challenge - Chest 5": skurge & flipendo & (lumos | running) & alohomora,
     "Skurge Challenge - Cigar Box": skurge & flipendo & (lumos | running) & alohomora,
     "Skurge Challenge - Complete": skurge & flipendo & (lumos | running),
     "Skurge Challenge - Decanter 1": skurge & flipendo,
@@ -469,7 +469,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Skurge Challenge - Knight 1": flipendo,
     "Skurge Challenge - Knight 2": flipendo,
     "Skurge Challenge - Music Box": skurge & flipendo & (lumos | running) & alohomora,
-    "Skurge Challenge - Chest 6": skurge & alohomora,
+    "Skurge Challenge - Chest 6": skurge & flipendo & (lumos | running) & alohomora,
     "Skurge Challenge - Secret 1": skurge & alohomora,
     "Skurge Challenge - Secret 2": skurge & (flipendo | running) & alohomora,
     "Skurge Challenge - Secret 3": skurge & flipendo & lumos,
@@ -622,7 +622,12 @@ _VANILLA_EXTRA: dict[str, _Access] = {
     "Grand Staircase - Music Box": rictusempra,
     "Grand Staircase - Dragon Skeleton": rictusempra,
     "Castle Exterior - Plant Dragon 1": skurge & rictusempra & alohomora & keys_through_bicorn | difficult_running,
-    "Castle Exterior - Plant Dragon 2": skurge & rictusempra & diffindo & alohomora & keys_through_bicorn | difficult_running,
+    "Castle Exterior - Plant Dragon 2": skurge
+    & rictusempra
+    & diffindo
+    & alohomora
+    & keys_through_bicorn
+    | difficult_running,
 }
 
 # Vanilla and open castle diverge here (open castle is not a relaxation of the
