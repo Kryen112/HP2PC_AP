@@ -30,6 +30,11 @@
 //   ClearBookcases  destroys every APDebugBookcase-tagged actor in the level.
 //                     For wiping a misplaced preview before respawning.
 //
+//   BlockerHintRadius retunes how far out a blocker announces which key it wants,
+//                     live, including the blockers already standing in the level.
+//                     No argument reports the current values. For settling the
+//                     distance by feel instead of one rebuild per guess.
+//
 // Freecam keys (debug mode on; Delete toggles the freecam):
 //   WASD: fly the freecam, mirroring the stock arrow keys. Forward follows where
 //     the camera looks, so mouse-aim plus WASD covers full movement. The arrow
@@ -448,6 +453,22 @@ exec function PlaceBookcase(optional float Forward)
     {
         DevPrint("PlaceBookcase: Spawn returned None at " $ string(loc) $ " (encroachment; try a different Forward or step back)");
     }
+}
+
+// Blockers read ProximityRadius through `default.`, so writing the class default
+// moves every blocker already in the level, not just the next spawn. The Ford
+// Anglia wreck keeps its +100uu margin over the bookcase, since contact against
+// its long side sits ~60uu further out.
+exec function BlockerHintRadius(optional float NewRadius)
+{
+    if (NewRadius > 0.0)
+    {
+        class'APBookcaseBlocker'.default.ProximityRadius = NewRadius;
+        class'APFordAngliaBlocker'.default.ProximityRadius = NewRadius + 100.0;
+    }
+    DevPrint("BlockerHintRadius: bookcase="
+        $ class'APBookcaseBlocker'.default.ProximityRadius
+        $ " ford=" $ class'APFordAngliaBlocker'.default.ProximityRadius);
 }
 
 exec function ClearBookcases()

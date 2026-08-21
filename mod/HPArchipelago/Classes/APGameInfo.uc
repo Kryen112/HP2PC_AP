@@ -365,7 +365,7 @@ function BlockRictaClassroomIfMissing()
                 $ " Rot=" $ string(cs.Rotation)
                 $ " offset=" $ string(RictaBlockerOffset)
                 $ " spawnLoc=" $ string(spawnLoc));
-            blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+            blocker = Spawn(class'APBookcaseBlocker', , , spawnLoc, spawnRot);
             if (blocker == None)
             {
                 Log("[Archipelago] BlockRicta: Spawn returned None (encroachment likely - try a non-zero RictaBlockerOffset.Z)");
@@ -373,6 +373,7 @@ function BlockRictaClassroomIfMissing()
             else
             {
                 blocker.Tag = 'APRictaBlocker';
+                StampBlockerMessage(blocker, 'APRictaBlocker');
                 default.RictaBlockerInstance = blocker;
                 Log("[Archipelago] BlockRicta: spawned " $ string(blocker)
                     $ " bCollideActors=" $ string(blocker.bCollideActors)
@@ -533,13 +534,14 @@ function BlockSkurgeClassroomIfMissing()
         $ " worldDelta=" $ string(SkurgeBlockerOffset >> candidate.Rotation)
         $ " spawnLoc=" $ string(spawnLoc));
 
-    blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+    blocker = Spawn(class'APBookcaseBlocker', , , spawnLoc, spawnRot);
     if (blocker == None)
     {
         Log("[Archipelago] BlockSkurge: Spawn returned None (encroachment likely - try a non-zero SkurgeBlockerOffset.Z)");
         return;
     }
     blocker.Tag = 'APSkurgeBlocker';
+    StampBlockerMessage(blocker, 'APSkurgeBlocker');
     default.SkurgeBlockerInstance = blocker;
     Log("[Archipelago] BlockSkurge: spawned " $ string(blocker)
         $ " bCollideActors=" $ string(blocker.bCollideActors)
@@ -670,13 +672,14 @@ function BlockDiffindoClassroomIfMissing()
         Log("[Archipelago] BlockDiffindo[" $ string(i) $ "]: worldOffset=" $ string(worldOffset)
             $ " spawnLoc=" $ string(spawnLoc));
 
-        blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+        blocker = Spawn(class'APBookcaseBlocker', , , spawnLoc, spawnRot);
         if (blocker == None)
         {
             Log("[Archipelago] BlockDiffindo[" $ string(i) $ "]: Spawn returned None (encroachment - tweak DiffindoBlockerOffsets[" $ string(i) $ "], or this slot is already filled by a restored save actor)");
             continue;
         }
         blocker.Tag = 'APDiffindoBlocker';
+        StampBlockerMessage(blocker, 'APDiffindoBlocker');
         if (default.DiffindoBlockerInstance == None)
         {
             default.DiffindoBlockerInstance = blocker;
@@ -813,13 +816,14 @@ function BlockSpongifyClassroomIfMissing()
         $ " offset=" $ string(SpongifyBlockerOffset)
         $ " spawnLoc=" $ string(spawnLoc));
 
-    blocker = Spawn(class'BookcaseGlassDoors', , , spawnLoc, spawnRot);
+    blocker = Spawn(class'APBookcaseBlocker', , , spawnLoc, spawnRot);
     if (blocker == None)
     {
         Log("[Archipelago] BlockSpongify: Spawn returned None (encroachment likely - Ricta blocker may still be present at this spot; tweak SpongifyBlockerOffset)");
         return;
     }
     blocker.Tag = 'APSpongifyBlocker';
+    StampBlockerMessage(blocker, 'APSpongifyBlocker');
     default.SpongifyBlockerInstance = blocker;
     Log("[Archipelago] BlockSpongify: spawned " $ string(blocker)
         $ " bCollideActors=" $ string(blocker.bCollideActors)
@@ -970,8 +974,8 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
     // BlockerClass overrides the default mesh; the Whomping Willow site passes
     // APFordAngliaBlocker so the chokepoint reads as a crashed car instead of
     // a stack of bookcases outdoors. All other sites fall through to the
-    // APBookcaseBlocker default. Both carry the bumped-subtitle reminder; the
-    // Tag-based unlock and the encroachment retry below work the same
+    // APBookcaseBlocker default. Both announce their line on approach and on
+    // bump; the Tag-based unlock and the encroachment retry below work the same
     // regardless of class.
     if (BlockerClass == None) BlockerClass = class'APBookcaseBlocker';
 
@@ -988,12 +992,9 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
     }
     if (blocker != None)
     {
-        // Tell the player which key clears this one when they bump it. Silent
-        // for an unrecognised Tag (BlockerMessageForTag returns "").
-        if (APBookcaseBlocker(blocker) != None)
-        {
-            APBookcaseBlocker(blocker).BlockMessage = BlockerMessageForTag(Tag);
-        }
+        // Tell the player which key clears this one, on approach and on bump.
+        // Silent for an unrecognised Tag (BlockerMessageForTag returns "").
+        StampBlockerMessage(blocker, Tag);
         Log("[Archipelago] " $ string(Tag) $ ": spawned at " $ string(Loc) $ " Rotation=" $ string(Rot));
     }
     else
@@ -1003,13 +1004,47 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
     return blocker;
 }
 
-// Subtitle a blocker shows when Harry bumps it, keyed by the spawn Tag. One
-// place for every level/challenge/ending line. Key names mirror
+// Hands a freshly spawned blocker the line for its Tag. Silent (and harmless)
+// for the stock bookcase class or an unrecognised Tag. Every blocker spawn goes
+// through here, so the announce-on-approach behaviour cannot be missed by one
+// site.
+function StampBlockerMessage(Actor Blocker, name Tag)
+{
+    if (APBookcaseBlocker(Blocker) == None) return;
+    APBookcaseBlocker(Blocker).BlockMessage = BlockerMessageForTag(Tag);
+}
+
+// Subtitle a blocker shows when Harry nears or bumps it, keyed by the spawn
+// Tag. One place for every level/challenge/ending line. Key names mirror
 // APCardWatcher.BlockerKeyNames; keep them in sync. The Great Hall gate has no
 // key (goal-evaluated), so it gets its own line. Empty for an unknown Tag,
 // which keeps that blocker silent.
+//
+// Mode-aware, because the 5 story regions are gated by different items per mode.
+// Naming an item the player's pool cannot contain is worse than saying nothing,
+// so the vanilla block below takes those 5 tags before the open castle lines.
 function string BlockerMessageForTag(name Tag)
 {
+    // Vanilla-only cutscene-anchored spell-classroom blockers, gated on the
+    // spell itself rather than on a key, so their lines name the spell.
+    if (Tag == 'APRictaBlocker')                     return "I'll need to learn Rictusempra first.";
+    if (Tag == 'APSkurgeBlocker')                    return "I'll need to learn Skurge first.";
+    if (Tag == 'APDiffindoBlocker')                  return "I'll need to learn Diffindo first.";
+    if (Tag == 'APSpongifyBlocker')                  return "I'll need to learn Spongify first.";
+    // Vanilla replaces the 5 per-region story keys with copies of one
+    // Progressive Level Key, and the chain is cumulative (a region needs every
+    // copy through its own), so the vanilla line names the copy count that
+    // clears this blocker. Duelling and Quidditch stay named keys in both modes
+    // and fall through. Never reached with vanilla_gate_levels off: those keys
+    // are precollected, so no blocker spawns.
+    if (class'APModeDetector'.default.bOpenCastleMode == 0)
+    {
+        if (Tag == 'APOpenCastleBicornBlocker')          return "I'll need a Progressive Level Key first.";
+        if (Tag == 'APOpenCastleBoomslangBlocker')       return "I'll need 2 Progressive Level Keys first.";
+        if (Tag == 'APOpenCastleGoyleBlocker')           return "I'll need 3 Progressive Level Keys first.";
+        if (Tag == 'APOpenCastleSlytherinBlocker')       return "I'll need 4 Progressive Level Keys first.";
+        if (Tag == 'APOpenCastleForbiddenForestBlocker') return "I'll need all 5 Progressive Level Keys first.";
+    }
     if (Tag == 'APOpenCastleChamberBlocker')         return "I'll need the Chamber of Secrets Key first.";
     if (Tag == 'APOpenCastleSpongifyBlocker')        return "I'll need the Spongify Challenge Key first.";
     if (Tag == 'APOpenCastleSkurgeBlocker')          return "I'll need the Skurge Challenge Key first.";
