@@ -48,25 +48,57 @@ In open castle, the pause menu draws a live goal-progress panel (cards / spells 
 
 ## Prerequisites
 
+> [!IMPORTANT]
+> **You need Metallicafan212's HP2Engine, and it is not optional.** The randomizer does not run on the stock 2002 retail engine. The engine patch is free, but it is handed out only through the HP2 modding Discord, so budget a few minutes to join and download it before you start. Details in the table below and in [step 2](#2-apply-the-m212-engine-patch-required).
+
 | Thing                                            | Where to get it                                                                                                                                                                                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                            |
-| **HP2Engine 3.4 by Metallicafan212** ("M212")    | Free 64-bit engine patch. Restores UT99 networking that the randomizer relies on. Get it from the HP2 modding Discord.                                                                                        |
+| **HP2Engine 3.4 by Metallicafan212** (called "M212", "the engine patch", or "the modder engine" in this doc and in the community) | **Required.** Free 64-bit engine patch. It restores the UT99 networking the randomizer's game-to-client link is built on, which the retail engine does not expose. Join the [HP2 modding Discord](https://discord.gg/tpN4grB), then open [Metallicafan212's engine post](https://discord.com/channels/381458523529150466/960603560863748216/1411127184877158563) to download it (that link only resolves once you have joined the server). Not on GitHub, no public mirror, not redistributable, so it cannot be bundled with this randomizer. |
 | **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                      |
 | **HP2PC_AP release files**                       | Downloaded from the GitHub release: `harry_potter_2_pc.apworld` and this `PLAYER_SETUP.md`. The compiled mod, its config wiring, and the Python client are all bundled inside the apworld; no separate files. |
 
-OS: Windows 10 or Windows 11 (64-bit). The M212 engine doesn't support older Windows.
+OS: Windows 10 or Windows 11 (64-bit), or Linux via Proton / Wine. The M212 engine doesn't support older Windows.
+
+### Running on Linux
+
+Supported, with one setup difference and one option to change. The game and the M212 engine are Windows binaries, so they run in a **Proton or Wine prefix**; Archipelago and the HP2 PC Client run **natively on Linux**. The mod-to-client bridge is a localhost TCP connection, which crosses the prefix boundary without any extra setup.
+
+Follow the whole guide as written, with these adjustments:
+
+- **Install HP2 and the M212 engine inside the prefix.** Everywhere this guide says `<HP2 install>`, it means the path inside that prefix, under `drive_c/`.
+- **Give the client the in-prefix path.** When it pops the folder picker on first connect (or when you fill in `vanilla_install_folder` / `open_castle_install_folder` in host.yaml by hand), point it at the install's real location under `drive_c/`. The client patches those files directly from Linux; it does not need to run inside the prefix.
+- **Set `auto_launch_game: false`** under `harry_potter_2_pc_options` in host.yaml. Auto-launch and `/play` start `Game.exe` as a native process, which a Linux client cannot do. Start the game yourself through Steam or Wine once the client is connected. Everything else, including the mod install and the audio randomizers, works normally.
+- **No administrator step.** The "run ArchipelagoLauncher as administrator" note further down is a Windows `Program Files` permissions issue. A prefix under your home directory is already writable.
+- Paths this guide gives as `Documents\Harry - Coding Evolved\` live inside the prefix, typically `drive_c/users/steamuser/Documents/` under Proton or `drive_c/users/<you>/Documents/` under plain Wine.
 
 ## Install
 
 ### 1. Install HP2 retail
 
 Install the game from your disc or installer. Default location is fine (e.g. `C:\Program Files (x86)\Harry Potter 2\`).
-Follow only steps 1, 2, 3 and 5, no need for windowed steps etc.
 
-### 2. Apply the M212 engine patch
+### 2. Apply the M212 engine patch (required)
 
-Run M212's installer. Point it at your HP2 install.
+> [!IMPORTANT]
+> **Do not skip this step.** The randomizer's game-to-client link rides on UE1 networking (`IpDrv` / `TcpLink`) that the 2002 retail engine does not expose. Metallicafan212's HP2Engine restores it. On an unpatched retail install the mod cannot load at all, so nothing later in this guide will work until this is done.
+
+**Get the engine.** It is distributed only through the HP2 modding Discord. There is no GitHub download, no public mirror, and it is not redistributable, so this randomizer cannot ship it for you.
+
+1. Join the HP2 modding Discord: <https://discord.gg/tpN4grB>
+2. Open Metallicafan212's engine post and download the installer from there: <https://discord.com/channels/381458523529150466/960603560863748216/1411127184877158563>
+   (that link only resolves once you have joined the server; if it does nothing, you are not in yet)
+
+**Version:** HP2Engine **3.4** is what this randomizer is built and tested against.
+
+**Run it.** Point the installer at the HP2 install from step 1 and accept the defaults.
+
+**Confirm it took** before moving on. Launch the game once, from the M212 Start Menu shortcut the installer creates or from `<HP2 install>\system\Game.exe`, then quit and check your Documents folder:
+
+- `Documents\Harry - Coding Evolved\` now exists → the M212 engine is running. Good, carry on.
+- only `Documents\Harry Potter II\` exists → you launched the unpatched retail engine. Re-run the M212 installer and make sure you point it at the install you actually launch.
+
+That folder split is the quickest tell, since the two engines keep their saves and settings in separate places. On Linux, check the same two folders inside your prefix (see [Running on Linux](#running-on-linux)).
 
 ### 3. Install Archipelago and the apworld
 
@@ -217,6 +249,8 @@ The game window pops a toast top-right when your starting items arrive ("Receive
 
 **Prefer to launch it yourself?** Set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml, then run `<HP2 install>\system\Game.exe` (or the M212 Start Menu shortcut) once the client is connected. The `/play` command in the client launches it too, handy if you closed the game and want it back, or if an auto-launch was skipped.
 
+**On Linux this is the only supported route.** Auto-launch and `/play` start `Game.exe` as a native process, which a Linux client cannot do, so set `auto_launch_game: false` and start the game through Steam or Wine yourself. See [Running on Linux](#running-on-linux).
+
 ### Sound randomizer (optional)
 
 Set `sound_randomizer` in your player yaml to shuffle the sound effects, deterministically per seed (a short sound only ever becomes another short sound). It has three settings:
@@ -233,7 +267,7 @@ It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u`
   harry_potter_2_pc_options:
     vanilla_install_folder: "<path to your vanilla-mode install>"
     open_castle_install_folder: "<path to your open-castle-mode install>"
-    auto_launch_game: true   # default; set false to launch the game yourself
+    auto_launch_game: true   # default; set false to launch the game yourself (required on Linux)
     auto_install_mod: true   # default; set false to manage the mod files yourself
   ```
 
@@ -275,6 +309,7 @@ A [PopTracker](https://github.com/black-sliver/PopTracker/) pack autotracks your
 
 Quick checklist after first launch:
 
+- **You're on the M212 engine.** `C:\Users\<you>\Documents\Harry - Coding Evolved\` exists. If only `Documents\Harry Potter II\` does, you launched the unpatched retail engine and nothing below will work; redo [step 2](#2-apply-the-m212-engine-patch-required).
 - **Toasts appear top-right** when items arrive. If not, the mod isn't loaded; see Troubleshooting below.
 - **Bookcases block the spell classrooms** you haven't been granted yet. If you can walk straight into Lockhart's DADA classroom and the spell-tutorial cutscene fires immediately, the mod isn't running.
 - **Picking up a wizard card** should fire a `CHECK <id>` line in the client log and (if you have any items waiting) hand you something back.
@@ -285,10 +320,16 @@ Quick checklist after first launch:
 
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
+- **First, confirm you actually applied the M212 engine patch** ([step 2](#2-apply-the-m212-engine-patch-required)). This is the most common cause, and the mod cannot load on the stock retail engine. Quickest test: `C:\Users\<you>\Documents\Harry - Coding Evolved\` exists once you have launched the game. If only `Documents\Harry Potter II\` does, that's your problem.
 - Close the game and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires every ini, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
 - If the install log warned that your `HP.ini` carries a package list it does not recognize, delete `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` and run `/installmod` again.
 - Manual checks, if you want to see for yourself: `<HP2 install>\system\HPArchipelago.u` exists; `<HP2 install>\system\Default.ini` has `EditPackages=HPArchipelago`; `Documents\Harry - Coding Evolved\Game.ini` (if present) has `DefaultGame=HPArchipelago.APGameInfo` under `[Engine.Engine]`, not `DefaultGame=Engine.GameInfo`.
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
+
+**Client says `EditPackages=M212Share not found in Default.ini; is this an M212 install?`**:
+
+- Exactly what it says: the folder you pointed the client at has not had the M212 engine patch applied, so the mod has nothing to hook into. Work through [step 2](#2-apply-the-m212-engine-patch-required), then reconnect or type `/installmod`.
+- If you do have M212 installed, you pointed the picker at the wrong folder. It wants the folder that contains `system\Game.exe` for your **patched** install. The saved path lives under `harry_potter_2_pc_options` in `host.yaml` if you need to correct it.
 
 **Silent NPCs / no dialog plays in cutscenes**:
 
@@ -317,7 +358,7 @@ Quick checklist after first launch:
 
 **Game crashes at level transition**:
 
-- Probably an unrelated M212 issue, check the M212 Discord. The randomizer mod doesn't touch level loading.
+- Probably an unrelated engine issue, ask in the [HP2 modding Discord](https://discord.gg/tpN4grB). The randomizer mod doesn't touch level loading.
 
 **A specific card doesn't fire its check when picked up**:
 
@@ -338,6 +379,6 @@ For bug reports, attach these:
 
 ## Where to ask for help
 
-- HP2 modding Discord (engine and game-specific issues).
+- [HP2 modding Discord](https://discord.gg/tpN4grB) for engine and game-specific issues, and for the HP2Engine download itself.
 - Archipelago Discord, `#future-game-design`. Feel free to contact Kryen there.
 - GitHub issues at this project's repo.
