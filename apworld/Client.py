@@ -98,6 +98,7 @@ warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
 import CommonClient
 from CommonClient import (ClientCommandProcessor, CommonContext,
                           get_base_parser, gui_enabled, server_loop)
+from MultiServer import mark_raw
 from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, installer, music_patch, sound_patch
@@ -230,6 +231,31 @@ _AUDIO_KINDS = {
 # All patch modules raise ue1_package.PatchError. OSError covers a write that
 # fails outside the friendly-message path.
 _PATCH_ERRORS = (PatchError, OSError)
+
+
+class _LinkKind:
+    """One opt-in link tag: how the client talks about it and which slot_data
+    key the seed rolls it with. Lets /ringlink, /traplink and /deathlink share
+    one override path instead of branching per link."""
+
+    def __init__(self, noun, command, slot_data_key, state_attr):
+        self.noun = noun                    # "RingLink"
+        self.command = command              # "/ringlink"
+        self.slot_data_key = slot_data_key  # "ring_link"
+        self.state_attr = state_attr        # "ring_link_enabled"
+
+
+# The three links a player may flip mid-run. None of them is an item or a
+# location, so toggling one cannot affect solvability and needs no re-roll.
+_LINK_KINDS = {
+    "ring": _LinkKind("RingLink", "/ringlink", "ring_link", "ring_link_enabled"),
+    "trap": _LinkKind("TrapLink", "/traplink", "trap_link", "trap_link_enabled"),
+    "death": _LinkKind("DeathLink", "/deathlink", "death_link", "death_link_enabled"),
+}
+# Accepted arguments to a link command, mapping to the override they set.
+# "seed" drops the override; a bare command flips the effective state.
+_LINK_ARGS = {"on": True, "true": True, "1": True,
+              "off": False, "false": False, "0": False}
 
 
 # All wizard-card item names, derived from ITEM_GROUPS (items.py) so it can never
@@ -576,6 +602,66 @@ class HP2CommandProcessor(ClientCommandProcessor):
         except (ValueError, IndexError):
             return False
 
+    def _set_link(self, kind: str, state: str) -> None:
+        """Shared body of the three link commands: resolve the argument to an
+        override, re-apply the tag when that changed the effective state, and
+        report what the seed rolled once slot_data has arrived."""
+        ctx: "HP2Context" = self.ctx
+        spec = _LINK_KINDS[kind]
+        arg = state.strip().lower()
+        if arg in _LINK_ARGS:
+            ctx.link_overrides[kind] = _LINK_ARGS[arg]
+        elif arg == "seed":
+            ctx.link_overrides[kind] = None
+        elif arg == "":
+            ctx.link_overrides[kind] = not ctx.link_wanted(kind)
+        else:
+            self.output(f"Usage: {spec.command} [on | off | seed]. "
+                        f"Bare {spec.command} flips it.")
+            return
+        wanted = ctx.link_wanted(kind)
+        if wanted != ctx.link_live(kind):
+            ctx.apply_link_state(kind, wanted)
+        word = "on" if wanted else "off"
+        if not ctx.link_seed_known:
+            # No slot_data yet, so what the seed rolled is still unknown.
+            if ctx.link_overrides[kind] is None:
+                self.output(f"{spec.noun} follows whatever the seed rolls.")
+            else:
+                self.output(f"{spec.noun} is now {word}, whatever the seed rolls.")
+        elif ctx.link_overrides[kind] is None:
+            self.output(f"{spec.noun} follows the seed again: {word}.")
+        else:
+            seed_word = "on" if ctx.link_seed_state[kind] else "off"
+            self.output(f"{spec.noun} is now {word} (the seed rolled {seed_word}). "
+                        f"Survives a reconnect. Resets when the client restarts.")
+
+    @mark_raw
+    def _cmd_ringlink(self, state: str = "") -> bool:
+        """Turn RingLink on or off mid-run, overriding what the seed rolled.
+        Usage: /ringlink [on | off | seed]; bare /ringlink flips it, 'seed'
+        drops the override. Enabling links bean changes from now on: there is
+        no back-fill of deltas you missed while it was off."""
+        self._set_link("ring", state)
+        return True
+
+    @mark_raw
+    def _cmd_traplink(self, state: str = "") -> bool:
+        """Turn TrapLink on or off mid-run, overriding what the seed rolled.
+        Usage: /traplink [on | off | seed]; bare /traplink flips it, 'seed'
+        drops the override. Inbound traps stay limited to the traps you
+        enabled, or any trap when your own seed enabled none."""
+        self._set_link("trap", state)
+        return True
+
+    @mark_raw
+    def _cmd_deathlink(self, state: str = "") -> bool:
+        """Turn DeathLink on or off mid-run, overriding what the seed rolled.
+        Usage: /deathlink [on | off | seed]; bare /deathlink flips it, 'seed'
+        drops the override."""
+        self._set_link("death", state)
+        return True
+
     def _cmd_progress(self) -> bool:
         """Show progress toward the open castle goal: cards / spells / level
         objectives / duels / quidditch matches against the thresholds the seed
@@ -877,6 +963,16 @@ class HP2Context(CommonContext):
         # (CommonContext.last_death_link is stamped by both send_death and
         # on_deathlink, so it tracks the last death in either direction).
         self.death_link_enabled: bool = False
+        # What the seed rolled for each link, captured on every Connected so a
+        # link command can report the seed's own setting and reset to it.
+        self.link_seed_state: dict[str, bool] = {kind: False for kind in _LINK_KINDS}
+        # Whether link_seed_state has been filled from a Connected yet, so a
+        # link command never quotes a seed setting the client has not seen.
+        self.link_seed_known: bool = False
+        # Player overrides from /ringlink, /traplink and /deathlink. None means
+        # "follow the seed"; True or False beats slot_data on every Connected, so
+        # a reconnect re-asserts the player's choice instead of reverting it.
+        self.link_overrides: dict[str, Optional[bool]] = {kind: None for kind in _LINK_KINDS}
         # Startup "Connected to host:port" toast. The effective AP server
         # address (scheme stripped, port defaulted), formatted on every
         # Connected from self.server_address, which server_loop has by then
@@ -1102,34 +1198,10 @@ class HP2Context(CommonContext):
         # after, so the game boots only once the files have settled.
         self._audio_task = asyncio.create_task(self._connect_audio_then_launch(sd))
 
-        # RingLink. Re-roll the per-connection source UUID and
-        # (re)register the tag on every Connected so a reconnect stays
-        # routable for Bounced packets. Disable cleanly if a later seed
-        # / reconnect turns it off.
-        if sd.get("ring_link"):
-            asyncio.create_task(self._enable_ring_link())
-        else:
-            asyncio.create_task(self._disable_ring_link())
-
-        # TrapLink. (Re)register the tag on every Connected so a reconnect
-        # stays routable for Bounced trap packets; disable cleanly if a
-        # later seed / reconnect turns it off. trap_pool is the slot's
-        # enabled trap types, used to constrain inbound traps.
+        # The slot's enabled trap types, constraining inbound TrapLink traps.
         self.trap_pool = list(sd.get("trap_pool") or [])
-        if sd.get("trap_link"):
-            asyncio.create_task(self._enable_trap_link())
-        else:
-            asyncio.create_task(self._disable_trap_link())
 
-        # DeathLink. Opt-in via slot_data. update_death_link
-        # (CommonClient.py) mutates self.tags then ConnectUpdate, so the
-        # tag persists across a reconnect's Connect; re-run on every
-        # Connected so a seed change / reconnect re-asserts the right
-        # state. Built-in dispatch (process_server_cmd) calls
-        # on_deathlink for inbound DeathLink Bounces once tagged.
-        self.death_link_enabled = bool(sd.get("death_link"))
-        asyncio.create_task(self.update_death_link(self.death_link_enabled))
-        logger.info(f"DeathLink {'enabled' if self.death_link_enabled else 'disabled'} for this slot")
+        self.refresh_links(sd)
 
         # #3: scout this slot's HP2 locations so the appearance table can
         # resolve what item each marker holds. create_as_hint=0 → peek
@@ -1415,6 +1487,50 @@ class HP2Context(CommonContext):
 
         return HP2Manager
 
+    def refresh_links(self, slot_data: dict) -> dict[str, bool]:
+        """Re-apply all three link tags for a Connected slot_data, returning the
+        state each ended up in. Runs on every Connected so a reconnect stays
+        routable for Bounced packets (ring re-rolls its source UUID) and a seed
+        change re-asserts. An override beats slot_data, so a reconnect keeps the
+        player's choice rather than silently reverting to the seed."""
+        wanted = {}
+        self.link_seed_known = True
+        for kind, spec in _LINK_KINDS.items():
+            self.link_seed_state[kind] = bool(slot_data.get(spec.slot_data_key))
+            wanted[kind] = self.link_wanted(kind)
+            self.apply_link_state(kind, wanted[kind])
+            origin = "seed" if self.link_overrides[kind] is None else f"{spec.command} override"
+            logger.info(f"{spec.noun} {'enabled' if wanted[kind] else 'disabled'} "
+                        f"for this slot ({origin})")
+        return wanted
+
+    def link_wanted(self, kind: str) -> bool:
+        """Effective state of one link: the player's override when they have set
+        one, else what the seed rolled."""
+        override = self.link_overrides[kind]
+        return self.link_seed_state[kind] if override is None else override
+
+    def link_live(self, kind: str) -> bool:
+        """Whether one link's tag is active now, as opposed to what the player
+        or the seed asked for."""
+        return bool(getattr(self, _LINK_KINDS[kind].state_attr))
+
+    def apply_link_state(self, kind: str, enabled: bool) -> None:
+        """Register or drop one link's tag to match `enabled`. The live flag is
+        set synchronously for all three, so a disable suppresses an outbound
+        death, bean delta or trap broadcast in the same event-loop turn instead
+        of one turn later. DeathLink rides CommonContext.update_death_link; ring
+        and trap have their own enable/disable pair."""
+        setattr(self, _LINK_KINDS[kind].state_attr, enabled)
+        if kind == "death":
+            asyncio.create_task(self.update_death_link(enabled))
+        elif kind == "ring":
+            asyncio.create_task(
+                self._enable_ring_link() if enabled else self._disable_ring_link())
+        elif kind == "trap":
+            asyncio.create_task(
+                self._enable_trap_link() if enabled else self._disable_trap_link())
+
     async def _enable_ring_link(self) -> None:
         # Re-roll the per-connection source UUID every Connected (reconnect-
         # safe). The tag must persist on self.tags so the Connect sent during
@@ -1440,7 +1556,6 @@ class HP2Context(CommonContext):
         # slot that no longer honours them (we'd ignore them anyway, but
         # advertising a dead tag is wasteful and asymmetric with DeathLink).
         # No-op when never tagged (the common ring_link-off case).
-        was_enabled = self.ring_link_enabled
         self.ring_link_enabled = False
         self.ring_source = None
         if "RingLink" not in self.tags:
@@ -1452,8 +1567,7 @@ class HP2Context(CommonContext):
             except Exception as e:
                 logger.exception(f"RingLink: ConnectUpdate(tags) untag failed: {e}")
                 return
-        if was_enabled:
-            logger.info("RingLink disabled for this slot; RingLink tag removed")
+        logger.info("RingLink disabled for this slot; RingLink tag removed")
 
     def _trap_link_source(self) -> str:
         """Slot name used as the TrapLink Bounce `source` (the community
@@ -1482,7 +1596,6 @@ class HP2Context(CommonContext):
     async def _disable_trap_link(self) -> None:
         # Clean teardown mirroring _disable_ring_link. No-op when never tagged
         # (the common trap_link-off case).
-        was_enabled = self.trap_link_enabled
         self.trap_link_enabled = False
         if "TrapLink" not in self.tags:
             return
@@ -1493,8 +1606,7 @@ class HP2Context(CommonContext):
             except Exception as e:
                 logger.exception(f"TrapLink: ConnectUpdate(tags) untag failed: {e}")
                 return
-        if was_enabled:
-            logger.info("TrapLink disabled for this slot; TrapLink tag removed")
+        logger.info("TrapLink disabled for this slot; TrapLink tag removed")
 
     def _handle_traplink_bounce(self, args: dict) -> None:
         """Apply an inbound TrapLink Bounce to the game.
