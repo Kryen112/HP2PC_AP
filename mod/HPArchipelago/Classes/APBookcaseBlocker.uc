@@ -9,13 +9,14 @@
 // Contact alone is not how a blocker reads: the player sees the bookcase,
 // recognises it as closed and turns around without ever touching it, so the
 // bumped line never plays and the requirement stays unknown. The proximity path
-// puts the line on screen inside ProximityRadius, gated on clear line of sight
-// so it never fires through a wall or a floor.
+// puts the line on screen inside the site's announce reach, gated on clear line
+// of sight so it never fires through a wall or a floor.
 //
-// APGameInfo.StampBlockerMessage stamps BlockMessage per Tag on every blocker
-// spawn, so each site gets the right line. An empty BlockMessage keeps the
-// blocker silent but still solid. APFordAngliaBlocker (the Whomping Willow
-// wreck) extends this so it speaks too.
+// APGameInfo.StampBlockerSite stamps BlockMessage and SiteRadius per Tag on
+// every blocker spawn, so each site gets the right line at the right reach. An
+// empty BlockMessage keeps the blocker silent but still solid.
+// APFordAngliaBlocker (the Whomping Willow wreck) extends this so it speaks
+// too.
 //=============================================================================
 
 class APBookcaseBlocker extends BookcaseGlassDoors;
@@ -24,8 +25,9 @@ class APBookcaseBlocker extends BookcaseGlassDoors;
 // stays silent.
 var string BlockMessage;
 
-// Distance (uu) at which the approach line fires, read through `default.` so the
-// APConsole BlockerHintRadius exec retunes live instances mid-playtest and so
+// Fallback distance (uu) at which the approach line fires, used by every site
+// that carries no override. Read through `default.` so the APConsole
+// BlockerHintRadius exec retunes live instances mid-playtest and so
 // APFordAngliaBlocker's wider footprint can carry its own value. Harry runs at
 // 210uu/s, so 500 lands the line about two and a half seconds out, before he has
 // decided to turn around. Sites overlap at this range (Rictusempra, Duelling Club
@@ -34,6 +36,13 @@ var string BlockMessage;
 // so line of sight separates them, and a pair it does not separate takes turns a
 // cooldown apart instead of fighting over the subtitle.
 var float ProximityRadius;
+
+// Per-site override of that fallback, stamped per spawn from
+// APGameInfo.BlockerRadiusForTag. Zero inherits ProximityRadius. A blocker
+// standing on a route the player crosses every lap wants a shorter reach than
+// one down a dead end: at the shared 500uu the line fires on passes that were
+// never an attempt to get through, and reads as nagging.
+var float SiteRadius;
 
 // Leaving costs 25% more distance than entering, so idling on the boundary does
 // not re-arm the line every check.
@@ -80,20 +89,22 @@ function CheckProximity()
 {
     local harry h;
     local float rangeToHarry;
+    local float radius;
     local bool bInRange;
 
     if (BlockMessage == "") return;
     h = harry(Level.PlayerHarryActor);
     if (h == None || h.bDeleteMe) return;
 
+    radius = EffectiveRadius();
     rangeToHarry = VSize(h.Location - Location);
     if (bPlayerNear)
     {
-        bInRange = rangeToHarry <= default.ProximityRadius * PROXIMITY_EXIT_SCALE;
+        bInRange = rangeToHarry <= radius * PROXIMITY_EXIT_SCALE;
     }
     else
     {
-        bInRange = rangeToHarry <= default.ProximityRadius && FastTrace(h.Location);
+        bInRange = rangeToHarry <= radius && FastTrace(h.Location);
     }
 
     if (!bInRange)
@@ -116,6 +127,16 @@ function CheckProximity()
     {
         bAnnouncePending = False;
     }
+}
+
+// Announce reach for this blocker: its own stamped radius, or the class fallback
+// when the site has no override. Reading the fallback through `default.` keeps
+// the console exec able to move every un-overridden blocker already in the
+// level.
+function float EffectiveRadius()
+{
+    if (SiteRadius > 0.0) return SiteRadius;
+    return default.ProximityRadius;
 }
 
 // True while an identical line is the one currently holding the subtitle slot.

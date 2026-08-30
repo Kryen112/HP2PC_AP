@@ -19,7 +19,9 @@
 // footprint is wider: contact sits ~155uu out against its long side versus
 // ~96uu for a bookcase, so the approach line needs the extra distance to still
 // arrive before Harry is on top of it. The nearest other Grounds blocker is
-// ~1900uu away, so the wider radius cannot poach another site's line.
+// ~1900uu away, so the wider radius cannot poach another site's line. A
+// BlockerRadiusForTag entry for the Willow site outranks this, same as it
+// outranks the bookcase default.
 //=============================================================================
 
 class APFordAngliaBlocker extends APBookcaseBlocker;

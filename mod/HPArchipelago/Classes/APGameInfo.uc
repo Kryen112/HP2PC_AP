@@ -373,7 +373,7 @@ function BlockRictaClassroomIfMissing()
             else
             {
                 blocker.Tag = 'APRictaBlocker';
-                StampBlockerMessage(blocker, 'APRictaBlocker');
+                StampBlockerSite(blocker, 'APRictaBlocker');
                 default.RictaBlockerInstance = blocker;
                 Log("[Archipelago] BlockRicta: spawned " $ string(blocker)
                     $ " bCollideActors=" $ string(blocker.bCollideActors)
@@ -541,7 +541,7 @@ function BlockSkurgeClassroomIfMissing()
         return;
     }
     blocker.Tag = 'APSkurgeBlocker';
-    StampBlockerMessage(blocker, 'APSkurgeBlocker');
+    StampBlockerSite(blocker, 'APSkurgeBlocker');
     default.SkurgeBlockerInstance = blocker;
     Log("[Archipelago] BlockSkurge: spawned " $ string(blocker)
         $ " bCollideActors=" $ string(blocker.bCollideActors)
@@ -679,7 +679,7 @@ function BlockDiffindoClassroomIfMissing()
             continue;
         }
         blocker.Tag = 'APDiffindoBlocker';
-        StampBlockerMessage(blocker, 'APDiffindoBlocker');
+        StampBlockerSite(blocker, 'APDiffindoBlocker');
         if (default.DiffindoBlockerInstance == None)
         {
             default.DiffindoBlockerInstance = blocker;
@@ -823,7 +823,7 @@ function BlockSpongifyClassroomIfMissing()
         return;
     }
     blocker.Tag = 'APSpongifyBlocker';
-    StampBlockerMessage(blocker, 'APSpongifyBlocker');
+    StampBlockerSite(blocker, 'APSpongifyBlocker');
     default.SpongifyBlockerInstance = blocker;
     Log("[Archipelago] BlockSpongify: spawned " $ string(blocker)
         $ " bCollideActors=" $ string(blocker.bCollideActors)
@@ -994,7 +994,7 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
     {
         // Tell the player which key clears this one, on approach and on bump.
         // Silent for an unrecognised Tag (BlockerMessageForTag returns "").
-        StampBlockerMessage(blocker, Tag);
+        StampBlockerSite(blocker, Tag);
         Log("[Archipelago] " $ string(Tag) $ ": spawned at " $ string(Loc) $ " Rotation=" $ string(Rot));
     }
     else
@@ -1004,14 +1004,15 @@ function Actor SpawnOpenCastleBookcase(name Tag, Vector Loc, Rotator Rot, option
     return blocker;
 }
 
-// Hands a freshly spawned blocker the line for its Tag. Silent (and harmless)
-// for the stock bookcase class or an unrecognised Tag. Every blocker spawn goes
-// through here, so the announce-on-approach behaviour cannot be missed by one
-// site.
-function StampBlockerMessage(Actor Blocker, name Tag)
+// Hands a freshly spawned blocker the line and the announce reach for its Tag.
+// Silent (and harmless) for the stock bookcase class or an unrecognised Tag.
+// Every blocker spawn goes through here, so the announce-on-approach behaviour
+// cannot be missed by one site.
+function StampBlockerSite(Actor Blocker, name Tag)
 {
     if (APBookcaseBlocker(Blocker) == None) return;
     APBookcaseBlocker(Blocker).BlockMessage = BlockerMessageForTag(Tag);
+    APBookcaseBlocker(Blocker).SiteRadius = BlockerRadiusForTag(Tag);
 }
 
 // Subtitle a blocker shows when Harry nears or bumps it, keyed by the spawn
@@ -1061,6 +1062,28 @@ function string BlockerMessageForTag(name Tag)
     if (Tag == 'APOpenCastleGryffindorBlocker')      return "I'll need the Gryffindor Challenge Key first.";
     if (Tag == 'APOpenCastleGreatHallBlocker')       return "I'll have to reach my goal first.";
     return "";
+}
+
+// Distance (uu) at which a blocker announces its line, keyed by the spawn Tag.
+// Zero inherits APBookcaseBlocker.ProximityRadius, which is where a site starts
+// unless it is listed below. A site earns an override when its bookcase sits on
+// a route the player crosses repeatedly: at the shared reach the line fires on
+// laps that were never an attempt to get through, and reads as nagging. The
+// APConsole BlockerHintRadius exec takes a Tag, so a value can be settled by
+// feel in-game before it lands here.
+//
+// Contact against a bookcase sits ~96uu from its centre, so a value near that
+// is deliberate: it drops the walk-up line and leaves Bump to carry the
+// requirement on arrival, which is still one walk into the blocker away.
+function float BlockerRadiusForTag(name Tag)
+{
+    // Five bookcases across the Entry Hall thoroughfare, and the only line the
+    // player cannot act on, since it waits on the goal rather than an item.
+    if (Tag == 'APOpenCastleGreatHallBlocker')  return 150.0;
+    // Classroom doorways the player passes on the way to everything else.
+    if (Tag == 'APOpenCastleSpongifyBlocker')   return 100.0;
+    if (Tag == 'APOpenCastleSkurgeBlocker')     return 100.0;
+    return 0.0;
 }
 
 function DestroyTaggedOpenCastleBlockers(name Tag)

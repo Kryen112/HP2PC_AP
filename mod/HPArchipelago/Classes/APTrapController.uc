@@ -32,7 +32,9 @@ var name TrapLastLevelName;
 // the world-space jump apex is vanilla and level logic holds). Restored to the
 // pawn defaults when Level.TimeSeconds reaches SizeTrapExpiry OR the level
 // changes (the fresh pawn already loads its default scale and collision),
-// whichever comes first, so a bad scale can never soft-lock a level.
+// whichever comes first, so a bad scale can never soft-lock a level. Rebuilding
+// the cylinder is what IsSafeToEndTrap holds for: resized mid-climb or mid-fall,
+// the hitbox ends up somewhere Harry is not.
 // SizeTrapScale records the trap's target scale; the HUD countdown labels its
 // row Engorgio or Reducio from it.
 const SIZE_TRAP_DURATION = 30.0;
@@ -471,11 +473,20 @@ static function JellyLegsTick(harry h)
     {
         return;
     }
-    default.JellyLegsTicksLeft -= 1;
+    if (default.JellyLegsTicksLeft > 0)
+    {
+        default.JellyLegsTicksLeft -= 1;
+    }
     if (default.JellyLegsTicksLeft <= 0)
     {
-        EndJellyLegsTrap(h);
-        Log("[Archipelago] APTrapController.JellyLegsTick: Jelly-Legs trap ended on lifetime countdown - jump restored");
+        // Countdown spent, so stop scheduling jumps and hold the gate until
+        // Harry is back on his feet like the other traps. The counter stays
+        // clamped at 0 so a long wait cannot drift it negative under the HUD.
+        if (IsSafeToEndTrap(h))
+        {
+            EndJellyLegsTrap(h);
+            Log("[Archipelago] APTrapController.JellyLegsTick: Jelly-Legs trap ended on lifetime countdown - jump restored");
+        }
         return;
     }
     default.NextJumpTicksLeft -= 1;
@@ -515,14 +526,33 @@ static function float ClampTrapExpiry(harry h, float expiry, float duration)
     return expiry;
 }
 
+// Whether a trap may hand Harry's body back this tick. Ending a trap rewrites
+// the pawn: the size traps rebuild the collision cylinder, Levicorpus rewrites
+// the rotation. Doing either while something other than the walking physics owns
+// the pawn's position leaves the hitbox out of step with where Harry actually
+// is. PlayerWalking on PHYS_Walking is the one state where the pawn owns itself,
+// so it is what every same-level expiry waits for: a ledge pull-up runs
+// PHYS_Projectile in Mounting/MountFinish, a fall runs PHYS_Falling inside
+// PlayerWalking, and water and the look-at/wingspell rotations leave the state
+// altogether. The wait is unbounded on purpose, since each of those resolves the
+// moment Harry is back on his feet, and the HUD countdown already floors at 0.
+// The level-change path never waits: there the old pawn is already gone.
+static function bool IsSafeToEndTrap(harry h)
+{
+    return h != None
+        && !h.bDeleteMe
+        && h.IsInState('PlayerWalking')
+        && h.Physics == PHYS_Walking;
+}
+
 // Called once per Timer tick (after Snapshot, the pawn valid). Terminates every
 // trap the runtime owns. The timed traps (Obliviate, size, Confundus, Levicorpus)
 // end on their Level.TimeSeconds expiry OR the level change, whichever comes
-// first: the timeout path actively restores what the trap altered, the
-// level-change path leans on the fresh pawn where it can. The rest-of-level
-// traps (Polyjuice, wand size) end on the level change alone, and Jelly-Legs
-// counts its same-level lifetime down in JellyLegsTick so only its level-change
-// early end lives here. Level NAME is the change discriminator, robust against
+// first: the timeout path actively restores what the trap altered once
+// IsSafeToEndTrap allows it, the level-change path leans on the fresh pawn where
+// it can and never waits. The rest-of-level traps (Polyjuice, wand size) end on
+// the level change alone, and Jelly-Legs counts its same-level lifetime down in
+// JellyLegsTick so only its level-change early end lives here. Level NAME is the change discriminator, robust against
 // open castle's per-sublevel watcher respawn (Level.Outer.Name is stable across
 // those).
 static function TrapTick(harry h)
@@ -530,12 +560,14 @@ static function TrapTick(harry h)
     local int i;
     local name curLevel;
     local bool bLevelChanged;
+    local bool bSafeToEnd;
     local Rotator R;
 
     if (h == None)
     {
         return;
     }
+    bSafeToEnd = IsSafeToEndTrap(h);
     default.SpellTrapExpiry      = ClampTrapExpiry(h, default.SpellTrapExpiry,      SPELL_TRAP_DURATION);
     default.SizeTrapExpiry       = ClampTrapExpiry(h, default.SizeTrapExpiry,       SIZE_TRAP_DURATION);
     default.ConfundusTrapExpiry  = ClampTrapExpiry(h, default.ConfundusTrapExpiry,  CONFUNDUS_TRAP_DURATION);
@@ -553,7 +585,8 @@ static function TrapTick(harry h)
     }
 
     if (default.bSpellTrapActive == 1
-        && (bLevelChanged || h.Level.TimeSeconds >= default.SpellTrapExpiry))
+        && (bLevelChanged
+            || (bSafeToEnd && h.Level.TimeSeconds >= default.SpellTrapExpiry)))
     {
         for (i = 0; i < 32; i++)
         {
@@ -571,7 +604,8 @@ static function TrapTick(harry h)
     }
 
     if (default.bSizeTrapActive == 1
-        && (bLevelChanged || h.Level.TimeSeconds >= default.SizeTrapExpiry))
+        && (bLevelChanged
+            || (bSafeToEnd && h.Level.TimeSeconds >= default.SizeTrapExpiry)))
     {
         // On a level change the fresh pawn already loaded its default DrawScale
         // and collision, so only the same-level timeout needs the active restore.
@@ -594,7 +628,8 @@ static function TrapTick(harry h)
     }
 
     if (default.bConfundusTrapActive == 1
-        && (bLevelChanged || h.Level.TimeSeconds >= default.ConfundusTrapExpiry))
+        && (bLevelChanged
+            || (bSafeToEnd && h.Level.TimeSeconds >= default.ConfundusTrapExpiry)))
     {
         // On a level change the fresh pawn re-reads bInvertMouse from the ini, so
         // only the same-level timeout needs to actively restore it.
@@ -633,7 +668,8 @@ static function TrapTick(harry h)
     }
 
     if (default.bLevicorpusTrapActive == 1
-        && (bLevelChanged || h.Level.TimeSeconds >= default.LevicorpusTrapExpiry))
+        && (bLevelChanged
+            || (bSafeToEnd && h.Level.TimeSeconds >= default.LevicorpusTrapExpiry)))
     {
         // The fresh level-change pawn spawns upright, so only the same-level
         // timeout needs the active un-roll (LevicorpusHold stops re-pinning once
@@ -690,7 +726,8 @@ static function TrapTick(harry h)
 // down so the climb hauls him DOWN. Root motion is native, so the only lever is the
 // pawn rotation: right him for the duration of the climb (Mounting/MountFinish) so
 // the root motion plays world-up, then re-flip once he is back on his feet. Only
-// acts while the trap is active and Harry is bound.
+// acts while the trap is active and Harry is bound, and stops flipping him once
+// the expiry has passed so the hand-off to TrapTick is invisible.
 static function LevicorpusHold(harry h)
 {
     local Rotator R;
@@ -700,7 +737,13 @@ static function LevicorpusHold(harry h)
     {
         return;
     }
-    if (h.IsInState('Mounting') || h.IsInState('MountFinish'))
+    // Upright for the climb, and upright again once the lifetime is spent: from
+    // that moment the flip is over in all but bookkeeping, and TrapTick's formal
+    // end waits for Harry to be back on his feet. Re-pinning the flip across that
+    // wait would snap him upside down for a frame or two the instant a climb
+    // ends, since this runs per frame and the Timer only every 0.25s.
+    if (h.IsInState('Mounting') || h.IsInState('MountFinish')
+        || h.Level.TimeSeconds >= default.LevicorpusTrapExpiry)
     {
         wantRoll = 0;
     }

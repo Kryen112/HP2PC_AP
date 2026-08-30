@@ -32,8 +32,12 @@
 //
 //   BlockerHintRadius retunes how far out a blocker announces which key it wants,
 //                     live, including the blockers already standing in the level.
-//                     No argument reports the current values. For settling the
-//                     distance by feel instead of one rebuild per guess.
+//                     No argument reports the current values plus any per-site
+//                     overrides. A second argument names one site's Tag and
+//                     retunes only that site, 0 clearing it back to the shared
+//                     default. For settling the distance by feel instead of one
+//                     rebuild per guess. Live edits die with the level: put the
+//                     settled number in APGameInfo.BlockerRadiusForTag.
 //
 // Freecam keys (debug mode on; Delete toggles the freecam):
 //   WASD: fly the freecam, mirroring the stock arrow keys. Forward follows where
@@ -455,12 +459,19 @@ exec function PlaceBookcase(optional float Forward)
     }
 }
 
-// Blockers read ProximityRadius through `default.`, so writing the class default
-// moves every blocker already in the level, not just the next spawn. The Ford
-// Anglia wreck keeps its +100uu margin over the bookcase, since contact against
-// its long side sits ~60uu further out.
-exec function BlockerHintRadius(optional float NewRadius)
+// Blockers read the shared radius through `default.`, so writing the class
+// default moves every blocker already in the level that carries no per-site
+// override, not just the next spawn. The Ford Anglia wreck keeps its +100uu
+// margin over the bookcase, since contact against its long side sits ~60uu
+// further out. Naming a SiteTag writes that site's override instead and leaves
+// the shared default alone.
+exec function BlockerHintRadius(optional float NewRadius, optional string SiteTag)
 {
+    if (SiteTag != "")
+    {
+        SetSiteHintRadius(NewRadius, SiteTag);
+        return;
+    }
     if (NewRadius > 0.0)
     {
         class'APBookcaseBlocker'.default.ProximityRadius = NewRadius;
@@ -469,6 +480,53 @@ exec function BlockerHintRadius(optional float NewRadius)
     DevPrint("BlockerHintRadius: bookcase="
         $ class'APBookcaseBlocker'.default.ProximityRadius
         $ " ford=" $ class'APFordAngliaBlocker'.default.ProximityRadius);
+    ReportSiteHintRadii();
+}
+
+// Writes one site's override onto every blocker already carrying that Tag. A
+// radius of 0 clears the override, dropping the site back to the shared
+// default. Matching is case-insensitive so the Tag can be typed at the console
+// without minding capitals.
+function SetSiteHintRadius(float NewRadius, string SiteTag)
+{
+    local APBookcaseBlocker b;
+    local int touched;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        return;
+    }
+    foreach Viewport.Actor.AllActors(class'APBookcaseBlocker', b)
+    {
+        if (!b.bDeleteMe && string(b.Tag) ~= SiteTag)
+        {
+            b.SiteRadius = NewRadius;
+            touched++;
+        }
+    }
+    DevPrint("BlockerHintRadius: " $ SiteTag $ " -> " $ NewRadius
+        $ " on " $ touched $ " blocker(s)");
+}
+
+// Lists the blockers standing off the shared default, so a tuning pass can see
+// which sites the class-default write above did not move. One line per blocker,
+// not per site, so a multi-bookcase site such as the Great Hall gate repeats:
+// the repeat count is the confirmation that every bookcase there took the value.
+function ReportSiteHintRadii()
+{
+    local APBookcaseBlocker b;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        return;
+    }
+    foreach Viewport.Actor.AllActors(class'APBookcaseBlocker', b)
+    {
+        if (!b.bDeleteMe && b.SiteRadius > 0.0)
+        {
+            DevPrint("  override " $ string(b.Tag) $ "=" $ b.SiteRadius);
+        }
+    }
 }
 
 exec function ClearBookcases()
