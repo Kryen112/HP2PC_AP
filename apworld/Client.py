@@ -910,13 +910,12 @@ class HP2Context(CommonContext):
         # Auto-launch: the matching install's Game.exe is started after the audio
         # randomizers settle (or when there is nothing to patch), so the game never
         # boots while files are being rewritten. The task handle lets /play await an
-        # in-flight patch before launching. The flag means "a game we launched is
-        # live or still booting"; it is reset when the game disconnects from the
-        # bridge, so the next AP (re)connect auto-launches again. A game already
-        # bridged (game_writer live) suppresses the launch regardless, so a plain AP
-        # reconnect with the game still running never spawns a duplicate.
-        self._game_launched: bool = False
+        # in-flight patch before launching.
         self._audio_task: Optional[asyncio.Task] = None
+        # Armed by connect() and the startup connect, consumed by the launch step on
+        # the next Connected: only a connection the player asked for opens the game.
+        # The framework's automatic retry bypasses connect() and never arms it.
+        self._player_connect_pending: bool = False
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO). A durable, authoritative open castle signal that
@@ -1464,6 +1463,14 @@ class HP2Context(CommonContext):
             logger.exception(f"on_print_json: failed to handle {args.get('type')!r}: {e}")
         super().on_print_json(args)
 
+    async def connect(self, address: Optional[str] = None) -> None:
+        """Every connection the player asks for (the Connect button, /connect)
+        comes through here. The framework's automatic retry starts server_loop
+        directly and skips it, so arming here is what keeps a reconnect the
+        player did not ask for from opening the game."""
+        self._player_connect_pending = True
+        await super().connect(address)
+
     async def connection_closed(self) -> None:
         """Toast on AP websocket close. Mirrors the existing "Connected to
         host:port" toast lifecycle (CommonContext calls this on every clean /
@@ -1804,21 +1811,25 @@ class HP2Context(CommonContext):
         settled. Chaining the two keeps the game from booting while the install
         files are still being rewritten, and lets the launch reuse the folder the
         audio step already resolved, so the player is never asked twice."""
+        # Consume the arm first: a Connected the player did not ask for (the
+        # framework's automatic retry) never launches, whatever else runs here.
+        player_asked = self._player_connect_pending
+        self._player_connect_pending = False
         safe, install = await self._apply_audio_randomizers(sd)
         # The mod must be current before the game boots, so it sits between the
         # randomizers and the launch; it resolves (and prompts once for) the
         # folder itself when the audio step did not need one.
         if _auto_install_enabled():
             install = await self._ensure_mod_current(install) or install
-        if not _auto_launch_enabled():
+        if not _auto_launch_enabled() or not player_asked:
             return
-        # Launch on every AP (re)connect, not just the first of the session, so a
-        # reconnect after the game closed re-opens it. Suppress only when a game is
-        # already up: game_writer live means a game (ours or one the player started
-        # by hand) is bridged; _game_launched means our own launch is still booting
-        # and has not bridged yet. Either way a second Game.exe would be a duplicate.
-        game_bridged = self.game_writer is not None and not self.game_writer.is_closing()
-        if self._game_launched or game_bridged:
+        # A game that is up must not get a duplicate. That includes one parked at
+        # its launcher page: a running Game.exe that has not bridged yet.
+        if await self._game_is_up():
+            ui_logger.info(
+                "Not auto-launching: Harry Potter looks to be running already. If it "
+                "is not, type /play."
+            )
             return
         if not safe:
             ui_logger.warning(
@@ -1848,8 +1859,8 @@ class HP2Context(CommonContext):
 
     async def _launch_game_manual(self) -> None:
         """Back the /play command. Waits for any in-flight randomizer patch so a
-        manual launch never races a file write either, then launches regardless of
-        the once-per-session guard."""
+        manual launch never races a file write either, then launches without the
+        auto-launch checks: the player asked for it."""
         if self._audio_task is not None and not self._audio_task.done():
             ui_logger.info("Waiting for the audio randomizers to finish before launching.")
             try:
@@ -1862,11 +1873,14 @@ class HP2Context(CommonContext):
                 await self._ensure_mod_current(install)
             self._launch_game(install)
 
-    def _game_is_up(self) -> bool:
-        """Whether a game is live from the installer's point of view: bridged,
-        booting from our own launch, or visible as a process."""
-        game_bridged = self.game_writer is not None and not self.game_writer.is_closing()
-        return self._game_launched or game_bridged or _game_process_running()
+    async def _game_is_up(self) -> bool:
+        """Whether a game is up: bridged, or visible as a Game.exe process. A game
+        still booting, or parked at its launcher page before the mod runs, is a
+        process long before it bridges. The process check shells out, so it runs
+        off the event loop."""
+        if self.game_writer is not None and not self.game_writer.is_closing():
+            return True
+        return await asyncio.get_event_loop().run_in_executor(None, _game_process_running)
 
     async def _ensure_mod_current(self, install: Optional[str]) -> Optional[str]:
         """Keep the seed's install running this apworld's mod package: resolve
@@ -1885,7 +1899,7 @@ class HP2Context(CommonContext):
             return install
         if current:
             return install
-        if self._game_is_up():
+        if await self._game_is_up():
             ui_logger.warning(
                 "This apworld carries a different mod build than the install, but "
                 "the game is up. Close Harry Potter and type /installmod, then "
@@ -1905,7 +1919,7 @@ class HP2Context(CommonContext):
         if not install:
             ui_logger.warning("No install folder resolved; cannot install the mod.")
             return
-        if self._game_is_up():
+        if await self._game_is_up():
             ui_logger.warning("The game is up. Close Harry Potter first, then type /installmod.")
             return
         loop = asyncio.get_event_loop()
@@ -1937,8 +1951,7 @@ class HP2Context(CommonContext):
     def _launch_game(self, install: str) -> None:
         """Start Game.exe from the install's system folder. The UE1 engine needs
         its working directory to be that system folder, so the process is spawned
-        with cwd there. Marks a launch live so auto-launch will not also fire while
-        this game is booting or running; the bridge disconnect re-arms it."""
+        with cwd there."""
         system_dir = os.path.join(install, "system")
         exe = os.path.join(system_dir, "Game.exe")
         if not os.path.exists(exe):
@@ -1953,7 +1966,6 @@ class HP2Context(CommonContext):
         except OSError as exc:
             ui_logger.error(f"Could not launch Harry Potter ({mode}): {exc}")
             return
-        self._game_launched = True
         ui_logger.info(f"Launching Harry Potter ({mode}).")
 
     async def _prompt_install_folder(self, open_castle: bool) -> Optional[str]:
@@ -2116,11 +2128,6 @@ class HP2Context(CommonContext):
             # connection until client restart.
             if self.game_writer is writer:
                 self.game_writer = None
-                # The game we launched (or the player started) is gone. Re-arm
-                # auto-launch so the next AP (re)connect opens it again. Guarded by
-                # the writer-identity check so a stale late-waking old game can't
-                # re-arm over a newer game that already replaced game_writer.
-                self._game_launched = False
             try:
                 writer.close()
             except Exception:
@@ -3116,6 +3123,10 @@ async def _main(args: argparse.Namespace) -> None:
     asyncio.get_running_loop().set_exception_handler(_suppress_socket_reset)
     ctx = HP2Context(args.connect, args.password)
     ctx.auth = args.name
+    # A startup connect is the player's own (they opened the client with a room
+    # to join), so it arms the launch like the Connect button does.
+    if args.connect:
+        ctx._player_connect_pending = True
     ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
     ctx.tcp_server_task = asyncio.create_task(ctx.run_tcp_server(), name="game tcp server")
     if gui_enabled:

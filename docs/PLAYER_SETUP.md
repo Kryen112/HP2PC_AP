@@ -236,7 +236,7 @@ The client connects to the AP server as soon as you `/connect` and reads your se
 
 ### Launch the game
 
-With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything; just start a new game once the window opens.
+With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything; just start a new game once the window opens. Every connect you make yourself (the Connect button or `/connect`) launches it again if the game is not running, so closing the game and reconnecting brings it back. A dropped connection that the client repairs by itself never launches the game.
 
 **First connect only:** the client needs to know where your install is, so it pops a folder picker asking for the install that matches the seed's mode (the folder that contains the `system` folder with `Game.exe`). Your choice is saved to `host.yaml`, so you're asked only once per mode. You can also set it ahead of time by editing host.yaml (see the install-path block under Sound randomizer below).
 

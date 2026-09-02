@@ -596,9 +596,11 @@ class HP2Settings(settings.Group):
         required = False
 
     class AutoLaunchGame(settings.Bool):
-        """Launch the matching install's Game.exe automatically when the client
-        connects to a seed (once per client session, after any randomizers finish).
-        On by default. Set to false to launch the game yourself or with /play."""
+        """Launch the matching install's Game.exe automatically each time you
+        connect (the Connect button or /connect), after any randomizers finish,
+        unless the game is already running. A reconnect the client makes by itself
+        after a dropped connection never launches. On by default. Set to false to
+        launch the game yourself or with /play."""
 
     class AutoInstallMod(settings.Bool):
         """Keep the game mod current automatically: when the client connects,
