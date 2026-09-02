@@ -252,10 +252,11 @@ _LINK_KINDS = {
     "trap": _LinkKind("TrapLink", "/traplink", "trap_link", "trap_link_enabled"),
     "death": _LinkKind("DeathLink", "/deathlink", "death_link", "death_link_enabled"),
 }
-# Accepted arguments to a link command, mapping to the override they set.
-# "seed" drops the override; a bare command flips the effective state.
-_LINK_ARGS = {"on": True, "true": True, "1": True,
-              "off": False, "false": False, "0": False}
+# On/off words shared by the link commands and /autoplay, mapping to the
+# override they set. A bare command flips the effective state; the links also
+# take "seed" to drop the override.
+_ON_OFF_ARGS = {"on": True, "true": True, "1": True,
+                "off": False, "false": False, "0": False}
 
 
 # All wizard-card item names, derived from ITEM_GROUPS (items.py) so it can never
@@ -495,7 +496,8 @@ class HP2CommandProcessor(ClientCommandProcessor):
     def _cmd_play(self) -> bool:
         """Launch Harry Potter for the connected seed's mode (vanilla or open
         castle). The client already auto-launches on connect; use /play if you
-        turned that off (auto_launch_game), or to relaunch after closing the game.
+        turned that off (auto_launch_game or /autoplay), or to relaunch after
+        closing the game.
         Waits for any in-flight randomizer patch first."""
         ctx: "HP2Context" = self.ctx
         if ctx.seed_mode is None:
@@ -609,8 +611,8 @@ class HP2CommandProcessor(ClientCommandProcessor):
         ctx: "HP2Context" = self.ctx
         spec = _LINK_KINDS[kind]
         arg = state.strip().lower()
-        if arg in _LINK_ARGS:
-            ctx.link_overrides[kind] = _LINK_ARGS[arg]
+        if arg in _ON_OFF_ARGS:
+            ctx.link_overrides[kind] = _ON_OFF_ARGS[arg]
         elif arg == "seed":
             ctx.link_overrides[kind] = None
         elif arg == "":
@@ -660,6 +662,29 @@ class HP2CommandProcessor(ClientCommandProcessor):
         Usage: /deathlink [on | off | seed]; bare /deathlink flips it, 'seed'
         drops the override."""
         self._set_link("death", state)
+        return True
+
+    @mark_raw
+    def _cmd_autoplay(self, state: str = "") -> bool:
+        """Turn auto-launch on or off for this client session, overriding the
+        auto_launch_game setting. Usage: /autoplay [on | off]; bare /autoplay
+        flips it. Applies to your next connect; /play starts the game now."""
+        ctx: "HP2Context" = self.ctx
+        arg = state.strip().lower()
+        if arg in _ON_OFF_ARGS:
+            ctx.auto_launch_override = _ON_OFF_ARGS[arg]
+        elif arg == "":
+            ctx.auto_launch_override = not ctx.auto_launch_wanted()
+        else:
+            self.output("Usage: /autoplay [on | off]. Bare /autoplay flips it.")
+            return True
+        if ctx.auto_launch_wanted():
+            self.output("Auto-launch is on: the game starts when you connect (/play starts "
+                        "it now). Resets when the client restarts.")
+        else:
+            self.output("Auto-launch is off: the game stays closed when you connect (/play "
+                        "starts it). Resets when the client restarts. Set auto_launch_game "
+                        "in host.yaml to make it permanent.")
         return True
 
     def _cmd_progress(self) -> bool:
@@ -916,6 +941,9 @@ class HP2Context(CommonContext):
         # the next Connected: only a connection the player asked for opens the game.
         # The framework's automatic retry bypasses connect() and never arms it.
         self._player_connect_pending: bool = False
+        # /autoplay override for this client session. None follows the
+        # auto_launch_game setting; True or False beats it on every connect.
+        self.auto_launch_override: Optional[bool] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO). A durable, authoritative open castle signal that
@@ -1821,7 +1849,7 @@ class HP2Context(CommonContext):
         # folder itself when the audio step did not need one.
         if _auto_install_enabled():
             install = await self._ensure_mod_current(install) or install
-        if not _auto_launch_enabled() or not player_asked:
+        if not self.auto_launch_wanted() or not player_asked:
             return
         # A game that is up must not get a duplicate. That includes one parked at
         # its launcher page: a running Game.exe that has not bridged yet.
@@ -1872,6 +1900,13 @@ class HP2Context(CommonContext):
             if _auto_install_enabled():
                 await self._ensure_mod_current(install)
             self._launch_game(install)
+
+    def auto_launch_wanted(self) -> bool:
+        """Whether a connect the player made launches the game: the /autoplay
+        override when set, else the auto_launch_game setting."""
+        if self.auto_launch_override is not None:
+            return self.auto_launch_override
+        return _auto_launch_enabled()
 
     async def _game_is_up(self) -> bool:
         """Whether a game is up: bridged, or visible as a Game.exe process. A game

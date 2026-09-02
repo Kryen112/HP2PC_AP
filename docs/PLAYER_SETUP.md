@@ -44,7 +44,7 @@ In open castle, the pause menu draws a live goal-progress panel (cards / spells 
 
 ### Client commands worth knowing
 
-`/progress` prints your goal status. `/play` (re)launches the game. `/installmod` installs or updates the mod in the seed's install (the client also does this on connect). The randomizers each have a reshuffle/restore pair: `/reroll_sounds` `/restore_sounds`, `/reroll_music` `/restore_music`, `/reroll_dialogue` `/restore_dialogue` (see the randomizer sections above).
+`/progress` prints your goal status. `/play` (re)launches the game. `/autoplay` turns auto-launch on or off for this client session (`on`, `off`, or bare to flip). `/installmod` installs or updates the mod in the seed's install (the client also does this on connect). The randomizers each have a reshuffle/restore pair: `/reroll_sounds` `/restore_sounds`, `/reroll_music` `/restore_music`, `/reroll_dialogue` `/restore_dialogue` (see the randomizer sections above).
 
 `/ringlink`, `/traplink` and `/deathlink` turn the matching link on or off mid-run, so you do not have to reroll a seed to change your mind. Each takes `on`, `off`, or `seed` (back to whatever you rolled); typing the bare command flips it. Your choice sticks across a reconnect and resets when you restart the client. None of the three affects what is reachable, so toggling one can never make your seed unbeatable. Two notes: turning RingLink on links bean changes from that moment, with no back-fill of the deltas you missed, and TrapLink sends you only the traps you enabled, or any trap if your own seed enabled none.
 
@@ -249,7 +249,7 @@ Game connected from ('127.0.0.1', <port>)
 
 The game window pops a toast top-right when your starting items arrive ("Received Alohomora from <YourSlotName>" etc). You're playing.
 
-**Prefer to launch it yourself?** Set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml, then run `<HP2 install>\system\Game.exe` (or the M212 Start Menu shortcut) once the client is connected. The `/play` command in the client launches it too, handy if you closed the game and want it back, or if an auto-launch was skipped.
+**Prefer to launch it yourself?** Set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml, then run `<HP2 install>\system\Game.exe` (or the M212 Start Menu shortcut) once the client is connected. The `/play` command in the client launches it too, handy if you closed the game and want it back, or if an auto-launch was skipped. To turn auto-launch off for just this client session, type `/autoplay off` (bare `/autoplay` flips it, `/autoplay on` turns it back on).
 
 **On Linux this is the only supported route.** Auto-launch and `/play` start `Game.exe` as a native process, which a Linux client cannot do, so set `auto_launch_game: false` and start the game through Steam or Wine yourself. See [Running on Linux](#running-on-linux).
 

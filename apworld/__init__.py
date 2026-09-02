@@ -600,7 +600,8 @@ class HP2Settings(settings.Group):
         connect (the Connect button or /connect), after any randomizers finish,
         unless the game is already running. A reconnect the client makes by itself
         after a dropped connection never launches. On by default. Set to false to
-        launch the game yourself or with /play."""
+        launch the game yourself or with /play. /autoplay overrides it for one client
+        session."""
 
     class AutoInstallMod(settings.Bool):
         """Keep the game mod current automatically: when the client connects,

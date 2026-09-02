@@ -14,7 +14,7 @@ from unittest import mock
 from CommonClient import CommonContext
 
 from .. import Client
-from ..Client import HP2Context
+from ..Client import HP2CommandProcessor, HP2Context
 
 
 class _Ctx(HP2Context):
@@ -23,6 +23,7 @@ class _Ctx(HP2Context):
 
     def __init__(self, game_up: bool = False, safe: bool = True) -> None:
         self._player_connect_pending = False
+        self.auto_launch_override = None
         self.game_writer = None
         self.game_up = game_up
         self.safe = safe
@@ -49,6 +50,15 @@ class _InstallerCtx(_Ctx):
     installer path runs for real down to the patched installer module."""
 
     _ensure_mod_current = HP2Context._ensure_mod_current
+
+
+class _Processor(HP2CommandProcessor):
+    def __init__(self, ctx: _Ctx) -> None:
+        self.ctx = ctx
+        self.lines: list = []
+
+    def output(self, text: str) -> None:
+        self.lines.append(text)
 
 
 def _run(coro):
@@ -96,6 +106,55 @@ class TestAutoLaunchDisabled(unittest.TestCase):
         _run(ctx._connect_audio_then_launch({}))
         self.assertEqual(ctx.launched, [])
         self.assertFalse(ctx._player_connect_pending)
+
+
+@mock.patch.object(Client, "_auto_install_enabled", return_value=False)
+class TestAutoplayCommand(unittest.TestCase):
+    """/autoplay overrides the auto_launch_game setting for the client session."""
+
+    def test_bare_flips_from_the_setting(self, *_) -> None:
+        ctx = _Ctx()
+        proc = _Processor(ctx)
+        with mock.patch.object(Client, "_auto_launch_enabled", return_value=True):
+            proc._cmd_autoplay("")
+            self.assertFalse(ctx.auto_launch_wanted())
+            self.assertTrue(proc.lines[-1].startswith("Auto-launch is off"))
+            proc._cmd_autoplay("")
+            self.assertTrue(ctx.auto_launch_wanted())
+            self.assertTrue(proc.lines[-1].startswith("Auto-launch is on"))
+
+    def test_explicit_on_off_beats_the_setting(self, *_) -> None:
+        ctx = _Ctx()
+        proc = _Processor(ctx)
+        with mock.patch.object(Client, "_auto_launch_enabled", return_value=True):
+            proc._cmd_autoplay("off")
+            self.assertFalse(ctx.auto_launch_wanted())
+        with mock.patch.object(Client, "_auto_launch_enabled", return_value=False):
+            proc._cmd_autoplay(" ON ")
+            self.assertTrue(ctx.auto_launch_wanted())
+
+    def test_bad_argument_prints_usage_and_changes_nothing(self, *_) -> None:
+        ctx = _Ctx()
+        proc = _Processor(ctx)
+        proc._cmd_autoplay("maybe")
+        self.assertIsNone(ctx.auto_launch_override)
+        self.assertTrue(proc.lines[-1].startswith("Usage: /autoplay"))
+
+    def test_override_off_stops_a_player_connect_from_launching(self, *_) -> None:
+        ctx = _Ctx()
+        ctx.auto_launch_override = False
+        ctx._player_connect_pending = True
+        with mock.patch.object(Client, "_auto_launch_enabled", return_value=True):
+            _run(ctx._connect_audio_then_launch({}))
+        self.assertEqual(ctx.launched, [])
+
+    def test_override_on_launches_with_the_setting_off(self, *_) -> None:
+        ctx = _Ctx()
+        ctx.auto_launch_override = True
+        ctx._player_connect_pending = True
+        with mock.patch.object(Client, "_auto_launch_enabled", return_value=False):
+            _run(ctx._connect_audio_then_launch({}))
+        self.assertEqual(ctx.launched, ["install"])
 
 
 class TestConnectArmsTheLaunch(unittest.TestCase):
