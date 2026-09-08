@@ -343,7 +343,7 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Grand Staircase - Secret 8": alohomora,
     "Grand Staircase - Secret 9": alohomora,
     "Gryffindor Challenge - Cauldron 1": (diffindo | running) & spongify & flipendo,
-    "Gryffindor Challenge - Cauldron 2": (diffindo | running) & spongify & flipendo,
+    "Gryffindor Challenge - Cauldron 2": (diffindo | running) & spongify & alohomora & flipendo,
     "Gryffindor Challenge - Cauldron 3": diffindo & spongify & alohomora & flipendo,
     "Gryffindor Challenge - Cauldron 4": diffindo & spongify & alohomora & flipendo,
     "Gryffindor Challenge - Cauldron 5": diffindo & spongify & alohomora & flipendo,

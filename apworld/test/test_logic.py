@@ -426,6 +426,33 @@ class TestChamberDeepSetNeedsFullSpellSet(HP2TestBase):
                 self.assertAccessDependency([loc], [[spell]], only_check_listed=True)
 
 
+# The Gryffindor Challenge cauldrons split on Alohomora: Cauldron 2 sits behind a
+# locked door, Cauldron 1 does not. Pin both sides so an edit cannot sweep the
+# whole shelf into one rule. The room is open castle only (vanilla entry is never).
+class TestGryffindorCauldronAlohomoraSplit(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    # The Diffindo half is an OR with Running, so only the AND-ed spells pin.
+    CAULDRON_2_SPELLS = ["Spongify", "Alohomora", "Flipendo"]
+
+    def test_cauldron_2_needs_alohomora_spongify_and_flipendo(self) -> None:
+        for spell in self.CAULDRON_2_SPELLS:
+            self.assertAccessDependency(["Gryffindor Challenge - Cauldron 2"],
+                                        [[spell]], only_check_listed=True)
+
+    def test_cauldron_1_stays_open_without_alohomora(self) -> None:
+        state = self.state_all_but(["Alohomora"])
+        self.assertTrue(
+            state.can_reach("Gryffindor Challenge - Cauldron 1", "Location", self.player),
+            "Cauldron 1 is not behind the locked door and must not require Alohomora")
+
+
 # Gold Card Room is gated behind the silver-card collection (40 in vanilla, 20 in
 # open castle); with zero silvers it is unreachable, with all of them it opens.
 class TestGoldCardRoomSilverGate(HP2TestBase):
