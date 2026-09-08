@@ -431,6 +431,35 @@ class TestChamberFirstFallBronzeSkip(HP2TestBase):
             "the deeper Cauldron 3 Spongify gate is not bronze-skippable")
 
 
+# Both Jar 1 spots sit behind a Diffindo cut, unlike the rest of the first-fall
+# set. The fall in front of them stays bronze-skippable.
+class TestChamberJar1NeedsDiffindo(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    JARS = [
+        "Chamber of Secrets - Flobberworm Mucous Jar 1",
+        "Chamber of Secrets - Wiggentree Bark Jar 1",
+    ]
+
+    def test_both_jars_need_diffindo(self) -> None:
+        self.assertAccessDependency(self.JARS, [["Diffindo"]], only_check_listed=True)
+
+    def test_bronze_still_skips_the_fall_with_diffindo(self) -> None:
+        state = self.state_with(
+            ["Chamber of Secrets Key", "Alohomora", "Flipendo", "Diffindo"]
+            + _BRONZE_CARD_NAMES[:CHAMBER_FALL_BRONZE_COUNT])
+        for jar in self.JARS:
+            self.assertTrue(
+                state.can_reach(jar, "Location", self.player),
+                "the Diffindo cut must not cost the jars their bronze fall skip")
+
+
 # The same first-fall rule lives in the vanilla table for consistency, but bronze
 # cards are not progression in vanilla and CoS entry already requires Spongify, so
 # owning every bronze card must NOT skip the fall. Spongify stays a hard dependency.
