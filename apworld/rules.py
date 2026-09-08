@@ -662,8 +662,10 @@ _VANILLA_ONLY: dict[str, _Access] = {
     "Quidditch - Match 2 (Ravenclaw)": rictusempra & skurge,
     "Quidditch - Match 3 (Slytherin)": rictusempra & skurge & alohomora & keys_through_bicorn,
     "Quidditch - Match 4 (Hufflepuff)": rictusempra & skurge & diffindo & alohomora & keys_through_bicorn,
+    # Match 6 unlocks at a later game state than match 5, past the Spongify
+    # lesson, so only match 6 carries Spongify.
     "Quidditch - Match 5 (Ravenclaw)": (
-        rictusempra & skurge & diffindo & spongify & alohomora
+        rictusempra & skurge & diffindo & alohomora
         & keys_through_slytherin_common_room),
     "Quidditch - Match 6 (Slytherin)": (
         rictusempra & skurge & diffindo & spongify & alohomora

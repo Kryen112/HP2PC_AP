@@ -901,3 +901,27 @@ class TestDuellingKeyPooledWhenGoalRequiresIt(HP2TestBase):
                          "the duels goal must not be beatable without the Duelling Key")
         self.assertTrue(self.multiworld.can_beat_game(self.state_all_but([])),
                         "the goal must be beatable once every item is collected")
+
+
+# Vanilla match 6 unlocks at a later game state than match 5, past the Spongify
+# lesson, so Spongify gates match 6 alone. Pin both sides so a future edit cannot
+# spread the gate back onto match 5. starting_spells empty and Running off so
+# Spongify is the isolated pool-gated differentiator.
+class TestQuidditchMatch6NeedsSpongifyMatch5DoesNot(HP2TestBase):
+    options = {
+        "game_mode": "vanilla",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "enable_quidditch_matches": True,
+    }
+    run_default_tests = False
+
+    def test_match_6_needs_spongify(self) -> None:
+        self.assertAccessDependency(["Quidditch - Match 6 (Slytherin)"],
+                                    [["Spongify"]], only_check_listed=True)
+
+    def test_match_5_does_not_need_spongify(self) -> None:
+        state = self.state_all_but(["Spongify"])
+        self.assertTrue(
+            state.can_reach("Quidditch - Match 5 (Ravenclaw)", "Location", self.player),
+            "Quidditch match 5 unlocks before the Spongify lesson and must not require it")
