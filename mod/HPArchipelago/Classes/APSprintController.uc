@@ -19,7 +19,10 @@
 // velocity so the run resumes with no acceleration ramp.
 class APSprintController extends Info;
 
-const SPRINT_SPEED_MULTIPLIER = 1.5;
+// Sprint speed cap as a multiple of the base run speed. 1.571429 puts Harry's
+// 210 uu/s ground cap at 330 uu/s. Scaling off the live GroundRunSpeed rather
+// than pinning an absolute keeps a raised base composing, e.g. Aragog's 1.25x.
+const SPRINT_SPEED_MULTIPLIER = 1.571429;
 const SPRINT_BEAN_COST = 1;
 const SPRINT_MIN_SPEED = 10.0;
 const SPRINT_RECOVER_EPSILON = 1.0;

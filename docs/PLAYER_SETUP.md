@@ -19,7 +19,7 @@ The randomizer adds gameplay the original game never prompts you about, and none
 
 ### Hold Shift to run
 
-Hold Shift while moving and Harry runs at 1.5x speed. It costs 1 Bertie Bott's bean every quarter-second you're actually moving, drawn from your bean stash, and stops on its own when you hit 0. The run carries through jumps and spell casts, and idling on Shift costs nothing. It's disabled while a slowdown is active (Drowsiness trap, Skurge ectoplasm, spider web) and during cutscenes.
+Hold Shift while moving and Harry runs a little over 1.5x speed. It costs 1 Bertie Bott's bean every quarter-second you're actually moving, drawn from your bean stash, and stops on its own when you hit 0. The run carries through jumps and spell casts, and idling on Shift costs nothing. It's disabled while a slowdown is active (Drowsiness trap, Skurge ectoplasm, spider web) and during cutscenes.
 
 The `allow_running_logic` yaml option makes running **free** (no bean cost, usable even at 0 beans) and lets the generator place items in spots you're expected to reach by running. Set it to `on` for the straightforward runs, or `difficult` to also expect the ones with tight timing or precise positioning. With it off (the default) running still works exactly the same, it just costs beans and is never logically required.
 
