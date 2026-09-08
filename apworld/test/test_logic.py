@@ -150,6 +150,52 @@ class TestRictusempraChest5NeedsLumos(HP2TestBase):
             "Rictusempra Chest 4 is a lit-area chest and must not require Lumos")
 
 
+# The Diffindo Challenge holds eleven plant pots. Pot 8 shares the Skurge-gated
+# room with Cauldron 7 and Pot 9, so it carries that room's set and no Lumos,
+# while Pot 1 sits in the opening area behind Flipendo alone. Pin the full set,
+# both ends of the range and the Lumos split across the renumbered trio, so a
+# renumber cannot drop a pot or shift a rule onto the wrong one.
+DIFFINDO_PLANT_POTS = tuple(f"Diffindo Challenge - Plant Pot {n}" for n in range(1, 12))
+
+
+class TestDiffindoPlantPots(HP2TestBase):
+    options = {
+        "game_mode": "open_castle",
+        "starting_spells": [],
+        "allow_running_logic": False,
+        "containersanity": True,
+    }
+    run_default_tests = False
+
+    def test_all_eleven_pots_exist(self) -> None:
+        for name in DIFFINDO_PLANT_POTS:
+            self.assert_location_exists(name)
+
+    def test_pot_8_needs_skurge_not_lumos(self) -> None:
+        self.assertAccessDependency(["Diffindo Challenge - Plant Pot 8"],
+                                    [["Skurge"]], only_check_listed=True)
+        state = self.state_all_but(["Lumos"])
+        self.assertTrue(
+            state.can_reach("Diffindo Challenge - Plant Pot 8", "Location", self.player),
+            "Diffindo Plant Pot 8 shares Cauldron 7's lit room and must not require Lumos")
+
+    def test_lumos_split_across_the_renumbered_pots(self) -> None:
+        state = self.state_all_but(["Lumos"])
+        self.assertTrue(
+            state.can_reach("Diffindo Challenge - Plant Pot 9", "Location", self.player),
+            "Diffindo Plant Pot 9 is out of the dark stretch and must not require Lumos")
+        for name in ("Diffindo Challenge - Plant Pot 10", "Diffindo Challenge - Plant Pot 11"):
+            self.assertFalse(
+                state.can_reach(name, "Location", self.player),
+                f"{name} is in the dark stretch and must require Lumos")
+
+    def test_pot_1_does_not_need_skurge(self) -> None:
+        state = self.state_all_but(["Skurge"])
+        self.assertTrue(
+            state.can_reach("Diffindo Challenge - Plant Pot 1", "Location", self.player),
+            "Diffindo Plant Pot 1 is in the opening area and must not require Skurge")
+
+
 # Skurge Challenge - Complete accepts Running in place of Lumos, matching its
 # sibling Skurge locations whose lit-area gate is (Lumos OR Running). With Running
 # on, the finish is reachable without Lumos; with Running off, Lumos stays the only

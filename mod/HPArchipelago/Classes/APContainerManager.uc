@@ -227,20 +227,50 @@ function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
         $ " (apId " $ apId $ ", beans " $ string(caul.iNumberOfBeans) $ ")");
 }
 
+// Place a container spawner at the destroyed original's exact transform. A spot
+// set into level geometry (the Diffindo Challenge plant pot inside a wall sconce)
+// fails the engine's spawn-time placement check even with bCollideWhenPlacing
+// False, and Spawn then returns None. Fall back to the engine's own FancySpawn,
+// which walks outward from the spot until one takes, then slide the actor back to
+// the saved transform with world collision off for that one move. Returns None
+// only when the whole search finds no room.
+function Actor PlaceContainerSpawner(class<GenericSpawner> cls, name spawnTag,
+                                     Vector loc, Rotator rot)
+{
+    local Actor placed;
+    local bool savedCollideWorld, bSlidBack;
+
+    placed = Spawn(cls, , spawnTag, loc, rot);
+    if (placed != None) return placed;
+
+    placed = FancySpawn(cls, , spawnTag, loc, rot);
+    if (placed == None) return None;
+
+    savedCollideWorld = placed.bCollideWorld;
+    placed.bCollideWorld = False;
+    bSlidBack = placed.SetLocation(loc);
+    placed.bCollideWorld = savedCollideWorld;
+    Log("[Archipelago] APContainerManager.PlaceContainerSpawner: " $ string(cls.Name)
+        $ " needed the outward search at " $ string(loc)
+        $ " (spot is set into level geometry); slid back=" $ string(bSlidBack));
+    return placed;
+}
+
 // Swap a GenericSpawner-family box for its APContainerSpawner_<Leaf> subclass,
 // CLONING the placed instance's spawn config so the swap is behaviourally
 // identical to the original. The eject count comes from per-instance Limits /
 // GoodiesNumber, which the leaf class defaults do NOT carry, so reverting to
 // class defaults would randomise it (and break exact-count boxes). The original
 // is destroyed first so the replacement spawns in its place without encroaching,
-// so its config is saved to locals beforehand. After copying GoodieToSpawn /
-// GoodiesNumber / Lives, the engine's cached init (HowManyObjectsToSpawn,
+// so its config is saved to locals beforehand. A spot that refuses the
+// replacement gets a stock clone back rather than nothing. After copying
+// GoodieToSpawn / GoodiesNumber / Lives, the engine's cached init (HowManyObjectsToSpawn,
 // bSpawnExactNumbers) is re-derived exactly as GenericSpawner.PostBeginPlay does.
 // CheckLocationId is stamped via APContainerStamp (the generated subclasses each
 // declare it but share no base type to cast to here).
 function SwapContainerSpawner(GenericSpawner old, int apId)
 {
-    local class<GenericSpawner> swapCls;
+    local class<GenericSpawner> swapCls, savedOriginalCls;
     local GenericSpawner nw;
     local Actor spawned;
     local Vector savedLoc, savedStartPos, savedStartVel;
@@ -256,7 +286,7 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     local float savedDrawScale;
     local Vector savedPrePivot;
     local float savedGoodieDelay, savedBaseDelay, savedColRadius, savedColHeight;
-    local bool bReplace;
+    local bool bAppendToken, bStockFallback;
 
     // Already collected -> leave the spawner 100% vanilla (no swap, no extra
     // eject slot), so a re-clear drops no phantom AP token.
@@ -286,6 +316,8 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     savedStartVel = old.StartVel;
     savedStartBone = old.StartBone;
     savedClass = old.Class.Name;
+    // Kept so a rejected swap can put a stock clone back after the Destroy below.
+    savedOriginalCls = old.Class;
     // Carry over the instance's open-spell. Without this the swap reverts to the
     // GenericSpawner class default (Flipendo) and PostBeginPlay forces it to None
     // (the leaf has no goodie defaults at Spawn), leaving the box unopenable.
@@ -312,25 +344,40 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     }
     old.Destroy();
 
-    spawned = Spawn(swapCls, , savedTag, savedLoc, savedRot);
+    spawned = PlaceContainerSpawner(swapCls, savedTag, savedLoc, savedRot);
+    if (spawned == None)
+    {
+        // The original is already gone, so put a stock clone back rather than
+        // leave the spot empty. This location stays uncheckable, but the level
+        // keeps its container instead of silently losing it.
+        bStockFallback = True;
+        spawned = PlaceContainerSpawner(savedOriginalCls, savedTag, savedLoc, savedRot);
+        Log("[Archipelago] APContainerManager.SwapContainerSpawner: no room for "
+            $ string(swapCls.Name) $ " at " $ string(savedLoc) $ " (apId " $ apId
+            $ "); restoring a stock " $ string(savedClass));
+    }
     nw = GenericSpawner(spawned);
     if (nw == None)
     {
+        Log("[Archipelago] APContainerManager.SwapContainerSpawner: LOST the container at "
+            $ string(savedLoc) $ " (apId " $ apId $ "): neither " $ string(swapCls.Name)
+            $ " nor a stock " $ string(savedClass) $ " would place");
         return;
     }
-    // Replace leaves (single-content jars) have the AP token stand in for their
-    // native goodie, so they skip the +1 eject-slot bump below.
-    bReplace = class'APContainerStamp'.static.IsReplaceLeaf(nw);
+    // Only append leaves buy an extra eject slot for the token: a replace leaf
+    // (single-content jar) has the token stand in for its native goodie, and a
+    // stock fallback clone ejects no token at all.
+    bAppendToken = !bStockFallback && !class'APContainerStamp'.static.IsReplaceLeaf(nw);
     nw.Event = savedEvent;
     nw.EventName = savedEventName;
     nw.Lives = savedLives;
     // +1 buys one extra eject iteration on the first hit for the AP token; the
     // subclass's first SpawnObject undoes this so multi-life re-hits stay vanilla.
-    // Replace leaves skip the bump: the token replaces the native goodie rather
-    // than dropping alongside it, so the native eject count stays unchanged.
+    // Skipped without an appended token: a replace leaf has the token stand in
+    // for the native goodie, and a stock fallback ejects no token at all.
     nw.Limits.Max = savedLimMax;
     nw.Limits.Min = savedLimMin;
-    if (!bReplace)
+    if (bAppendToken)
     {
         nw.Limits.Max += 1;
         nw.Limits.Min += 1;
@@ -354,7 +401,7 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     // goodie's slot. Bump the first non-empty count by 1 so the token rides the
     // extra iteration and every native goodie still drops. Replace leaves skip
     // this for the same reason they skip the Limits bump (token stands in).
-    if (exact && !bReplace)
+    if (exact && bAppendToken)
     {
         for (i = 0; i < 8; i++)
         {
@@ -411,9 +458,15 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     // Replace leaves eject a single token: keep the native timing (no floor) or
     // the jar lags ~0.5s before breaking, which feels unresponsive to the spell.
     nw.GoodieDelay = savedGoodieDelay;
-    if (!bReplace && nw.GoodieDelay <= 0.0) { nw.GoodieDelay = 0.5; }
+    if (bAppendToken && nw.GoodieDelay <= 0.0) { nw.GoodieDelay = 0.5; }
     nw.BaseDelay = savedBaseDelay;
 
+    if (bStockFallback)
+    {
+        Log("[Archipelago] APContainerManager.SwapContainerSpawner: stock " $ string(nw.Class.Name)
+            $ " back in place (apId " $ apId $ ", lives " $ string(savedLives) $ ", NO AP token)");
+        return;
+    }
     if (!class'APContainerStamp'.static.Stamp(nw, apId))
     {
         Log("[Archipelago] APContainerManager.SwapContainerSpawner: Stamp FAILED (unknown subclass) for " $ string(nw.Class.Name));
