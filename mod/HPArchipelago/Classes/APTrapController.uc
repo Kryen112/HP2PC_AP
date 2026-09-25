@@ -466,13 +466,15 @@ static function HealOrphanedJellyLegs(harry h)
 // Per-frame re-pin of the jump-suppression gate (watcher Tick, like LevicorpusHold).
 // A mover could write bCorraledByMover during the frame; re-asserting it each frame
 // keeps DoJump blocked. Only acts while the trap is active and Harry is bound.
+// A landing on an enabled spongify pad lifts the gate instead: the pad's bounce
+// launches through DoJump on Harry's next PlayerTick, which then clears the pad.
 static function JellyLegsHold(harry h)
 {
     if (default.bJellyLegsTrapActive == 0 || h == None)
     {
         return;
     }
-    h.bCorraledByMover = True;
+    h.bCorraledByMover = !(h.HitSpongifyPad != None && h.HitSpongifyPad.IsEnabled());
 }
 
 // Inject one forced jump, bypassing our own gate. DoJump checks bCorraledByMover,
