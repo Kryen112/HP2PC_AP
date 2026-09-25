@@ -185,6 +185,8 @@ If you're playing solo (just you, no other AP slots):
    | `open_castle_goal_duels`     | off/on | off     | won all 10 Duelling Club duels                                           |
    | `open_castle_goal_quidditch` | off/on | off     | won all 6 Quidditch matches                                              |
 
+   **Always Goyle in Slytherin Common Room** (`always_goyle_in_slytherin_common_room`, default on, open castle only): Harry wears the Goyle disguise for the whole Slytherin Common Room, so the Slytherins there never chase him. A Polyjuice Potion Trap has no effect inside the room, and the disguise comes off when you leave the level. Ignored in vanilla.
+
    **Other options (optional)**: sensible defaults; leave them unless you specifically want the behavior. Both game modes unless noted.
 
    | Option                | Default                    | What it does                                                                                                                                                                                                                                                                         |
