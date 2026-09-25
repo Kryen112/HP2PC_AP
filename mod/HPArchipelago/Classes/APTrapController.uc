@@ -94,6 +94,7 @@ var float LevicorpusTrapExpiry;
 const JELLYLEGS_TRAP_TICKS     = 80;   // ~20s at 0.25s per Timer tick
 const JELLYLEGS_JUMP_MIN_TICKS = 6;    // ~1.5s, shortest gap between forced jumps
 const JELLYLEGS_JUMP_MAX_TICKS = 14;   // ~3.5s, longest gap between forced jumps
+const WHOMPING_WILLOW_ROOT_MARGIN = 32.0;
 var byte bJellyLegsTrapActive;
 var int JellyLegsTicksLeft;
 var int NextJumpTicksLeft;
@@ -466,15 +467,55 @@ static function HealOrphanedJellyLegs(harry h)
 // Per-frame re-pin of the jump-suppression gate (watcher Tick, like LevicorpusHold).
 // A mover could write bCorraledByMover during the frame; re-asserting it each frame
 // keeps DoJump blocked. Only acts while the trap is active and Harry is bound.
-// A landing on an enabled spongify pad lifts the gate instead: the pad's bounce
-// launches through DoJump on Harry's next PlayerTick, which then clears the pad.
+// The gate lifts where the game itself launches Harry through DoJump: landing on an
+// enabled spongify pad, and standing in reach of a thrashing Whomping Willow root.
 static function JellyLegsHold(harry h)
 {
     if (default.bJellyLegsTrapActive == 0 || h == None)
     {
         return;
     }
-    h.bCorraledByMover = !(h.HitSpongifyPad != None && h.HitSpongifyPad.IsEnabled());
+    h.bCorraledByMover = !((h.HitSpongifyPad != None && h.HitSpongifyPad.IsEnabled())
+                           || IsInWhompingWillowRootReach(h));
+}
+
+// A root hit knocks Harry back through DoJump. Blocked, he stays inside the root and
+// takes the hit again every frame, so the gate lifts across the root's own hit box,
+// widened by WHOMPING_WILLOW_ROOT_MARGIN so it is already open when he walks in.
+static function bool IsInWhompingWillowRootReach(harry h)
+{
+    local WhompWRController root;
+    local int i;
+
+    if (Caps(string(h.Level.Outer.Name)) != "ADV1WILLOW") return False;
+    foreach h.AllActors(class'WhompWRController', root)
+    {
+        if (!root.IsInState('ThrashingAndSmashing')) continue;
+        for (i = 0; i < 3; i++)
+        {
+            if (IsInsideRootHitBox(h, root.ColObj[i])) return True;
+        }
+    }
+    return False;
+}
+
+// Mirrors WhompWRController.ThrashingAndSmashing's hit test, widened by the margin.
+static function bool IsInsideRootHitBox(harry h, GenericColObj col)
+{
+    local Vector vX, vY, vZ, V, rel;
+    local float D;
+
+    if (col == None) return False;
+    rel = h.Location - col.Location;
+    if (VSize(rel) > 200 + WHOMPING_WILLOW_ROOT_MARGIN) return False;
+    GetAxes(col.Rotation, vX, vY, vZ);
+    V = vX * (col.CollisionRadius / 2);
+    D = col.CollisionRadius / 2 + h.CollisionRadius + WHOMPING_WILLOW_ROOT_MARGIN;
+    if (((rel - V) Dot vX) > D || ((rel + V) Dot -vX) > D) return False;
+    V = vY * (col.CollisionWidth / 2);
+    D = col.CollisionWidth / 2 + h.CollisionRadius + WHOMPING_WILLOW_ROOT_MARGIN;
+    if (((rel - V) Dot vY) > D || ((rel + V) Dot -vY) > D) return False;
+    return True;
 }
 
 // Inject one forced jump, bypassing our own gate. DoJump checks bCorraledByMover,
