@@ -348,6 +348,14 @@ class OpenCastleGoalQuidditch(Toggle):
     display_name = "Open castle goal: all Quidditch matches"
 
 
+class AlwaysGoyleInSlytherinCommonRoom(DefaultOnToggle):
+    """Open castle only. If true, Harry always wears the Goyle disguise inside
+    the Slytherin Common Room, so the Slytherins there never chase him. The
+    disguise comes off on leaving the level, and a Polyjuice Potion Trap
+    received there has no effect."""
+    display_name = "Always Goyle in Slytherin Common Room"
+
+
 class RingLink(Toggle):
     """If true, in-game bean pickups and vendor spending are mirrored
     to every other RingLink slot in the room, and their currency changes
@@ -519,6 +527,7 @@ class HP2Options(PerGameCommonOptions):
     open_castle_goal_levels: OpenCastleGoalLevels
     open_castle_goal_duels: OpenCastleGoalDuels
     open_castle_goal_quidditch: OpenCastleGoalQuidditch
+    always_goyle_in_slytherin_common_room: AlwaysGoyleInSlytherinCommonRoom
     # Per-category check toggles
     enable_wizard_cards: EnableWizardCards
     enable_secrets: EnableSecrets
@@ -553,6 +562,7 @@ class HP2WebWorld(WebWorld):
         OptionGroup("         OPEN CASTLE         ", [
             OpenCastleGoalCards, OpenCastleGoalSpells, OpenCastleGoalLevels,
             OpenCastleGoalDuels, OpenCastleGoalQuidditch,
+            AlwaysGoyleInSlytherinCommonRoom,
         ]),
         OptionGroup("      CATEGORY TOGGLES       ", [
             EnableWizardCards, EnableSecrets, EnableChallengeStars,
@@ -1212,6 +1222,10 @@ class HP2World(World):
             "tradersanity_prices": self._tradersanity_rolled_factors(),
             "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),
             "skip_vendor_voices": bool(self.options.skip_vendor_voices.value),
+            # Forced off outside open castle so a vanilla seed never disguises Harry.
+            "always_goyle_in_slytherin_common_room": bool(
+                self.options.always_goyle_in_slytherin_common_room.value and self._is_open_castle()
+            ),
             "enable_quidditch_upgrades": bool(self.options.enable_quidditch_upgrades.value),
             # Per-category check toggles. The tracker has no other view of the
             # YAML, so it needs each one to flip its setting marker and gate the

@@ -914,6 +914,10 @@ class HP2Context(CommonContext):
         # When true, the mod swaps/injects bean-container AP tokens per level.
         # Parsed from slot_data on Connected; re-sent CONTAINERSANITY <0|1> on HELLO.
         self.containersanity: bool = False
+        # When true (open castle only), the mod keeps Harry disguised as Goyle
+        # inside the Slytherin Common Room. Parsed from slot_data on Connected;
+        # re-sent ALWAYS_GOYLE_IN_SLYTHERIN_COMMON_ROOM <0|1> on HELLO.
+        self.always_goyle_in_slytherin_common_room: bool = False
         # Per-seed sticky set of Tradersanity location ids the client has
         # already published a broadcast hint for, loaded from AP server Data
         # Storage on Connected and written back on each new hint so a
@@ -1207,6 +1211,10 @@ class HP2Context(CommonContext):
                                    on_text="enabled (sprint is free)")
         self._apply_bool_slot_flag(sd, "containersanity", "containersanity",
                                    "CONTAINERSANITY", "Containersanity")
+        self._apply_bool_slot_flag(sd, "always_goyle_in_slytherin_common_room",
+                                   "always_goyle_in_slytherin_common_room",
+                                   "ALWAYS_GOYLE_IN_SLYTHERIN_COMMON_ROOM",
+                                   "Always Goyle in Slytherin Common Room")
         self.vendor_hint_key = f"HP2PC_AP:vendor_hints:{self.team}:{self.slot}"
         self.hinted_vendor_locs = set()
         if self.tradersanity_hint_on_open:
@@ -2330,6 +2338,8 @@ class HP2Context(CommonContext):
         # sprint free when the seed put Running in logic.
         self._send_to_game(f"RUNNING_LOGIC {1 if self.allow_running_logic else 0}")
         self._send_to_game(f"CONTAINERSANITY {1 if self.containersanity else 0}")
+        self._send_to_game("ALWAYS_GOYLE_IN_SLYTHERIN_COMMON_ROOM "
+                           f"{1 if self.always_goyle_in_slytherin_common_room else 0}")
         # Re-push Tradersanity vendor hint item names to the mod. Sticky +
         # idempotent mod-side (cached per-slot on APCardWatcher), so
         # resending every HELLO covers fresh launches / reconnects.

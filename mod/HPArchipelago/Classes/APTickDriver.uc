@@ -60,6 +60,7 @@ static function DriveTick(APCardWatcher w)
     // Terminate the Polyjuice / Obliviate traps on timer / level change. Runs
     // before the spell-revert reconcile so a same-tick restore is visible to it.
     class'APTrapController'.static.TrapTick(w.HarryRef);
+    class'APTrapController'.static.SlytherinCommonRoomDisguiseTick(w.HarryRef);
 
     // Shift-to-run upkeep: scale GroundSpeed + drain beans while sprinting.
     sc = class'APSprintController'.static.GetInstance(w);

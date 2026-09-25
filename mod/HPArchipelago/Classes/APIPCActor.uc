@@ -424,6 +424,12 @@ function HandleLine(string line)
         // every HELLO.
         class'APContainerManager'.static.SetContainersanity(byte(int(rest)));
     }
+    else if (MatchCmd(line, "ALWAYS_GOYLE_IN_SLYTHERIN_COMMON_ROOM ", rest))
+    {
+        // Open castle Slytherin Common Room disguise flag. Sticky byte; resent
+        // every HELLO.
+        class'APTrapController'.static.SetAlwaysGoyleInSlytherinCommonRoom(byte(int(rest)));
+    }
     else if (MatchCmd(line, "HINT ", rest))
     {
         // Tradersanity vendor hint payload: "HINT <locId> <item_name>".

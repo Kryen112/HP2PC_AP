@@ -2427,6 +2427,7 @@ function GrantBeansNoBroadcast(harry h, int Amount)
 // deliberately never laddered into the ledger. Each trap self-terminates:
 //   Bean Thief    - instant, permanent by design (beans clamp at 0).
 //   Polyjuice     - turns Harry into Goyle; reverts on the next level's fresh (bIsGoyle=false) pawn.
+//                   No effect under the Slytherin Common Room disguise.
 //   Obliviate - APCardWatcher restores the spellbook on a timer or the
 //                   next level transition, whichever comes first.
 //   Drowsiness    - the game's own sleepy status effect; harry.Timer() counts
@@ -2493,6 +2494,12 @@ function bool TryApplyTrap(string Name, harry h)
 
     if (Name == "Polyjuice Potion Trap")
     {
+        // The forced Slytherin Common Room disguise already owns the Goyle state.
+        if (class'APTrapController'.static.IsSlytherinCommonRoomDisguiseActive(h))
+        {
+            Log("[Archipelago] ApplyGrant: Polyjuice Potion Trap - no effect (Slytherin Common Room disguise)");
+            return True;
+        }
         // Model swap only (harry.uc:4136 SetNewMesh swaps the mesh when
         // bIsGoyle flips). The next level loads a fresh pawn with the default
         // bIsGoyle=false, so this reverts naturally. The watcher sticky just

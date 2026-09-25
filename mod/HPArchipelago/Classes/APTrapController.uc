@@ -19,6 +19,8 @@ var class<baseSpell> SpellTrapBackup[32];
 // (bIsGoyle=false) pawn; this sticky just records the active state and is cleared
 // on the level change so it stays accurate.
 var byte bPolyjuiceTrapActive;
+// Sticky flag for the forced Slytherin Common Room disguise (open castle only).
+var byte bAlwaysGoyleInSlytherinCommonRoom;
 // Level the pawn last observed (Level.Outer.Name). Every activation of a
 // level-bounded trap (fresh or stacked) stamps the apply-level here; TrapTick
 // compares each tick and treats any change as the "left the level" boundary that
@@ -154,6 +156,31 @@ static function MarkPolyjuiceTrapActiveDefault(harry h)
         default.TrapLastLevelName = h.Level.Outer.Name;
     }
     Log("[Archipelago] APTrapController.MarkPolyjuiceTrapActiveDefault: Polyjuice trap active (reverts on next level)");
+}
+
+static function SetAlwaysGoyleInSlytherinCommonRoom(byte v)
+{
+    if (v != 0) v = 1;
+    default.bAlwaysGoyleInSlytherinCommonRoom = v;
+    Log("[Archipelago] APTrapController.SetAlwaysGoyleInSlytherinCommonRoom: " $ string(v));
+}
+
+// True while the forced Slytherin Common Room disguise owns the Goyle state.
+static function bool IsSlytherinCommonRoomDisguiseActive(harry h)
+{
+    return h != None
+        && default.bAlwaysGoyleInSlytherinCommonRoom == 1
+        && class'APModeDetector'.default.bOpenCastleMode == 1
+        && Caps(string(h.Level.Outer.Name)) == "ADV7SLYTHCOMROOM";
+}
+
+// Re-asserts the disguise each tick so a level trigger cannot strip it mid-level.
+static function SlytherinCommonRoomDisguiseTick(harry h)
+{
+    if (!IsSlytherinCommonRoomDisguiseActive(h) || h.bIsGoyle) return;
+    h.bIsGoyle = True;
+    h.SetNewMesh();
+    Log("[Archipelago] APTrapController.SlytherinCommonRoomDisguiseTick: disguised as Goyle");
 }
 
 // Engorgio / Reducio Trap entry point. Scales the model and the collision cylinder
