@@ -349,9 +349,10 @@ function ScanFinalStarCompletion()
 }
 
 // Boss-kill detector for the two open-castle goal levels. Level-gated so it never
-// scans unrelated maps. Idempotent via NotifyLevelObjective's dedupe. Each boss is
-// credited on its own kill state OR on the cutscene its final-defeat event starts,
-// since a held cutscene skip can carry the level out before the kill state is polled.
+// scans unrelated maps. Idempotent via NotifyLevelObjective's dedupe. The primary
+// credit is an APBossVictoryListener on the boss's final-defeat event, fired inside
+// the kill itself: a held cutscene skip can save and travel out between two polls.
+// The kill-state and victory-cutscene polls below stay as safety nets.
 function ScanBossKills(harry h)
 {
     local string lvl;
@@ -365,6 +366,7 @@ function ScanBossKills(harry h)
     {
         foreach AllActors(class'Aragog', ag)
         {
+            EnsureBossVictoryListener(ag.TrigEventWhenDefeated, 3);
             if (ag.IsInState('stateBeatAragog'))
             {
                 CreditBossKill(3, "Aragog in stateBeatAragog");
@@ -381,6 +383,7 @@ function ScanBossKills(harry h)
     {
         foreach AllActors(class'Basilisk', bs)
         {
+            EnsureBossVictoryListener(bs.TrigEventWhenDefeated2, 4);
             if (bs.bBasilFinishedForGood)
             {
                 CreditBossKill(4, "bBasilFinishedForGood");
@@ -393,6 +396,26 @@ function ScanBossKills(harry h)
             }
         }
     }
+}
+
+// One listener per defeat event, so a save reload or a second poll never stacks
+// another. A boss with no defeat event (Aragog1) gets none.
+function EnsureBossVictoryListener(name victoryEvent, int idx)
+{
+    local APBossVictoryListener listener;
+    local bool bListening;
+
+    if (victoryEvent == 'None') return;
+    foreach AllActors(class'APBossVictoryListener', listener, victoryEvent)
+    {
+        bListening = True;
+        break;
+    }
+    if (bListening) return;
+    listener = Spawn(class'APBossVictoryListener', , victoryEvent);
+    if (listener == None) return;
+    listener.ObjectiveIndex = idx;
+    Log("[Archipelago] APLocationScanner.EnsureBossVictoryListener: listening on " $ string(victoryEvent) $ " for objective idx=" $ idx);
 }
 
 // True once a cutscene listening for the boss's final-defeat event has started.
