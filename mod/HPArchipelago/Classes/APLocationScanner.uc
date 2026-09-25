@@ -349,7 +349,9 @@ function ScanFinalStarCompletion()
 }
 
 // Boss-kill detector for the two open-castle goal levels. Level-gated so it never
-// scans unrelated maps. Idempotent via NotifyLevelObjective's dedupe.
+// scans unrelated maps. Idempotent via NotifyLevelObjective's dedupe. Each boss is
+// credited on its own kill state OR on the cutscene its final-defeat event starts,
+// since a held cutscene skip can carry the level out before the kill state is polled.
 function ScanBossKills(harry h)
 {
     local string lvl;
@@ -365,7 +367,12 @@ function ScanBossKills(harry h)
         {
             if (ag.IsInState('stateBeatAragog'))
             {
-                class'APGoalTracker'.static.NotifyLevelObjective(3);
+                CreditBossKill(3, "Aragog in stateBeatAragog");
+                break;
+            }
+            if (BossVictoryCutscenePlayed(ag.TrigEventWhenDefeated))
+            {
+                CreditBossKill(3, "victory cutscene " $ string(ag.TrigEventWhenDefeated) $ " played");
                 break;
             }
         }
@@ -376,11 +383,37 @@ function ScanBossKills(harry h)
         {
             if (bs.bBasilFinishedForGood)
             {
-                class'APGoalTracker'.static.NotifyLevelObjective(4);
+                CreditBossKill(4, "bBasilFinishedForGood");
+                break;
+            }
+            if (BossVictoryCutscenePlayed(bs.TrigEventWhenDefeated2))
+            {
+                CreditBossKill(4, "victory cutscene " $ string(bs.TrigEventWhenDefeated2) $ " played");
                 break;
             }
         }
     }
+}
+
+// True once a cutscene listening for the boss's final-defeat event has started.
+// Each of these events has the boss as its only sender, so a play means the kill.
+function bool BossVictoryCutscenePlayed(name victoryEvent)
+{
+    local CutScene cs;
+
+    if (victoryEvent == 'None') return False;
+    foreach AllActors(class'CutScene', cs)
+    {
+        if (cs.Tag == victoryEvent && cs.nPlayedCount > 0) return True;
+    }
+    return False;
+}
+
+function CreditBossKill(int idx, string signal)
+{
+    if (class'APGoalTracker'.default.GoalLevelDone[idx] == 1) return;
+    Log("[Archipelago] APLocationScanner.ScanBossKills: idx=" $ idx $ " kill seen via " $ signal);
+    class'APGoalTracker'.static.NotifyLevelObjective(idx);
 }
 
 // Generous cylinder-overlap test: True when the pawn is anywhere inside the slime's
