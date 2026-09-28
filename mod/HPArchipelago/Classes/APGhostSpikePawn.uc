@@ -2,7 +2,7 @@
 // APGhostSpikePawn.
 //
 // Ghost-players render spike, HPawn base: the same translucent Harry mesh as
-// APGhostSpikeActor on the pawn lineage every vanilla prop and character uses.
+// APGhostSpikeActor on the pawn lineage every stock prop and character uses.
 // No shadow, no collision, no physics; APGhostSpikeDriver places and animates it.
 //================================================================================
 

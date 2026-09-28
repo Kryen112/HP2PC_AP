@@ -66,6 +66,7 @@ function Actor SpawnGhost(class<Actor> cls, harry h, bool bFollow)
     local Vector loc;
     local Rotator rot;
 
+    if (!HasFreeSlot()) return None;
     FrontOfHarry(h, loc, rot);
     g = Spawn(cls, , , loc, rot);
     if (g == None)
@@ -89,10 +90,33 @@ function Actor RevealPoolGhost(bool bPawn, harry h)
         Log("[Archipelago] GhostSpike: no pool ghost in this level (the pool is built on the InitGame path only, not after a save load)");
         return None;
     }
+    if (IsRegistered(g))
+    {
+        Log("[Archipelago] GhostSpike: pool ghost already revealed");
+        return g;
+    }
+    if (!HasFreeSlot()) return None;
     LogGhost("pool reveal, before", g);
     g.bHidden = False;
     Register(g, h, True);
     return g;
+}
+
+function bool IsRegistered(Actor g)
+{
+    local int i;
+
+    for (i = 0; i < GhostCount; i++)
+        if (Ghosts[i] == g) return True;
+    return False;
+}
+
+// Logs when full, so a caller bails before spawning or un-hiding anything.
+function bool HasFreeSlot()
+{
+    if (GhostCount < GHOST_SLOTS) return True;
+    Log("[Archipelago] GhostSpike: all " $ GHOST_SLOTS $ " slots in use, GhostSpikeClear first");
+    return False;
 }
 
 function Register(Actor g, harry h, bool bFollow)
@@ -100,11 +124,7 @@ function Register(Actor g, harry h, bool bFollow)
     local Vector loc;
     local Rotator rot;
 
-    if (GhostCount >= GHOST_SLOTS)
-    {
-        Log("[Archipelago] GhostSpike: all " $ GHOST_SLOTS $ " slots in use, GhostSpikeClear first");
-        return;
-    }
+    if (IsRegistered(g) || !HasFreeSlot()) return;
     Ghosts[GhostCount] = g;
     if (bFollow) GhostFollow[GhostCount] = 1;
     else         GhostFollow[GhostCount] = 0;
@@ -112,6 +132,9 @@ function Register(Actor g, harry h, bool bFollow)
 
     g.SetPhysics(PHYS_None);
     g.SetCollision(False, False, False);
+    // The pool pawn came up before Harry existed, so HPawn.PreBeginPlay left
+    // PlayerHarry empty. Bind it now.
+    if (HPawn(g) != None) HPawn(g).PlayerHarry = h;
     FrontOfHarry(h, loc, rot);
     g.SetRotation(rot);
     g.SetLocation(loc);
