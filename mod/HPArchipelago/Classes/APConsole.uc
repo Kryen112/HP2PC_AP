@@ -39,6 +39,16 @@
 //                     rebuild per guess. Live edits die with the level: put the
 //                     settled number in APGameInfo.BlockerRadiusForTag.
 //
+//   GhostSpike [mode] ghost-players render spike. Puts a translucent Harry
+//                     ghost 120 units in front of Harry that tracks him and
+//                     mirrors his animation. Mode 0 (default) spawns an
+//                     Actor-based ghost at runtime, 1 an HPawn-based one, 2 and
+//                     3 reveal the matching ghost APGameInfo built hidden at
+//                     level bring-up, 4 spawns the Actor-based ghost and leaves
+//                     it standing still. Every step logs a "GhostSpike" line.
+//
+//   GhostSpikeClear   destroys the runtime ghosts and re-hides the pooled ones.
+//
 // Freecam keys (debug mode on; Delete toggles the freecam):
 //   WASD: fly the freecam, mirroring the stock arrow keys. Forward follows where
 //     the camera looks, so mouse-aim plus WASD covers full movement. The arrow
@@ -547,4 +557,70 @@ exec function ClearBookcases()
         }
     }
     DevPrint("ClearBookcases: destroyed " $ destroyed $ " debug bookcase(s)");
+}
+
+exec function GhostSpike(optional int Mode)
+{
+    local harry h;
+    local APGhostSpikeDriver driver;
+    local Actor g;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        Log("[Archipelago] APConsole.GhostSpike: no Viewport.Actor");
+        return;
+    }
+    h = harry(Viewport.Actor);
+    if (h == None)
+    {
+        DevPrint("GhostSpike: Viewport.Actor is not harry");
+        return;
+    }
+    driver = class'APGhostSpikeDriver'.static.GetInstance(h);
+    if (driver == None)
+    {
+        DevPrint("GhostSpike: no driver (Level.Game is not APGameInfo)");
+        return;
+    }
+    switch (Mode)
+    {
+        case 1:
+            g = driver.SpawnGhost(class'APGhostSpikePawn', h, True);
+            break;
+        case 2:
+            g = driver.RevealPoolGhost(False, h);
+            break;
+        case 3:
+            g = driver.RevealPoolGhost(True, h);
+            break;
+        case 4:
+            g = driver.SpawnGhost(class'APGhostSpikeActor', h, False);
+            break;
+        default:
+            g = driver.SpawnGhost(class'APGhostSpikeActor', h, True);
+            break;
+    }
+    if (g == None)
+    {
+        DevPrint("GhostSpike mode " $ Mode $ ": no ghost (see Game.log)");
+        return;
+    }
+    DevPrint("GhostSpike mode " $ Mode $ ": " $ string(g.Class.Name) $ " at " $ string(g.Location) $ ", look ahead");
+}
+
+exec function GhostSpikeClear()
+{
+    local APGhostSpikeDriver driver;
+
+    if (Viewport == None || Viewport.Actor == None)
+    {
+        return;
+    }
+    driver = class'APGhostSpikeDriver'.static.GetInstance(Viewport.Actor);
+    if (driver == None)
+    {
+        return;
+    }
+    driver.ClearAll();
+    DevPrint("GhostSpikeClear: ghosts cleared");
 }
