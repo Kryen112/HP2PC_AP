@@ -26,10 +26,11 @@ MAX_REPLAY_DELAY_S = 1.0
 # Most samples one Bounce may carry; anything past this is ignored.
 MAX_SAMPLES_PER_BOUNCE = 20
 # A sample after the map name: x y z pitch yaw roll, then the body track
-# (sequence, frame, loop), the upper-body track (sequence, frame, loop), scale.
-SAMPLE_FIELD_COUNT = 13
-_INT_FIELDS = frozenset((0, 1, 2, 3, 4, 5, 7, 8, 10, 11))
-_SCALE_FIELD = 12
+# (sequence, frame, loop, combine), the upper-body track (sequence, frame,
+# loop), scale.
+SAMPLE_FIELD_COUNT = 14
+_INT_FIELDS = frozenset((0, 1, 2, 3, 4, 5, 7, 8, 9, 11, 12))
+_SCALE_FIELD = 13
 _TOKEN = re.compile(r"^[A-Za-z0-9_.\-]{1,32}$")
 _LEVEL = re.compile(r"^[A-Za-z0-9_\-]{1,48}$")
 _MAX_NAME_CHARS = 16

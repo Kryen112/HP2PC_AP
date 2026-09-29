@@ -10,12 +10,12 @@ from ..ghost_link import (GHOST_TAG, GhostLink, MAX_REPLAY_DELAY_S,
                           MAX_SAMPLES_PER_BOUNCE, PEER_TIMEOUT_S, SEND_INTERVAL_S,
                           clean_name, parse_sample)
 
-SAMPLE = "-622|-5154|428|0|16384|0|run|42|1|Cast|10|0|1"
+SAMPLE = "-622|-5154|428|0|16384|0|run|42|1|1|Cast|10|0|1"
 POS = "ENTRYHALL_HUB|" + SAMPLE
 
 
 def fields(**overrides):
-    base = [-622, -5154, 428, 0, 16384, 0, "run", 42, 1, "Cast", 10, 0, 1.0]
+    base = [-622, -5154, 428, 0, 16384, 0, "run", 42, 1, 1, "Cast", 10, 0, 1.0]
     for index, value in overrides.items():
         base[int(index[1:])] = value
     return base
@@ -128,7 +128,7 @@ class TestInbound(unittest.TestCase):
 
     def test_same_map_peer_becomes_peer_lines(self) -> None:
         lines = self.link.on_bounced(bounce(), my_slot=1)
-        self.assertEqual(lines, [(0.0, "PEER 2|Ron|-622|-5154|428|0|16384|0|run|42|1|Cast|10|0|1.00")])
+        self.assertEqual(lines, [(0.0, "PEER 2|Ron|-622|-5154|428|0|16384|0|run|42|1|1|Cast|10|0|1.00")])
         self.assertTrue(self.link.peers[2].visible)
 
     def test_own_echo_and_garbage_are_dropped(self) -> None:
@@ -167,7 +167,7 @@ class TestInbound(unittest.TestCase):
     def test_name_with_bar_cannot_break_the_frame(self) -> None:
         lines = self.link.on_bounced(bounce(name="Ro|n"), my_slot=1)
         self.assertEqual(lines[0][1].split("|")[1], "Ron")
-        self.assertEqual(len(lines[0][1].split("|")), 15)
+        self.assertEqual(len(lines[0][1].split("|")), 16)
 
     def test_silent_peer_expires_with_peergone(self) -> None:
         self.link.on_bounced(bounce(), my_slot=1)
