@@ -376,6 +376,15 @@ class TrapLink(Toggle):
     display_name = "Trap Link"
 
 
+class GhostPlayers(DefaultOnToggle):
+    """If true, the other Harry Potter 2 players in the room who are on the
+    same map appear in your game as translucent ghosts, moving and animating
+    as they play, and your Harry appears in theirs. Cosmetic only: a ghost has
+    no collision and cannot be targeted. /ghosts in the client toggles it
+    mid-run; off also stops sharing your own position."""
+    display_name = "Ghost Players"
+
+
 class Traps(OptionSet):
     """Which trap types may appear in your item pool. Traps replace a fraction
     (set by `trap_fill_percent`) of the filler. Pick any subset.
@@ -547,6 +556,7 @@ class HP2Options(PerGameCommonOptions):
     death_link: DeathLink
     trap_link: TrapLink
     ring_link: RingLink
+    ghost_players: GhostPlayers
     # Audio randomizers
     music_randomizer: MusicRandomizer
     sound_randomizer: SoundRandomizer
@@ -574,7 +584,7 @@ class HP2WebWorld(WebWorld):
             Traps, TrapFillPercent,
         ]),
         OptionGroup("           LINKING           ", [
-            DeathLink, TrapLink, RingLink,
+            DeathLink, TrapLink, RingLink, GhostPlayers,
         ]),
         OptionGroup("      AUDIO RANDOMIZERS      ", [
             MusicRandomizer, SoundRandomizer, DialogueRandomizer,
@@ -1218,6 +1228,7 @@ class HP2World(World):
             # respect the same preference (canonical order for reproducibility).
             "trap_pool": [t for t in TRAP_NAMES if t in self.options.traps.value],
             "death_link": bool(self.options.death_link.value),
+            "ghost_players": bool(self.options.ghost_players.value),
             "tradersanity": self.options.tradersanity.value,
             "tradersanity_prices": self._tradersanity_rolled_factors(),
             "tradersanity_hint_on_open": bool(self.options.tradersanity_hint_on_open.value),

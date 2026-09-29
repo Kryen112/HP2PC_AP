@@ -26,3 +26,21 @@ class TestOpenCastleSlotData(HP2TestBase):
 
     def test_slot_data_reports_game_mode(self) -> None:
         self.assertEqual(self.world.fill_slot_data()["game_mode"], "open_castle")
+
+
+class TestGhostPlayersSlotData(HP2TestBase):
+    """The client learns the ghost toggle only through slot_data, and it is on
+    unless the player turns it off."""
+    options = {"game_mode": "open_castle"}
+    run_default_tests = False
+
+    def test_ghost_players_defaults_on(self) -> None:
+        self.assertIs(self.world.fill_slot_data()["ghost_players"], True)
+
+
+class TestGhostPlayersOffSlotData(HP2TestBase):
+    options = {"game_mode": "open_castle", "ghost_players": False}
+    run_default_tests = False
+
+    def test_ghost_players_off_reaches_slot_data(self) -> None:
+        self.assertIs(self.world.fill_slot_data()["ghost_players"], False)

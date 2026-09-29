@@ -1,6 +1,6 @@
-"""RingLink, TrapLink and DeathLink are opt-in per seed, but a player may flip
-any of them mid-run with /ringlink, /traplink or /deathlink. None of the three
-is an item or a location, so an override cannot affect solvability. These tests
+"""RingLink, TrapLink, DeathLink and ghost players are per-seed options, but a
+player may flip any of them mid-run with /ringlink, /traplink, /deathlink or
+/ghosts. None of them is an item or a location, so an override cannot affect solvability. These tests
 drive the real context and command-processor methods to pin the override
 precedence (a player's choice beats slot_data on every Connected, so a
 reconnect does not silently revert it), the argument parsing, and the
@@ -11,8 +11,8 @@ from unittest import mock
 
 from ..Client import _LINK_KINDS, HP2CommandProcessor, HP2Context
 
-ALL_ON = {"ring_link": 1, "trap_link": 1, "death_link": 1}
-ALL_OFF = {"ring_link": 0, "trap_link": 0, "death_link": 0}
+ALL_ON = {"ring_link": 1, "trap_link": 1, "death_link": 1, "ghost_players": 1}
+ALL_OFF = {"ring_link": 0, "trap_link": 0, "death_link": 0, "ghost_players": 0}
 
 
 class _Ctx(HP2Context):
@@ -26,6 +26,7 @@ class _Ctx(HP2Context):
         self.ring_link_enabled = False
         self.trap_link_enabled = False
         self.death_link_enabled = False
+        self.ghost_players_enabled = False
         self.applied: list = []
 
     def apply_link_state(self, kind: str, enabled: bool) -> None:
@@ -50,28 +51,28 @@ class TestLinkOverridePrecedence(unittest.TestCase):
 
     def test_no_override_follows_the_seed(self) -> None:
         self.assertEqual(self.ctx.refresh_links(ALL_ON),
-                         {"ring": True, "trap": True, "death": True})
+                         {"ring": True, "trap": True, "death": True, "ghost": True})
         self.assertEqual(self.ctx.refresh_links(ALL_OFF),
-                         {"ring": False, "trap": False, "death": False})
+                         {"ring": False, "trap": False, "death": False, "ghost": False})
         for kind in _LINK_KINDS:
             self.assertIsNone(self.ctx.link_overrides[kind])
 
     def test_missing_slot_data_key_reads_as_off(self) -> None:
         # An older seed's slot_data omits a key entirely.
         self.assertEqual(self.ctx.refresh_links({}),
-                         {"ring": False, "trap": False, "death": False})
+                         {"ring": False, "trap": False, "death": False, "ghost": False})
 
     def test_override_on_beats_a_seed_that_rolled_off(self) -> None:
         for kind in _LINK_KINDS:
             self.ctx.link_overrides[kind] = True
         self.assertEqual(self.ctx.refresh_links(ALL_OFF),
-                         {"ring": True, "trap": True, "death": True})
+                         {"ring": True, "trap": True, "death": True, "ghost": True})
 
     def test_override_off_beats_a_seed_that_rolled_on(self) -> None:
         for kind in _LINK_KINDS:
             self.ctx.link_overrides[kind] = False
         self.assertEqual(self.ctx.refresh_links(ALL_ON),
-                         {"ring": False, "trap": False, "death": False})
+                         {"ring": False, "trap": False, "death": False, "ghost": False})
 
     def test_reconnect_does_not_revert_an_override(self) -> None:
         # Re-reading slot_data on every Connected must not stomp a choice the
@@ -81,7 +82,7 @@ class TestLinkOverridePrecedence(unittest.TestCase):
             self.ctx.link_overrides[kind] = False
         for _ in range(3):
             self.assertEqual(self.ctx.refresh_links(ALL_ON),
-                             {"ring": False, "trap": False, "death": False})
+                             {"ring": False, "trap": False, "death": False, "ghost": False})
 
     def test_reconnect_reapplies_even_when_nothing_changed(self) -> None:
         # refresh_links deliberately does not take the no-op skip _set_link has:
@@ -113,7 +114,8 @@ class TestLinkCommands(unittest.TestCase):
     def run_command(self, kind: str, arg: str = "") -> None:
         {"ring": self.processor._cmd_ringlink,
          "trap": self.processor._cmd_traplink,
-         "death": self.processor._cmd_deathlink}[kind](arg)
+         "death": self.processor._cmd_deathlink,
+         "ghost": self.processor._cmd_ghosts}[kind](arg)
 
     def test_on_and_off_set_the_override(self) -> None:
         for kind in _LINK_KINDS:
@@ -169,7 +171,8 @@ class TestLinkCommands(unittest.TestCase):
         # usage message instead of raising on an unexpected second positional.
         for command in (HP2CommandProcessor._cmd_ringlink,
                         HP2CommandProcessor._cmd_traplink,
-                        HP2CommandProcessor._cmd_deathlink):
+                        HP2CommandProcessor._cmd_deathlink,
+                        HP2CommandProcessor._cmd_ghosts):
             self.assertTrue(getattr(command, "raw_text", False), command.__name__)
 
     def test_redundant_command_does_not_reapply(self) -> None:

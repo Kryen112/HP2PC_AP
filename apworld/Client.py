@@ -31,6 +31,9 @@ Mod-side protocol (newline-delimited text):
                                 outgrows the mod's per-line TcpLink cap, so it ships in chunks)
     BEANSTATE_END               (game → client, end of the snapshot: concatenate the chunks and
                                 persist to AP storage so the room survives a restart)
+    POS <level>|<sample>        (game → client, ten times a second while Harry moves or animates:
+                                position, rotation, both animation tracks, scale; batched into
+                                HP2Ghost Bounces for the other slots' ghosts)
     GRANT <index> <payload>\x1f<segrecord>  (client → game, forward item received; index = AP
                                 ReceivedItems index; \x1f splits the apply payload from a
                                 colourised toast segment record)
@@ -39,6 +42,9 @@ Mod-side protocol (newline-delimited text):
     DEATHLINK                   (client → game, a linked player died, kill Harry)
     TRAPLINK <name>|<source>    (client → game, a linked player's trap, applied via the grant
                                 drain as an index-less grant)
+    PEER <slot>|<name>|<sample> (client → game, one sample of another slot's Harry on this map;
+                                the mod draws and moves that slot's ghost)
+    PEERGONE <slot>             (client → game, that slot left this map or went silent; drop its ghost)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server
                                 already has as checked; sticky, every HELLO)
@@ -102,6 +108,7 @@ from MultiServer import mark_raw
 from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, installer, music_patch, sound_patch
+from .ghost_link import GHOST_TAG, GhostLink
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
                     ITEM_CLASSIFICATIONS, ITEM_GROUPS,
                     PROGRESSIVE_LEVEL_KEY_NAME, PROGRESSIVE_LEVEL_KEY_ORDER)
@@ -235,8 +242,8 @@ _PATCH_ERRORS = (PatchError, OSError)
 
 class _LinkKind:
     """One opt-in link tag: how the client talks about it and which slot_data
-    key the seed rolls it with. Lets /ringlink, /traplink and /deathlink share
-    one override path instead of branching per link."""
+    key the seed rolls it with. Lets /ringlink, /traplink, /deathlink and
+    /ghosts share one override path instead of branching per link."""
 
     def __init__(self, noun, command, slot_data_key, state_attr):
         self.noun = noun                    # "RingLink"
@@ -245,12 +252,13 @@ class _LinkKind:
         self.state_attr = state_attr        # "ring_link_enabled"
 
 
-# The three links a player may flip mid-run. None of them is an item or a
+# The links a player may flip mid-run. None of them is an item or a
 # location, so toggling one cannot affect solvability and needs no re-roll.
 _LINK_KINDS = {
     "ring": _LinkKind("RingLink", "/ringlink", "ring_link", "ring_link_enabled"),
     "trap": _LinkKind("TrapLink", "/traplink", "trap_link", "trap_link_enabled"),
     "death": _LinkKind("DeathLink", "/deathlink", "death_link", "death_link_enabled"),
+    "ghost": _LinkKind("Ghosts", "/ghosts", "ghost_players", "ghost_players_enabled"),
 }
 # On/off words shared by the link commands and /autoplay, mapping to the
 # override they set. A bare command flips the effective state; the links also
@@ -605,7 +613,7 @@ class HP2CommandProcessor(ClientCommandProcessor):
             return False
 
     def _set_link(self, kind: str, state: str) -> None:
-        """Shared body of the three link commands: resolve the argument to an
+        """Shared body of the link commands: resolve the argument to an
         override, re-apply the tag when that changed the effective state, and
         report what the seed rolled once slot_data has arrived."""
         ctx: "HP2Context" = self.ctx
@@ -662,6 +670,14 @@ class HP2CommandProcessor(ClientCommandProcessor):
         Usage: /deathlink [on | off | seed]; bare /deathlink flips it, 'seed'
         drops the override."""
         self._set_link("death", state)
+        return True
+
+    @mark_raw
+    def _cmd_ghosts(self, state: str = "") -> bool:
+        """Show or hide the other players' ghosts mid-run, overriding what the
+        seed rolled. Usage: /ghosts [on | off | seed]; bare /ghosts flips it,
+        'seed' drops the override. Off also stops sharing your own position."""
+        self._set_link("ghost", state)
         return True
 
     @mark_raw
@@ -994,6 +1010,13 @@ class HP2Context(CommonContext):
         # (CommonContext.last_death_link is stamped by both send_death and
         # on_deathlink, so it tracks the last death in either direction).
         self.death_link_enabled: bool = False
+        # Ghost players. Opt-in per slot via slot_data; the HP2Ghost tag lives
+        # on self.tags, so only slots showing ghosts receive the traffic. The
+        # mod's POS samples batch into Bounces and other slots' Bounces become
+        # PEER frames; GhostLink holds that bookkeeping and ghost_pump drives it.
+        self.ghost_players_enabled: bool = False
+        self.ghosts = GhostLink()
+        self.ghost_pump_task: Optional[asyncio.Task] = None
         # What the seed rolled for each link, captured on every Connected so a
         # link command can report the seed's own setting and reset to it.
         self.link_seed_state: dict[str, bool] = {kind: False for kind in _LINK_KINDS}
@@ -1366,10 +1389,11 @@ class HP2Context(CommonContext):
         self._send_vendor_hints_to_mod()
 
     def _on_bounced(self, args: dict) -> None:
-        # One Bounced packet may carry RingLink and/or TrapLink tags; each
-        # handler filters on its own tag, so dispatch to both.
+        # One Bounced packet may carry RingLink, TrapLink or HP2Ghost tags;
+        # each handler filters on its own tag, so dispatch to all.
         self._handle_ring_bounce(args)
         self._handle_traplink_bounce(args)
+        self._handle_ghost_bounce(args)
 
     def _handle_ring_bounce(self, args: dict) -> None:
         """Apply an inbound RingLink Bounce to the game's bean total.
@@ -1531,7 +1555,7 @@ class HP2Context(CommonContext):
         return HP2Manager
 
     def refresh_links(self, slot_data: dict) -> dict[str, bool]:
-        """Re-apply all three link tags for a Connected slot_data, returning the
+        """Re-apply every link tag for a Connected slot_data, returning the
         state each ended up in. Runs on every Connected so a reconnect stays
         routable for Bounced packets (ring re-rolls its source UUID) and a seed
         change re-asserts. An override beats slot_data, so a reconnect keeps the
@@ -1560,7 +1584,7 @@ class HP2Context(CommonContext):
 
     def apply_link_state(self, kind: str, enabled: bool) -> None:
         """Register or drop one link's tag to match `enabled`. The live flag is
-        set synchronously for all three, so a disable suppresses an outbound
+        set synchronously for every link, so a disable suppresses an outbound
         death, bean delta or trap broadcast in the same event-loop turn instead
         of one turn later. DeathLink rides CommonContext.update_death_link; ring
         and trap have their own enable/disable pair."""
@@ -1573,6 +1597,9 @@ class HP2Context(CommonContext):
         elif kind == "trap":
             asyncio.create_task(
                 self._enable_trap_link() if enabled else self._disable_trap_link())
+        elif kind == "ghost":
+            asyncio.create_task(
+                self._enable_ghosts() if enabled else self._disable_ghosts())
 
     async def _enable_ring_link(self) -> None:
         # Re-roll the per-connection source UUID every Connected (reconnect-
@@ -1650,6 +1677,91 @@ class HP2Context(CommonContext):
                 logger.exception(f"TrapLink: ConnectUpdate(tags) untag failed: {e}")
                 return
         logger.info("TrapLink disabled for this slot; TrapLink tag removed")
+
+    async def _enable_ghosts(self) -> None:
+        # Register the HP2Ghost tag (mirrors _enable_trap_link). Ghost Bounces
+        # target the tag, so a slot with ghosts off costs the server nothing.
+        self.ghost_players_enabled = True
+        self.ghosts.enabled = True
+        newly_tagged = GHOST_TAG not in self.tags
+        self.tags = set(self.tags) | {GHOST_TAG}
+        if newly_tagged and self.server and not self.server.socket.closed:
+            try:
+                await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+            except Exception as e:
+                logger.exception(f"Ghosts: ConnectUpdate(tags) failed, peers won't route: {e}")
+                return
+        logger.info("Ghosts enabled; HP2Ghost tag registered")
+
+    async def _disable_ghosts(self) -> None:
+        # Clean teardown mirroring _disable_trap_link, plus dropping every
+        # ghost the mod is drawing. No-op tag-wise when never tagged.
+        self.ghost_players_enabled = False
+        self.ghosts.enabled = False
+        for gone in self.ghosts.forget_all():
+            self._write_ghost_line(gone)
+        if GHOST_TAG not in self.tags:
+            return
+        self.tags = set(self.tags) - {GHOST_TAG}
+        if self.server and not self.server.socket.closed:
+            try:
+                await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+            except Exception as e:
+                logger.exception(f"Ghosts: ConnectUpdate(tags) untag failed: {e}")
+                return
+        logger.info("Ghosts disabled for this slot; HP2Ghost tag removed")
+
+    def _write_ghost_line(self, line: str) -> None:
+        """Write a PEER or PEERGONE frame straight to the game. Never queued:
+        a position is stale the moment the game is not there to draw it."""
+        if self.game_writer is None or self.game_writer.is_closing():
+            return
+        try:
+            self.game_writer.write((line + "\n").encode("utf-8"))
+        except Exception as e:
+            logger.warning(f"Ghosts: failed to write {line[:24]!r}: {e}")
+
+    def _handle_ghost_bounce(self, args: dict) -> None:
+        """Replay another slot's samples to the mod with the spacing the sender
+        recorded, so a batch arrives as motion instead of a jump."""
+        if not self.ghost_players_enabled or GHOST_TAG not in (args.get("tags") or []):
+            return
+        data = args.get("data")
+        lines = self.ghosts.on_bounced(data, self.slot)
+        if not lines:
+            return
+        src = data["src"]
+        level = self.ghosts.level
+        for delay, line in lines:
+            if delay <= 0:
+                self._write_ghost_line(line)
+            else:
+                asyncio.get_running_loop().call_later(delay, self._replay_ghost_line, line, src, level)
+
+    def _replay_ghost_line(self, line: str, src: int, level: Optional[str]) -> None:
+        """A delayed PEER write, dropped when the peer or our map moved on
+        meanwhile, so a late sample can never revive a ghost after its PEERGONE."""
+        if self.ghost_players_enabled and self.ghosts.should_replay(src, level):
+            self._write_ghost_line(line)
+
+    async def ghost_pump(self) -> None:
+        """Five times a second: ship the batched POS samples as one HP2Ghost
+        Bounce and drop the peers that went silent."""
+        while not self.exit_event.is_set():
+            await asyncio.sleep(0.2)
+            try:
+                for gone in self.ghosts.sweep():
+                    self._write_ghost_line(gone)
+                if not self.ghost_players_enabled or self.slot is None:
+                    continue
+                if not self.server or self.server.socket.closed:
+                    continue
+                name = self.player_names.get(self.slot, str(self.slot))
+                data = self.ghosts.bounce_due(self.slot, name)
+                if data is not None:
+                    await self.send_msgs([{"cmd": "Bounce", "tags": [GHOST_TAG], "data": data}])
+            except Exception as e:
+                logger.warning(f"Ghosts: pump error, continuing: {e}")
 
     def _handle_traplink_bounce(self, args: dict) -> None:
         """Apply an inbound TrapLink Bounce to the game.
@@ -2155,7 +2267,9 @@ class HP2Context(CommonContext):
                 # blank line between messages is expected framing, not content.
                 if not line:
                     continue
-                logger.info(f"[game→client] {line}")
+                # POS arrives ten times a second; logging it would bury the log.
+                if not line.startswith("POS "):
+                    logger.info(f"[game→client] {line}")
                 await self._handle_game_line(line)
         except (ConnectionResetError, ConnectionAbortedError):
             # Normal on Windows when the game window closes. The OS resets
@@ -2198,6 +2312,7 @@ class HP2Context(CommonContext):
             "RINGOUT": self._on_ringout,
             "DEATH": self._on_death,
             "LEVEL": self._on_level,
+            "POS": self._on_pos,
             "SAY": self._on_say,
             "CHECK_SPELL": self._on_check_spell,
             "CHECK_KEYITEM": self._on_check_keyitem,
@@ -2308,6 +2423,8 @@ class HP2Context(CommonContext):
         # stops the pending-grants drain + this from double-sending).
         #
         self._forward_all_received()
+        # A fresh game session has no ghosts yet, whatever the last one drew.
+        self.ghosts.reset_visible()
         # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
         # every HELLO (fresh launch / reconnect / cold load into a
         # sentinel-less level) re-asserts it. Sent in BOTH modes so the mod
@@ -2462,6 +2579,15 @@ class HP2Context(CommonContext):
         if level:
             self.current_level = level
             self._persist_level(level)
+            for gone in self.ghosts.set_level(level):
+                self._write_ghost_line(gone)
+        return
+
+    async def _on_pos(self, line: str) -> None:
+        # One sample of Harry for the other players' ghosts. ghost_pump ships
+        # the batch; a map change the sample reveals hides the peers left behind.
+        for gone in self.ghosts.on_pos(line[len("POS "):]):
+            self._write_ghost_line(gone)
         return
 
     async def _on_say(self, line: str) -> None:
@@ -3174,6 +3300,7 @@ async def _main(args: argparse.Namespace) -> None:
         ctx._player_connect_pending = True
     ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
     ctx.tcp_server_task = asyncio.create_task(ctx.run_tcp_server(), name="game tcp server")
+    ctx.ghost_pump_task = asyncio.create_task(ctx.ghost_pump(), name="ghost pump")
     if gui_enabled:
         ctx.run_gui()
     ctx.run_cli()
