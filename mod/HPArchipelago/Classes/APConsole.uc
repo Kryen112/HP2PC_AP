@@ -39,15 +39,12 @@
 //                     rebuild per guess. Live edits die with the level: put the
 //                     settled number in APGameInfo.BlockerRadiusForTag.
 //
-//   GhostSpike [mode] ghost-players render spike. Puts a translucent Harry
-//                     ghost 120 units in front of Harry that tracks him and
-//                     mirrors his animation. Mode 0 (default) spawns an
-//                     Actor-based ghost at runtime, 1 an HPawn-based one, 2 and
-//                     3 reveal the matching ghost APGameInfo built hidden at
-//                     level bring-up, 4 spawns the Actor-based ghost and leaves
-//                     it standing still. Every step logs a "GhostSpike" line.
+//   GhostFake [0|1]   ghost players dev aid. 1 feeds your own Harry back in as a
+//                     peer standing ahead of you, so the ghost pawn, its casting
+//                     channel and its wand can be checked without a second
+//                     player. 0 removes it. Bare GhostFake flips it.
 //
-//   GhostSpikeClear   destroys the runtime ghosts and re-hides the pooled ones.
+//   GhostList         logs which slots have a ghost on this map.
 //
 // Freecam keys (debug mode on; Delete toggles the freecam):
 //   WASD: fly the freecam, mirroring the stock arrow keys. Forward follows where
@@ -559,68 +556,46 @@ exec function ClearBookcases()
     DevPrint("ClearBookcases: destroyed " $ destroyed $ " debug bookcase(s)");
 }
 
-exec function GhostSpike(optional int Mode)
+exec function GhostFake(optional string OnOff)
 {
     local harry h;
-    local APGhostSpikeDriver driver;
-    local Actor g;
+    local APGhostRegistry registry;
 
     if (Viewport == None || Viewport.Actor == None)
     {
-        Log("[Archipelago] APConsole.GhostSpike: no Viewport.Actor");
         return;
     }
     h = harry(Viewport.Actor);
     if (h == None)
     {
-        DevPrint("GhostSpike: Viewport.Actor is not harry");
+        DevPrint("GhostFake: Viewport.Actor is not harry");
         return;
     }
-    driver = class'APGhostSpikeDriver'.static.GetInstance(h);
-    if (driver == None)
+    registry = class'APGhostRegistry'.static.GetInstance(h);
+    if (registry == None)
     {
-        DevPrint("GhostSpike: no driver (Level.Game is not APGameInfo)");
+        DevPrint("GhostFake: no registry (Level.Game is not APGameInfo)");
         return;
     }
-    switch (Mode)
-    {
-        case 1:
-            g = driver.SpawnGhost(class'APGhostSpikePawn', h, True);
-            break;
-        case 2:
-            g = driver.RevealPoolGhost(False, h);
-            break;
-        case 3:
-            g = driver.RevealPoolGhost(True, h);
-            break;
-        case 4:
-            g = driver.SpawnGhost(class'APGhostSpikeActor', h, False);
-            break;
-        default:
-            g = driver.SpawnGhost(class'APGhostSpikeActor', h, True);
-            break;
-    }
-    if (g == None)
-    {
-        DevPrint("GhostSpike mode " $ Mode $ ": no ghost (see Game.log)");
-        return;
-    }
-    DevPrint("GhostSpike mode " $ Mode $ ": " $ string(g.Class.Name) $ " at " $ string(g.Location) $ ", look ahead");
+    if (OnOff == "1")      registry.SetFakePeer(True);
+    else if (OnOff == "0") registry.SetFakePeer(False);
+    else                   registry.SetFakePeer(registry.bFakePeer == 0);
+    DevPrint("GhostFake: " $ registry.bFakePeer $ " (your own Harry as a peer ahead of you)");
 }
 
-exec function GhostSpikeClear()
+exec function GhostList()
 {
-    local APGhostSpikeDriver driver;
+    local APGhostRegistry registry;
 
     if (Viewport == None || Viewport.Actor == None)
     {
         return;
     }
-    driver = class'APGhostSpikeDriver'.static.GetInstance(Viewport.Actor);
-    if (driver == None)
+    registry = class'APGhostRegistry'.static.GetInstance(Viewport.Actor);
+    if (registry == None)
     {
         return;
     }
-    driver.ClearAll();
-    DevPrint("GhostSpikeClear: ghosts cleared");
+    registry.LogPeers();
+    DevPrint("GhostList: " $ registry.GhostCount $ " ghost(s) here, details in Game.log");
 }

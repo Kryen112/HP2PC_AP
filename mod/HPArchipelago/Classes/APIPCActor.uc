@@ -325,7 +325,11 @@ function HandleLine(string line)
     local string rest;
     local int sp;
 
-    Log("[Archipelago] APIPCActor: ReceivedText: " $ line);
+    // PEER arrives ten times a second per ghost; logging it would bury the log.
+    if (Left(line, 5) != "PEER ")
+    {
+        Log("[Archipelago] APIPCActor: ReceivedText: " $ line);
+    }
 
     if (MatchCmd(line, "GRANT ", rest))
     {
@@ -594,6 +598,43 @@ function HandleLine(string line)
         // reads "<trap> from <source>".
         QueueGrant(rest, -1);
     }
+    else if (MatchCmd(line, "PEER ", rest))
+    {
+        // Another slot's Harry on this map: draw or move its ghost. Never
+        // queued; a position is stale the moment it has to wait.
+        HandlePeer(rest, False);
+    }
+    else if (MatchCmd(line, "PEERGONE ", rest))
+    {
+        HandlePeer(rest, True);
+    }
+}
+
+// Route a PEER / PEERGONE body to this level's ghost registry. Without a
+// playable Harry there is nothing to draw beside, so the frame is dropped.
+function HandlePeer(string body, bool bGone)
+{
+    local harry h;
+    local APGhostRegistry registry;
+
+    h = class'APGameInfo'.static.FindGrantReadyHarry(self);
+    if (h == None) return;
+    registry = class'APGhostRegistry'.static.GetInstance(h);
+    if (registry == None) return;
+    if (bGone) registry.RemovePeer(int(body));
+    else       registry.ApplyPeer(body);
+}
+
+// Keep a ghost registry alive in whatever level Harry is in. InitGame spawns
+// it on the launch / level-change path; this covers save-load, which skips
+// InitGame. GetInstance is found-or-spawned, so this is a no-op once it exists.
+function TickGhostRegistry()
+{
+    local harry h;
+
+    h = class'APGameInfo'.static.FindGrantReadyHarry(self);
+    if (h == None) return;
+    class'APGhostRegistry'.static.GetInstance(h);
 }
 
 // Body is `<itemname>|<receiver_slot_name>`. Splits and forwards to the
@@ -668,6 +709,7 @@ event Timer()
     TryReconnect();
     TryDrainPendingGrants();
     TickRingLink();
+    TickGhostRegistry();
     TickNotConnectedToast();
 }
 

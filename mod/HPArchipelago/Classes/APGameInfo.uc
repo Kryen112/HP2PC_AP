@@ -56,8 +56,8 @@ var Actor SpongifyBlockerInstance;
 // travel, so the hosted instances are collected without serializing those arrays.
 var APMorphRegistry MorphRegistry;
 var APVendorController VendorController;
-// Per-level host for the ghost-players render spike driver.
-var APGhostSpikeDriver GhostSpikeDriver;
+// Per-level host for the ghost players registry.
+var APGhostRegistry GhostRegistry;
 
 // Spawn point for the visible Slytherin Common Room end star
 // (Adv7SlythComRoom). WORLD coords, hand-tuned in-game via the APConsole
@@ -138,23 +138,18 @@ event InitGame(string Options, out string Error)
     BlockDiffindoClassroomIfMissing();
     BlockSpongifyClassroomIfMissing();
     SpawnAllOpenCastleBlockers();
-    BuildGhostSpikePool();
+    EnsureGhostRegistry();
 }
 
-// Ghost-players render spike: spawn the per-level driver on the level bring-up
-// path and build its hidden pool, so the APConsole GhostSpike reveal variants
-// have a ghost that existed when the level came up.
-function BuildGhostSpikePool()
+// Ghost players: bring the per-level registry up on the level bring-up path so
+// the local Harry is sampled from his first playable tick. Save-load skips
+// InitGame; APIPCActor.TickGhostRegistry covers that path.
+function EnsureGhostRegistry()
 {
-    local APGhostSpikeDriver driver;
-
-    driver = class'APGhostSpikeDriver'.static.GetInstance(self);
-    if (driver == None)
+    if (class'APGhostRegistry'.static.GetInstance(self) == None)
     {
-        Log("[Archipelago] APGameInfo: APGhostSpikeDriver spawn FAILED");
-        return;
+        Log("[Archipelago] APGameInfo: APGhostRegistry spawn FAILED");
     }
-    driver.BuildPool();
 }
 
 // Spawn an APHUDToast in the current level if one isn't already here. Called
