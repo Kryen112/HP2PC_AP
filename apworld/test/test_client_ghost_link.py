@@ -8,14 +8,16 @@ import unittest
 from ..Client import HP2Context
 from ..ghost_link import (GHOST_TAG, GhostLink, MAX_REPLAY_DELAY_S,
                           MAX_SAMPLES_PER_BOUNCE, PEER_TIMEOUT_S, SEND_INTERVAL_S,
-                          clean_name, parse_sample)
+                          SMALL_ROOM_INTERVAL_S, SMALL_ROOM_PLAYERS, clean_name,
+                          interval_for_players, parse_sample)
 
-SAMPLE = "-622|-5154|428|0|16384|0|run|42|1|1|Cast|10|0|1"
+SAMPLE = "-622|-5154|428|0|16384|0|run|42|1|1|Cast|10|0|1|HPModels.skharryMesh|HPModels.WandMesh"
 POS = "ENTRYHALL_HUB|" + SAMPLE
 
 
 def fields(**overrides):
-    base = [-622, -5154, 428, 0, 16384, 0, "run", 42, 1, 1, "Cast", 10, 0, 1.0]
+    base = [-622, -5154, 428, 0, 16384, 0, "run", 42, 1, 1, "Cast", 10, 0, 1.0,
+            "HPModels.skharryMesh", "HPModels.WandMesh"]
     for index, value in overrides.items():
         base[int(index[1:])] = value
     return base
@@ -89,6 +91,23 @@ class TestOutbound(unittest.TestCase):
         self.clock.now += SEND_INTERVAL_S
         self.assertIsNotNone(self.link.bounce_due(1, "Harry"))
 
+    def test_small_rooms_send_more_often(self) -> None:
+        self.assertEqual(interval_for_players(2), SMALL_ROOM_INTERVAL_S)
+        self.assertEqual(interval_for_players(SMALL_ROOM_PLAYERS), SMALL_ROOM_INTERVAL_S)
+        self.assertEqual(interval_for_players(SMALL_ROOM_PLAYERS + 1), SEND_INTERVAL_S)
+        self.link.send_interval = SMALL_ROOM_INTERVAL_S
+        self.link.on_pos(POS)
+        self.assertIsNotNone(self.link.bounce_due(1, "Harry"))
+        self.link.on_pos(POS)
+        self.clock.now += SMALL_ROOM_INTERVAL_S + 0.01
+        self.assertIsNotNone(self.link.bounce_due(1, "Harry"))
+
+    def test_mesh_tokens_travel_as_is(self) -> None:
+        self.link.on_pos(POS.replace("HPModels.skharryMesh", "HPModels.skGoyleMesh")
+                         .replace("HPModels.WandMesh", "None"))
+        data = self.link.bounce_due(1, "Harry")
+        self.assertEqual(data["s"][0][-2:], ["HPModels.skGoyleMesh", "None"])
+
     def test_malformed_pos_is_ignored(self) -> None:
         self.assertEqual(self.link.on_pos("ENTRYHALL_HUB|1|2"), [])
         self.assertEqual(self.link.on_pos("bad map!|" + SAMPLE), [])
@@ -128,7 +147,8 @@ class TestInbound(unittest.TestCase):
 
     def test_same_map_peer_becomes_peer_lines(self) -> None:
         lines = self.link.on_bounced(bounce(), my_slot=1)
-        self.assertEqual(lines, [(0.0, "PEER 2|Ron|-622|-5154|428|0|16384|0|run|42|1|1|Cast|10|0|1.00")])
+        self.assertEqual(lines, [(0.0, "PEER 2|Ron|-622|-5154|428|0|16384|0|run|42|1|1|Cast|10|0|1.00"
+                                       "|HPModels.skharryMesh|HPModels.WandMesh")])
         self.assertTrue(self.link.peers[2].visible)
 
     def test_own_echo_and_garbage_are_dropped(self) -> None:
@@ -167,7 +187,7 @@ class TestInbound(unittest.TestCase):
     def test_name_with_bar_cannot_break_the_frame(self) -> None:
         lines = self.link.on_bounced(bounce(name="Ro|n"), my_slot=1)
         self.assertEqual(lines[0][1].split("|")[1], "Ron")
-        self.assertEqual(len(lines[0][1].split("|")), 16)
+        self.assertEqual(len(lines[0][1].split("|")), 18)
 
     def test_silent_peer_expires_with_peergone(self) -> None:
         self.link.on_bounced(bounce(), my_slot=1)

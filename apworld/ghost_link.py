@@ -17,8 +17,12 @@ from dataclasses import dataclass
 from typing import Callable, Optional
 
 GHOST_TAG = "HP2Ghost"
-# One Bounce per this interval while the game keeps sending samples.
+# One Bounce per this interval while the game keeps sending samples. Small
+# rooms get the tighter interval; every Bounce fans out to every other HP2
+# client, so the cost grows with the square of the player count.
 SEND_INTERVAL_S = 0.4
+SMALL_ROOM_INTERVAL_S = 0.2
+SMALL_ROOM_PLAYERS = 4
 # A peer silent this long is gone. The mod heartbeats every two seconds.
 PEER_TIMEOUT_S = 4.0
 # Longest a replayed sample may lag its batch, so a bad offset cannot park a ghost.
@@ -27,11 +31,11 @@ MAX_REPLAY_DELAY_S = 1.0
 MAX_SAMPLES_PER_BOUNCE = 20
 # A sample after the map name: x y z pitch yaw roll, then the body track
 # (sequence, frame, loop, combine), the upper-body track (sequence, frame,
-# loop), scale.
-SAMPLE_FIELD_COUNT = 14
+# loop), scale, body mesh, wand mesh.
+SAMPLE_FIELD_COUNT = 16
 _INT_FIELDS = frozenset((0, 1, 2, 3, 4, 5, 7, 8, 9, 11, 12))
 _SCALE_FIELD = 13
-_TOKEN = re.compile(r"^[A-Za-z0-9_.\-]{1,32}$")
+_TOKEN = re.compile(r"^[A-Za-z0-9_.\-]{1,48}$")
 _LEVEL = re.compile(r"^[A-Za-z0-9_\-]{1,48}$")
 _MAX_NAME_CHARS = 16
 
@@ -71,6 +75,11 @@ def format_field(value) -> str:
     return str(value)
 
 
+def interval_for_players(hp2_players: int) -> float:
+    """Bounce interval for a room with this many HP2 players in it."""
+    return SMALL_ROOM_INTERVAL_S if hp2_players <= SMALL_ROOM_PLAYERS else SEND_INTERVAL_S
+
+
 def clean_name(name) -> str:
     """A slot name safe for the bar-separated PEER frame."""
     if not isinstance(name, str):
@@ -92,6 +101,7 @@ class GhostLink:
     def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self.enabled = False
+        self.send_interval = SEND_INTERVAL_S
         # Our map, from the LEVEL frame and from every POS sample.
         self.level: Optional[str] = None
         self._pending: list[tuple[float, list]] = []
@@ -137,7 +147,7 @@ class GhostLink:
         if not self.enabled or self.level is None or not self._pending:
             return None
         now = self._clock() if now is None else now
-        if now - self._last_send < SEND_INTERVAL_S:
+        if now - self._last_send < self.send_interval:
             return None
         first = self._pending[0][0]
         samples = [[round(stamp - first, 2), *fields] for stamp, fields in self._pending]

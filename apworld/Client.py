@@ -108,7 +108,7 @@ from MultiServer import mark_raw
 from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, installer, music_patch, sound_patch
-from .ghost_link import GHOST_TAG, GhostLink
+from .ghost_link import GHOST_TAG, GhostLink, interval_for_players
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
                     ITEM_CLASSIFICATIONS, ITEM_GROUPS,
                     PROGRESSIVE_LEVEL_KEY_NAME, PROGRESSIVE_LEVEL_KEY_ORDER)
@@ -1163,6 +1163,7 @@ class HP2Context(CommonContext):
         self.connected_address = self._format_ap_address(self.server_address)
         if self.connected_address and self.game_writer is not None:
             self._send_to_game("CONNECTED " + self.connected_address)
+        self._tune_ghost_rate()
         sd = args.get("slot_data") or {}
         self.is_open_castle = sd.get("game_mode") == "open_castle"
         self.seed_mode = "open_castle" if self.is_open_castle else "vanilla"
@@ -1710,6 +1711,14 @@ class HP2Context(CommonContext):
                 logger.exception(f"Ghosts: ConnectUpdate(tags) untag failed: {e}")
                 return
         logger.info("Ghosts disabled for this slot; HP2Ghost tag removed")
+
+    def _tune_ghost_rate(self) -> None:
+        """Pick the Bounce interval from how many HP2 players share the room:
+        tight in a small room, gentler once the fan-out grows."""
+        players = sum(1 for slot in (self.slot_info or {}).values()
+                      if slot.game == GAME_NAME and slot.type == SlotType.player)
+        self.ghosts.send_interval = interval_for_players(players)
+        logger.info(f"Ghosts: {players} HP2 player(s) in the room, one Bounce per {self.ghosts.send_interval}s")
 
     def _write_ghost_line(self, line: str) -> None:
         """Write a PEER or PEERGONE frame straight to the game. Never queued:
