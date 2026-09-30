@@ -23,6 +23,8 @@ var byte    bHasTarget;
 var float   LastSeenTime;
 var APGhostAnimChannel Channel;
 var Weapon  Wand;
+// The slot-coloured glow that rides with the ghost.
+var APGhostLight Light;
 // Last sequence and frame per track, to tell a fresh one-shot from the same
 // one still playing.
 var name LastBodySequence;
@@ -67,22 +69,66 @@ function SetupPeer(int slot, string displayName)
         Wand.GiveAmmo(self);
         Wand.Style = STY_Translucent;
     }
+    Light = Spawn(class'APGhostLight', self);
+    if (Light != None)
+    {
+        Light.SetSlotColour(slot);
+    }
 }
 
+// A sample is Harry's centre. The ghost's mesh hangs from its Location instead
+// (ZOffset), so the offset is taken along the peer's own up axis and scaled
+// with him: an enlarged Harry is centred higher, and an upside-down one has
+// his feet above his centre.
 function SetTarget(Vector loc, Rotator rot, float scale)
 {
-    loc.Z += default.ZOffset;
+    if (scale <= 0.0) scale = 1.0;
+    loc += (vect(0, 0, 1) * (default.ZOffset * scale)) >> rot;
     if (bHasTarget == 0 || VSize(loc - Location) > SNAP_DISTANCE)
     {
         SetLocation(loc);
         SetRotation(rot);
+        MoveLight();
     }
     TargetLocation = loc;
     TargetRotation = rot;
     bHasTarget = 1;
-    if (scale > 0.0)
+    DrawScale = scale;
+}
+
+// Swap to the meshes the peer wears when they differ: the Goyle disguise, the
+// giant wand, or nothing in hand. A body mesh change also drops the remembered
+// sequences so the next sample replays them on the new skeleton.
+function ApplyMeshes(string meshName, string wandMeshName)
+{
+    local Mesh loaded;
+
+    if (meshName != "" && meshName != "None" && string(Mesh) != meshName)
     {
-        DrawScale = scale;
+        loaded = Mesh(DynamicLoadObject(meshName, class'Mesh'));
+        if (loaded != None)
+        {
+            Mesh = loaded;
+            LastBodySequence = '';
+            LastChannelSequence = '';
+        }
+        else
+        {
+            Log("[Archipelago] Ghosts: mesh " $ meshName $ " failed to load for " $ PeerName);
+        }
+    }
+
+    if (Wand == None) return;
+    if (wandMeshName == "" || wandMeshName == "None")
+    {
+        Wand.bHidden = True;
+        return;
+    }
+    Wand.bHidden = bHidden;
+    if (string(Wand.Mesh) != wandMeshName)
+    {
+        loaded = Mesh(DynamicLoadObject(wandMeshName, class'Mesh'));
+        if (loaded != None) Wand.Mesh = loaded;
     }
 }
 
@@ -93,6 +139,29 @@ function SetGhostHidden(bool bHide)
     {
         Wand.bHidden = bHide;
     }
+    if (Light != None)
+    {
+        Light.SetLit(!bHide);
+    }
+}
+
+// The glow sits at the ghost's chest, wherever the mesh is drawn.
+function MoveLight()
+{
+    if (Light != None)
+    {
+        Light.SetLocation(Location + ((vect(0, 0, 1) * (50.0 * DrawScale)) >> Rotation));
+    }
+}
+
+event Destroyed()
+{
+    if (Light != None)
+    {
+        Light.Destroy();
+        Light = None;
+    }
+    Super.Destroyed();
 }
 
 function Tick(float fTimeDelta)
@@ -104,6 +173,7 @@ function Tick(float fTimeDelta)
     alpha = FMin(1.0, fTimeDelta * GLIDE_RATE);
     SetLocation(Location + (TargetLocation - Location) * alpha);
     SetRotation(GlideRotation(Rotation, TargetRotation, alpha));
+    MoveLight();
 }
 
 // Shortest-arc step from one rotation toward another; each axis wraps at 65536.

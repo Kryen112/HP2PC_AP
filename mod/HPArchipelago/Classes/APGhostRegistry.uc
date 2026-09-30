@@ -13,7 +13,8 @@
 // Sample fields, bar-separated, after the map name (POS) or the slot and name
 // (PEER): x, y, z, pitch, yaw, roll, body sequence, body frame, body loops,
 // body combine (Harry's blend type while his channel is live), channel
-// sequence, channel frame, channel loops, draw scale.
+// sequence, channel frame, channel loops, draw scale, body mesh, wand mesh
+// ("None" for an empty hand).
 //================================================================================
 
 class APGhostRegistry extends Actor;
@@ -46,6 +47,8 @@ var int     LastSentBodyFrame;
 var int     LastSentChannelFrame;
 var bool    bLastSentBodyCombine;
 var float   LastSentScale;
+var string  LastSentMeshName;
+var string  LastSentWandMeshName;
 var byte    bSentOnce;
 // Dev aid (APConsole GhostFake): feed the local Harry back in as a peer standing
 // ahead of him, so the ghost pawn, its channel and its wand can be checked alone.
@@ -69,6 +72,31 @@ event PreBeginPlay()
     Super.PreBeginPlay();
     if (APGameInfo(Level.Game) != None)
         APGameInfo(Level.Game).GhostRegistry = self;
+    SweepUntrackedGhosts();
+}
+
+// A ghost saved with the level comes back on load with no registry entry and
+// would stand there for good. A fresh registry owns no ghosts yet, so every
+// ghost pawn or glow it finds is stale.
+function SweepUntrackedGhosts()
+{
+    local APGhostPawn g;
+    local APGhostLight glow;
+    local int swept;
+
+    foreach AllActors(class'APGhostPawn', g)
+    {
+        g.Destroy();
+        swept++;
+    }
+    foreach AllActors(class'APGhostLight', glow)
+    {
+        glow.Destroy();
+    }
+    if (swept > 0)
+    {
+        Log("[Archipelago] Ghosts: swept " $ swept $ " stale ghost(s) left by a save");
+    }
 }
 
 function Tick(float fTimeDelta)
@@ -105,6 +133,7 @@ function Sample(harry h)
     local name body, channel;
     local int bodyFrame, channelFrame;
     local bool bChanged, bBodyCombine;
+    local string meshName, wandMeshName;
 
     body = h.AnimSequence;
     bodyFrame = FrameOf(h.AnimFrame);
@@ -114,8 +143,12 @@ function Sample(harry h)
         channel = h.HarryAnimChannel.AnimSequence;
         channelFrame = FrameOf(h.HarryAnimChannel.AnimFrame);
     }
+    meshName = string(h.Mesh);
+    wandMeshName = WandMeshToken(h);
 
     bChanged = bSentOnce == 0
+        || meshName != LastSentMeshName
+        || wandMeshName != LastSentWandMeshName
         || VSize(h.Location - LastSentLocation) > MOVE_EPSILON
         || Abs(class'APGhostPawn'.static.WrapDelta(h.Rotation.Yaw - LastSentRotation.Yaw)) > TURN_EPSILON
         || Abs(class'APGhostPawn'.static.WrapDelta(h.Rotation.Roll - LastSentRotation.Roll)) > TURN_EPSILON
@@ -135,6 +168,8 @@ function Sample(harry h)
     LastSentChannelFrame = channelFrame;
     bLastSentBodyCombine = bBodyCombine;
     LastSentScale        = h.DrawScale;
+    LastSentMeshName     = meshName;
+    LastSentWandMeshName = wandMeshName;
     LastSendTime         = Level.TimeSeconds;
     bSentOnce            = 1;
 
@@ -151,7 +186,14 @@ function Sample(harry h)
     }
 }
 
-// The fourteen sample fields for Harry's animation state at a given place.
+// The mesh the held wand wears, or "None" for an empty hand.
+static function string WandMeshToken(harry h)
+{
+    if (baseWand(h.Weapon) == None || baseWand(h.Weapon).Mesh == None) return "None";
+    return string(baseWand(h.Weapon).Mesh);
+}
+
+// The sixteen sample fields for Harry's state at a given place.
 function string SampleFields(harry h, Vector loc, Rotator rot)
 {
     local name channel;
@@ -167,7 +209,8 @@ function string SampleFields(harry h, Vector loc, Rotator rot)
         $ "|" $ string(h.AnimSequence) $ "|" $ FrameOf(h.AnimFrame) $ "|" $ BoolToken(h.bAnimLoop)
         $ "|" $ BoolToken(h.HarryAnimType == AT_Combine)
         $ "|" $ string(channel) $ "|" $ channelFrame $ "|" $ BoolToken(ChannelSequenceLoops(channel))
-        $ "|" $ string(h.DrawScale);
+        $ "|" $ string(h.DrawScale)
+        $ "|" $ string(h.Mesh) $ "|" $ WandMeshToken(h);
 }
 
 static function int FrameOf(float animFrame)
@@ -218,8 +261,9 @@ function ApplyPeer(string body)
 {
     local harry h;
     local APGhostPawn g;
-    local string rest, peerName, bodySequence, channelSequence;
+    local string rest, peerName, bodySequence, channelSequence, meshName, wandMeshName;
     local int slot, bodyFrame, channelFrame;
+    local APHUDToast toast;
     local bool bBodyLoops, bBodyCombine, bChannelLoops;
     local float scale;
     local Vector loc;
@@ -245,6 +289,8 @@ function ApplyPeer(string body)
     channelFrame    = int(NextField(rest));
     bChannelLoops   = NextField(rest) == "1";
     scale = float(NextField(rest));
+    meshName = NextField(rest);
+    wandMeshName = NextField(rest);
 
     g = FindGhost(slot);
     if (g == None)
@@ -262,8 +308,15 @@ function ApplyPeer(string body)
         GhostCount++;
         Log("[Archipelago] Ghosts: " $ peerName $ " (slot " $ slot $ ") appeared on "
             $ Caps(string(Level.Outer.Name)) $ " at " $ string(loc));
+        // Same white lifecycle voice as a slot joining the room.
+        toast = class'APHUDToast'.static.GetInstance();
+        if (toast != None)
+        {
+            toast.EnqueuePlainToast(peerName $ " is here", 1);
+        }
     }
     g.LastSeenTime = Level.TimeSeconds;
+    g.ApplyMeshes(meshName, wandMeshName);
     g.SetTarget(loc, rot, scale);
     g.ApplyAnimation(h, bodySequence, bodyFrame, bBodyLoops, bBodyCombine,
                      channelSequence, channelFrame, bChannelLoops);
