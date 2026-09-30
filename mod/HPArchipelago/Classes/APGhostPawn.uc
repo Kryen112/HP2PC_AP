@@ -29,6 +29,8 @@ var name LastBodySequence;
 var int  LastBodyFrame;
 var name LastChannelSequence;
 var int  LastChannelFrame;
+// Whether the body last played in combine mode (the peer's channel was live).
+var bool bLastBodyCombine;
 
 // Per second. About 80 ms behind the latest sample, which hides the ten-hertz steps.
 const GLIDE_RATE = 12.0;
@@ -116,25 +118,36 @@ static function int WrapDelta(int delta)
     return delta;
 }
 
-// Replay the peer's two tracks by name. The peer's channel keeps reporting its
-// last sequence after it finishes, so a finished one-shot there is left alone;
-// a repeated one-shot replays only when its frame drops back.
-function ApplyAnimation(harry h, string bodySequence, int bodyFrame, bool bBodyLoops,
+// Replay the peer's two tracks by name. The body plays with the peer's blend
+// type: AT_Combine while his casting channel is live, so a body change leaves
+// the channel showing, and AT_Replace once it is done, which is what clears the
+// upper body back to the body's pose (Harry's own PlayIdle does the same). A
+// type flip replays the body even when the sequence did not change. The peer's
+// channel keeps reporting its last sequence after it finishes, so a finished
+// one-shot there is left alone; a repeated one-shot replays only when its frame
+// drops back.
+function ApplyAnimation(harry h, string bodySequence, int bodyFrame, bool bBodyLoops, bool bBodyCombine,
                         string channelSequence, int channelFrame, bool bChannelLoops)
 {
     local name seq;
+    local EAnimType bodyType;
+
+    if (bBodyCombine) bodyType = AT_Combine;
+    else              bodyType = AT_Replace;
 
     seq = h.StringToAnimName(bodySequence);
     if (seq != '' && HasAnim(seq))
     {
         if (seq != LastBodySequence
+            || bBodyCombine != bLastBodyCombine
             || (!bBodyLoops && bodyFrame + RESTART_FRAME_DROP < LastBodyFrame))
         {
-            if (bBodyLoops) LoopAnim(seq);
-            else            PlayAnim(seq);
+            if (bBodyLoops) LoopAnim(seq, , , , bodyType);
+            else            PlayAnim(seq, , , bodyType);
         }
         LastBodySequence = seq;
         LastBodyFrame    = bodyFrame;
+        bLastBodyCombine = bBodyCombine;
     }
 
     if (Channel == None) return;
@@ -145,11 +158,20 @@ function ApplyAnimation(harry h, string bodySequence, int bodyFrame, bool bBodyL
             || (!bChannelLoops && channelFrame + RESTART_FRAME_DROP < LastChannelFrame))
         {
             if (bChannelLoops)                      Channel.LoopAnim(seq);
-            else if (channelFrame < FINISHED_FRAME) Channel.PlayAnim(seq);
+            else if (channelFrame < FINISHED_FRAME) Channel.PlayAnim(seq, ChannelSequenceRate(seq), 0.1);
         }
         LastChannelSequence = seq;
         LastChannelFrame    = channelFrame;
     }
+}
+
+// The rates Harry's casting channel plays its one-shots at, so the ghost's wave
+// finishes when his does and the body's reset does not cut it short.
+static function float ChannelSequenceRate(name seq)
+{
+    if (seq == 'Cast') return 2.0;
+    if (seq == 'SwordCast' || seq == 'throw') return 1.5;
+    return 1.0;
 }
 
 defaultproperties

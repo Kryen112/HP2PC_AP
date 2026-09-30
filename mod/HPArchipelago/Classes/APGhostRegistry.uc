@@ -12,7 +12,8 @@
 //
 // Sample fields, bar-separated, after the map name (POS) or the slot and name
 // (PEER): x, y, z, pitch, yaw, roll, body sequence, body frame, body loops,
-// channel sequence, channel frame, channel loops, draw scale.
+// body combine (Harry's blend type while his channel is live), channel
+// sequence, channel frame, channel loops, draw scale.
 //================================================================================
 
 class APGhostRegistry extends Actor;
@@ -43,6 +44,7 @@ var name    LastSentBody;
 var name    LastSentChannel;
 var int     LastSentBodyFrame;
 var int     LastSentChannelFrame;
+var bool    bLastSentBodyCombine;
 var float   LastSentScale;
 var byte    bSentOnce;
 // Dev aid (APConsole GhostFake): feed the local Harry back in as a peer standing
@@ -75,7 +77,11 @@ function Tick(float fTimeDelta)
 
     Super.Tick(fTimeDelta);
     h = class'APGameInfo'.static.FindGrantReadyHarry(self);
-    if (h == None) return;
+    // The harry lookup is static and finds the live Harry from any level, so a
+    // registry in another level package (the persistent startup map, a save's
+    // stale actor) would sample him under its own map name and drive the map
+    // reported over the bridge back and forth. Only the live level's registry acts.
+    if (h == None || h.Level != Level) return;
 
     SampleAccumulator += fTimeDelta;
     if (SampleAccumulator >= SAMPLE_INTERVAL_SECS)
@@ -98,10 +104,11 @@ function Sample(harry h)
     local APIPCActor ipc;
     local name body, channel;
     local int bodyFrame, channelFrame;
-    local bool bChanged;
+    local bool bChanged, bBodyCombine;
 
     body = h.AnimSequence;
     bodyFrame = FrameOf(h.AnimFrame);
+    bBodyCombine = h.HarryAnimType == AT_Combine;
     if (h.HarryAnimChannel != None)
     {
         channel = h.HarryAnimChannel.AnimSequence;
@@ -114,6 +121,7 @@ function Sample(harry h)
         || Abs(class'APGhostPawn'.static.WrapDelta(h.Rotation.Roll - LastSentRotation.Roll)) > TURN_EPSILON
         || body != LastSentBody
         || channel != LastSentChannel
+        || bBodyCombine != bLastSentBodyCombine
         || bodyFrame + RESTART_FRAME_DROP < LastSentBodyFrame
         || channelFrame + RESTART_FRAME_DROP < LastSentChannelFrame
         || Abs(h.DrawScale - LastSentScale) > 0.01;
@@ -125,6 +133,7 @@ function Sample(harry h)
     LastSentChannel      = channel;
     LastSentBodyFrame    = bodyFrame;
     LastSentChannelFrame = channelFrame;
+    bLastSentBodyCombine = bBodyCombine;
     LastSentScale        = h.DrawScale;
     LastSendTime         = Level.TimeSeconds;
     bSentOnce            = 1;
@@ -142,7 +151,7 @@ function Sample(harry h)
     }
 }
 
-// The thirteen sample fields for Harry's animation state at a given place.
+// The fourteen sample fields for Harry's animation state at a given place.
 function string SampleFields(harry h, Vector loc, Rotator rot)
 {
     local name channel;
@@ -156,6 +165,7 @@ function string SampleFields(harry h, Vector loc, Rotator rot)
     return int(loc.X) $ "|" $ int(loc.Y) $ "|" $ int(loc.Z)
         $ "|" $ (rot.Pitch & 65535) $ "|" $ (rot.Yaw & 65535) $ "|" $ (rot.Roll & 65535)
         $ "|" $ string(h.AnimSequence) $ "|" $ FrameOf(h.AnimFrame) $ "|" $ BoolToken(h.bAnimLoop)
+        $ "|" $ BoolToken(h.HarryAnimType == AT_Combine)
         $ "|" $ string(channel) $ "|" $ channelFrame $ "|" $ BoolToken(ChannelSequenceLoops(channel))
         $ "|" $ string(h.DrawScale);
 }
@@ -210,7 +220,7 @@ function ApplyPeer(string body)
     local APGhostPawn g;
     local string rest, peerName, bodySequence, channelSequence;
     local int slot, bodyFrame, channelFrame;
-    local bool bBodyLoops, bChannelLoops;
+    local bool bBodyLoops, bBodyCombine, bChannelLoops;
     local float scale;
     local Vector loc;
     local Rotator rot;
@@ -230,6 +240,7 @@ function ApplyPeer(string body)
     bodySequence  = NextField(rest);
     bodyFrame     = int(NextField(rest));
     bBodyLoops    = NextField(rest) == "1";
+    bBodyCombine  = NextField(rest) == "1";
     channelSequence = NextField(rest);
     channelFrame    = int(NextField(rest));
     bChannelLoops   = NextField(rest) == "1";
@@ -250,11 +261,12 @@ function ApplyPeer(string body)
         GhostSlots[GhostCount] = slot;
         GhostCount++;
         Log("[Archipelago] Ghosts: " $ peerName $ " (slot " $ slot $ ") appeared on "
-            $ Caps(string(Level.Outer.Name)));
+            $ Caps(string(Level.Outer.Name)) $ " at " $ string(loc));
     }
     g.LastSeenTime = Level.TimeSeconds;
     g.SetTarget(loc, rot, scale);
-    g.ApplyAnimation(h, bodySequence, bodyFrame, bBodyLoops, channelSequence, channelFrame, bChannelLoops);
+    g.ApplyAnimation(h, bodySequence, bodyFrame, bBodyLoops, bBodyCombine,
+                     channelSequence, channelFrame, bChannelLoops);
 }
 
 function RemovePeer(int slot)

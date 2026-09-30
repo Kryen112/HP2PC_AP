@@ -143,9 +143,11 @@ event InitGame(string Options, out string Error)
 
 // Ghost players: bring the per-level registry up on the level bring-up path so
 // the local Harry is sampled from his first playable tick. Save-load skips
-// InitGame; APIPCActor.TickGhostRegistry covers that path.
+// InitGame; APIPCActor.TickGhostRegistry covers that path. The startup map is
+// skipped: it stays resident for the whole session and never holds the player.
 function EnsureGhostRegistry()
 {
+    if (Caps(string(Level.Outer.Name)) == "ENTRY") return;
     if (class'APGhostRegistry'.static.GetInstance(self) == None)
     {
         Log("[Archipelago] APGameInfo: APGhostRegistry spawn FAILED");
