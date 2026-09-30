@@ -2586,8 +2586,12 @@ class HP2Context(CommonContext):
     async def _on_pos(self, line: str) -> None:
         # One sample of Harry for the other players' ghosts. ghost_pump ships
         # the batch; a map change the sample reveals hides the peers left behind.
+        # The map is logged when it changes, since POS itself is not logged.
+        before = self.ghosts.level
         for gone in self.ghosts.on_pos(line[len("POS "):]):
             self._write_ghost_line(gone)
+        if self.ghosts.level != before:
+            logger.info(f"Ghosts: map is now {self.ghosts.level}")
         return
 
     async def _on_say(self, line: str) -> None:
