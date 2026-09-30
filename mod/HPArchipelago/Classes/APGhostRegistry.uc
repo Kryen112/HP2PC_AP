@@ -367,8 +367,9 @@ static function string NextField(out string rest)
 
 // Screen position of a world point through the view the player sees: the
 // ViewTarget when one is set (the game parks its camera there), else the camera
-// actor, at Harry's horizontal field of view. False when the point is behind
-// the camera or off screen.
+// actor. Harry's field of view is the width of a 4:3 view; a wider screen
+// extends the view sideways, so the pixel scale follows the screen height.
+// False when the point is behind the camera or off screen.
 static function bool ProjectToScreen(Canvas C, harry h, Vector world, out float sx, out float sy)
 {
     local Actor view;
@@ -382,7 +383,7 @@ static function bool ProjectToScreen(Canvas C, harry h, Vector world, out float 
     rel = world - view.Location;
     depth = rel dot camX;
     if (depth < 16.0) return False;
-    pixelsPerUnit = (C.SizeX * 0.5) / Tan(h.FOVAngle * Pi / 360.0);
+    pixelsPerUnit = (C.SizeY * 2.0 / 3.0) / Tan(h.FOVAngle * Pi / 360.0);
     sx = C.SizeX * 0.5 + (rel dot camY) * pixelsPerUnit / depth;
     sy = C.SizeY * 0.5 - (rel dot camZ) * pixelsPerUnit / depth;
     return sx >= 0.0 && sx <= C.SizeX && sy >= 0.0 && sy <= C.SizeY;

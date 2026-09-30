@@ -983,7 +983,9 @@ function DrawGhostNames(Canvas C)
     {
         g = registry.Ghosts[i];
         if (g == None || g.bDeleteMe || g.bHidden) continue;
-        head = g.Location + vect(0, 0, 1) * ((g.CollisionHeight + 16.0) * g.DrawScale);
+        // The pawn draws its feet at its Location, so the head sits two
+        // collision heights up; the name floats a little above that.
+        head = g.Location + vect(0, 0, 1) * ((2.0 * g.CollisionHeight + 12.0) * g.DrawScale);
         if (!class'APGhostRegistry'.static.ProjectToScreen(C, h, head, sx, sy)) continue;
         C.TextSize(g.PeerName, textW, textH);
         C.SetPos(sx - textW / 2.0, sy - textH);

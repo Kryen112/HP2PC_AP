@@ -47,10 +47,10 @@
 //   GhostList         logs which slots have a ghost on this map, with each
 //                     ghost's location next to the local Harry's.
 //
-//   GhostZOffset [n]  adds n units to every ghost's height, live, for settling
-//                     how far a ghost floats above the floor. No argument
-//                     reports the current value. Bake the settled number into
-//                     APGhostPawn's ZOffset default.
+//   GhostZOffset [n]  sets the units added to every ghost's height, live, for
+//                     checking how a ghost sits on the floor. No argument
+//                     reports the current value; APGhostPawn's ZOffset default
+//                     is the settled one.
 //
 // Freecam keys (debug mode on; Delete toggles the freecam):
 //   WASD: fly the freecam, mirroring the stock arrow keys. Forward follows where

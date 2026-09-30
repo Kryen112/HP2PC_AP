@@ -31,6 +31,8 @@ var name LastChannelSequence;
 var int  LastChannelFrame;
 // Whether the body last played in combine mode (the peer's channel was live).
 var bool bLastBodyCombine;
+// True while the peer's body plays a ledge climb; the glide pauses meanwhile.
+var bool bClimbing;
 // Added to every sample's height before it is applied. A class default, so the
 // APConsole GhostZOffset exec can tune it live against a standing ghost.
 var float ZOffset;
@@ -98,7 +100,7 @@ function Tick(float fTimeDelta)
     local float alpha;
 
     Super.Tick(fTimeDelta);
-    if (bHasTarget == 0 || bHidden) return;
+    if (bHasTarget == 0 || bHidden || bClimbing) return;
     alpha = FMin(1.0, fTimeDelta * GLIDE_RATE);
     SetLocation(Location + (TargetLocation - Location) * alpha);
     SetRotation(GlideRotation(Rotation, TargetRotation, alpha));
@@ -138,6 +140,21 @@ function ApplyAnimation(harry h, string bodySequence, int bodyFrame, bool bBodyL
 
     if (bBodyCombine) bodyType = AT_Combine;
     else              bodyType = AT_Replace;
+
+    // A ledge climb moves Harry by the animation's own root motion, so the
+    // ghost's Location stays put while the animation carries the mesh up the
+    // ledge, then snaps to the first sample after the climb. Gliding the
+    // Location as well would add the two together.
+    if (Left(bodySequence, 5) ~= "climb")
+    {
+        bClimbing = True;
+    }
+    else if (bClimbing)
+    {
+        bClimbing = False;
+        SetLocation(TargetLocation);
+        SetRotation(TargetRotation);
+    }
 
     seq = h.StringToAnimName(bodySequence);
     if (seq != '' && HasAnim(seq))
@@ -195,4 +212,7 @@ defaultproperties
     eVulnerableToSpell=SPELL_None
     CollisionRadius=15.00
     CollisionHeight=42.00
+    // A pawn draws its mesh one collision height higher than an Actor at the
+    // same Location, so a sample (Harry's centre) is lowered by that much.
+    ZOffset=-42.00
 }
