@@ -31,6 +31,9 @@ var name LastChannelSequence;
 var int  LastChannelFrame;
 // Whether the body last played in combine mode (the peer's channel was live).
 var bool bLastBodyCombine;
+// Added to every sample's height before it is applied. A class default, so the
+// APConsole GhostZOffset exec can tune it live against a standing ghost.
+var float ZOffset;
 
 // Per second. About 80 ms behind the latest sample, which hides the ten-hertz steps.
 const GLIDE_RATE = 12.0;
@@ -66,6 +69,7 @@ function SetupPeer(int slot, string displayName)
 
 function SetTarget(Vector loc, Rotator rot, float scale)
 {
+    loc.Z += default.ZOffset;
     if (bHasTarget == 0 || VSize(loc - Location) > SNAP_DISTANCE)
     {
         SetLocation(loc);

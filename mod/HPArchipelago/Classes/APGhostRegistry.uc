@@ -365,16 +365,51 @@ static function string NextField(out string rest)
     return field;
 }
 
+// Screen position of a world point through the view the player sees: the
+// ViewTarget when one is set (the game parks its camera there), else the camera
+// actor, at Harry's horizontal field of view. False when the point is behind
+// the camera or off screen.
+static function bool ProjectToScreen(Canvas C, harry h, Vector world, out float sx, out float sy)
+{
+    local Actor view;
+    local Vector camX, camY, camZ, rel;
+    local float depth, pixelsPerUnit;
+
+    view = h.ViewTarget;
+    if (view == None) view = h.Cam;
+    if (view == None) return False;
+    GetAxes(view.Rotation, camX, camY, camZ);
+    rel = world - view.Location;
+    depth = rel dot camX;
+    if (depth < 16.0) return False;
+    pixelsPerUnit = (C.SizeX * 0.5) / Tan(h.FOVAngle * Pi / 360.0);
+    sx = C.SizeX * 0.5 + (rel dot camY) * pixelsPerUnit / depth;
+    sy = C.SizeY * 0.5 - (rel dot camZ) * pixelsPerUnit / depth;
+    return sx >= 0.0 && sx <= C.SizeX && sy >= 0.0 && sy <= C.SizeY;
+}
+
+// Logs every ghost next to the local Harry, so a height difference between a
+// ghost and Harry standing on the same floor reads straight off the log.
 function LogPeers()
 {
+    local harry h;
     local int i;
 
-    Log("[Archipelago] Ghosts: " $ GhostCount $ " ghost(s) on " $ Caps(string(Level.Outer.Name)));
+    h = class'APGameInfo'.static.FindGrantReadyHarry(self);
+    Log("[Archipelago] Ghosts: " $ GhostCount $ " ghost(s) on " $ Caps(string(Level.Outer.Name))
+        $ " zoffset=" $ class'APGhostPawn'.default.ZOffset);
+    if (h != None)
+    {
+        Log("[Archipelago] Ghosts:   local Harry loc=" $ string(h.Location)
+            $ " colheight=" $ h.CollisionHeight $ " physics=" $ string(h.Physics));
+    }
     for (i = 0; i < GhostCount; i++)
     {
         if (Ghosts[i] == None) continue;
         Log("[Archipelago] Ghosts:   slot " $ GhostSlots[i] $ " " $ Ghosts[i].PeerName
             $ " hidden=" $ string(Ghosts[i].bHidden) $ " loc=" $ string(Ghosts[i].Location)
+            $ " target=" $ string(Ghosts[i].TargetLocation)
+            $ " colheight=" $ Ghosts[i].CollisionHeight $ " physics=" $ string(Ghosts[i].Physics)
             $ " body=" $ string(Ghosts[i].AnimSequence)
             $ " seen " $ (Level.TimeSeconds - Ghosts[i].LastSeenTime) $ "s ago");
     }

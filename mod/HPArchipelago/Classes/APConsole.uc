@@ -44,7 +44,13 @@
 //                     channel and its wand can be checked without a second
 //                     player. 0 removes it. Bare GhostFake flips it.
 //
-//   GhostList         logs which slots have a ghost on this map.
+//   GhostList         logs which slots have a ghost on this map, with each
+//                     ghost's location next to the local Harry's.
+//
+//   GhostZOffset [n]  adds n units to every ghost's height, live, for settling
+//                     how far a ghost floats above the floor. No argument
+//                     reports the current value. Bake the settled number into
+//                     APGhostPawn's ZOffset default.
 //
 // Freecam keys (debug mode on; Delete toggles the freecam):
 //   WASD: fly the freecam, mirroring the stock arrow keys. Forward follows where
@@ -581,6 +587,16 @@ exec function GhostFake(optional string OnOff)
     else if (OnOff == "0") registry.SetFakePeer(False);
     else                   registry.SetFakePeer(registry.bFakePeer == 0);
     DevPrint("GhostFake: " $ registry.bFakePeer $ " (your own Harry as a peer ahead of you)");
+}
+
+exec function GhostZOffset(optional string Units)
+{
+    if (Units != "")
+    {
+        class'APGhostPawn'.default.ZOffset = float(Units);
+    }
+    DevPrint("GhostZOffset: " $ class'APGhostPawn'.default.ZOffset
+        $ " (added to every ghost's height; applies from the next sample)");
 }
 
 exec function GhostList()

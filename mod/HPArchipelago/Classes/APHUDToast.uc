@@ -720,6 +720,7 @@ function RenderHud(Canvas C)
     // trap is live, the toast loop whenever ToastCount > 0.
     DrawTradersanityAPLabel(C);
     DrawTrapStatus(C);
+    DrawGhostNames(C);
 
     if (ToastCount <= 0) return;
 
@@ -948,6 +949,46 @@ function DrawTradersanityAPLabel(Canvas C)
     C.SetPos(labelX, labelY);
     C.DrawShadowText(label, colorText, colorShadow);
 
+    C.Font = fontSave;
+    C.DrawColor = colorSave;
+}
+
+// Slot names over the ghosts' heads. Each visible ghost's head point is
+// projected through the view the player sees and its name drawn centred
+// there in the small font, in the toast's other-slot cream on its black
+// shadow. A ghost behind the camera or off screen draws nothing.
+function DrawGhostNames(Canvas C)
+{
+    local harry h;
+    local APGameInfo gi;
+    local APGhostRegistry registry;
+    local APGhostPawn g;
+    local int i;
+    local float sx, sy, textW, textH;
+    local Font fontSave;
+    local Color colorSave;
+    local Vector head;
+
+    h = harry(Level.PlayerHarryActor);
+    if (h == None || h.Player == None) return;
+    gi = APGameInfo(Level.Game);
+    if (gi == None || gi.GhostRegistry == None || gi.GhostRegistry.bDeleteMe) return;
+    registry = gi.GhostRegistry;
+    if (registry.GhostCount <= 0) return;
+
+    fontSave = C.Font;
+    colorSave = C.DrawColor;
+    C.Font = baseConsole(h.Player.Console).LocalSmallFont;
+    for (i = 0; i < registry.GhostCount; i++)
+    {
+        g = registry.Ghosts[i];
+        if (g == None || g.bDeleteMe || g.bHidden) continue;
+        head = g.Location + vect(0, 0, 1) * ((g.CollisionHeight + 16.0) * g.DrawScale);
+        if (!class'APGhostRegistry'.static.ProjectToScreen(C, h, head, sx, sy)) continue;
+        C.TextSize(g.PeerName, textW, textH);
+        C.SetPos(sx - textW / 2.0, sy - textH);
+        C.DrawShadowText(g.PeerName, APRoleOtherSlot(), APBlack());
+    }
     C.Font = fontSave;
     C.DrawColor = colorSave;
 }
