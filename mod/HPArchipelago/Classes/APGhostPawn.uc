@@ -14,6 +14,12 @@
 
 class APGhostPawn extends HPawn;
 
+// Harry's glasses live on the mesh's fourth texture slot as a masked texture
+// with dark frames. The translucent style blends additively, so dark pixels
+// vanish and the ghost loses its glasses. This is the same texture with the
+// frames lightened, laid over that slot while the ghost wears Harry's mesh.
+#exec Texture Import File=Textures\APGhostGlasses.png Name=APGhostGlasses COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Skins
+
 var int    PeerSlot;
 var string PeerName;
 var Vector  TargetLocation;
@@ -23,8 +29,11 @@ var byte    bHasTarget;
 var float   LastSeenTime;
 var APGhostAnimChannel Channel;
 var Weapon  Wand;
-// The slot-coloured glow that rides with the ghost.
-var APGhostLight Light;
+// The lightened glasses texture, loaded once per ghost.
+var Texture GlassesSkin;
+
+const HARRY_MESH_NAME  = "HPModels.skharryMesh";
+const GLASSES_SKIN_SLOT = 3;
 // Last sequence and frame per track, to tell a fresh one-shot from the same
 // one still playing.
 var name LastBodySequence;
@@ -69,10 +78,21 @@ function SetupPeer(int slot, string displayName)
         Wand.GiveAmmo(self);
         Wand.Style = STY_Translucent;
     }
-    Light = Spawn(class'APGhostLight', self);
-    if (Light != None)
+    GlassesSkin = Texture(DynamicLoadObject("HPArchipelago.Skins.APGhostGlasses", class'Texture'));
+    ApplyGlassesSkin();
+}
+
+// The lightened glasses go on Harry's mesh only; any other mesh keeps its own
+// fourth slot.
+function ApplyGlassesSkin()
+{
+    if (GlassesSkin != None && string(Mesh) ~= HARRY_MESH_NAME)
     {
-        Light.SetSlotColour(slot);
+        MultiSkins[GLASSES_SKIN_SLOT] = GlassesSkin;
+    }
+    else
+    {
+        MultiSkins[GLASSES_SKIN_SLOT] = None;
     }
 }
 
@@ -88,7 +108,6 @@ function SetTarget(Vector loc, Rotator rot, float scale)
     {
         SetLocation(loc);
         SetRotation(rot);
-        MoveLight();
     }
     TargetLocation = loc;
     TargetRotation = rot;
@@ -111,6 +130,7 @@ function ApplyMeshes(string meshName, string wandMeshName)
             Mesh = loaded;
             LastBodySequence = '';
             LastChannelSequence = '';
+            ApplyGlassesSkin();
         }
         else
         {
@@ -139,29 +159,6 @@ function SetGhostHidden(bool bHide)
     {
         Wand.bHidden = bHide;
     }
-    if (Light != None)
-    {
-        Light.SetLit(!bHide);
-    }
-}
-
-// The glow sits at the ghost's chest, wherever the mesh is drawn.
-function MoveLight()
-{
-    if (Light != None)
-    {
-        Light.SetLocation(Location + ((vect(0, 0, 1) * (50.0 * DrawScale)) >> Rotation));
-    }
-}
-
-event Destroyed()
-{
-    if (Light != None)
-    {
-        Light.Destroy();
-        Light = None;
-    }
-    Super.Destroyed();
 }
 
 function Tick(float fTimeDelta)
@@ -173,7 +170,6 @@ function Tick(float fTimeDelta)
     alpha = FMin(1.0, fTimeDelta * GLIDE_RATE);
     SetLocation(Location + (TargetLocation - Location) * alpha);
     SetRotation(GlideRotation(Rotation, TargetRotation, alpha));
-    MoveLight();
 }
 
 // Shortest-arc step from one rotation toward another; each axis wraps at 65536.

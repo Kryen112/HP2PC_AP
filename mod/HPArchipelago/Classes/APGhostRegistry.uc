@@ -77,21 +77,16 @@ event PreBeginPlay()
 
 // A ghost saved with the level comes back on load with no registry entry and
 // would stand there for good. A fresh registry owns no ghosts yet, so every
-// ghost pawn or glow it finds is stale.
+// ghost pawn it finds is stale.
 function SweepUntrackedGhosts()
 {
     local APGhostPawn g;
-    local APGhostLight glow;
     local int swept;
 
     foreach AllActors(class'APGhostPawn', g)
     {
         g.Destroy();
         swept++;
-    }
-    foreach AllActors(class'APGhostLight', glow)
-    {
-        glow.Destroy();
     }
     if (swept > 0)
     {
@@ -263,7 +258,6 @@ function ApplyPeer(string body)
     local APGhostPawn g;
     local string rest, peerName, bodySequence, channelSequence, meshName, wandMeshName;
     local int slot, bodyFrame, channelFrame;
-    local APHUDToast toast;
     local bool bBodyLoops, bBodyCombine, bChannelLoops;
     local float scale;
     local Vector loc;
@@ -308,12 +302,6 @@ function ApplyPeer(string body)
         GhostCount++;
         Log("[Archipelago] Ghosts: " $ peerName $ " (slot " $ slot $ ") appeared on "
             $ Caps(string(Level.Outer.Name)) $ " at " $ string(loc));
-        // Same white lifecycle voice as a slot joining the room.
-        toast = class'APHUDToast'.static.GetInstance();
-        if (toast != None)
-        {
-            toast.EnqueuePlainToast(peerName $ " is here", 1);
-        }
     }
     g.LastSeenTime = Level.TimeSeconds;
     g.ApplyMeshes(meshName, wandMeshName);

@@ -623,6 +623,23 @@ static function Color APRoleSelfSlot()    { return RGB(238, 0,   238); }  // sel
 static function Color APRoleOtherSlot()   { return RGB(238, 232, 205); }  // other slot (cream)
 static function Color APRoleProgression() { return RGB(159, 121, 238); }
 static function Color APRoleUseful()      { return RGB(79,  148, 205); }
+
+// Nameplate colour for another slot's ghost: eight readable pastels, cycled by
+// slot number so neighbouring slots never share one.
+static function Color GhostSlotColour(int slot)
+{
+    switch (slot % 8)
+    {
+        case 0:  return RGB(255, 170, 170);  // rose
+        case 1:  return RGB(170, 215, 255);  // sky
+        case 2:  return RGB(180, 240, 170);  // mint
+        case 3:  return RGB(255, 225, 140);  // gold
+        case 4:  return RGB(215, 180, 255);  // lavender
+        case 5:  return RGB(255, 190, 130);  // peach
+        case 6:  return RGB(160, 235, 235);  // aqua
+        default: return RGB(238, 232, 205);  // cream
+    }
+}
 static function Color APRoleTrap()        { return RGB(237, 123, 110); }
 static function Color APRoleFiller()      { return RGB(9,   203, 203); }
 static function Color APRoleLocation()    { return RGB(50,  205, 50);  }  // toast green
@@ -955,8 +972,8 @@ function DrawTradersanityAPLabel(Canvas C)
 
 // Slot names over the ghosts' heads. Each visible ghost's head point is
 // projected through the view the player sees and its name drawn centred
-// there in the small font, in the toast's other-slot cream on its black
-// shadow. A ghost behind the camera or off screen draws nothing.
+// there in the small font, in that slot's colour on the toast's black shadow.
+// A ghost behind the camera or off screen draws nothing.
 function DrawGhostNames(Canvas C)
 {
     local harry h;
@@ -989,7 +1006,7 @@ function DrawGhostNames(Canvas C)
         if (!class'APGhostRegistry'.static.ProjectToScreen(C, h, head, sx, sy)) continue;
         C.TextSize(g.PeerName, textW, textH);
         C.SetPos(sx - textW / 2.0, sy - textH);
-        C.DrawShadowText(g.PeerName, APRoleOtherSlot(), APBlack());
+        C.DrawShadowText(g.PeerName, GhostSlotColour(g.PeerSlot), APBlack());
     }
     C.Font = fontSave;
     C.DrawColor = colorSave;
