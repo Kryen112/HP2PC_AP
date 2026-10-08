@@ -11,6 +11,11 @@ from .access import (_Access, _bronze_cards, alohomora, chamber_of_secrets_key,
 CHAMBER_FALL_BRONZE_COUNT = 20
 chamber_first_fall = spongify | _bronze_cards(CHAMBER_FALL_BRONZE_COUNT)
 
+# Gold Card Room (both modes): every gold card sits past the first room, whose
+# gate takes Spongify or Rictusempra plus Flipendo. Vanilla masks the Flipendo
+# half (its region entry already needs it); open castle enters on silvers alone.
+gold_card_room_inner = spongify | (rictusempra & flipendo)
+
 # Open castle is the base table: every location's open castle access rule.
 # Vanilla is derived from it below (open castle plus the extra gating vanilla
 # adds), so the two modes cannot drift apart.
@@ -259,18 +264,18 @@ LOCATION_RULES_OPEN_CASTLE: dict[str, _Access] = {
     "Forbidden Forest - Secret 2": lumos & spongify & diffindo & rictusempra,
     "Forbidden Forest - Secret 3": lumos & spongify & diffindo,
     "Forbidden Forest - Secret 4": lumos & spongify & diffindo & flipendo,
-    "Gold Card Room - Card Bott": rictusempra | spongify,
-    "Gold Card Room - Card Dumbledore": alohomora & (rictusempra | spongify),
-    "Gold Card Room - Card Gryffindor": alohomora & diffindo & (rictusempra | spongify),
-    "Gold Card Room - Card Herpo": alohomora & diffindo & (rictusempra | spongify),
-    "Gold Card Room - Card Hufflepuff": alohomora & diffindo & skurge & (rictusempra | spongify),
-    "Gold Card Room - Card Knightley": alohomora & flipendo & diffindo & skurge & lumos & (rictusempra | spongify),
-    "Gold Card Room - Card Paracelsus": alohomora & flipendo & diffindo & skurge & lumos & (rictusempra | spongify),
-    "Gold Card Room - Card Pinkstone": alohomora & flipendo & diffindo & skurge & lumos & (rictusempra | spongify),
-    "Gold Card Room - Card Potter": alohomora & flipendo & diffindo & skurge & lumos & (rictusempra | spongify),
-    "Gold Card Room - Card Ravenclaw": alohomora & flipendo & diffindo & skurge & lumos & (rictusempra | spongify),
-    "Gold Card Room - Card Slytherin": alohomora & diffindo & (rictusempra | spongify),
-    "Gold Card Room - Complete": alohomora & flipendo & diffindo & skurge & lumos & (rictusempra | spongify),
+    "Gold Card Room - Card Bott": gold_card_room_inner,
+    "Gold Card Room - Card Dumbledore": alohomora & gold_card_room_inner,
+    "Gold Card Room - Card Gryffindor": alohomora & diffindo & gold_card_room_inner,
+    "Gold Card Room - Card Herpo": alohomora & diffindo & gold_card_room_inner,
+    "Gold Card Room - Card Hufflepuff": alohomora & diffindo & skurge & gold_card_room_inner,
+    "Gold Card Room - Card Knightley": alohomora & flipendo & diffindo & skurge & lumos & gold_card_room_inner,
+    "Gold Card Room - Card Paracelsus": alohomora & flipendo & diffindo & skurge & lumos & gold_card_room_inner,
+    "Gold Card Room - Card Pinkstone": alohomora & flipendo & diffindo & skurge & lumos & gold_card_room_inner,
+    "Gold Card Room - Card Potter": alohomora & flipendo & diffindo & skurge & lumos & gold_card_room_inner,
+    "Gold Card Room - Card Ravenclaw": alohomora & flipendo & diffindo & skurge & lumos & gold_card_room_inner,
+    "Gold Card Room - Card Slytherin": alohomora & diffindo & gold_card_room_inner,
+    "Gold Card Room - Complete": alohomora & flipendo & diffindo & skurge & lumos & gold_card_room_inner,
     "Goyle Level - Card Bloxam": diffindo & rictusempra & flipendo & alohomora,
     "Goyle Level - Card Circe": diffindo & rictusempra & flipendo & alohomora,
     "Goyle Level - Card Plumpton": alohomora,

@@ -570,6 +570,48 @@ class TestGoldCardRoomDeepLumosFlipendo(HP2TestBase):
         )
 
 
+# Every gold card sits past the Gold Card Room's first room, whose gate takes
+# Spongify or Rictusempra plus Flipendo. Vanilla masks the Flipendo half (its
+# region entry already needs it); open castle enters on silvers alone, so
+# Rictusempra without Flipendo must not open the shallow cards.
+class TestGoldCardRoomInnerGate(HP2TestBase):
+    options = {"game_mode": "open_castle", "starting_spells": []}
+    run_default_tests = False
+
+    SHALLOW = [
+        "Gold Card Room - Card Bott",
+        "Gold Card Room - Card Dumbledore",
+        "Gold Card Room - Card Gryffindor",
+        "Gold Card Room - Card Herpo",
+        "Gold Card Room - Card Hufflepuff",
+        "Gold Card Room - Card Slytherin",
+    ]
+
+    def test_rictusempra_alone_does_not_pass_the_gate(self) -> None:
+        state = self.state_all_but(["Spongify", "Flipendo"])
+        for name in self.SHALLOW:
+            self.assertFalse(state.can_reach(name, "Location", self.player),
+                             f"{name} must need Flipendo alongside Rictusempra")
+
+    def test_rictusempra_with_flipendo_passes_the_gate(self) -> None:
+        state = self.state_all_but(["Spongify"])
+        for name in self.SHALLOW:
+            self.assertTrue(state.can_reach(name, "Location", self.player),
+                            f"{name} must open on Rictusempra plus Flipendo")
+
+    def test_spongify_alone_passes_the_gate(self) -> None:
+        state = self.state_all_but(["Rictusempra", "Flipendo"])
+        for name in self.SHALLOW:
+            self.assertTrue(state.can_reach(name, "Location", self.player),
+                            f"{name} must open on Spongify without Flipendo")
+
+    def test_flipendo_alone_does_not_pass_the_gate(self) -> None:
+        state = self.state_all_but(["Spongify", "Rictusempra"])
+        for name in self.SHALLOW:
+            self.assertFalse(state.can_reach(name, "Location", self.player),
+                             f"{name} must need Rictusempra alongside Flipendo")
+
+
 # Open-castle goal: a spells-only goal must require every spell to complete.
 class TestOpenCastleSpellGoal(HP2TestBase):
     options = {
