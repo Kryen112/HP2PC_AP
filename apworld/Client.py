@@ -84,6 +84,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import ctypes
 import json
 import logging
 import os
@@ -155,23 +156,154 @@ def _auto_install_enabled() -> bool:
         return False
 
 
-def _game_process_running() -> bool:
-    """Whether a Game.exe process is up. The installer must not rewrite files a
-    running game has loaded, so any doubt (tasklist erroring or timing out)
-    counts as running. Off Windows there is no tasklist; an overwrite there only
-    lands on the next launch, so it does not block the install."""
-    if not sys.platform.startswith("win"):
-        return False
+# What the game probe found. Only GAME_NONE lets the installer write and the
+# auto-launch start a game; the other three differ only in how the player is
+# told, since a Game.exe parked at its launcher page never bridges.
+GAME_NONE = "none"
+GAME_LAUNCHER = "launcher"
+GAME_RUNNING = "running"
+GAME_UNKNOWN = "unknown"
+
+# Window classes Game.exe registers (prefixed by its package name): the
+# pre-engine New Game / Load Game page, and the engine viewport that replaces
+# it once a slot is picked.
+LAUNCHER_WINDOW_CLASS = "M212FrontEnd"
+ENGINE_WINDOW_CLASS = "WWindowsViewportWindow"
+
+
+def _game_process_ids() -> Optional[set]:
+    """PIDs of the Game.exe processes, or None when tasklist could not say
+    (erroring or timing out)."""
     try:
         result = subprocess.run(
-            ["tasklist", "/FI", "IMAGENAME eq Game.exe", "/NH"],
+            ["tasklist", "/FI", "IMAGENAME eq Game.exe", "/FO", "CSV", "/NH"],
             capture_output=True, timeout=3,
             creationflags=subprocess.CREATE_NO_WINDOW)
     except (OSError, subprocess.SubprocessError):
-        return True
+        return None
     # Bytes on purpose: tasklist writes in the OEM console codepage, which
-    # text mode would mis-decode on non-US-English Windows.
-    return b"Game.exe" in result.stdout
+    # text mode would mis-decode on non-US-English Windows. The no-match
+    # notice is localized, so only well-formed rows are read.
+    pids = set()
+    for line in result.stdout.splitlines():
+        cells = [cell.strip(b'"') for cell in line.strip().split(b'","')]
+        if len(cells) > 1 and cells[0].lower() == b"game.exe" and cells[1].isdigit():
+            pids.add(int(cells[1]))
+    return pids
+
+
+def _visible_window_classes(pids: set) -> Optional[list]:
+    """Class names of the visible top-level windows those processes own, or
+    None when the window walk failed. A private user32 handle keeps the
+    argument types set here from leaking into other ctypes users."""
+    classes = []
+    try:
+        user32 = ctypes.WinDLL("user32")
+        user32.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
+        user32.IsWindowVisible.argtypes = [ctypes.c_void_p]
+        user32.GetClassNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+        callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+        def visit(hwnd, _):
+            owner = ctypes.c_ulong()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value in pids and user32.IsWindowVisible(hwnd):
+                name = ctypes.create_unicode_buffer(256)
+                user32.GetClassNameW(hwnd, name, 256)
+                classes.append(name.value)
+            return True
+
+        user32.EnumWindows.argtypes = [callback_type, ctypes.c_void_p]
+        user32.EnumWindows(callback_type(visit), None)
+    except (AttributeError, OSError):
+        return None
+    return classes
+
+
+def _game_process_state() -> str:
+    """What the process list says about Harry Potter: GAME_NONE when no Game.exe
+    is up, GAME_LAUNCHER when its only window is the pre-engine New Game / Load
+    Game page, GAME_RUNNING when the engine viewport exists, GAME_UNKNOWN when a
+    Game.exe is up but shows neither (still booting) or the probe could not
+    look. Any doubt counts as a game being up: the installer must not rewrite
+    files a running game has loaded. Off Windows there is no tasklist; an
+    overwrite there only lands on the next launch, so it does not block the
+    install."""
+    if not sys.platform.startswith("win"):
+        return GAME_NONE
+    pids = _game_process_ids()
+    if pids is None:
+        return GAME_UNKNOWN
+    if not pids:
+        return GAME_NONE
+    classes = _visible_window_classes(pids) or []
+    if any(name.endswith(ENGINE_WINDOW_CLASS) for name in classes):
+        return GAME_RUNNING
+    if any(name.endswith(LAUNCHER_WINDOW_CLASS) for name in classes):
+        return GAME_LAUNCHER
+    return GAME_UNKNOWN
+
+
+def _game_up_wording(state: str) -> tuple:
+    """What a skipped launch or install names as being up, and how to close
+    it. The launcher page gets its own words: a message that says the game is
+    up reads as wrong to a player looking at the New Game / Load Game page."""
+    if state == GAME_LAUNCHER:
+        return ("the Harry Potter launcher (the New Game / Load Game window) is open",
+                "Close that window")
+    if state == GAME_RUNNING:
+        return "Harry Potter is running", "Close it"
+    return ("a Game.exe process looks to be running",
+            "Close Harry Potter (check Task Manager if no window is open)")
+
+
+# Why the seed's install is not running this apworld's mod package. Set by the
+# install step and cleared once the package is current. A reason holds the
+# auto-launch and drives the in-game reminder while a game is bridged.
+MOD_BLOCKED_GAME_UP = "game_up"
+MOD_BLOCKED_DENIED = "denied"
+MOD_BLOCKED_FAILED = "failed"
+
+# Seconds between in-game reminders while the mod install stays blocked, the
+# cadence of the mod's own "Not connected" reminder.
+BLOCKED_TOAST_INTERVAL = 10.0
+
+
+def _client_is_elevated() -> bool:
+    """Whether this client runs as administrator. Only Windows has the notion."""
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except (AttributeError, OSError):
+        return False
+
+
+def _write_denied_advice(install: str) -> "tuple[str, str]":
+    """Popup title and text for a write the OS refused inside the install:
+    the folder, and the one action that fixes it, which depends on whether
+    the client is already elevated."""
+    title = "Install folder not writable"
+    if not sys.platform.startswith("win"):
+        return title, (f"This client cannot write to:\n{install}\n\n"
+                       f"Check that folder's permissions, then reconnect or type /installmod.")
+    if _client_is_elevated():
+        return title, (f"This client runs as administrator and still cannot write to:\n{install}\n\n"
+                       f"Check that folder's permissions and your antivirus, then reconnect or "
+                       f"type /installmod.")
+    return title, (f"Windows will not let this client write to:\n{install}\n\n"
+                   f"Close this client, right-click ArchipelagoLauncher, pick 'Run as "
+                   f"administrator' and connect again.\n\n"
+                   f"Or move the game out of Program Files, into a folder you can write to.")
+
+
+def _blocked_toast_text(reason: str) -> str:
+    """The in-game reminder for a blocked mod install, by reason."""
+    if reason == MOD_BLOCKED_GAME_UP:
+        return "AP: mod update pending. Close the game and type /installmod."
+    if reason == MOD_BLOCKED_DENIED:
+        return "AP: mod update blocked. Run the Archipelago Launcher as administrator."
+    return "AP: mod update failed. See the client window."
 
 
 # /reroll overrides per randomizer kind ("sound" / "music"), keyed by
@@ -964,6 +1096,10 @@ class HP2Context(CommonContext):
         # /autoplay override for this client session. None follows the
         # auto_launch_game setting; True or False beats it on every connect.
         self.auto_launch_override: Optional[bool] = None
+        # Why the mod install is blocked (a MOD_BLOCKED_* reason) or None. A
+        # reason holds the auto-launch and keeps the reminder loop alive.
+        self.mod_install_blocked: Optional[str] = None
+        self._blocked_toast_task: Optional[asyncio.Task] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO). A durable, authoritative open castle signal that
@@ -1951,11 +2087,12 @@ class HP2Context(CommonContext):
             # instead of failing fast, which previously left no message at all.
             result = await asyncio.wait_for(fut, timeout=20)
         except asyncio.TimeoutError:
-            ui_logger.error(
-                f"{spec.noun}: writing the install did not finish (the write looks blocked). "
-                f"If the install is under Program Files, close Harry Potter and run the "
-                f"Archipelago launcher as administrator, then reconnect."
-            )
+            ui_logger.error(f"{spec.noun}: writing the install did not finish (the write looks blocked).")
+            self._show_write_denied_popup(install)
+            return False
+        except PermissionError as exc:
+            ui_logger.error(f"{spec.noun}: {exc}")
+            self._show_write_denied_popup(install)
             return False
         except _PATCH_ERRORS as exc:
             ui_logger.error(f"{spec.noun}: {exc}")
@@ -1976,22 +2113,35 @@ class HP2Context(CommonContext):
         # The mod must be current before the game boots, so it sits between the
         # randomizers and the launch; it resolves (and prompts once for) the
         # folder itself when the audio step did not need one.
+        mod_ready = True
         if _auto_install_enabled():
-            install = await self._ensure_mod_current(install) or install
+            resolved, mod_ready = await self._ensure_mod_current(install)
+            install = resolved or install
         if not self.auto_launch_wanted() or not player_asked:
             return
         # A game that is up must not get a duplicate. That includes one parked at
         # its launcher page: a running Game.exe that has not bridged yet.
-        if await self._game_is_up():
-            ui_logger.info(
-                "Not auto-launching: Harry Potter looks to be running already. If it "
-                "is not, type /play."
-            )
+        state = await self._game_state()
+        if state != GAME_NONE:
+            what, _ = _game_up_wording(state)
+            if state == GAME_LAUNCHER:
+                advice = "Close that window and type /play."
+            elif state == GAME_RUNNING:
+                advice = "Close it and type /play to relaunch."
+            else:
+                advice = "If Harry Potter is not open, type /play."
+            ui_logger.info(f"Not auto-launching: {what} already. {advice}")
             return
         if not safe:
             ui_logger.warning(
                 "Not auto-launching: the install is not ready (a randomizer could not "
                 "be applied, or its folder is unset). Fix it above, then type /play."
+            )
+            return
+        if not mod_ready:
+            ui_logger.warning(
+                "Not auto-launching: the mod is not installed or not current (see above). "
+                "Fix that and reconnect, or type /play to start the game as it is."
             )
             return
         await self._auto_launch(install)
@@ -2037,55 +2187,91 @@ class HP2Context(CommonContext):
             return self.auto_launch_override
         return _auto_launch_enabled()
 
-    async def _game_is_up(self) -> bool:
-        """Whether a game is up: bridged, or visible as a Game.exe process. A game
-        still booting, or parked at its launcher page before the mod runs, is a
-        process long before it bridges. The process check shells out, so it runs
-        off the event loop."""
+    async def _game_state(self) -> str:
+        """Which game is up, as a GAME_* state: a bridged one is GAME_RUNNING
+        outright, else the process list decides. A game still booting, or
+        parked at its launcher page before the mod runs, is a process long
+        before it bridges. The process probe shells out, so it runs off the
+        event loop."""
         if self.game_writer is not None and not self.game_writer.is_closing():
-            return True
-        return await asyncio.get_event_loop().run_in_executor(None, _game_process_running)
+            return GAME_RUNNING
+        return await asyncio.get_event_loop().run_in_executor(None, _game_process_state)
 
-    async def _ensure_mod_current(self, install: Optional[str]) -> Optional[str]:
+    async def _ensure_mod_current(self, install: Optional[str]) -> "tuple[Optional[str], bool]":
         """Keep the seed's install running this apworld's mod package: resolve
         the install folder (prompting once when it is unset), then deploy when
-        the packaged bytes differ. Returns the resolved folder so the launch can
-        reuse it. Never rewrites files a running game has loaded."""
+        the packaged bytes differ. Returns the resolved folder, so the launch
+        can reuse it, and whether the launch may go ahead: False only when a
+        deploy was needed and did not land. Never rewrites files a running
+        game has loaded."""
         if not install or not os.path.exists(sound_patch.package_path(install)):
             install = await self._resolve_launch_folder()
         if not install:
-            return None
+            return None, True
         try:
             current = await asyncio.get_event_loop().run_in_executor(
                 None, installer.mod_is_current, install)
         except Exception as exc:
             ui_logger.warning(f"Could not check the installed mod: {exc}")
-            return install
+            return install, True
         if current:
-            return install
-        if await self._game_is_up():
+            self._set_mod_blocked(None)
+            return install, True
+        state = await self._game_state()
+        if state != GAME_NONE:
+            what, close = _game_up_wording(state)
             ui_logger.warning(
-                "This apworld carries a different mod build than the install, but "
-                "the game is up. Close Harry Potter and type /installmod, then "
-                "relaunch."
+                f"This apworld carries a different mod build than the install, but "
+                f"{what}. {close}, type /installmod, then relaunch."
             )
-            return install
+            self._set_mod_blocked(MOD_BLOCKED_GAME_UP)
+            return install, False
         ui_logger.info(
             "This apworld carries a different mod build than the install; updating it.")
-        await self._install_mod(install)
-        return install
+        return install, await self._install_mod(install)
 
-    async def _install_mod(self, install: Optional[str] = None) -> None:
+    def _set_mod_blocked(self, reason: Optional[str]) -> None:
+        """Record why the mod install is blocked (None clears it) and keep the
+        in-game reminder loop alive while a reason holds."""
+        self.mod_install_blocked = reason
+        if reason is None:
+            return
+        if self._blocked_toast_task is None or self._blocked_toast_task.done():
+            self._blocked_toast_task = asyncio.create_task(self._blocked_toast_loop())
+
+    async def _blocked_toast_loop(self) -> None:
+        """Push the blocked-install reminder to a bridged game every
+        BLOCKED_TOAST_INTERVAL seconds until the reason clears. It rides the
+        plain TOAST verb, so an older mod build that could not be updated
+        still shows it; with no game bridged the push drops."""
+        while self.mod_install_blocked is not None and not self.exit_event.is_set():
+            self._toast_to_game(_blocked_toast_text(self.mod_install_blocked))
+            await asyncio.sleep(BLOCKED_TOAST_INTERVAL)
+
+    def _show_write_denied_popup(self, install: str) -> None:
+        """Raise the client's error popup for a write the OS refused inside the
+        install, and log the same advice for the text client. A log line alone
+        is read past; the popup is not."""
+        title, text = _write_denied_advice(install)
+        ui_logger.error(f"{title}. {' '.join(text.split())}")
+        self.gui_error(title, text)
+
+    async def _install_mod(self, install: Optional[str] = None) -> bool:
         """Deploy the apworld's mod package and ini wiring into the seed's
-        install. Backs the /installmod command and the on-connect auto install."""
+        install. Backs the /installmod command and the on-connect auto install.
+        Returns whether the install now carries the package; a refusal or a
+        failure records why in mod_install_blocked."""
         if not install:
             install = await self._resolve_launch_folder()
         if not install:
             ui_logger.warning("No install folder resolved; cannot install the mod.")
-            return
-        if await self._game_is_up():
-            ui_logger.warning("The game is up. Close Harry Potter first, then type /installmod.")
-            return
+            return False
+        state = await self._game_state()
+        if state != GAME_NONE:
+            what, close = _game_up_wording(state)
+            ui_logger.warning(f"{what[0].upper()}{what[1:]}. {close} first, then type /installmod again.")
+            self._set_mod_blocked(MOD_BLOCKED_GAME_UP)
+            return False
         loop = asyncio.get_event_loop()
         try:
             # Bound the wait: a denied Program Files write can hang the file op
@@ -2094,23 +2280,27 @@ class HP2Context(CommonContext):
                 loop.run_in_executor(None, installer.deploy, install), timeout=20)
         except asyncio.TimeoutError:
             ui_logger.error(
-                "Mod install: writing the install did not finish (the write looks "
-                "blocked). If the install is under Program Files, run the "
-                "Archipelago launcher as administrator, then reconnect."
-            )
-            return
+                "Mod install: writing the install did not finish (the write looks blocked).")
+            self._set_mod_blocked(MOD_BLOCKED_DENIED)
+            self._show_write_denied_popup(install)
+            return False
+        except PermissionError as exc:
+            ui_logger.error(f"Mod install failed: {exc}")
+            self._set_mod_blocked(MOD_BLOCKED_DENIED)
+            self._show_write_denied_popup(install)
+            return False
         except (OSError, ValueError) as exc:
-            ui_logger.error(
-                f"Mod install failed: {exc} If the install is under Program Files, "
-                f"run the Archipelago launcher as administrator."
-            )
-            return
+            ui_logger.error(f"Mod install failed: {exc}")
+            self._set_mod_blocked(MOD_BLOCKED_FAILED)
+            return False
         for line in log_lines:
             ui_logger.info(f"Mod install: {line}")
         if log_lines:
             ui_logger.info("Mod installed. It loads when Harry Potter starts.")
         else:
             ui_logger.info("Mod install: the install is already up to date.")
+        self._set_mod_blocked(None)
+        return True
 
     def _launch_game(self, install: str) -> None:
         """Start Game.exe from the install's system folder. The UE1 engine needs

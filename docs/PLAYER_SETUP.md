@@ -123,7 +123,7 @@ There are no mod files to copy by hand. The first time you connect the client to
 - applies the same fixes to the per-user overrides in `Documents\Harry - Coding Evolved\` (`HP.ini`, `Game.ini`) if you launched HP2 before, since those would otherwise silently shadow `Default.ini` back to vanilla; your own settings (resolution, volume) survive, nothing is deleted
 - keeps one-time backups of every file it touches, under `<HP2 install>\_archipelago_backup\` and `Documents\Harry - Coding Evolved\_archipelago_backup\`
 
-Every later connect re-checks the installed mod against the apworld's copy byte for byte, so **updating the randomizer is just replacing the `.apworld` file**: the client updates the game install on the next connect. If the game is running at that moment, the client says so; close the game and type `/installmod`.
+Every later connect re-checks the installed mod against the apworld's copy byte for byte, so **updating the randomizer is just replacing the `.apworld` file**: the client updates the game install on the next connect. If the game is running at that moment (the launcher window with New Game / Load Game counts too), the client says so; close it and type `/installmod`. If the install folder refuses the write (almost always a `Program Files` install with the launcher not running as administrator), the client raises a popup with the fix and does not auto-launch. Either way, while an older mod build is still installed, the game repeats an `AP: mod update ...` reminder every ten seconds until the update lands.
 
 > **Permissions:** the client writes inside your install, so if HP2 lives under `Program Files`, run ArchipelagoLauncher as administrator (right-click, "Run as administrator"), or move the install somewhere writable (e.g. `C:\Games\HP2\`). This is the same requirement the audio randomizers have.
 
@@ -239,7 +239,7 @@ The client connects to the AP server as soon as you `/connect` and reads your se
 
 ### Launch the game
 
-With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything; just start a new game once the window opens. Every connect you make yourself (the Connect button or `/connect`) launches it again if the game is not running, so closing the game and reconnecting brings it back. A dropped connection that the client repairs by itself never launches the game.
+With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything; just start a new game once the window opens. Every connect you make yourself (the Connect button or `/connect`) launches it again if the game is not running (a launcher window left open counts as running) and the mod is current, so closing the game and reconnecting brings it back. A dropped connection that the client repairs by itself never launches the game.
 
 **First connect only:** the client needs to know where your install is, so it pops a folder picker asking for the install that matches the seed's mode (the folder that contains the `system` folder with `Game.exe`). Your choice is saved to `host.yaml`, so you're asked only once per mode. You can also set it ahead of time by editing host.yaml (see the install-path block under Sound randomizer below).
 
@@ -326,7 +326,7 @@ Quick checklist after first launch:
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
 - **First, confirm you actually applied the M212 engine patch** ([step 2](#2-apply-the-m212-engine-patch-required)). This is the most common cause, and the mod cannot load on the stock retail engine. Quickest test: `C:\Users\<you>\Documents\Harry - Coding Evolved\` exists once you have launched the game. If only `Documents\Harry Potter II\` does, that's your problem.
-- Close the game and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires every ini, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
+- Close the game, including its New Game / Load Game launcher window, and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires every ini, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
 - If the install log warned that your `HP.ini` carries a package list it does not recognize, delete `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` and run `/installmod` again.
 - Manual checks, if you want to see for yourself: `<HP2 install>\system\HPArchipelago.u` exists; `<HP2 install>\system\Default.ini` has `EditPackages=HPArchipelago`; `Documents\Harry - Coding Evolved\Game.ini` (if present) has `DefaultGame=HPArchipelago.APGameInfo` under `[Engine.Engine]`, not `DefaultGame=Engine.GameInfo`.
 - Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
@@ -343,7 +343,7 @@ Quick checklist after first launch:
 
 **Toast says "AP: WRONG INSTALL …"**:
 
-- This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning re-shows on every level until you fix it.
+- This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning repeats every ten seconds until you fix it.
 - Fix it by launching the matching install: `game_mode: vanilla` → your retail/M212 install; `game_mode: open_castle` → your HP2 Bingo install (see "Optional: install the HP2 Bingo distribution too"). The seed itself is fine; you don't need to regenerate, just connect from the right `Game.exe`.
 - The warning is informational; the game won't stop you from continuing into a broken seed, so don't ignore it.
 
