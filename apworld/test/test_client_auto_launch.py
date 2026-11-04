@@ -120,6 +120,7 @@ class TestAutoLaunchDecision(unittest.TestCase):
                 line = "\n".join(captured.output)
                 for word in words:
                     self.assertIn(word, line)
+                self.assertNotIn(" already", line)
 
     def test_launcher_page_is_never_called_the_game(self, *_) -> None:
         ctx = _Ctx(game_state=GAME_LAUNCHER)
@@ -243,6 +244,7 @@ class TestPlayCommandNeverDuplicates(unittest.TestCase):
                 self.assertIn("Not launching", line)
                 for word in words:
                     self.assertIn(word, line)
+                self.assertNotIn(" already", line)
 
     def test_failed_probe_warns_and_launches(self, *_) -> None:
         ctx = _Ctx(game_state=GAME_UNKNOWN)
