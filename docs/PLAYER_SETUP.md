@@ -51,56 +51,34 @@ In open castle, the pause menu draws a live goal-progress panel (cards / spells 
 ## Prerequisites
 
 > [!IMPORTANT]
-> **You need Metallicafan212's HP2Engine, and it is not optional.** The randomizer does not run on the stock 2002 retail engine. The engine patch is free, but it is handed out only through the HP2 modding Discord, so budget a few minutes to join and download it before you start. Details in the table below and in [step 2](#2-apply-the-m212-engine-patch-required).
+> **You need the original disc.** The randomizer runs on the retail game installed from your own disc, and the disc has to be in the drive every time you play. On Windows 10 and 11 the disc's SafeDisc copy protection also needs **SafeDiscShim** (free, open source) before the game will start. The randomizer never patches the game executable and ships no game files.
 
 | Thing                                            | Where to get it                                                                                                                                                                                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy. KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                            |
-| **HP2Engine 3.4 by Metallicafan212** (called "M212", "the engine patch", or "the modder engine" in this doc and in the community) | **Required.** Free 64-bit engine patch. It restores the UT99 networking the randomizer's game-to-client link is built on, which the retail engine does not expose. Join the [HP2 modding Discord](https://discord.gg/tpN4grB), then open [Metallicafan212's engine post](https://discord.com/channels/381458523529150466/960603560863748216/1411127184877158563) to download it (that link only resolves once you have joined the server). Not on GitHub, no public mirror, not redistributable, so it cannot be bundled with this randomizer. |
+| **Harry Potter and the Chamber of Secrets (PC)** | Your retail disc, KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                                                         |
+| **SafeDiscShim**                                 | <https://github.com/RibShark/SafeDiscShim/releases>, latest release, run its installer. Windows 10 and 11 no longer ship the driver SafeDisc talks to; SafeDiscShim answers in its place. It does not remove the protection, so the disc is still required. |
 | **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                      |
 | **HP2PC_AP release files**                       | Downloaded from the GitHub release: `harry_potter_2_pc.apworld` and this `PLAYER_SETUP.md`. The compiled mod, its config wiring, and the Python client are all bundled inside the apworld; no separate files. |
 
-OS: Windows 10 or Windows 11 (64-bit), or Linux via Proton / Wine. The M212 engine doesn't support older Windows.
+OS: Windows 10 or Windows 11.
 
-### Running on Linux
-
-Supported, with one setup difference and one option to change. The game and the M212 engine are Windows binaries, so they run in a **Proton or Wine prefix**; Archipelago and the HP2 PC Client run **natively on Linux**. The mod-to-client bridge is a localhost TCP connection, which crosses the prefix boundary without any extra setup.
-
-Follow the whole guide as written, with these adjustments:
-
-- **Install HP2 and the M212 engine inside the prefix.** Everywhere this guide says `<HP2 install>`, it means the path inside that prefix, under `drive_c/`.
-- **Give the client the in-prefix path.** When it pops the folder picker on first connect (or when you fill in `vanilla_install_folder` / `open_castle_install_folder` in host.yaml by hand), point it at the install's real location under `drive_c/`. The client patches those files directly from Linux; it does not need to run inside the prefix.
-- **Set `auto_launch_game: false`** under `harry_potter_2_pc_options` in host.yaml. Auto-launch and `/play` start `Game.exe` as a native process, which a Linux client cannot do. Start the game yourself through Steam or Wine once the client is connected. Everything else, including the mod install and the audio randomizers, works normally.
-- **No administrator step.** The "run ArchipelagoLauncher as administrator" note further down is a Windows `Program Files` permissions issue. A prefix under your home directory is already writable.
-- Paths this guide gives as `Documents\Harry - Coding Evolved\` live inside the prefix, typically `drive_c/users/steamuser/Documents/` under Proton or `drive_c/users/<you>/Documents/` under plain Wine.
+**Linux is not supported in this version.** The game and the client talk through a folder under your Windows Documents folder (see [Logs](#logs)), and a Linux client cannot locate that folder inside a Wine or Proton prefix yet.
 
 ## Install
 
-### 1. Install HP2 retail
+### 1. Install HP2 from your disc
 
-Install the game from your disc or installer. Default location is fine (e.g. `C:\Program Files (x86)\Harry Potter 2\`).
+Install the game from the disc. A folder you can write to without administrator rights is easiest (for example `C:\Games\HP2\`), because the client writes the mod into the install; under `Program Files` you have to run the Archipelago Launcher as administrator instead. The installer may pick the game's language from your Windows region; that is fine.
 
-### 2. Apply the M212 engine patch (required)
+### 2. Install SafeDiscShim and check the game starts
 
-> [!IMPORTANT]
-> **Do not skip this step.** The randomizer's game-to-client link rides on UE1 networking (`IpDrv` / `TcpLink`) that the 2002 retail engine does not expose. Metallicafan212's HP2Engine restores it. On an unpatched retail install the mod cannot load at all, so nothing later in this guide will work until this is done.
+1. Download the latest release from <https://github.com/RibShark/SafeDiscShim/releases> and run the installer.
+2. Put the game disc in the drive and start `<HP2 install>\system\Game.exe`. After a short disc check (about half a minute) the game's main menu appears (New Game / Load Game / Options).
+3. Start a new game and play until Privet Drive has loaded, then quit.
 
-**Get the engine.** It is distributed only through the HP2 modding Discord. There is no GitHub download, no public mirror, and it is not redistributable, so this randomizer cannot ship it for you.
+If the game does not start, or SafeDisc complains about the disc, see [Troubleshooting](#troubleshooting). Get this working before going further: nothing later in this guide can fix a game that does not start.
 
-1. Join the HP2 modding Discord: <https://discord.gg/tpN4grB>
-2. Open Metallicafan212's engine post and download the installer from there: <https://discord.com/channels/381458523529150466/960603560863748216/1411127184877158563>
-   (that link only resolves once you have joined the server; if it does nothing, you are not in yet)
-
-**Version:** HP2Engine **3.4** is what this randomizer is built and tested against.
-
-**Run it.** Point the installer at the HP2 install from step 1 and accept the defaults.
-
-**Confirm it took** before moving on. Launch the game once, from the M212 Start Menu shortcut the installer creates or from `<HP2 install>\system\Game.exe`, then quit and check your Documents folder:
-
-- `Documents\Harry - Coding Evolved\` now exists → the M212 engine is running. Good, carry on.
-- only `Documents\Harry Potter II\` exists → you launched the unpatched retail engine. Re-run the M212 installer and make sure you point it at the install you actually launch.
-
-That folder split is the quickest tell, since the two engines keep their saves and settings in separate places. On Linux, check the same two folders inside your prefix (see [Running on Linux](#running-on-linux)).
+**Fullscreen problems?** On some systems the retail game crashes or shows a black screen when a level starts in fullscreen. Run it in a window instead: open `Documents\Harry Potter II\Game.ini` (created by the first launch), find `[WinDrv.WindowsClient]`, and set `StartupFullscreen=False`.
 
 ### 3. Install Archipelago and the apworld
 
@@ -119,31 +97,22 @@ That's it. Archipelago discovers it automatically next time you launch, and `HP2
 There are no mod files to copy by hand. The first time you connect the client to a seed, it pops a folder picker asking for your HP2 install (the folder containing `system\Game.exe`; saved to `host.yaml`, so you are asked once per mode) and then sets that install up:
 
 - copies the compiled `HPArchipelago.u` (carried inside the apworld) into `<HP2 install>\system\`
-- patches `<HP2 install>\system\Default.ini` in place: `EditPackages=IpDrv` + `EditPackages=HPArchipelago` into the package list and `DefaultGame=HPArchipelago.APGameInfo` into `[Engine.Engine]`
-- applies the same fixes to the per-user overrides in `Documents\Harry - Coding Evolved\` (`HP.ini`, `Game.ini`) if you launched HP2 before, since those would otherwise silently shadow `Default.ini` back to vanilla; your own settings (resolution, volume) survive, nothing is deleted
-- keeps one-time backups of every file it touches, under `<HP2 install>\_archipelago_backup\` and `Documents\Harry - Coding Evolved\_archipelago_backup\`
+- patches `<HP2 install>\system\Default.ini` in place: `DefaultGame=HPArchipelago.APGameInfo` and `Console=HPArchipelago.APConsole` under `[Engine.Engine]`, plus the folder the game and the client share (`ChannelDir=`, under `[HPArchipelago.APIPCActor]`)
+- applies the same settings to your per-user `Documents\Harry Potter II\Game.ini` if you launched HP2 before, since that file would otherwise shadow `Default.ini` back to the original game; your own settings (resolution, windowed mode, volume) survive, nothing is deleted
+- creates the shared folder `Documents\Harry Potter II\AP\`
+- keeps one-time backups of every file it touches, under `<HP2 install>\_archipelago_backup\` and `Documents\Harry Potter II\_archipelago_backup\`
 
-Every later connect re-checks the installed mod against the apworld's copy byte for byte, so **updating the randomizer is just replacing the `.apworld` file**: the client updates the game install on the next connect. If the game is running at that moment (the launcher window with New Game / Load Game counts too), the client says so; close it and type `/installmod`. If the install folder refuses the write (almost always a `Program Files` install with the launcher not running as administrator), the client raises a popup with the fix and does not auto-launch. Either way, while an older mod build is still installed, the game repeats an `AP: mod update ...` reminder every ten seconds until the update lands.
+Every later connect re-checks the installed mod against the apworld's copy byte for byte, and the ini settings too, so **updating the randomizer is just replacing the `.apworld` file**: the client updates the game install on the next connect. If the game is running at that moment (the launcher window with New Game / Load Game counts too), the client says so; close it and type `/installmod`. If the install folder refuses the write (almost always a `Program Files` install with the launcher not running as administrator), the client raises a popup with the fix and does not auto-launch. Either way, while an older mod build is still installed, the game repeats an `AP: mod update ...` reminder every ten seconds until the update lands.
 
 > **Permissions:** the client writes inside your install, so if HP2 lives under `Program Files`, run ArchipelagoLauncher as administrator (right-click, "Run as administrator"), or move the install somewhere writable (e.g. `C:\Games\HP2\`). This is the same requirement the audio randomizers have.
 
 > Prefer to manage the files yourself? Set `auto_install_mod: false` under `harry_potter_2_pc_options` in host.yaml; `/installmod` still deploys on demand.
 
-> **Updating from an older release** (where you copied `HPArchipelago.u` and `Default.ini` by hand): nothing to undo. Replace the `.apworld` in `custom_worlds\` and connect; the client sees the outdated `HPArchipelago.u` and updates it, and the ini patching recognizes the old hand-installed lines and normalizes them in place (no duplicates, your settings stay). If your install is under `Program Files`, run ArchipelagoLauncher as administrator for that connect, even if you never needed it before.
+> **Coming from an M212 release?** Earlier releases ran on Metallicafan212's engine patch. That setup is no longer supported. Install the game fresh from your disc into its own folder (step 1), point the client at that folder, and leave the old install alone or remove it. Saves do not carry over: the retail game keeps them in `Documents\Harry Potter II\`, M212 in `Documents\Harry - Coding Evolved\`.
 
-### Optional: install the HP2 Bingo distribution too
+### Open castle (not available yet)
 
-The randomizer also supports the **HP2 Bingo** community pack (open castle from spawn). You can keep your vanilla install AND a separate HP2 Bingo install side by side; the same `HPArchipelago.u` works for both, and the mod auto-detects which one you launched.
-
-If you only want vanilla story play, skip this section. If you want open castle:
-
-1. **Install HP2 retail to a separate folder** (e.g. `C:\Program Files (x86)\EA Games\Bingo`) so it doesn't collide with the vanilla install.
-2. **Get the Bingo Client** from the HP2 speedrunning community (https://www.speedrun.com/hpcc/resources) (the **[2PC] Bingo Client V4.5** download). Copy its `Harry Potter and the Chamber of Secrets\` contents over the install from the previous step.
-3. **Run the M212 installer again**, pointing at your HP2 Bingo folder. M212 layers cleanly over the HP2 Bingo map edits.
-
-There are no mod files to copy here either: the first time you connect to an `open_castle` seed, the client asks for this install's folder and sets it up the same way. Per-user `Game.ini` / `HP.ini` in `Documents\Harry - Coding Evolved\` are shared between both installs (one Windows user = one set of user files) and are handled automatically too.
-
-That's the install side. The yaml side is one line; see "Configure your slot" below for the `game_mode: open_castle` option.
+The `open_castle` game mode plays on the **HP2 Bingo** maps (every level open from spawn). The only Bingo distribution today is a full copy of the game with a modified executable, which this randomizer cannot build on. Open castle stays unavailable until the Bingo map changes can be applied as a patch to your own disc install. Use `game_mode: vanilla` for now.
 
 ## Generate a seed (solo play)
 
@@ -169,8 +138,8 @@ If you're playing solo (just you, no other AP slots):
 
    ```yaml
    Harry Potter 2 PC:
-     game_mode: vanilla # default, retail + M212; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
-     # game_mode: open_castle   # HP2 Bingo install, NO spells precollected, all 7 land as AP items
+     game_mode: vanilla # default, the retail game; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
+     # game_mode: open_castle   # HP2 Bingo install (not available yet), NO spells precollected, all 7 land as AP items
    ```
 
    The mod side handles the runtime difference itself (auto-detects the HP2 Bingo install via the `MGBingoLearnAllSpells` actor and reverts the HP2 Bingo client's PostBeginPlay spell grants). You can confirm it kicked in by checking `Game.log` for `DetectOpenCastleMode - found MGBingoLearnAllSpells - entering open castle mode (sticky)` shortly after launching. Match this setting to the install you launch; if they disagree the game pops a "WRONG INSTALL" warning toast every level (see Troubleshooting), because a mismatched seed can't be completed.
@@ -229,32 +198,23 @@ In the command box, type:
 
 For solo on the same machine, the server is typically `localhost:38281`.
 
-You should see in the log tab:
-
-```
-Game-side TCP listener up on ('127.0.0.1', 42779)
-```
-
 The client connects to the AP server as soon as you `/connect` and reads your seed's config. If the server asks for your slot name, type it and press Enter. Leave the client window open; with auto-launch on (the default), the game starts itself next (see below).
 
 ### Launch the game
 
-With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything; just start a new game once the window opens. Every connect you make yourself (the Connect button or `/connect`) launches it again if the game is not running (a launcher window left open counts as running) and the mod is current, so closing the game and reconnecting brings it back. A dropped connection that the client repairs by itself never launches the game.
+With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything. Keep the disc in the drive: the disc check takes about half a minute before the main menu appears, so give it time (typing `/play` meanwhile does not start a second copy; the client tells you the game is still starting). Then pick New Game or Load Game. Every connect you make yourself (the Connect button or `/connect`) launches it again if the game is not running (a launcher window left open counts as running) and the mod is current, so closing the game and reconnecting brings it back. A dropped connection that the client repairs by itself never launches the game.
 
 **First connect only:** the client needs to know where your install is, so it pops a folder picker asking for the install that matches the seed's mode (the folder that contains the `system` folder with `Game.exe`). Your choice is saved to `host.yaml`, so you're asked only once per mode. You can also set it ahead of time by editing host.yaml (see the install-path block under Sound randomizer below).
 
-Within a few seconds of the game booting you should see in the client log:
+A few seconds after you pick New Game or Load Game you should see in the client log:
 
 ```
-Game connected from ('127.0.0.1', <port>)
-[game→client] HELLO
+The Harry Potter 2 game connected to this client. It can now send and receive items.
 ```
 
-The game window pops a toast top-right when your starting items arrive ("Received Alohomora from <YourSlotName>" etc). You're playing.
+The game window pops a toast top-right when your items arrive ("Received Alohomora from <YourSlotName>" etc). Items are handed over while Harry is walking around, not during cutscenes or the opening of a level, so the first ones may take a moment. You're playing.
 
-**Prefer to launch it yourself?** Set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml, then run `<HP2 install>\system\Game.exe` (or the M212 Start Menu shortcut) once the client is connected. The `/play` command in the client launches it too, handy if you closed the game and want it back, or if an auto-launch was skipped. To turn auto-launch off for just this client session, type `/autoplay off` (bare `/autoplay` flips it, `/autoplay on` turns it back on).
-
-**On Linux this is the only supported route.** Auto-launch and `/play` start `Game.exe` as a native process, which a Linux client cannot do, so set `auto_launch_game: false` and start the game through Steam or Wine yourself. See [Running on Linux](#running-on-linux).
+**Prefer to launch it yourself?** Set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml, then run `<HP2 install>\system\Game.exe` (or the game's Start Menu shortcut) once the client is connected. The `/play` command in the client launches it too, handy if you closed the game and want it back, or if an auto-launch was skipped. To turn auto-launch off for just this client session, type `/autoplay off` (bare `/autoplay` flips it, `/autoplay on` turns it back on).
 
 ### Sound randomizer (optional)
 
@@ -272,7 +232,7 @@ It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u`
   harry_potter_2_pc_options:
     vanilla_install_folder: "<path to your vanilla-mode install>"
     open_castle_install_folder: "<path to your open-castle-mode install>"
-    auto_launch_game: true   # default; set false to launch the game yourself (required on Linux)
+    auto_launch_game: true   # default; set false to launch the game yourself
     auto_install_mod: true   # default; set false to manage the mod files yourself
   ```
 
@@ -314,7 +274,7 @@ A [PopTracker](https://github.com/black-sliver/PopTracker/) pack autotracks your
 
 Quick checklist after first launch:
 
-- **You're on the M212 engine.** `C:\Users\<you>\Documents\Harry - Coding Evolved\` exists. If only `Documents\Harry Potter II\` does, you launched the unpatched retail engine and nothing below will work; redo [step 2](#2-apply-the-m212-engine-patch-required).
+- **The client says the game connected** ("The Harry Potter 2 game connected to this client") a few seconds after you pick New Game or Load Game.
 - **Toasts appear top-right** when items arrive. If not, the mod isn't loaded; see Troubleshooting below.
 - **Bookcases block the spell classrooms** you haven't been granted yet. If you can walk straight into Lockhart's DADA classroom and the spell-tutorial cutscene fires immediately, the mod isn't running.
 - **Picking up a wizard card** should fire a `CHECK <id>` line in the client log and (if you have any items waiting) hand you something back.
@@ -323,18 +283,27 @@ Quick checklist after first launch:
 
 ## Troubleshooting
 
+**The game does not start, or SafeDisc asks for the disc**:
+
+- Put the original disc in the drive. SafeDisc checks it on every launch.
+- Make sure SafeDiscShim is installed ([step 2](#2-install-safediscshim-and-check-the-game-starts)). Without it, Windows 10 and 11 cannot run the disc check at all.
+- Windows 11 **Smart App Control** can block SafeDiscShim. If the game still will not start, check Windows Security, App & browser control, Smart App Control.
+- SafeDiscShim writes logs next to `<HP2 install>\system\Game.exe` (`Game.exe_SafeDiscShim.log`); attach them if you ask for help.
+
+**The game crashes or goes black when a level starts**:
+
+- Run it windowed: in `Documents\Harry Potter II\Game.ini`, under `[WinDrv.WindowsClient]`, set `StartupFullscreen=False`.
+
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
-- **First, confirm you actually applied the M212 engine patch** ([step 2](#2-apply-the-m212-engine-patch-required)). This is the most common cause, and the mod cannot load on the stock retail engine. Quickest test: `C:\Users\<you>\Documents\Harry - Coding Evolved\` exists once you have launched the game. If only `Documents\Harry Potter II\` does, that's your problem.
-- Close the game, including its New Game / Load Game launcher window, and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires every ini, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
-- If the install log warned that your `HP.ini` carries a package list it does not recognize, delete `C:\Users\<you>\Documents\Harry - Coding Evolved\HP.ini` and run `/installmod` again.
-- Manual checks, if you want to see for yourself: `<HP2 install>\system\HPArchipelago.u` exists; `<HP2 install>\system\Default.ini` has `EditPackages=HPArchipelago`; `Documents\Harry - Coding Evolved\Game.ini` (if present) has `DefaultGame=HPArchipelago.APGameInfo` under `[Engine.Engine]`, not `DefaultGame=Engine.GameInfo`.
-- Read `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log`, search for `[Archipelago]` lines. Encoding is UTF-16LE (`Get-Content -Encoding Unicode` in PowerShell).
+- Make sure you launch the install the client set up: the one saved as `vanilla_install_folder` under `harry_potter_2_pc_options` in `host.yaml`.
+- Close the game, including its main menu window, and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires both inis, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
+- Manual checks, if you want to see for yourself: `<HP2 install>\system\HPArchipelago.u` exists; `Documents\Harry Potter II\Game.ini` (if present) has `DefaultGame=HPArchipelago.APGameInfo` and `Console=HPArchipelago.APConsole` under `[Engine.Engine]`, and a `[HPArchipelago.APIPCActor]` section with `ChannelDir=`.
+- Read `C:\Users\<you>\Documents\Harry Potter II\Game.log`, search for `[Archipelago]` lines.
 
-**Client says `EditPackages=M212Share not found in Default.ini; is this an M212 install?`**:
+**Client says `Default.ini not found; is this a Harry Potter 2 install?`**:
 
-- Exactly what it says: the folder you pointed the client at has not had the M212 engine patch applied, so the mod has nothing to hook into. Work through [step 2](#2-apply-the-m212-engine-patch-required), then reconnect or type `/installmod`.
-- If you do have M212 installed, you pointed the picker at the wrong folder. It wants the folder that contains `system\Game.exe` for your **patched** install. The saved path lives under `harry_potter_2_pc_options` in `host.yaml` if you need to correct it.
+- The folder you pointed the client at is not the game install. It wants the folder that contains `system\Game.exe`. The saved path lives under `harry_potter_2_pc_options` in `host.yaml` if you need to correct it.
 
 **Silent NPCs / no dialog plays in cutscenes**:
 
@@ -344,7 +313,7 @@ Quick checklist after first launch:
 **Toast says "AP: WRONG INSTALL …"**:
 
 - This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning repeats every ten seconds until you fix it.
-- Fix it by launching the matching install: `game_mode: vanilla` → your retail/M212 install; `game_mode: open_castle` → your HP2 Bingo install (see "Optional: install the HP2 Bingo distribution too"). The seed itself is fine; you don't need to regenerate, just connect from the right `Game.exe`.
+- Fix it by launching the matching install: `game_mode: vanilla` → your retail install. Open castle is not available yet (see [Open castle](#open-castle-not-available-yet)), so an `open_castle` seed cannot be played on the retail setup; generate a `vanilla` seed instead.
 - The warning is informational; the game won't stop you from continuing into a broken seed, so don't ignore it.
 
 **"HP2 PC Client" button missing from Archipelago Launcher**:
@@ -358,7 +327,7 @@ Quick checklist after first launch:
 
 **Client disconnects mid-session**:
 
-- The mod auto-reconnects with exponential backoff (1s up to a 16s cap). Just restart the client; the game will reconnect on the next try.
+- The game and the client talk through files in `Documents\Harry Potter II\AP\`, so neither side has to reconnect: restart the client (and reconnect it to the server) while the game keeps running, and the game picks the new client up within a few seconds. Anything the game sent while the client was gone is held and delivered once it is back.
 - Items the AP server delivered while the client was down get replayed on reconnect. Every item type (cards, spells, equipment, all bean tiers, every other filler, and traps) is durable across a client crash, reconnect, or game save-load: the client keeps a per-slot consumed-item ledger in Archipelago server storage, so an item already applied is never re-granted (no double beans) and one you haven't received yet still arrives. The only way to lose an item: receive it in-game, then quit **without saving** and reload that older save, where the ledger correctly considers it already delivered, so it won't be handed out again. Save after receiving items, or start a new game on the slot (which re-grants everything).
 
 **Game crashes at level transition**:
@@ -378,12 +347,15 @@ For bug reports, attach these:
 
 | What          | Where                                                                                                          |
 | ------------- | -------------------------------------------------------------------------------------------------------------- |
-| Game-side log | `C:\Users\<you>\Documents\Harry - Coding Evolved\Game.log` (UTF-16LE)                                          |
-| Client log    | Scroll the **Archipelago** tab of the HP2 PC Client window, or check `<Archipelago install>\logs\HP2PC_AP.txt` |
+| Game-side log | `C:\Users\<you>\Documents\Harry Potter II\Game.log`                                                            |
+| SafeDiscShim  | `<HP2 install>\system\Game.exe_SafeDiscShim.log` (only when the game will not start)                           |
+| Client log    | Scroll the **Archipelago** tab of the HP2 PC Client window, or check `<Archipelago install>\logs\`             |
 | AP server log | `<Archipelago install>\logs\`                                                                                  |
+
+The game-to-client link folder is `Documents\Harry Potter II\AP\`. It only holds short-lived message files; nothing in it needs backing up.
 
 ## Where to ask for help
 
-- [HP2 modding Discord](https://discord.gg/tpN4grB) for engine and game-specific issues, and for the HP2Engine download itself.
+- [HP2 modding Discord](https://discord.gg/tpN4grB) for game-specific issues.
 - Archipelago Discord, `#future-game-design`. Feel free to contact Kryen there.
 - GitHub issues at this project's repo.

@@ -2,30 +2,34 @@
 
 An Archipelago multiworld randomizer for _Harry Potter and the Chamber of Secrets_ (PC, 2002 EA / KnowWonder release).
 
-Complete and playable end to end. Up to **~579 checks** across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards (50 Bronze / 40 Silver / 11 Gold), 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases (Nimbus 2001 + Quidditch Armour), ~283 containersanity containers, and up to 13 Tradersanity vendor checks, gated per-category by yaml toggles. Item pool: 7 spells (vanilla precollects Lumos/Flipendo/Alohomora; open castle precollects none), 101 tier-prefixed cards, 2 equipment items, and 8 filler types. Two game modes via `game_mode`: `vanilla` (retail + M212 story flow) and `open_castle` (HP2 Bingo distribution, every level open from spawn). Goal: in vanilla, the post-Basilisk Great-Hall walk-in fires the credits cutscene which marks the slot complete; in open castle, opening the Great Hall via the configurable `open_castle_goal_*` clauses. Boomslang / Bicorn / BitOGoyle still flow through vanilla story progression.
+Complete and playable end to end. Up to **~579 checks** across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards (50 Bronze / 40 Silver / 11 Gold), 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases (Nimbus 2001 + Quidditch Armour), ~283 containersanity containers, and up to 13 Tradersanity vendor checks, gated per-category by yaml toggles. Item pool: 7 spells (vanilla precollects Lumos/Flipendo/Alohomora; open castle precollects none), 101 tier-prefixed cards, 2 equipment items, and 8 filler types. Two game modes via `game_mode`: `vanilla` (the retail story flow) and `open_castle` (HP2 Bingo distribution, every level open from spawn; not available on the retail setup yet, see [Requirements](#requirements)). Goal: in vanilla, the post-Basilisk Great-Hall walk-in fires the credits cutscene which marks the slot complete; in open castle, opening the Great Hall via the configurable `open_castle_goal_*` clauses. Boomslang / Bicorn / BitOGoyle still flow through vanilla story progression.
 
 ## Requirements
 
 > [!IMPORTANT]
-> This randomizer runs on **Metallicafan212's HP2Engine**, not the stock 2002 retail engine. The engine patch is a hard prerequisite: on an unpatched install the mod cannot load at all. It is distributed only through the HP2 modding Discord, so you have to join to download it.
+> This randomizer runs on the **original retail game, installed from your own disc**, with **SafeDiscShim** so the disc's copy protection works on modern Windows. Keep the disc in the drive while you play. Nothing in this project patches the game executable or bypasses its copy protection, and it ships no game files.
 
 | Thing | Notes |
 | --- | --- |
-| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc or your existing legitimate copy, KnowWonder 2002 build. **Not included.** |
-| **HP2Engine by Metallicafan212** (also called "M212", "the engine patch", "the modder engine") | Free 64-bit engine patch, and **required**. The randomizer's game-to-client bridge is UE1 networking (`IpDrv` / `TcpLink`) that the retail engine does not expose and this engine restores from UT99. Version **3.4** is what this project is built and tested against. Get it by joining the [HP2 modding Discord](https://discord.gg/tpN4grB), then opening [Metallicafan212's engine post](https://discord.com/channels/381458523529150466/960603560863748216/1411127184877158563) (that link only resolves once you have joined). It is not on GitHub, has no public mirror, and is not redistributable, so this project cannot bundle it. |
+| **Harry Potter and the Chamber of Secrets (PC)** | Retail disc, KnowWonder 2002 build, installed from that disc. **Not included.** The disc must be in the drive whenever you play. |
+| **SafeDiscShim** | Free, open source: <https://github.com/RibShark/SafeDiscShim/releases>. Windows 10 and 11 no longer ship the driver the disc's SafeDisc protection talks to; SafeDiscShim answers it instead, so the game starts. It does not remove the protection: the original disc is still required. |
 | **Archipelago** | <https://github.com/ArchipelagoMW/Archipelago/releases>, latest stable Windows installer. |
 | **HP2PC_AP** | `harry_potter_2_pc.apworld` from this repo's releases. Carries the client and the compiled mod. |
 
-**Platforms:** Windows 10 or 11, 64-bit (the M212 engine does not support older Windows). **Linux works too**: run HP2 and the M212 engine in a Proton or Wine prefix and the Archipelago client natively, with `auto_launch_game: false`. See [`docs/PLAYER_SETUP.md`](docs/PLAYER_SETUP.md#running-on-linux).
+**Platforms:** Windows 10 or 11. Linux is not supported in this version: the game and the client talk through a folder under your Windows Documents, which a Linux client cannot find inside a Wine prefix yet.
 
-Step-by-step walkthrough, including the optional HP2 Bingo (open castle) install, in [`docs/PLAYER_SETUP.md`](docs/PLAYER_SETUP.md).
+**Open castle** (`game_mode: open_castle`) needs the HP2 Bingo maps, and the only Bingo distribution today is a full game copy with a modified executable, which this project cannot use. It stays unavailable on the retail setup until the Bingo map changes can be shipped as a patch to your own install.
+
+Step-by-step walkthrough in [`docs/PLAYER_SETUP.md`](docs/PLAYER_SETUP.md).
 
 ## Architecture (one-liner)
 
 ```
-[HP2 game on M212 engine]
+[HP2 retail game + SafeDiscShim]
   └─ HPArchipelago.u  (UnrealScript mod, hooks pickups + spells + boss)
-       └─ class'IpDrv.TcpLink' ──► localhost:42779
+       └─ files in Documents\Harry Potter II\AP\
+            game → client: out_*.log batches
+            client → game: in.txt, run by the game's `exec` each tick
                                        │
                                        ▼
                           [HP2 PC Client, launched from
@@ -36,7 +40,7 @@ Step-by-step walkthrough, including the optional HP2 Bingo (open castle) install
                             [archipelago.gg server]
 ```
 
-No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan212's modder engine (which restored UE1 networking from UT99). The `apworld/*.py` files are the source of truth for items, locations, regions, and access logic; `build_apworld.py` packages them into `harry_potter_2_pc.apworld` with no code-generation step.
+No C++. No memory hooking. No engine patch. All game-side logic is UnrealScript compiled for the stock retail engine, and the retail engine has no networking, so the game and the client exchange small text files in a shared folder (see `apworld/game_link.py`). The `apworld/*.py` files are the source of truth for items, locations, regions, and access logic; `build_apworld.py` packages them into `harry_potter_2_pc.apworld` with no code-generation step.
 
 ## Repo layout
 
@@ -54,14 +58,14 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 
 ## Read this first
 
-- **[Requirements](#requirements) above**: the M212 engine patch is mandatory and Discord-only. Sort that out before anything else.
+- **[Requirements](#requirements) above**: the retail disc and SafeDiscShim. Get the game starting from the disc before anything else.
 - **`docs/PLAYER_SETUP.md`**: install + first-run guide for end users (skip if you're modifying the mod itself).
 - **`docs/DEV_SETUP.md`**: dev environment + UScript build loop.
 
 ## Features
 
 - **Item shuffle** (no entrance shuffle).
-- **Two game modes** via `game_mode`: `vanilla` (retail + M212; linear story flow, open hub once keys are collected) and `open_castle` (HP2 Bingo distribution; every level open from spawn, no spells precollected). The mod auto-detects the HP2 Bingo install at runtime; the apworld selects mode from the yaml.
+- **Two game modes** via `game_mode`: `vanilla` (retail; linear story flow, open hub once keys are collected) and `open_castle` (HP2 Bingo distribution; every level open from spawn, no spells precollected; not available on the retail setup yet). The mod auto-detects the HP2 Bingo install at runtime; the apworld selects mode from the yaml.
 - **Open hub** start; all level doors unlocked from spawn; player can enter any level.
 - **Non-filler items:** 7 spells + 101 wizard cards + (optional) 2 equipment items (Nimbus 2001 / Quidditch Armour). The `starting_spells` yaml option (default Flipendo/Lumos/Alohomora) picks which spells are precollected starters; any spell not listed enters the AP item pool. Cards are AP item names prefixed by tier (e.g. `Silver Card - Duke`).
 - **Locations** (~579 max with all toggles on): 4 spell-tutorial classrooms + 101 wizard cards + 109 secret areas + 44 challenge stars + 10 ranked duels (Duelling Club) + 6 Quidditch matches + 4 spell-challenge par times + 2 Weasley-twin vendor purchases + ~283 containersanity containers + up to 13 Tradersanity vendor checks.
@@ -72,4 +76,4 @@ No C++. No memory hooking. All game-side logic is UnrealScript on Metallicafan21
 - **Sphere 0:** 4 spell-teaching classrooms (no items required to reach in the open-hub model).
 - **Filler:** 8 types: Small/Medium/Large/Massive Jar of Beans, Wiggenweld Potion, Wiggentree Bark, Flobberworm Mucous, Chocolate Frog.
 - **Gold Card Room:** the 11 gold cards live in their own region behind the silver-key door. Logic gates each gold-card location on the silver-card count plus the per-card spell requirements: vanilla requires all 40 silvers (matches the boss-of-house gate); open castle requires 20 silvers (matches the in-game `CardLockTrigger` which only wires Lock1+Lock2). Silver-card items cannot land in gold-card locations. The room's far-end exit trigger is also a **Gold Card Room - Complete** check, the 13th open-castle level objective (`open_castle_goal_levels`); it needs the same access as the deepest gold card. When card shuffle is off the cards are locked to their own spots rather than removed, so this silver gate stays honest.
-- **Distribution:** a single `harry_potter_2_pc.apworld` carrying the client and the compiled UScript mod, deployed on top of an M212-patched game install (see [Requirements](#requirements)). The launcher shows "HP2 PC Client" once the apworld is dropped into the user's `custom_worlds/` folder, and the client installs (and keeps updated) the mod and its ini wiring in the game install on connect. The client does not install the engine patch; that is a separate one-time step the player does by hand.
+- **Distribution:** a single `harry_potter_2_pc.apworld` carrying the client and the compiled UScript mod, deployed into the player's own retail install (see [Requirements](#requirements)). The launcher shows "HP2 PC Client" once the apworld is dropped into the user's `custom_worlds/` folder, and the client installs (and keeps updated) the mod and its ini wiring in the game install on connect. SafeDiscShim is a separate one-time install the player does by hand.
