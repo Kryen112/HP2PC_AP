@@ -27,6 +27,7 @@ import os
 import re
 import secrets
 import time
+import unicodedata
 from pathlib import Path
 from typing import Awaitable, Callable, Optional
 
@@ -46,6 +47,36 @@ PING_SECONDS = 2.0
 GAME_TIMEOUT_SECONDS = 6.0
 
 logger = logging.getLogger("HP2Client")
+
+
+# Characters outside latin-1 that have a readable latin-1 spelling but no
+# decomposition to one.
+_LATIN1_SPELLINGS = {
+    "\u0141": "L", "\u0142": "l", "\u0110": "D", "\u0111": "d", "\u0126": "H", "\u0127": "h",
+    "\u0131": "i", "\u0152": "OE", "\u0153": "oe", "\u0166": "T", "\u0167": "t",
+    "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u201c": '"', "\u201d": '"', "\u201e": '"',
+    "\u2013": "-", "\u2014": "-", "\u2026": "...", "\u2022": "*", "\u2122": "TM",
+}
+
+
+def game_text(text: str) -> str:
+    """The text as the game can show it: in.txt is latin-1 and so are the
+    game's fonts. A character outside latin-1 becomes its spelling without
+    accents (L-stroke to L, while latin-1 accents stay), a plain stand-in for
+    typographic marks, or '?' when it has no latin spelling at all."""
+    if all(ord(character) < 256 for character in text):
+        return text
+    out = []
+    for character in text:
+        if ord(character) < 256:
+            out.append(character)
+        elif character in _LATIN1_SPELLINGS:
+            out.append(_LATIN1_SPELLINGS[character])
+        else:
+            base = "".join(part for part in unicodedata.normalize("NFKD", character)
+                           if ord(part) < 256 and not unicodedata.combining(part))
+            out.append(base or "?")
+    return "".join(out)
 
 
 def _decode_batch(raw: bytes) -> str:
@@ -89,6 +120,7 @@ class FileGameLink:
     def queue_line(self, line: str) -> None:
         """Queue one logical line as numbered fragments. A newer PEER for the
         same slot replaces an unsent one, since only the latest position matters."""
+        line = game_text(line)
         peer_key = ""
         if line.startswith("PEER "):
             peer_key = line.split(" ", 2)[1]

@@ -82,6 +82,38 @@ class TestInbound(LinkCase):
         self.assertFalse(self.link.is_closing())
 
 
+class TestGameText(LinkCase):
+    """in.txt and the game's fonts are latin-1, so text outside it is folded to
+    a readable latin-1 spelling before it is queued, and only text with no
+    latin spelling becomes '?'."""
+
+    def test_latin1_text_is_unchanged(self) -> None:
+        for text in ("Received Alohomora", "Ren\u00e9e's Gr\u00fc\u00dfe \u00e0 \u00f8"):
+            with self.subTest(text=text):
+                self.assertEqual(game_link.game_text(text), text)
+
+    def test_accents_outside_latin1_lose_the_accent(self) -> None:
+        self.assertEqual(game_link.game_text("\u0141ukasz \u0160\u0107\u0119\u0151"), "Lukasz Sceo")
+
+    def test_typographic_marks_get_plain_stand_ins(self) -> None:
+        self.assertEqual(game_link.game_text("\u201cJack\u2019s\u201d \u2014 one\u2026"), "\"Jack's\" - one...")
+
+    def test_text_without_a_latin_spelling_becomes_question_marks(self) -> None:
+        self.assertEqual(game_link.game_text("\u30cf\u30ea\u30fc \u0413\u0430\u0440\u0440\u0438"), "??? ?????")
+
+    def test_queued_lines_are_folded_and_fit_latin1(self) -> None:
+        self.link.queue_line("TOAST \u0141ukasz sent you Lumos")
+        self.link.connected = True
+        self.link.write_inbound()
+        raw = (self.folder / "in.txt").read_bytes()
+        self.assertIn(b"TOAST Lukasz sent you Lumos", raw)
+
+    def test_fragments_are_measured_after_folding(self) -> None:
+        self.link.queue_line("\u2026" * FRAGMENT_CHARS)
+        self.assertEqual([len(fragment) - 1 for _, fragment, _ in self.link._pending],
+                         [FRAGMENT_CHARS, FRAGMENT_CHARS, FRAGMENT_CHARS])
+
+
 class TestOutbound(LinkCase):
     def test_batches_are_read_in_order_and_deleted(self) -> None:
         write_batch(self.folder, "111", 10, ["CHECK 5"])
