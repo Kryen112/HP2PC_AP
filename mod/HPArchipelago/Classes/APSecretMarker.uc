@@ -31,9 +31,9 @@ function OnFound()
     if (slot < 0) return;
     // Idempotent: a re-entry (bFound already True) skips Super's message but still
     // reaches here, and the poll may have fired first. The latch makes either win.
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot)) return;
 
-    class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+    class'APCardWatcher'.static.MarkNonCardChecked(slot);
     Log("[Archipelago] APSecretMarker.OnFound: firing CHECK_LOCID " $ LocationId);
 
     ipc = class'APIPCActor'.static.GetInstance();

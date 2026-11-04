@@ -21,7 +21,7 @@ static function FireAndConsume(HProp token, int checkLocationId)
     slot = class'APLocationRegistry'.static.SlotForApId(checkLocationId);
     if (slot < 0) return;
 
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot))
     {
         // Already credited (the poll beat us, or a stale duplicate token): remove
         // it so it is not an intangible ghost the player walks through.
@@ -29,7 +29,7 @@ static function FireAndConsume(HProp token, int checkLocationId)
         return;
     }
 
-    class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+    class'APCardWatcher'.static.MarkNonCardChecked(slot);
     Log("[Archipelago] APVendorTokenFire.FireAndConsume: firing CHECK_LOCID " $ checkLocationId);
 
     class'APStarsBase'.static.SpawnPickupBurst(token, token.Location);

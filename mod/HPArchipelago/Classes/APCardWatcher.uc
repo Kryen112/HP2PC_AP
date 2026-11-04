@@ -218,6 +218,18 @@ var float DeathLinkSettleEarliest;
 const DEATHLINK_SETTLE_SECS = 1.0;
 const DEATHLINK_WARMUP_SECS = 3.0;
 
+// Outside classes read and set NonCardLocationChecked through these: the array
+// is too large for a cross-class context expression.
+static function bool IsNonCardChecked(int slot)
+{
+    return default.NonCardLocationChecked[slot] == 1;
+}
+
+static function MarkNonCardChecked(int slot)
+{
+    default.NonCardLocationChecked[slot] = 1;
+}
+
 static function APCardWatcher GetLatest()
 {
     if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
@@ -643,7 +655,7 @@ static function ApplyResyncSpells(string CsvNames)
     local harry h;
 
     default.bResyncReceived = 1;
-    Log("[Archipelago] APCardWatcher.ApplyResyncSpells: csv='" $ CsvNames $ "'");
+    Log("[Archipelago] APCardWatcher.ApplyResyncSpells: csv='" $ class'APCsvCodec'.static.LogClip(CsvNames) $ "'");
 
     w = class'APCardWatcher'.static.GetLatest();
     h = None;
@@ -686,7 +698,7 @@ static function ApplyResyncBlockerKeys(string CsvNames)
     local APCardWatcher w;
     local APGameInfo gi;
 
-    Log("[Archipelago] APCardWatcher.ApplyResyncBlockerKeys: csv='" $ CsvNames $ "'");
+    Log("[Archipelago] APCardWatcher.ApplyResyncBlockerKeys: csv='" $ class'APCsvCodec'.static.LogClip(CsvNames) $ "'");
 
     w = class'APCardWatcher'.static.GetLatest();
     gi = None;
@@ -725,7 +737,7 @@ static function ApplyResyncKeyItems(string CsvNames)
     local APGameInfo gi;
     local harry h;
 
-    Log("[Archipelago] APCardWatcher.ApplyResyncKeyItems: csv='" $ CsvNames $ "'");
+    Log("[Archipelago] APCardWatcher.ApplyResyncKeyItems: csv='" $ class'APCsvCodec'.static.LogClip(CsvNames) $ "'");
 
     w = class'APCardWatcher'.static.GetLatest();
     h = None;
@@ -771,7 +783,7 @@ static function ApplyResyncCards(string CsvNames)
     local APCardWatcher w;
     local class<WizardCardIcon> cardClass;
 
-    Log("[Archipelago] APCardWatcher.ApplyResyncCards: csv='" $ CsvNames $ "'");
+    Log("[Archipelago] APCardWatcher.ApplyResyncCards: csv='" $ class'APCsvCodec'.static.LogClip(CsvNames) $ "'");
 
     rest = CsvNames;
     while (rest != "")
@@ -1512,10 +1524,10 @@ function DetectGoalCompletion(APIPCActor ipc)
 // story-state-gated mod logic. One line per transition, quiet otherwise.
 function DriveStoryProgression()
 {
-    if (HarryRef.iGameState != LastGameState)
+    if (HarryRef.ConvertGameStateToNumber() != LastGameState)
     {
-        Log("[Archipelago] APCardWatcher: iGameState " $ LastGameState $ " -> " $ HarryRef.iGameState $ " (CurrentGameState='" $ HarryRef.CurrentGameState $ "')");
-        LastGameState = HarryRef.iGameState;
+        Log("[Archipelago] APCardWatcher: iGameState " $ LastGameState $ " -> " $ HarryRef.ConvertGameStateToNumber() $ " (CurrentGameState='" $ HarryRef.CurrentGameState $ "')");
+        LastGameState = HarryRef.ConvertGameStateToNumber();
         // The Spongify blocker is gated on iGameState; re-attempt the spawn
         // pass on every transition so it appears the moment Harry crosses
         // SpongifyGameStateGate without waiting for a level reload.
@@ -1686,7 +1698,7 @@ function bool TryAssignMarkerClassToVendor(class<APCardMarker> markerCls)
     if (strState != "")
     {
         gateState = int(Right(strState, 3));
-        if (HarryRef == None || HarryRef.iGameState < gateState) return False;
+        if (HarryRef == None || HarryRef.ConvertGameStateToNumber() < gateState) return False;
     }
 
     if (markerCls.default.MarkerTier == "Bronze")
@@ -2272,11 +2284,10 @@ function ScanDeathLink(APIPCActor ipc)
         // so the client clears them from sent_this_session and re-forwards.
         // Reset the drain-pass counters too so the post-revive resumed drain
         // starts a fresh pass (the pre-death items it counted are reverted).
-        if (ipc != None && ipc.PendingApplyAcks.Length > 0)
+        if (ipc != None && ipc.PendingApplyAckCount > 0)
         {
-            Log("[Archipelago] APCardWatcher: discarding " $ string(ipc.PendingApplyAcks.Length)
+            Log("[Archipelago] APCardWatcher: discarding " $ string(ipc.DiscardApplyAcks())
                 $ " unflushed APPLIED ack(s) on death rising-edge");
-            ipc.PendingApplyAcks.Remove(0, ipc.PendingApplyAcks.Length);
         }
         if (ipc != None)
         {

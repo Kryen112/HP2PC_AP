@@ -28,9 +28,9 @@ state PickupProp
         if (CheckLocationId <= 0) return;
         slot = class'APLocationRegistry'.static.SlotForApId(CheckLocationId);
         if (slot < 0) return;
-        if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
+        if (class'APCardWatcher'.static.IsNonCardChecked(slot)) return;
 
-        class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+        class'APCardWatcher'.static.MarkNonCardChecked(slot);
         Log("[Archipelago] APChallengeStarMarker.EndState: firing CHECK_LOCID " $ CheckLocationId);
 
         ipc = class'APIPCActor'.static.GetInstance();

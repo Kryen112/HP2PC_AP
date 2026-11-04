@@ -47,7 +47,10 @@ var byte bGoalUnlockToastShown;
 // safe.
 static function APStartupFeedback GetInstance(Actor ctx)
 {
-    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
+    // An instance left in another level (a save-loaded level stays resident after
+    // travel) reads that level's Harry, so only one in the caller's level counts.
+    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe
+        && (ctx == None || default.LatestInstance.Level == ctx.Level))
         return default.LatestInstance;
     if (ctx == None) return None;
     return ctx.Spawn(class'APStartupFeedback');
@@ -98,13 +101,13 @@ function EmitStartupSignals(harry h, bool bFolioEmpty, APIPCActor ipc)
 {
     local harry saveHarry;
 
-    if (ipc != None && h.iGameState < STARTUP_SAFETY_SAVE_GAMESTATE
+    if (ipc != None && h.ConvertGameStateToNumber() < STARTUP_SAFETY_SAVE_GAMESTATE
         && bFolioEmpty)
     {
         ipc.bSawStateBelowGreatHall = True;
     }
 
-    if (ipc != None && h.iGameState == 0
+    if (ipc != None && h.ConvertGameStateToNumber() == 0
         && bFolioEmpty)
     {
         // Only consume the one-shot latch once the signal actually goes out, so a
@@ -119,20 +122,20 @@ function EmitStartupSignals(harry h, bool bFolioEmpty, APIPCActor ipc)
             class'APBeanRoom'.static.WipeBeanRoomState();
         }
     }
-    else if (ipc != None && h.iGameState > 0)
+    else if (ipc != None && h.ConvertGameStateToNumber() > 0)
     {
         ipc.bNewGameSignalled = False;
     }
 
     // Per-tick retry until a safe tick: alive, PlayerWalking, no cutscene/menu.
     if (ipc != None && !ipc.bStartupSafetySaveDone && ipc.bSawStateBelowGreatHall
-        && h.iGameState >= STARTUP_SAFETY_SAVE_GAMESTATE)
+        && h.ConvertGameStateToNumber() >= STARTUP_SAFETY_SAVE_GAMESTATE)
     {
         saveHarry = PlayableHarry();
         if (saveHarry != None)
         {
             ipc.bStartupSafetySaveDone = True;
-            Log("[Archipelago] APStartupFeedback: startup safety save (iGameState=" $ h.iGameState $ ")");
+            Log("[Archipelago] APStartupFeedback: startup safety save (iGameState=" $ h.ConvertGameStateToNumber() $ ")");
             saveHarry.SaveGame();
         }
     }

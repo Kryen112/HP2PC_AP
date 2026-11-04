@@ -1,11 +1,15 @@
 //=============================================================================
-// APConsole. Dev-only console subclass for bookcase placement.
+// APConsole. The mod's console: the client link's inbound entry point plus dev
+// commands.
 //
-// Activated by patching Modded\system\Default.ini:
+// The client's installer sets it in the per-user Game.ini:
 //   [Engine.Engine]
 //   Console=HPArchipelago.APConsole   ; default: HGame.HPConsole
 //
-// Adds exec commands callable from the in-game console (~ key):
+//   APIn            one numbered line from the client's command file, which
+//                     APIPCActor runs through `exec` every tick.
+//
+// Dev exec commands callable from the in-game console (~ key):
 //
 //   LogPos          one-shot log of harry's Location + Rotation to Game.log.
 //                     Complements stock HP2's ShowPos (which only shows X/Y/Z
@@ -58,13 +62,10 @@
 //     keys and numpad still work.
 //   Shift (hold): fly faster. Harry is frozen during freecam, so this never
 //     spends beans the way the in-game shift-to-run sprint does.
-//
-// Release builds ship with Default.ini's Console= line unchanged, so end users
-// never instantiate this subclass. The .u compiles it in but the engine picks
-// HGame.HPConsole and never sees these execs.
 //=============================================================================
 
-class APConsole extends HPConsole;
+// Transient keeps level actors that hold the console (such as tutorial managers) saveable.
+class APConsole extends HPConsole transient;
 
 // Shift-to-run speed multiplier for the freecam.
 const FREECAM_BOOST_MULTIPLIER = 3.0;
@@ -75,6 +76,28 @@ var float FreeCamBaseSpeed;
 // 1 while the Shift speed boost is applied. Guards against re-capturing the
 // already-boosted speed on a repeated press.
 var byte bFreeCamBoosted;
+
+exec function APIn(string Line)
+{
+    class'APIPCActor'.static.ReceiveInbound(Line);
+}
+
+event PostRender(Canvas C)
+{
+    Super.PostRender(C);
+    class'APHUDToast'.static.RenderFromConsole(C, self);
+}
+
+// The UWindow state carries its own PostRender, which replaces the global one
+// while the console sits in that state.
+state UWindow
+{
+    event PostRender(Canvas C)
+    {
+        Super.PostRender(C);
+        class'APHUDToast'.static.RenderFromConsole(C, self);
+    }
+}
 
 // Print a string to both Game.log AND the in-game chat overlay. Without the
 // ClientMessage path the player has no visible feedback from these execs.

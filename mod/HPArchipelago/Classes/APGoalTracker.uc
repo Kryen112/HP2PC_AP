@@ -104,8 +104,8 @@ static function NotifyLevelObjective(int idx)
     locId = LEVEL_OBJECTIVE_LOC_BASE + idx;
     slot = class'APLocationRegistry'.static.SlotForApId(locId);
     if (slot < 0) return;
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
-    class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot)) return;
+    class'APCardWatcher'.static.MarkNonCardChecked(slot);
     default.GoalLevelDone[idx] = 1;
     Log("[Archipelago] APGoalTracker.NotifyLevelObjective: clause-3 objective idx="
         $ idx $ " complete - firing CHECK_LOCID " $ locId);
@@ -222,7 +222,7 @@ static function int GetCheckedLevelObjectiveCount()
         if (((default.GoalLevelMask >> idx) & 1) == 0) continue;
         slot = class'APLocationRegistry'.static.SlotForApId(LEVEL_OBJECTIVE_LOC_BASE + idx);
         if (slot < 0) continue;
-        if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
+        if (class'APCardWatcher'.static.IsNonCardChecked(slot)) n++;
     }
     return n;
 }
@@ -234,7 +234,7 @@ static function int GetCheckedDuelCount()
     {
         slot = class'APLocationRegistry'.static.SlotForApId(DUEL_LOC_BASE + idx);
         if (slot < 0) continue;
-        if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
+        if (class'APCardWatcher'.static.IsNonCardChecked(slot)) n++;
     }
     return n;
 }
@@ -246,7 +246,7 @@ static function int GetCheckedQuidditchMatchCount()
     {
         slot = class'APLocationRegistry'.static.SlotForApId(QUIDDITCH_LOC_BASE + idx);
         if (slot < 0) continue;
-        if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) n++;
+        if (class'APCardWatcher'.static.IsNonCardChecked(slot)) n++;
     }
     return n;
 }

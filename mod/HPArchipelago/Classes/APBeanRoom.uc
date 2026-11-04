@@ -54,7 +54,9 @@ var byte bDropsRestored;
 // runtime spawn is safe in this open-castle build.
 static function APBeanRoom GetInstance(Actor ctx)
 {
-    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
+    // Only an instance in the caller's level counts (a save-loaded level stays resident after travel).
+    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe
+        && (ctx == None || default.LatestInstance.Level == ctx.Level))
         return default.LatestInstance;
     if (ctx == None) return None;
     return ctx.Spawn(class'APBeanRoom');

@@ -24,7 +24,7 @@
 // modes. Received items pack top-down in acquisition order with no gaps, so the
 // newest spell or key appears at the bottom of its group. All 14 keys share one
 // downscaled key sprite (APKeyIcon) that the hover tooltip disambiguates. Glyphs
-// are scaled small and centered inside a larger HGameButton, so the icon reads
+// are scaled small and centered inside a larger UWindowButton, so the icon reads
 // small while the whole cell stays hoverable; the FE framework renders each
 // button's ToolTipString in the bottom strip.
 //
@@ -41,22 +41,22 @@
 
 class APFEInGamePage extends FEInGamePage;
 
-// Icon textures for the "Unlocked" panel, imported as P8 masked textures via the
+// Icon textures for the "Unlocked" panel, imported as masked 8-bit BMPs via the
 // same magenta chroma-key recipe as APLogoMesh's skins. The source PNGs are
 // pre-flattened onto magenta 255,0,255 with the glyph scaled down and centered
 // inside a transparent margin, so each icon reads small inside a larger hover
 // cell. APKeyIcon is a downscaled copy of HP2_Menu.Icons.HP2SilverCardKey,
 // shared by all 14 keys.
-#exec Texture Import File=Textures\APSpellAlohomora.png   Name=APSpellAlohomora   COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
-#exec Texture Import File=Textures\APSpellDiffindo.png    Name=APSpellDiffindo    COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
-#exec Texture Import File=Textures\APSpellFlipendo.png    Name=APSpellFlipendo    COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
-#exec Texture Import File=Textures\APSpellLumos.png       Name=APSpellLumos       COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
-#exec Texture Import File=Textures\APSpellRictusempra.png Name=APSpellRictusempra COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
-#exec Texture Import File=Textures\APSpellSkurge.png      Name=APSpellSkurge      COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
-#exec Texture Import File=Textures\APSpellSpongify.png    Name=APSpellSpongify    COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
-#exec Texture Import File=Textures\APKeyIcon.png         Name=APKeyIcon         COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Icons
+#exec Texture Import File=Textures\APSpellAlohomora.bmp   Name=APSpellAlohomora   Mips=1 Flags=2 Group=Icons
+#exec Texture Import File=Textures\APSpellDiffindo.bmp    Name=APSpellDiffindo    Mips=1 Flags=2 Group=Icons
+#exec Texture Import File=Textures\APSpellFlipendo.bmp    Name=APSpellFlipendo    Mips=1 Flags=2 Group=Icons
+#exec Texture Import File=Textures\APSpellLumos.bmp       Name=APSpellLumos       Mips=1 Flags=2 Group=Icons
+#exec Texture Import File=Textures\APSpellRictusempra.bmp Name=APSpellRictusempra Mips=1 Flags=2 Group=Icons
+#exec Texture Import File=Textures\APSpellSkurge.bmp      Name=APSpellSkurge      Mips=1 Flags=2 Group=Icons
+#exec Texture Import File=Textures\APSpellSpongify.bmp    Name=APSpellSpongify    Mips=1 Flags=2 Group=Icons
+#exec Texture Import File=Textures\APKeyIcon.bmp         Name=APKeyIcon         Mips=1 Flags=2 Group=Icons
 
-var HGameButton HomeButton;
+var UWindowButton HomeButton;
 var Texture textureHomeNorm;
 var Texture textureHomeRO;
 var bool bHomeHideApplied;
@@ -69,8 +69,8 @@ var bool bHomeHideApplied;
 // are class-default so the packing order survives panel rebuilds and level
 // transitions within a session (instance arrays reset per rebuild). The Last*
 // counts gate slot reassignment to when the received set actually grows.
-var HGameButton SpellSlot[7];
-var HGameButton KeySlot[14];
+var UWindowButton SpellSlot[7];
+var UWindowButton KeySlot[14];
 var Texture textureKeyIcon;
 var Texture spellTexCache[7];
 var string spellNameCache[7];
@@ -92,10 +92,10 @@ function Created()
         textureHomeRO   = Texture(DynamicLoadObject("HP2_Menu.Icons.HP2MenuBackToGameWet", Class'WetTexture'));
     }
 
-    // AT_Center with raw x=296 puts the 48x48 button at canvas-center x=320
-    // (the Folio Magi column); y=338 lands it in the bottom button row's empty
-    // middle column, alongside Quit/Input/SoundVideo/BackPage.
-    HomeButton = HGameButton(CreateAlignedControl(Class'HGameButton', 296.0, 338.0, 48.0, 48.0, , AT_Center));
+    // x=296 puts the 48x48 button at canvas-center x=320 (the Folio Magi
+    // column); y=338 lands it in the bottom button row's empty middle column,
+    // alongside Quit/Input/SoundVideo/BackPage.
+    HomeButton = UWindowButton(CreateControl(Class'UWindowButton', 296.0, 338.0, 48.0, 48.0));
     HomeButton.ToolTipString = "Return to Entry Hall";
     HomeButton.UpTexture     = textureHomeNorm;
     HomeButton.OverTexture   = textureHomeNorm;
@@ -137,7 +137,7 @@ function DrawGoalProgressPanel(Canvas C)
     if (h == None || h.Player == None) return;
 
     fScaleFactor = C.SizeX / WinWidth;
-    hScale = Class'M212HScale'.Static.UWindowGetHeightScale(Root);
+    hScale = 1.0;
     rowFont    = baseConsole(h.Player.Console).LocalBigFont;
     headerFont = baseConsole(h.Player.Console).LocalBigFont;
 
@@ -235,9 +235,8 @@ function DrawProgressRow(Canvas C, float fScaleFactor, float hScale, int x, int 
 // down column 1; key slots fill the 2-wide block (columns 2-3) left-to-right,
 // top-to-bottom. Item textures and names are cached here by item index and are
 // assigned to slots later, in acquisition order, by ApplyUnlockedIconVisibility.
-// Coordinates are virtual 640x480 units. The slots are APUnlockedSlotButtons,
-// which pin WinLeft to that raw design x and so skip the "Menu Centering" 4:3
-// correction, matching the canvas-drawn DrawGoalProgressPanel on the left.
+// Coordinates are virtual 640x480 units, the same space the canvas-drawn
+// DrawGoalProgressPanel on the left uses.
 function BuildUnlockedPanel()
 {
     local int i;
@@ -254,7 +253,7 @@ function BuildUnlockedPanel()
     {
         spellTexCache[i] = SpellIconTexture(i);
         if (w != None) spellNameCache[i] = w.SpellNames[i];
-        SpellSlot[i] = HGameButton(CreateControl(Class'APUnlockedSlotButton', 508.0, 138.0 + i * 27.0, 32.0, 32.0));
+        SpellSlot[i] = UWindowButton(CreateControl(Class'UWindowButton', 508.0, 138.0 + i * 27.0, 32.0, 32.0));
         SpellSlot[i].DownSound = None;
         SpellSlot[i].HideWindow();
     }
@@ -265,14 +264,14 @@ function BuildUnlockedPanel()
         else keyX = 588.0;
         keyY = 138.0 + (i / 2) * 27.0;
         if (w != None) keyNameCache[i] = w.BlockerKeyNames[i];
-        KeySlot[i] = HGameButton(CreateControl(Class'APUnlockedSlotButton', keyX, keyY, 32.0, 32.0));
+        KeySlot[i] = UWindowButton(CreateControl(Class'UWindowButton', keyX, keyY, 32.0, 32.0));
         KeySlot[i].DownSound = None;
         KeySlot[i].HideWindow();
     }
 }
 
 // Skins a slot with an item's icon and name and shows it.
-function AssignSlot(HGameButton btn, Texture tex, string nm)
+function AssignSlot(UWindowButton btn, Texture tex, string nm)
 {
     if (btn == None) return;
     btn.UpTexture     = tex;
@@ -387,7 +386,7 @@ function DrawUnlockedPanel(Canvas C)
     if (h == None || h.Player == None) return;
 
     fScaleFactor = C.SizeX / WinWidth;
-    hScale = Class'M212HScale'.Static.UWindowGetHeightScale(Root);
+    hScale = 1.0;
     bigFont = baseConsole(h.Player.Console).LocalBigFont;
 
     colorWhite = class'APHUDToast'.static.APWhite();
@@ -398,9 +397,7 @@ function DrawUnlockedPanel(Canvas C)
     styleSave = C.Style;
 
     // Center each label over its column(s) using the buttons' live WinLeft/
-    // WinWidth. APUnlockedSlotButton pins WinLeft to the raw design x (no Menu
-    // Centering correction), so the labels track the icons and share the panel's
-    // pure-proportional, slider-immune placement. "Spells" centers on the spell
+    // WinWidth, so the labels track the icons. "Spells" centers on the spell
     // column, "Keys" on the midpoint of the two key columns, "Unlocked" on the
     // midpoint of the spell and right-key columns. Falls back to design-space
     // centers if the slots are not built yet.
@@ -464,7 +461,7 @@ function bool ShouldHideHomeButton()
     h = harry(Root.Console.Viewport.Actor);
     if (h == None) return False;
 
-    if (h.iGameState < 20) return True;
+    if (h.ConvertGameStateToNumber() < 20) return True;
 
     hud = HPHud(h.myHUD);
     if (hud != None && hud.IsCutSceneOrPopupInProgress()) return True;

@@ -1,25 +1,24 @@
-"""Installs the HPArchipelago mod into a game install, from the client.
+"""Installs the HPArchipelago mod into a retail game install, from the client.
 
 The packaged apworld carries one canonical compiled ``HPArchipelago.u`` under
 ``data/mod`` (staged and verified against its source-hash manifest by
 build_apworld.py). ``deploy`` copies that package into the install's
 ``system`` folder and patches the config in place, backed up once first:
 
-- ``system\\Default.ini``: the mod's EditPackages entries land immediately
-  after ``EditPackages=M212Share`` (the list's last stock entry; the file
-  continues past it with graphics-adapter sections, so appending at end of
-  file or end of section would land them in the wrong place), and
-  ``[Engine.Engine]`` ``DefaultGame=`` points at the mod's GameInfo, the
-  engine's one working entry point (ServerActors and ?Mutator= are ignored).
-- The per-user overrides in ``Documents\\Harry - Coding Evolved``: the first
-  game launch copies Default.ini's package list into ``HP.ini``, and
-  ``Game.ini`` can carry its own ``DefaultGame``; either shadows a patched
-  Default.ini back to vanilla. Both are patched in place when they exist,
-  never deleted, because they also hold the player's own settings.
+- ``[Engine.Engine]``: ``DefaultGame=`` points at the mod's GameInfo, the
+  engine's one working entry point (ServerActors and ?Mutator= are ignored),
+  and ``Console=`` at the mod's console, which carries the client link's
+  inbound entry point.
+- ``[HPArchipelago.APIPCActor]``: ``ChannelDir=`` names the folder the game
+  and the client share (see game_link.py).
 
-The ini files are ANSI; the game log is the UTF-16 file. Reads detect a BOM
-anyway so an unexpectedly re-encoded config stays editable. Idempotent: a
-second deploy writes nothing.
+Both go into the install's ``system\\Default.ini``, which the first game launch
+copies into the per-user ``Documents\\Harry Potter II\\Game.ini``, and into that
+Game.ini when it already exists. Game.ini carries the player's own settings, so
+it is patched in place, never replaced.
+
+The ini files are ANSI. Reads detect a BOM anyway so an unexpectedly
+re-encoded config stays editable. Idempotent: a second deploy writes nothing.
 
 Standalone by design: no Archipelago imports, so the deploy contract tests
 run against a plain temp directory.
@@ -34,16 +33,22 @@ from pathlib import Path
 MOD_PACKAGE = "HPArchipelago"
 MOD_PACKAGE_DATA = Path(__file__).parent / "data" / "mod" / f"{MOD_PACKAGE}.u"
 BACKUP_DIR_NAME = "_archipelago_backup"
-USER_INI_DIR_NAME = "Harry - Coding Evolved"
+USER_INI_DIR_NAME = "Harry Potter II"
+CHANNEL_DIR_NAME = "AP"
 
 SECTION_HEADER = re.compile(r"^\s*\[.+\]\s*$")
 
-EDIT_PACKAGES_ANCHOR = "EditPackages=M212Share"
-EDIT_PACKAGES_ADDED = ("EditPackages=IpDrv", f"EditPackages={MOD_PACKAGE}")
-
 ENGINE_SECTION = "[Engine.Engine]"
-DEFAULT_GAME_KEY = "DefaultGame="
-DEFAULT_GAME_ARCHIPELAGO = f"DefaultGame={MOD_PACKAGE}.APGameInfo"
+ENGINE_SETTINGS = (
+    ("DefaultGame=", f"DefaultGame={MOD_PACKAGE}.APGameInfo"),
+    ("Console=", f"Console={MOD_PACKAGE}.APConsole"),
+)
+LINK_SECTION = f"[{MOD_PACKAGE}.APIPCActor]"
+CHANNEL_DIR_KEY = "ChannelDir="
+
+# The game runs `exec "<ChannelDir>\in.txt"`, and the engine reads that file
+# name into a short fixed buffer, so a long folder path is shortened.
+MAX_CHANNEL_PATH_CHARS = 52
 
 
 def _packaged_module_bytes() -> "bytes | None":
@@ -91,58 +96,68 @@ def _backup_once(backup_dir: Path, path: Path) -> None:
         shutil.copy2(path, destination)
 
 
-def _wire_edit_packages(path: Path, require_anchor: bool) -> "bool | None":
-    """Place the mod's EditPackages entries immediately after the M212Share
-    entry, normalizing any that sit elsewhere. Returns whether the file
-    changed, or None when the anchor is missing and not required."""
+def _set_in_section(lines: "list[str]", section: str, key: str,
+                    replacement: str) -> "list[str]":
+    """The lines with the key's line inside the section replaced, added at the
+    section's end when the section lacks it, and the section appended at the
+    end of the file when the file lacks it."""
+    out: "list[str]" = []
+    in_section = False
+    section_seen = False
+    placed = False
+    for existing in lines:
+        if SECTION_HEADER.match(existing):
+            if in_section and not placed:
+                while out and not out[-1].strip():
+                    out.pop()
+                out.extend([replacement, ""])
+                placed = True
+            in_section = existing.strip().lower() == section.lower()
+            section_seen = section_seen or in_section
+        if in_section and existing.startswith(key):
+            if not placed:
+                out.append(replacement)
+                placed = True
+            continue
+        out.append(existing)
+    if not placed:
+        if in_section:
+            while out and not out[-1].strip():
+                out.pop()
+            out.append(replacement)
+        else:
+            if out and out[-1].strip():
+                out.append("")
+            out.extend([section, replacement])
+    return out
+
+
+def _wired_lines(lines: "list[str]", channel: str) -> "list[str]":
+    """The ini lines pointed at the mod and the channel folder."""
+    out = lines
+    for key, replacement in ENGINE_SETTINGS:
+        out = _set_in_section(out, ENGINE_SECTION, key, replacement)
+    return _set_in_section(out, LINK_SECTION, CHANNEL_DIR_KEY, CHANNEL_DIR_KEY + channel)
+
+
+def _wire_ini(path: Path, channel: str) -> bool:
+    """Point the ini at the mod and the channel folder. Returns whether the
+    file changed."""
     lines = _read_ini_lines(path)
-    kept = [line for line in lines if line not in EDIT_PACKAGES_ADDED]
-    if EDIT_PACKAGES_ANCHOR not in kept:
-        if require_anchor:
-            raise ValueError(
-                f"{EDIT_PACKAGES_ANCHOR} not found in {path.name}; is this an "
-                f"M212 install?")
-        return None
-    anchor = len(kept) - 1 - kept[::-1].index(EDIT_PACKAGES_ANCHOR)
-    out = kept[:anchor + 1] + list(EDIT_PACKAGES_ADDED) + kept[anchor + 1:]
+    out = _wired_lines(lines, channel)
     if out == lines:
         return False
     _write_ini_lines(path, out)
     return True
 
 
-def _set_line_in_section(path: Path, section: str, key: str, replacement: str,
-                         require: bool = False) -> "bool | None":
-    """Rewrite the key's line inside the section. Returns whether the file
-    changed, or None when the section holds no such key and none is required
-    (an absent key falls through the override chain, so there is nothing to
-    fix)."""
+def _ini_is_wired(path: Path, channel: str) -> bool:
     lines = _read_ini_lines(path)
-    out: "list[str]" = []
-    in_section = False
-    found = False
-    changed = False
-    for existing in lines:
-        if SECTION_HEADER.match(existing):
-            in_section = existing.strip().lower() == section.lower()
-        if in_section and existing.startswith(key):
-            found = True
-            if existing != replacement:
-                out.append(replacement)
-                changed = True
-                continue
-        out.append(existing)
-    if not found:
-        if require:
-            raise ValueError(f"{key} not found under {section} in {path.name}")
-        return None
-    if changed:
-        _write_ini_lines(path, out)
-    return changed
+    return _wired_lines(lines, channel) == lines
 
 
 def _user_ini_dir() -> Path:
-    """The per-user config dir holding HP.ini and Game.ini. The engine
+    """The per-user config dir holding Game.ini and the saves. The engine
     resolves it through the Windows Documents folder, so honor a relocated
     (e.g. OneDrive) Documents via the shell folders registry key, with a
     plain home Documents fallback."""
@@ -156,6 +171,28 @@ def _user_ini_dir() -> Path:
     except (ImportError, OSError):
         documents = Path.home() / "Documents"
     return documents / USER_INI_DIR_NAME
+
+
+def channel_dir() -> Path:
+    """The folder the game and the client share."""
+    return _user_ini_dir() / CHANNEL_DIR_NAME
+
+
+def _short_path(path: Path) -> str:
+    """The path as the engine is handed it: the Windows 8.3 short form when the
+    long one is too long for the engine's file name buffer and the volume has
+    short names."""
+    text = str(path)
+    if len(text) <= MAX_CHANNEL_PATH_CHARS:
+        return text
+    try:
+        import ctypes
+        buffer = ctypes.create_unicode_buffer(1024)
+        if ctypes.windll.kernel32.GetShortPathNameW(text, buffer, len(buffer)):
+            return buffer.value
+    except (ImportError, AttributeError, OSError):
+        pass
+    return text
 
 
 def deploy(install_dir: Path) -> "list[str]":
@@ -178,54 +215,43 @@ def deploy(install_dir: Path) -> "list[str]":
         target.write_bytes(module_bytes)
         log.append("Copied the compiled mod package.")
 
-    _backup_once(install_dir / BACKUP_DIR_NAME, default_ini)
-    if _wire_edit_packages(default_ini, require_anchor=True):
-        log.append("Added the mod to Default.ini's package list.")
-    if _set_line_in_section(default_ini, ENGINE_SECTION, DEFAULT_GAME_KEY,
-                            DEFAULT_GAME_ARCHIPELAGO, require=True):
-        log.append("Pointed Default.ini's DefaultGame at the mod.")
+    channel = channel_dir()
+    channel.mkdir(parents=True, exist_ok=True)
+    channel_text = _short_path(channel)
+    if len(channel_text) > MAX_CHANNEL_PATH_CHARS:
+        log.append(
+            f"WARNING: the game link folder {channel_text} is longer than the game "
+            f"can open ({MAX_CHANNEL_PATH_CHARS} characters) and this drive has no "
+            f"short names for it, so the game may not hear the client.")
 
-    _wire_user_inis(log)
+    _backup_once(install_dir / BACKUP_DIR_NAME, default_ini)
+    if _wire_ini(default_ini, channel_text):
+        log.append("Pointed Default.ini at the mod.")
+
+    game_ini = _user_ini_dir() / "Game.ini"
+    if game_ini.is_file():
+        _backup_once(game_ini.parent / BACKUP_DIR_NAME, game_ini)
+        if _wire_ini(game_ini, channel_text):
+            log.append("Pointed the per-user Game.ini at the mod.")
     return log
 
 
-def _wire_user_inis(log: "list[str]") -> None:
-    """Apply the Default.ini wiring to the per-user override files in place.
-    They carry the player's own settings, so they are patched, never
-    deleted."""
-    user_dir = _user_ini_dir()
-    hp_ini = user_dir / "HP.ini"
-    if hp_ini.is_file():
-        _backup_once(user_dir / BACKUP_DIR_NAME, hp_ini)
-        changed = _wire_edit_packages(hp_ini, require_anchor=False)
-        if changed:
-            log.append("Wired the mod into the per-user HP.ini in place.")
-        elif changed is None and any(
-                line.startswith("EditPackages=") for line in _read_ini_lines(hp_ini)):
-            log.append(
-                f"WARNING: {hp_ini} carries a package list this installer does "
-                f"not recognize, and it shadows Default.ini; delete that file "
-                f"and launch again.")
-        if _set_line_in_section(hp_ini, ENGINE_SECTION, DEFAULT_GAME_KEY,
-                                DEFAULT_GAME_ARCHIPELAGO):
-            log.append("Pointed the per-user HP.ini's DefaultGame at the mod.")
-    game_ini = user_dir / "Game.ini"
-    if game_ini.is_file():
-        _backup_once(user_dir / BACKUP_DIR_NAME, game_ini)
-        if _set_line_in_section(game_ini, ENGINE_SECTION, DEFAULT_GAME_KEY,
-                                DEFAULT_GAME_ARCHIPELAGO):
-            log.append("Pointed the per-user Game.ini's DefaultGame at the mod.")
-
-
 def mod_is_current(install_dir: Path) -> bool:
-    """Whether the install already runs this apworld's package, byte for byte.
-    An apworld packaged without a mod counts as current, so it can never
-    trigger an install loop."""
+    """Whether the install already runs this apworld's package, byte for byte,
+    with Default.ini and an existing per-user Game.ini wired to it. An apworld
+    packaged without a mod counts as current, so it can never trigger an
+    install loop."""
     module_bytes = _packaged_module_bytes()
     if module_bytes is None:
         return True
-    installed = Path(install_dir) / "system" / f"{MOD_PACKAGE}.u"
+    system_dir = Path(install_dir) / "system"
+    channel = _short_path(channel_dir())
     try:
-        return installed.read_bytes() == module_bytes
-    except OSError:
+        if (system_dir / f"{MOD_PACKAGE}.u").read_bytes() != module_bytes:
+            return False
+        if not _ini_is_wired(system_dir / "Default.ini", channel):
+            return False
+        game_ini = _user_ini_dir() / "Game.ini"
+        return not game_ini.is_file() or _ini_is_wired(game_ini, channel)
+    except (OSError, ValueError):
         return False

@@ -1,6 +1,7 @@
 class APGameInfo extends GameInfo;
 
-var APIPCActor IPCActor;
+// Transient: the link actor lives in the Entry map, which a level save cannot reference.
+var transient APIPCActor IPCActor;
 
 // Per-classroom offset applied to the cutscene's Location when spawning the
 // blocker, so the bookshelf can be nudged without touching the cutscene
@@ -786,7 +787,7 @@ function BlockSpongifyClassroomIfMissing()
     }
 
     h = harry(Level.PlayerHarryActor);
-    if (h == None || h.iGameState < SpongifyGameStateGate)
+    if (h == None || h.ConvertGameStateToNumber() < SpongifyGameStateGate)
     {
         // Story not yet at the point where Spongify intro becomes valid in
         // DADA. Quiet return, this fires every InitGame / TrySpawnClassroom

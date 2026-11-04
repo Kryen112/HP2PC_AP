@@ -140,6 +140,18 @@ var byte  WeasleyDispensed[2];
 
 // Found-or-spawned singleton accessor. Lazily spawns one via the caller's
 // context on first use of a level. Logic-only (no mesh) so runtime spawn is safe.
+// Outside classes read the per-slot vendor tables through these: the arrays are
+// too large for a cross-class context expression.
+static function bool IsTraderPurchased(int slot)
+{
+    return default.TraderPurchased[slot] == 1;
+}
+
+static function string TraderHintItemNameAt(int slot)
+{
+    return default.TraderHintItemName[slot];
+}
+
 static function APVendorController GetInstance(Actor ctx)
 {
     local APGameInfo gi;
@@ -374,7 +386,7 @@ function EnsureWeasleyToken(HProp prop, int wi, int locId)
     slot = class'APLocationRegistry'.static.SlotForApId(locId);
     if (slot < 0) return;
 
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot))
     {
         // Already collected; a leftover (e.g. save-load-restored) prop must not
         // re-arm. The purchase set bHave* so no fresh one spawns.
@@ -445,7 +457,7 @@ function FireWeasleyCheck(int wi, int locId, bool bPaid)
 
     slot = class'APLocationRegistry'.static.SlotForApId(locId);
     if (slot < 0) return;
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot)) return;
 
     bPickedUp = (WeasleyDispensed[wi] == 1
                  && (WeasleyToken[wi] == None || WeasleyToken[wi].bDeleteMe));
@@ -454,7 +466,7 @@ function FireWeasleyCheck(int wi, int locId, bool bPaid)
 
     ipc = class'APIPCActor'.static.GetInstance();
     if (ipc != None) ipc.SendCheckLocationId(locId);
-    class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+    class'APCardWatcher'.static.MarkNonCardChecked(slot);
     WeasleyToken[wi] = None;
     if (bPickedUp)
     {
@@ -519,7 +531,7 @@ function TradersanityHintOnOpenPass()
 
     slot = class'APLocationRegistry'.static.SlotForApId(locId);
     if (slot < 0) return;
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot)) return;
 
     ipc = class'APIPCActor'.static.GetInstance();
     if (ipc != None) ipc.SendVendorOpened(locId);
@@ -571,7 +583,7 @@ function TradersanityIconSwapPass()
     // AP icon ONLY while the location is unchecked AND the player hasn't already
     // clicked Yes for this vendor (TraderPurchased). The OR means a
     // mid-MakePurchase or post-pickup re-engagement both show the vanilla icon.
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 0 && default.TraderPurchased[slot] == 0)
+    if (!class'APCardWatcher'.static.IsNonCardChecked(slot) && default.TraderPurchased[slot] == 0)
     {
         desired = class'APAppearanceMath'.static.GetAPItemTextureStatic();
     }
@@ -866,7 +878,7 @@ function TradersanityPass()
         idx = TraderRegIndex(c, lvl);
         if (idx < 0) continue;
 
-        checkedLoc = (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1);
+        checkedLoc = (class'APCardWatcher'.static.IsNonCardChecked(slot));
         cardV      = IsTraderCardVendor(idx);
 
         if (checkedLoc)
@@ -888,7 +900,7 @@ function TradersanityPass()
             {
                 ipc = class'APIPCActor'.static.GetInstance();
                 if (ipc != None) ipc.SendCheckLocationId(locId);
-                class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+                class'APCardWatcher'.static.MarkNonCardChecked(slot);
                 Log("[Archipelago] APVendorController.TradersanityPass: vendor "
                     $ string(c.Name) $ " AP token picked up (loc id " $ locId
                     $ ") - fired CHECK_LOCID");
@@ -926,7 +938,7 @@ function TradersanityPass()
             {
                 ipc = class'APIPCActor'.static.GetInstance();
                 if (ipc != None) ipc.SendCheckLocationId(locId);
-                class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+                class'APCardWatcher'.static.MarkNonCardChecked(slot);
                 TraderDispensed[idx] = 1;
                 RevertTraderVendorOnce(c, idx, cardV, locId);
                 Log("[Archipelago] APVendorController.TradersanityPass: vendor "

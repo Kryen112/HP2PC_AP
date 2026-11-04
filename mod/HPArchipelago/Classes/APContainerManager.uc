@@ -24,7 +24,9 @@ var byte bContainersReplacedThisLevel;
 // on first use of a level. Logic-only (no mesh) so runtime spawn is safe.
 static function APContainerManager GetInstance(Actor ctx)
 {
-    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
+    // Only an instance in the caller's level counts (a save-loaded level stays resident after travel).
+    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe
+        && (ctx == None || default.LatestInstance.Level == ctx.Level))
         return default.LatestInstance;
     if (ctx == None) return None;
     return ctx.Spawn(class'APContainerManager');
@@ -144,7 +146,7 @@ function InjectContainerMarkerChest(chestbronze chest, int apId)
 
     slot = class'APLocationRegistry'.static.SlotForApId(apId);
     if (slot >= 0
-        && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+        && class'APCardWatcher'.static.IsNonCardChecked(slot))
     {
         return;  // already collected -> leave the chest 100% vanilla
     }
@@ -190,7 +192,7 @@ function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
 
     slot = class'APLocationRegistry'.static.SlotForApId(apId);
     if (slot >= 0
-        && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+        && class'APCardWatcher'.static.IsNonCardChecked(slot))
     {
         return;
     }
@@ -292,7 +294,7 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     // eject slot), so a re-clear drops no phantom AP token.
     slot = class'APLocationRegistry'.static.SlotForApId(apId);
     if (slot >= 0
-        && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+        && class'APCardWatcher'.static.IsNonCardChecked(slot))
     {
         return;
     }
@@ -490,7 +492,7 @@ function ArmSpawnThingyDecoration(HProp deco, int apId)
 
     slot = class'APLocationRegistry'.static.SlotForApId(apId);
     if (slot < 0) return;
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot)) return;
 
     // Pick the placed bean ejector nearest the decoration. SpawnThingys sit ~60-160u
     // from their statue; a colour bean is a Jellybean subclass, so the IsA test skips

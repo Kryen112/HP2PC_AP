@@ -40,7 +40,7 @@ static function ReplaceChallengeStars(Actor ctx)
         if (locId == 0) continue;
         slot = class'APLocationRegistry'.static.SlotForApId(locId);
         if (slot < 0) continue;
-        if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
+        if (class'APCardWatcher'.static.IsNonCardChecked(slot)) continue;
 
         // Capture mover-attachment state before destroying the vanilla star.
         // Many challenge-level stars ride moving platforms. The mover wires
@@ -124,7 +124,7 @@ static function ReplaceSecretMarkers(Actor ctx)
         if (locId == 0) continue;
         slot = class'APLocationRegistry'.static.SlotForApId(locId);
         if (slot < 0) continue;
-        if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) continue;
+        if (class'APCardWatcher'.static.IsNonCardChecked(slot)) continue;
 
         loc = m.Location;
         rot = m.Rotation;

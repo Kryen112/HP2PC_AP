@@ -1,9 +1,7 @@
 """Contract tests for the mod installer's deploy step, against a throwaway
-install tree. Default.ini continues past the EditPackages list into
-graphics-adapter sections, so the anchored insertion (immediately after
-EditPackages=M212Share, never end of file or end of section) is the
-load-bearing behavior these pin, together with idempotence, the one-time
-backups, and the in-place patching of the per-user override inis.
+install tree: the engine settings and the channel folder land in Default.ini
+and in an existing per-user Game.ini, the player's own settings survive,
+deploys are idempotent, and the backups are written once.
 """
 import tempfile
 import unittest
@@ -23,14 +21,6 @@ Language=int
 Console=HGame.HPConsole
 DefaultGame=Engine.GameInfo
 
-[Editor.EditorEngine]
-EditPackages=Core
-EditPackages=Engine
-EditPackages=HPSounds
-EditPackages=HPModels
-EditPackages=HGame
-EditPackages=M212Share
-
 [Engine.GameInfo]
 bLowGore=True
 
@@ -38,25 +28,13 @@ bLowGore=True
 UseTrilinear=0
 """
 
-# A per-user HP.ini as the first game launch writes it: Default.ini's package
-# list plus the player's own [Core.System] settings.
-HP_INI = """[Editor.EditorEngine]
-EditPackages=Core
-EditPackages=Engine
-EditPackages=HPSounds
-EditPackages=HPModels
-EditPackages=HGame
-EditPackages=M212Share
-
-[Core.System]
-CacheRecordPath=../System/*.ucl
-"""
-
 GAME_INI = """[Engine.Engine]
+Console=HGame.HPConsole
 DefaultGame=Engine.GameInfo
 
 [WinDrv.WindowsClient]
 WindowedViewportX=1024
+StartupFullscreen=False
 """
 
 
@@ -69,99 +47,99 @@ class InstallerCase(unittest.TestCase):
         self.system.mkdir(parents=True)
         self.default_ini = self.system / "Default.ini"
         self.default_ini.write_text(DEFAULT_INI, encoding="ascii")
-        self.user_dir = root / "Documents" / "Harry - Coding Evolved"
+        self.user_dir = root / "Documents" / "Harry Potter II"
         self.user_dir.mkdir(parents=True)
+        self.channel = str(self.user_dir / installer.CHANNEL_DIR_NAME)
         packaged = root / "packaged" / "HPArchipelago.u"
         packaged.parent.mkdir()
         packaged.write_bytes(PACKAGE_BYTES)
         self._patches = [
             mock.patch.object(installer, "MOD_PACKAGE_DATA", packaged),
-            mock.patch.object(installer, "_user_ini_dir",
-                              return_value=self.user_dir),
+            mock.patch.object(installer, "_user_ini_dir", return_value=self.user_dir),
+            mock.patch.object(installer, "_short_path", side_effect=str),
+            # Temp folders are long; the limit itself is pinned in TestLongChannelPath.
+            mock.patch.object(installer, "MAX_CHANNEL_PATH_CHARS", 1000),
         ]
         for patch in self._patches:
             patch.start()
-        self.installed_package = self.system / "HPArchipelago.u"
 
     def tearDown(self) -> None:
         for patch in self._patches:
             patch.stop()
         self._tmp.cleanup()
 
-    def default_ini_lines(self) -> "list[str]":
-        return self.default_ini.read_text(encoding="ascii").splitlines()
+    def lines(self, path: Path) -> "list[str]":
+        return path.read_text(encoding="latin-1").splitlines()
+
+    def section(self, path: Path, header: str) -> "list[str]":
+        out, inside = [], False
+        for line in self.lines(path):
+            if line.startswith("["):
+                inside = line == header
+                continue
+            if inside and line:
+                out.append(line)
+        return out
 
 
 class TestDeploy(InstallerCase):
     def test_deploy_wires_everything(self) -> None:
-        installer.deploy(self.install)
-        self.assertEqual(self.installed_package.read_bytes(), PACKAGE_BYTES)
-        lines = self.default_ini_lines()
-        self.assertIn("EditPackages=HPArchipelago", lines)
-        self.assertIn("EditPackages=IpDrv", lines)
-        self.assertIn(installer.DEFAULT_GAME_ARCHIPELAGO, lines)
-        self.assertNotIn("DefaultGame=Engine.GameInfo", lines)
+        log = installer.deploy(self.install)
+        self.assertEqual((self.system / "HPArchipelago.u").read_bytes(), PACKAGE_BYTES)
+        engine = self.section(self.default_ini, "[Engine.Engine]")
+        self.assertIn("DefaultGame=HPArchipelago.APGameInfo", engine)
+        self.assertIn("Console=HPArchipelago.APConsole", engine)
+        self.assertEqual(self.section(self.default_ini, "[HPArchipelago.APIPCActor]"),
+                         ["ChannelDir=" + self.channel])
+        self.assertTrue(Path(self.channel).is_dir())
+        self.assertEqual(log, ["Copied the compiled mod package.", "Pointed Default.ini at the mod."])
 
-    def test_edit_packages_land_after_the_anchor(self) -> None:
-        # Not end of file and not end of section: the entries go immediately
-        # after the last stock entry, before the sections that follow.
+    def test_engine_keys_are_replaced_in_place(self) -> None:
         installer.deploy(self.install)
-        lines = self.default_ini_lines()
-        anchor = lines.index(installer.EDIT_PACKAGES_ANCHOR)
-        self.assertEqual(lines[anchor + 1], "EditPackages=IpDrv")
-        self.assertEqual(lines[anchor + 2], "EditPackages=HPArchipelago")
+        engine = self.section(self.default_ini, "[Engine.Engine]")
+        self.assertEqual(engine, ["GameRenderDevice=D3DDrv.D3DRenderDevice", "Language=int",
+                                  "Console=HPArchipelago.APConsole",
+                                  "DefaultGame=HPArchipelago.APGameInfo"])
 
-    def test_player_settings_survive(self) -> None:
+    def test_other_sections_survive(self) -> None:
         installer.deploy(self.install)
-        lines = self.default_ini_lines()
-        self.assertIn("Console=HGame.HPConsole", lines)
-        self.assertIn("Language=int", lines)
-        self.assertIn("UseTrilinear=0", lines)
+        self.assertEqual(self.section(self.default_ini, "[Engine.GameInfo]"), ["bLowGore=True"])
+        self.assertEqual(self.section(self.default_ini, "[ATI 3D Rage Pro]"), ["UseTrilinear=0"])
+
+    def test_missing_engine_key_is_added_to_its_section(self) -> None:
+        self.default_ini.write_text(DEFAULT_INI.replace("Console=HGame.HPConsole\n", ""),
+                                    encoding="ascii")
+        installer.deploy(self.install)
+        engine = self.section(self.default_ini, "[Engine.Engine]")
+        self.assertIn("Console=HPArchipelago.APConsole", engine)
+        self.assertEqual(self.section(self.default_ini, "[Engine.GameInfo]"), ["bLowGore=True"])
 
     def test_deploy_is_idempotent(self) -> None:
         installer.deploy(self.install)
         first = self.default_ini.read_bytes()
-        log = installer.deploy(self.install)
-        self.assertEqual(log, [])
+        self.assertEqual(installer.deploy(self.install), [])
         self.assertEqual(self.default_ini.read_bytes(), first)
-        lines = self.default_ini_lines()
-        self.assertEqual(lines.count("EditPackages=HPArchipelago"), 1)
-        self.assertEqual(lines.count("EditPackages=IpDrv"), 1)
 
-    def test_stray_mod_entries_are_normalized(self) -> None:
-        # A hand-patched install can carry the entries in the wrong spot (for
-        # example appended at end of file, inside a graphics-adapter section);
-        # deploy moves them to the anchored position.
-        self.default_ini.write_text(
-            DEFAULT_INI + "EditPackages=HPArchipelago\n", encoding="ascii")
+    def test_changed_channel_is_rewritten_once(self) -> None:
         installer.deploy(self.install)
-        lines = self.default_ini_lines()
-        self.assertEqual(lines.count("EditPackages=HPArchipelago"), 1)
-        anchor = lines.index(installer.EDIT_PACKAGES_ANCHOR)
-        self.assertEqual(lines[anchor + 2], "EditPackages=HPArchipelago")
-        self.assertNotEqual(lines[-1], "EditPackages=HPArchipelago")
+        self.channel = str(self.user_dir / "Elsewhere")
+        with mock.patch.object(installer, "channel_dir", return_value=Path(self.channel)):
+            installer.deploy(self.install)
+        self.assertEqual(self.section(self.default_ini, "[HPArchipelago.APIPCActor]"),
+                         ["ChannelDir=" + self.channel])
 
     def test_backup_is_written_once(self) -> None:
+        installer.deploy(self.install)
+        self.default_ini.write_text("[Changed]\n", encoding="ascii")
+        installer.deploy(self.install)
         backup = self.install / installer.BACKUP_DIR_NAME / "Default.ini"
-        installer.deploy(self.install)
-        self.assertEqual(backup.read_text(encoding="ascii"), DEFAULT_INI)
-        installer.deploy(self.install)
         self.assertEqual(backup.read_text(encoding="ascii"), DEFAULT_INI)
 
     def test_utf16_ini_is_edited_in_its_own_encoding(self) -> None:
         self.default_ini.write_text(DEFAULT_INI, encoding="utf-16")
         installer.deploy(self.install)
-        raw = self.default_ini.read_bytes()
-        self.assertEqual(raw[:2], b"\xff\xfe")
-        text = raw.decode("utf-16")
-        self.assertIn("EditPackages=HPArchipelago", text)
-        self.assertIn(installer.DEFAULT_GAME_ARCHIPELAGO, text)
-
-    def test_missing_anchor_raises(self) -> None:
-        self.default_ini.write_text(
-            DEFAULT_INI.replace("EditPackages=M212Share\n", ""), encoding="ascii")
-        with self.assertRaises(ValueError):
-            installer.deploy(self.install)
+        text = self.default_ini.read_text(encoding="utf-16")
+        self.assertIn("DefaultGame=HPArchipelago.APGameInfo", text)
 
     def test_missing_default_ini_raises(self) -> None:
         self.default_ini.unlink()
@@ -169,71 +147,46 @@ class TestDeploy(InstallerCase):
             installer.deploy(self.install)
 
     def test_apworld_without_packaged_module_raises(self) -> None:
-        with mock.patch.object(installer, "_packaged_module_bytes",
-                               return_value=None):
+        with mock.patch.object(installer, "_packaged_module_bytes", return_value=None):
             with self.assertRaises(FileNotFoundError):
                 installer.deploy(self.install)
 
 
-class TestUserInis(InstallerCase):
-    def test_missing_user_dir_is_fine(self) -> None:
-        with mock.patch.object(installer, "_user_ini_dir",
-                               return_value=self.user_dir / "absent"):
-            installer.deploy(self.install)
-        self.assertEqual(self.installed_package.read_bytes(), PACKAGE_BYTES)
+class TestUserGameIni(InstallerCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.game_ini = self.user_dir / "Game.ini"
+        self.game_ini.write_text(GAME_INI, encoding="ascii")
 
-    def test_hp_ini_is_wired_in_place(self) -> None:
-        hp_ini = self.user_dir / "HP.ini"
-        hp_ini.write_text(HP_INI, encoding="ascii")
-        installer.deploy(self.install)
-        lines = hp_ini.read_text(encoding="ascii").splitlines()
-        anchor = lines.index(installer.EDIT_PACKAGES_ANCHOR)
-        self.assertEqual(lines[anchor + 1], "EditPackages=IpDrv")
-        self.assertEqual(lines[anchor + 2], "EditPackages=HPArchipelago")
-        # The player's own settings survive, and a backup exists.
-        self.assertIn("CacheRecordPath=../System/*.ucl", lines)
-        self.assertEqual(
-            (self.user_dir / installer.BACKUP_DIR_NAME / "HP.ini")
-            .read_text(encoding="ascii"), HP_INI)
-
-    def test_game_ini_default_game_is_pointed_at_the_mod(self) -> None:
-        game_ini = self.user_dir / "Game.ini"
-        game_ini.write_text(GAME_INI, encoding="ascii")
-        installer.deploy(self.install)
-        lines = game_ini.read_text(encoding="ascii").splitlines()
-        self.assertIn(installer.DEFAULT_GAME_ARCHIPELAGO, lines)
-        self.assertNotIn("DefaultGame=Engine.GameInfo", lines)
-        self.assertIn("WindowedViewportX=1024", lines)
-
-    def test_game_ini_without_the_key_is_left_alone(self) -> None:
-        # An absent DefaultGame falls through to Default.ini, so there is
-        # nothing to fix and the file is not rewritten.
-        game_ini = self.user_dir / "Game.ini"
-        content = "[WinDrv.WindowsClient]\nWindowedViewportX=1024\n"
-        game_ini.write_text(content, encoding="ascii")
-        installer.deploy(self.install)
-        self.assertEqual(game_ini.read_text(encoding="ascii"), content)
-
-    def test_foreign_hp_ini_package_list_warns(self) -> None:
-        # A package list without the M212Share anchor cannot be patched
-        # mechanically, yet it shadows Default.ini; the player is told.
-        hp_ini = self.user_dir / "HP.ini"
-        content = "[Editor.EditorEngine]\nEditPackages=Core\nEditPackages=Engine\n"
-        hp_ini.write_text(content, encoding="ascii")
+    def test_game_ini_is_wired_in_place(self) -> None:
         log = installer.deploy(self.install)
-        self.assertTrue(any("WARNING" in line and "HP.ini" in line for line in log))
-        self.assertEqual(hp_ini.read_text(encoding="ascii"), content)
+        self.assertIn("Pointed the per-user Game.ini at the mod.", log)
+        self.assertEqual(self.section(self.game_ini, "[Engine.Engine]"),
+                         ["Console=HPArchipelago.APConsole",
+                          "DefaultGame=HPArchipelago.APGameInfo"])
+        self.assertEqual(self.section(self.game_ini, "[HPArchipelago.APIPCActor]"),
+                         ["ChannelDir=" + self.channel])
 
-    def test_user_inis_are_idempotent(self) -> None:
-        (self.user_dir / "HP.ini").write_text(HP_INI, encoding="ascii")
-        (self.user_dir / "Game.ini").write_text(GAME_INI, encoding="ascii")
+    def test_player_settings_survive(self) -> None:
         installer.deploy(self.install)
-        first_hp = (self.user_dir / "HP.ini").read_bytes()
-        first_game = (self.user_dir / "Game.ini").read_bytes()
-        log = installer.deploy(self.install)
-        self.assertEqual(log, [])
-        self.assertEqual((self.user_dir / "HP.ini").read_bytes(), first_hp)
-        self.assertEqual((self.user_dir / "Game.ini").read_bytes(), first_game)
+        self.assertEqual(self.section(self.game_ini, "[WinDrv.WindowsClient]"),
+                         ["WindowedViewportX=1024", "StartupFullscreen=False"])
+
+    def test_game_ini_backup_is_kept(self) -> None:
+        installer.deploy(self.install)
+        backup = self.user_dir / installer.BACKUP_DIR_NAME / "Game.ini"
+        self.assertEqual(backup.read_text(encoding="ascii"), GAME_INI)
+
+    def test_game_ini_is_idempotent(self) -> None:
+        installer.deploy(self.install)
+        first = self.game_ini.read_bytes()
+        self.assertEqual(installer.deploy(self.install), [])
+        self.assertEqual(self.game_ini.read_bytes(), first)
+
+    def test_missing_game_ini_is_fine(self) -> None:
+        self.game_ini.unlink()
+        installer.deploy(self.install)
+        self.assertFalse(self.game_ini.exists())
 
 
 class TestModIsCurrent(InstallerCase):
@@ -241,18 +194,52 @@ class TestModIsCurrent(InstallerCase):
         installer.deploy(self.install)
         self.assertTrue(installer.mod_is_current(self.install))
 
+    def test_matching_package_with_unwired_default_ini_is_stale(self) -> None:
+        (self.system / "HPArchipelago.u").write_bytes(PACKAGE_BYTES)
+        self.assertFalse(installer.mod_is_current(self.install))
+
+    def test_matching_package_with_unwired_game_ini_is_stale(self) -> None:
+        installer.deploy(self.install)
+        (self.user_dir / "Game.ini").write_text(GAME_INI, encoding="ascii")
+        self.assertFalse(installer.mod_is_current(self.install))
+
+    def test_wired_game_ini_is_current(self) -> None:
+        (self.user_dir / "Game.ini").write_text(GAME_INI, encoding="ascii")
+        installer.deploy(self.install)
+        self.assertTrue(installer.mod_is_current(self.install))
+
+    def test_unreadable_ini_is_stale(self) -> None:
+        installer.deploy(self.install)
+        self.default_ini.write_bytes(b"\xff\xfe[")
+        self.assertFalse(installer.mod_is_current(self.install))
+
     def test_missing_installed_package_is_stale(self) -> None:
         self.assertFalse(installer.mod_is_current(self.install))
 
     def test_different_installed_package_is_stale(self) -> None:
-        installer.deploy(self.install)
-        self.installed_package.write_bytes(b"a locally compiled package")
+        (self.system / "HPArchipelago.u").write_bytes(b"older package")
         self.assertFalse(installer.mod_is_current(self.install))
 
     def test_apworld_without_packaged_module_is_current(self) -> None:
-        with mock.patch.object(installer, "_packaged_module_bytes",
-                               return_value=None):
+        with mock.patch.object(installer, "_packaged_module_bytes", return_value=None):
             self.assertTrue(installer.mod_is_current(self.install))
+
+
+class TestLongChannelPath(InstallerCase):
+    def test_overlong_channel_path_warns(self) -> None:
+        long_path = "C:\\" + "x" * installer.MAX_CHANNEL_PATH_CHARS
+        with mock.patch.object(installer, "_short_path", return_value=long_path):
+            log = installer.deploy(self.install)
+        self.assertTrue(any(line.startswith("WARNING: the game link folder") for line in log))
+
+    def test_short_channel_path_does_not_warn(self) -> None:
+        log = installer.deploy(self.install)
+        self.assertFalse(any(line.startswith("WARNING") for line in log))
+
+
+class TestShortPath(unittest.TestCase):
+    def test_short_path_keeps_a_short_path(self) -> None:
+        self.assertEqual(installer._short_path(Path("C:/AP")), str(Path("C:/AP")))
 
 
 if __name__ == "__main__":

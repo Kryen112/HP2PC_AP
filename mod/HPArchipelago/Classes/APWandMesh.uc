@@ -14,7 +14,7 @@
 // the WandAnims import bound via DefaultAnim makes PlayAnim('All') behave
 // exactly like the vanilla wand, on the original WandTex0 skin.
 //
-// UE1 re-import gotcha: editing the .psk/.psa/.png alone does not re-import; UCC
+// UE1 re-import gotcha: editing the .psk/.psa/.bmp alone does not re-import; UCC
 // only re-runs the #exec lines when this .uc recompiles. Bump the asset-rev tag
 // on any asset change for non-clean builds.
 // asset-rev: 2
@@ -27,7 +27,7 @@ class APWandMesh extends HPMesh
 
 //animation + skin (same WandMesh.psk skeleton as the vanilla wand)
 #exec Anim Import Anim=APWandAnims AnimFile=Models\WandAnims.psa Compress=1 MaxKeys=999999 ImportSeqs=1
-#exec Texture Import File=Textures\WandTex0.png Name=APWandTex0 COMPRESSION=0 UPSCALE=1 Mips=1 Flags=0 Group=Skins
+#exec Texture Import File=Textures\WandTex0.bmp Name=APWandTex0 Mips=1 Flags=0 Group=Skins
 
 //giant (3.0)
 #exec Mesh ModelImport Mesh=APWandGiant ModelFile=Models\WandMesh.psk LODStyle=10

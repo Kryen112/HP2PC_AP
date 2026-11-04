@@ -122,6 +122,9 @@ var Sound ToastSound;
 // clear is the load-bearing piece.
 var APHUDToast LatestInstance;
 
+// Level.TimeSeconds of the last RenderHud, so a second draw in the same frame is skipped.
+var transient float LastRenderTime;
+
 static function APHUDToast GetInstance()
 {
     if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
@@ -715,6 +718,21 @@ function ComputeToastDims(Canvas C, int toastIdx, out float maxW, out int lineCo
     if (w > maxW) maxW = w;
 }
 
+// Draw hook from APConsole.PostRender, which runs after the HUD every frame, so
+// the toast never depends on the HUD drawing its registered props. Nothing draws
+// while the menu book is open, and a frame the HUD already drew is skipped.
+static function RenderFromConsole(Canvas C, HPConsole console)
+{
+    local APHUDToast toast;
+
+    toast = GetInstance();
+    if (toast == None || C == None || console == None) return;
+    if (console.Viewport == None || HPHud(console.Viewport.Actor.myHUD) == None) return;
+    if (console.menuBook != None && console.menuBook.bIsOpen) return;
+    if (toast.LastRenderTime == toast.Level.TimeSeconds) return;
+    toast.RenderHud(C);
+}
+
 function RenderHud(Canvas C)
 {
     local int i, j, n, baseIdx, lineCount;
@@ -730,6 +748,7 @@ function RenderHud(Canvas C)
     local byte code;
 
     if (C == None) return;
+    LastRenderTime = Level.TimeSeconds;
 
     // Banner and trap status first so they draw regardless of whether the toast
     // queue is empty. Each pass is independently gated: the banner runs whenever a
@@ -909,8 +928,8 @@ function DrawTradersanityAPLabel(Canvas C)
 
     slot = class'APLocationRegistry'.static.SlotForApId(locId);
     if (slot < 0) return;
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1) return;
-    if (class'APVendorController'.default.TraderPurchased[slot] == 1) return;
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot)) return;
+    if (class'APVendorController'.static.IsTraderPurchased(slot)) return;
 
     // Swap the trade-bar icon to the AP logo here, per frame, so it is instant on
     // engagement instead of lagging up to one Timer tick behind the bar opening.
@@ -927,7 +946,7 @@ function DrawTradersanityAPLabel(Canvas C)
         }
     }
 
-    hintName = class'APVendorController'.default.TraderHintItemName[slot];
+    hintName = class'APVendorController'.static.TraderHintItemNameAt(slot);
     if (hintName != "")
     {
         label = hintName;
@@ -1144,17 +1163,13 @@ function DrawTrapStatus(Canvas C)
 
 // Y coordinate, in canvas pixels, just under the challenge score icon's visible
 // content. ChallengeScoreManager parks the 128x128 HP2ChallengeScore icon with
-// its top at 4 units, scaled by SizeX/640 and the aspect height scale. The
+// its top at 4 units, scaled by SizeX/640. The
 // hourglass and score boxes fill only the top 76 texture rows (the rest is
 // transparent), so anchoring to row 76 plus a small gap drops the trap rows just
 // beneath the boxes instead of below the empty padding.
 static function float ChallengeIconContentBottom(Canvas C)
 {
-    local float fScaleFactor, heightScale;
-
-    fScaleFactor = C.SizeX / 640.0;
-    heightScale  = class'M212HScale'.static.CanvasGetHeightScale(C);
-    return (4.0 + 76.0 + 6.0) * fScaleFactor * heightScale;
+    return (4.0 + 76.0 + 6.0) * C.SizeX / 640.0;
 }
 
 // Whole seconds remaining, rounded up, floored at 0. Keeps the countdown from

@@ -43,7 +43,7 @@ function PostBeginPlay()
     {
         slot = class'APLocationRegistry'.static.SlotForApId(CheckLocationId);
         if (slot >= 0
-            && class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+            && class'APCardWatcher'.static.IsNonCardChecked(slot))
         {
             Destroy();
             return;
@@ -85,7 +85,7 @@ event Touch(Actor Other)
     slot = class'APLocationRegistry'.static.SlotForApId(CheckLocationId);
     if (slot < 0) return;
 
-    if (class'APCardWatcher'.default.NonCardLocationChecked[slot] == 1)
+    if (class'APCardWatcher'.static.IsNonCardChecked(slot))
     {
         Log("[Archipelago] APContainerMarker.Touch: location " $ CheckLocationId
             $ " already checked - destroying stale duplicate");
@@ -93,7 +93,7 @@ event Touch(Actor Other)
         return;
     }
 
-    class'APCardWatcher'.default.NonCardLocationChecked[slot] = 1;
+    class'APCardWatcher'.static.MarkNonCardChecked(slot);
     Log("[Archipelago] APContainerMarker.Touch: firing CHECK_LOCID " $ CheckLocationId);
 
     if (soundPickup != None)

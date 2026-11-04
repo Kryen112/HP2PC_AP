@@ -5,6 +5,17 @@
 // it is empty. All four helpers build on NextTokenUpTo.
 class APCsvCodec extends Object;
 
+// Characters of a payload a log line may carry. The retail engine formats each
+// log line into a fixed buffer, and a line far past it overruns that buffer.
+const LOG_PAYLOAD_CHARS = 200;
+
+static function string LogClip(string s)
+{
+    if (Len(s) <= LOG_PAYLOAD_CHARS)
+        return s;
+    return Left(s, LOG_PAYLOAD_CHARS) $ "... (" $ Len(s) $ " chars)";
+}
+
 // Pop the leading comma-delimited integer off `rest` (consumes it, including
 // the comma): the same token NextCsvToken pops, read as an int.
 static function int NextCsvInt(out string rest)

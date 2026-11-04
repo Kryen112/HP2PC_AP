@@ -67,7 +67,9 @@ var byte bWasCasting;
 // on first use of a level. Logic-only (no mesh) so runtime spawn is safe.
 static function APSprintController GetInstance(Actor ctx)
 {
-    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe)
+    // Only an instance in the caller's level counts (a save-loaded level stays resident after travel).
+    if (default.LatestInstance != None && !default.LatestInstance.bDeleteMe
+        && (ctx == None || default.LatestInstance.Level == ctx.Level))
         return default.LatestInstance;
     if (ctx == None) return None;
     return ctx.Spawn(class'APSprintController');

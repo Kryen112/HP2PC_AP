@@ -18,7 +18,7 @@ class APGhostPawn extends HPawn;
 // with dark frames. The translucent style blends additively, so dark pixels
 // vanish and the ghost loses its glasses. This is the same texture with the
 // frames lightened, laid over that slot while the ghost wears Harry's mesh.
-#exec Texture Import File=Textures\APGhostGlasses.png Name=APGhostGlasses COMPRESSION=P8 UPSCALE=1 Mips=1 Flags=2 MaskedOverride=(R=255,G=0,B=255,A=255) Group=Skins
+#exec Texture Import File=Textures\APGhostGlasses.bmp Name=APGhostGlasses Mips=1 Flags=2 Group=Skins
 
 var int    PeerSlot;
 var string PeerName;

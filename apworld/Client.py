@@ -1,8 +1,8 @@
 """HP2PC_AP. Archipelago-aware client (bundled apworld component).
 
 Subclasses Archipelago's CommonContext to speak the real AP protocol over
-WebSocket against a hosted seed, while also accepting a local TCP connection
-from the HP2 mod and bridging messages between the two.
+WebSocket against a hosted seed, while also talking to the HP2 mod through a
+shared folder (game_link.py) and bridging messages between the two.
 
 Launched via the Archipelago launcher's "HP2 PC Client" button, or directly
 during dev from inside the Archipelago repo:
@@ -10,6 +10,7 @@ during dev from inside the Archipelago repo:
 
 Mod-side protocol (newline-delimited text):
     HELLO                       (game → client, on connect)
+    HELLOREQ                    (client → game, on resuming a game whose session continued)
     CHECK <id>                  (game → client, on card pickup, game-side card id 1..101)
     CHECK_LOCID <id>            (game → client, on secret/star pickup, raw AP location id)
     CHECK_SPELL <name>          (game → client, on spell learned)
@@ -109,6 +110,7 @@ from MultiServer import mark_raw
 from NetUtils import ClientStatus, SlotType
 
 from . import HP2World, dialogue_patch, installer, music_patch, sound_patch
+from .game_link import FileGameLink
 from .ghost_link import GHOST_TAG, GhostLink, interval_for_players
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
                     ITEM_CLASSIFICATIONS, ITEM_GROUPS,
@@ -433,13 +435,6 @@ CARD_CLASS_TO_GAME_ID = {
 }
 
 GAME_NAME = "Harry Potter 2 PC"
-GAME_TCP_HOST = "127.0.0.1"
-# Deliberately off the Archipelago server default (38281). The client binds this
-# port for the game IPC listener; a player hosting a local AP server grabs 38281
-# first, which would block the bind and silently strand the game. 42779 is far
-# enough away that incrementing a busy host port never reaches it. Must match the
-# mod's APIPCActor.Addr.Port.
-GAME_TCP_PORT = 42779
 
 # DeathLink race-insurance amnesty. An inbound death within this window
 # of the last death in either direction (CommonContext.last_death_link, stamped
@@ -915,8 +910,8 @@ class HP2Context(CommonContext):
 
     def __init__(self, server_address: Optional[str], password: Optional[str]):
         super().__init__(server_address, password)
-        self.game_writer: Optional[asyncio.StreamWriter] = None
-        self.tcp_server_task: Optional[asyncio.Task] = None
+        self.game_writer: Optional[FileGameLink] = None
+        self.game_link_task: Optional[asyncio.Task] = None
         # Outbound location checks and goal completion ride CommonContext's own
         # resend-on-reconnect machinery rather than a parallel set. Every check
         # is added to self.locations_checked (a framework set the server replays
@@ -927,7 +922,7 @@ class HP2Context(CommonContext):
         # queue. self.locations_checked also doubles as the per-check dedupe set.
         # FIFO of GRANT lines accumulated while no game is connected (start
         # inventory delivered before game boot, mid-session game crash, etc).
-        # Drained by handle_game_connection on each new game connect.
+        # Drained by _on_game_connected on each new game connect.
         self.pending_grants: list[str] = []
         # Outbound AP messages queued while the AP server is offline. Drained
         # on every successful Connected. In-memory only. A client crash
@@ -982,7 +977,7 @@ class HP2Context(CommonContext):
         self.received_by_index: dict[int, object] = {}
         # Per-game-session set of AP indices already written to the game writer
         # (immediate or via the offline-queue drain). Reset on every new game
-        # connect (handle_game_connection). Prevents the HELLO re-forward and
+        # connect (_on_game_connected). Prevents the HELLO re-forward and
         # the pending-grants drain from double-sending the same index before
         # its APPLIED ack lands.
         self.sent_this_session: set[int] = set()
@@ -2200,10 +2195,10 @@ class HP2Context(CommonContext):
     async def _ensure_mod_current(self, install: Optional[str]) -> "tuple[Optional[str], bool]":
         """Keep the seed's install running this apworld's mod package: resolve
         the install folder (prompting once when it is unset), then deploy when
-        the packaged bytes differ. Returns the resolved folder, so the launch
-        can reuse it, and whether the launch may go ahead: False only when a
-        deploy was needed and did not land. Never rewrites files a running
-        game has loaded."""
+        the packaged bytes or the ini wiring differ. Returns the resolved
+        folder, so the launch can reuse it, and whether the launch may go
+        ahead: False only when a deploy was needed and did not land. Never
+        rewrites files a running game has loaded."""
         if not install or not os.path.exists(sound_patch.package_path(install)):
             install = await self._resolve_launch_folder()
         if not install:
@@ -2221,13 +2216,15 @@ class HP2Context(CommonContext):
         if state != GAME_NONE:
             what, close = _game_up_wording(state)
             ui_logger.warning(
-                f"This apworld carries a different mod build than the install, but "
+                f"The install is not running this apworld's mod (package or config "
+                f"out of date), but "
                 f"{what}. {close}, type /installmod, then relaunch."
             )
             self._set_mod_blocked(MOD_BLOCKED_GAME_UP)
             return install, False
         ui_logger.info(
-            "This apworld carries a different mod build than the install; updating it.")
+            "The install is not running this apworld's mod (package or config out of "
+            "date); updating it.")
         return install, await self._install_mod(install)
 
     def _set_mod_blocked(self, reason: Optional[str]) -> None:
@@ -2428,13 +2425,12 @@ class HP2Context(CommonContext):
         else:
             ui_logger.info(f"Reshuffle landed on the same set; run {spec.reroll_cmd} again.")
 
-    async def handle_game_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        peer = writer.get_extra_info("peername")
-        logger.info(f"Game connected from {peer}")
+    async def _on_game_connected(self, link: FileGameLink) -> None:
+        logger.info(f"Game connected (session {link.game_session})")
         # Surface the game link in the client window too (ui_logger = "Client"
         # logger). logger above is HP2Client, which is file-only.
         ui_logger.info("The Harry Potter 2 game connected to this client. It can now send and receive items.")
-        self.game_writer = writer
+        self.game_writer = link
         # Fresh game session. Clear the per-session sent-index guard so the
         # HELLO re-forward / drain below repopulate it from scratch.
         self.sent_this_session = set()
@@ -2446,54 +2442,20 @@ class HP2Context(CommonContext):
             logger.info(f"Draining {len(self.pending_grants)} queued grant(s) to game")
             queued, self.pending_grants = self.pending_grants, []
             for line in queued:
-                try:
-                    writer.write((line + "\n").encode("utf-8"))
-                    self._note_sent(line)
-                except Exception as e:
-                    logger.exception(f"Failed to drain {line!r}, re-queuing remainder: {e}")
-                    # Stash this one and everything after back at the queue head
-                    idx = queued.index(line)
-                    self.pending_grants = queued[idx:] + self.pending_grants
-                    return
+                link.queue_line(line)
+                self._note_sent(line)
 
-        try:
-            while True:
-                line_bytes = await reader.readline()
-                if not line_bytes:
-                    break
-                line = line_bytes.decode("utf-8", errors="replace").rstrip("\r\n")
-                # Outbound frames are newline-led (see the mod's SendLine), so a
-                # blank line between messages is expected framing, not content.
-                if not line:
-                    continue
-                # POS arrives ten times a second; logging it would bury the log.
-                if not line.startswith("POS "):
-                    logger.info(f"[game→client] {line}")
-                await self._handle_game_line(line)
-        except (ConnectionResetError, ConnectionAbortedError):
-            # Normal on Windows when the game window closes. The OS resets
-            # the socket without a clean FIN. No need to log a stack trace.
-            pass
-        finally:
-            logger.info(f"Game disconnected ({peer})")
-            ui_logger.info("The Harry Potter 2 game disconnected from this client. Relaunch the game to reconnect.")
-            # Only clear game_writer if it's still OUR writer. On Windows
-            # ProactorEventLoop the previous game's readline can wake up
-            # *after* a new game has already connected and replaced
-            # self.game_writer; clobbering it here would strand the new
-            # connection until client restart.
-            if self.game_writer is writer:
-                self.game_writer = None
-            try:
-                writer.close()
-            except Exception:
-                pass
-            # Skip wait_closed() entirely. On Windows ProactorEventLoop, an
-            # already-reset socket raises ConnectionResetError from the loop's
-            # internal _loop_reading task, which asyncio surfaces as
-            # "Unhandled exception in client_connected_cb" regardless of any
-            # try/except we wrap around it. close() alone is sufficient for
-            # cleanup; the OS reaps the socket either way.
+    async def _on_game_line(self, line: str) -> None:
+        # POS arrives ten times a second; logging it would bury the log.
+        if not line.startswith("POS "):
+            logger.info(f"[game→client] {line}")
+        await self._handle_game_line(line)
+
+    async def _on_game_disconnected(self, link: FileGameLink) -> None:
+        logger.info(f"Game disconnected (session {link.game_session})")
+        ui_logger.info("The Harry Potter 2 game disconnected from this client. Relaunch the game to reconnect.")
+        if self.game_writer is link:
+            self.game_writer = None
 
     async def _handle_game_line(self, line: str) -> None:
         # Game lines are "COMMAND" or "COMMAND <args>"; dispatch on the first word.
@@ -2583,7 +2545,7 @@ class HP2Context(CommonContext):
         # consumed-index ledger (memory + AP storage) so the fresh
         # playthrough re-receives every item, then re-forward.
         # sent_this_session is deliberately NOT cleared: the mod's grant
-        # queue / TCP session is continuous across a NEWGAME, so anything
+        # queue / link session is continuous across a NEWGAME, so anything
         # already sent this session must not be re-sent (that would
         # double-queue → double-apply). Items skipped pre-NEWGAME because
         # they were in the stale prior-playthrough ledger are now forwarded
@@ -3459,42 +3421,19 @@ class HP2Context(CommonContext):
         # own checked_locations universe (different ids, different progress).
         self.checked_csv = None
 
-    async def run_tcp_server(self) -> None:
+    async def run_game_link(self) -> None:
+        channel = installer.channel_dir()
         try:
-            server = await asyncio.start_server(
-                self.handle_game_connection, GAME_TCP_HOST, GAME_TCP_PORT
-            )
+            channel.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
-            # Surface a bind failure in the client window (ui_logger), not just
-            # the file log. Without this the listener silently dies and the game
-            # never connects with no obvious reason.
-            ui_logger.error(
-                f"Could not open the game connection port {GAME_TCP_HOST}:{GAME_TCP_PORT} "
-                f"({exc}). Another program is already using it (often a second client "
-                f"instance, or a local Archipelago server set to this port). Close it and "
-                f"restart the client."
-            )
+            ui_logger.error(f"Could not create the game link folder {channel} ({exc}).")
             return
-        sockets = ", ".join(str(s.getsockname()) for s in server.sockets)
-        logger.info(f"Game-side TCP listener up on {sockets}")
-        async with server:
-            await server.serve_forever()
-
-
-def _suppress_socket_reset(loop: asyncio.AbstractEventLoop, context: dict) -> None:
-    # Windows ProactorEventLoop's _loop_reading background task can raise
-    # ConnectionResetError when a socket peer disconnects abruptly (Ctrl+C
-    # against the game, game window closed, etc). The error is benign but
-    # surfaces as "Unhandled exception in client_connected_cb". Filter that
-    # one specific case; let everything else through to the default handler.
-    exc = context.get("exception")
-    if isinstance(exc, (ConnectionResetError, ConnectionAbortedError)):
-        return
-    loop.default_exception_handler(context)
+        logger.info(f"Game link folder: {channel}")
+        link = FileGameLink(channel)
+        await link.run(self._on_game_connected, self._on_game_line, self._on_game_disconnected)
 
 
 async def _main(args: argparse.Namespace) -> None:
-    asyncio.get_running_loop().set_exception_handler(_suppress_socket_reset)
     ctx = HP2Context(args.connect, args.password)
     ctx.auth = args.name
     # A startup connect is the player's own (they opened the client with a room
@@ -3502,7 +3441,7 @@ async def _main(args: argparse.Namespace) -> None:
     if args.connect:
         ctx._player_connect_pending = True
     ctx.server_task = asyncio.create_task(server_loop(ctx), name="server loop")
-    ctx.tcp_server_task = asyncio.create_task(ctx.run_tcp_server(), name="game tcp server")
+    ctx.game_link_task = asyncio.create_task(ctx.run_game_link(), name="game link")
     ctx.ghost_pump_task = asyncio.create_task(ctx.ghost_pump(), name="ghost pump")
     if gui_enabled:
         ctx.run_gui()

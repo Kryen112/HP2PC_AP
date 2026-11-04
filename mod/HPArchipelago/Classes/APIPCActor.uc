@@ -1,13 +1,46 @@
-class APIPCActor extends IpDrv.TcpLink;
+// The game's end of the client link, a file channel in ChannelDir. Outbound
+// lines are buffered and written once per tick as one closed batch file,
+// out_<GameSession>_<n>.log, which the client reads and deletes. Inbound lines
+// arrive through APConsole.APIn: each tick runs `exec <ChannelDir>\in.txt`, where
+// the client keeps its unacknowledged lines numbered by sequence.
+class APIPCActor extends Info
+    config;
 
 var APIPCActor PersistentInstance;
-var array<string> PendingGrants;
-// AP ReceivedItems index for each PendingGrants entry, in lockstep (same push
-// in QueueGrant, same Remove(0,1) in the drain). On successful apply the drain
-// sends `APPLIED <index>` so the client marks it durably consumed in AP Data
-// Storage and never re-grants it (the .usa cannot persist mod data on M212,
-// so the durable ledger lives in the AP server's Data Storage instead).
-var array<int> PendingGrantIndex;
+
+// Absolute folder shared with the client, set in Game.ini by the client's installer.
+var config string ChannelDir;
+
+// Random per-process id that names this game's batch files.
+var int GameSession;
+var int OutBatchIndex;
+var string OutBuffer;
+
+// Inbound reassembly. A line longer than one exec line arrives as '+' fragments
+// closed by a '=' fragment, under one client session and increasing sequence.
+var string ClientSession;
+var int LastInSeq;
+var int LastAckedInSeq;
+var string InPartial;
+// Set while the grant queue is full; the rest of this tick's inbound lines are
+// left unprocessed so the client re-sends them on the next poll.
+var bool bInboundStalled;
+
+// Link liveness in Timer ticks (0.25 s). The client pings every 2 s.
+var bool bConnected;
+var int TicksSinceInbound;
+var int TicksSinceAlive;
+const LINK_TIMEOUT_TICKS = 24;
+const ALIVE_INTERVAL_TICKS = 8;
+var bool bLoggedNoChannel;
+
+// Grant queue. PendingGrantIndex holds each entry's AP ReceivedItems index in
+// lockstep. On successful apply the drain sends `APPLIED <index>` so the client
+// marks it durably consumed in AP Data Storage and never re-grants it.
+const MAX_PENDING_GRANTS = 64;
+var string PendingGrants[64];
+var int PendingGrantIndex[64];
+var int PendingGrantCount;
 // One-shot-per-new-game latch on the persistent singleton (survives level
 // travel; a fresh process re-arms it). Set when NEWGAME is sent on observing
 // iGameState 0; APCardWatcher re-arms it (clears) once iGameState climbs > 0,
@@ -44,51 +77,32 @@ const POST_SNAPSHOT_WARMUP_SECS = 3.0;
 // the on-screen queue from overflowing during a larger burst.
 const GRANT_DRAIN_SPACING_SECS = 0.15;
 
-// Max characters per BEANSTATE chunk payload. Kept below IPC_MAX_FRAME_CHARS once
-// the "BEANSTATE " prefix and trailing newline are added, so the framed line
-// clears the SendLine ceiling instead of being refused. SendBeanRoomState ships
-// the ledger in pieces this size and the client rejoins them verbatim. Mirrors
+// Max characters per BEANSTATE chunk payload. SendBeanRoomState ships the ledger
+// in pieces this size and the client rejoins them verbatim. Mirrors
 // APCardWatcher.CHECKEDOUT_CHUNK_CHARS.
 const BEANSTATE_CHUNK_CHARS = 550;
 
-// Hard ceiling on any single outbound IPC frame, enforced at the SendLine choke
-// point: no message may exceed this. The chunked senders cap their payload at
-// BEANSTATE_CHUNK_CHARS / CHECKEDOUT_CHUNK_CHARS (550), so even with a command
-// word and trailing newline the widest framed line lands near 570, under this.
-// A frame past the ceiling is refused and logged rather than shipped, since the
-// engine's per-line TcpLink transmit path corrupts the stream near ~1KB. Any
-// payload that large must ship as a reassembled chunk envelope, never one frame.
+// Ceiling on any single outbound frame. The chunked senders stay under it; a
+// longer frame is refused and logged, since its payload must ship as a chunk
+// envelope.
 const IPC_MAX_FRAME_CHARS = 600;
+// Outbound characters held while the link is down.
+const MAX_HELD_OUTBOUND_CHARS = 32000;
 
-// Reconnect state. If the client terminal closes / crashes mid-session, the
-// engine fires Closed() and the connection stays dead. Closed() schedules a
-// retry; Timer() drives the actual attempts with exponential backoff so a
-// never-running client doesn't spin Open() hot on every 0.25s tick.
-var bool bWantsReconnect;
-var float NextReconnectAttempt;
-var float ReconnectBackoff;
 // Recurring "not connected" reminder. Counts Timer ticks (0.25s each) while the
-// link is not STATE_Connected; at NOT_CONNECTED_TOAST_TICKS it fires a toast and
-// resets, so a repeating reminder shows every ~10s. Reset to 0 the moment the
-// link connects, so a normal fast connect never toasts. Tick-counted (not
-// Level.TimeSeconds) so it survives the per-level clock reset across travel.
-// Hop-1 only: this is the mod's own TcpLink state to the client, not the
+// link is down; at NOT_CONNECTED_TOAST_TICKS it fires a toast and resets, so a
+// repeating reminder shows every ~10s. Reset to 0 the moment the link connects.
+// Tick-counted (not Level.TimeSeconds) so it survives the per-level clock reset
+// across travel. Hop-1 only: this is the mod's own link to the client, not the
 // client's link to the AP server.
 var int NotConnectedToastTicks;
 const NOT_CONNECTED_TOAST_TICKS = 40;
-// ReceivedText delivers raw TCP chunks, not one-line-per-event. When the client
-// burst-writes a resync (e.g. 39 GRANTs back-to-back), TCP coalesces them into
-// one or a few packets; UE1 fires ReceivedText with the whole blob. We have to
-// split on \n ourselves and carry any trailing partial line across the next
-// chunk. Without this, a burst loses most resync grants and silently
-// truncates the queue.
-var string RecvBuffer;
 
 // One-time startup safety save. APCardWatcher drives the trigger; these
 // flags are owned by the persistent singleton so they survive level
 // transitions and fire exactly once per process. The player only needs the
-// early-quit safety net once per fresh launch. TcpLink is transient (not
-// serialized into the save), so a new launch re-arms them.
+// early-quit safety net once per fresh launch. The link actor is not serialized
+// into the save, so a new launch re-arms them.
 // bSawStateBelowGreatHall: set once the watcher reads any gstate below the
 // Great Hall arrival state. Only a genuine new game does (it climbs through
 // the intro); a load straight into a >=180 save never does, which scopes
@@ -142,8 +156,11 @@ var byte bDrainPassHadHighStakes;
 // sent_this_session and re-forwards them. The post-reload drain then re-applies
 // them durably. Without the defer, server-acked items applied between apply and
 // save are lost on a death-revert. Filler (beans, ingredients, frog, traps)
-// ignores the buffer and acks immediately.
-var array<int> PendingApplyAcks;
+// ignores the buffer and acks immediately. A full buffer forces an early save
+// and flush.
+const MAX_PENDING_APPLY_ACKS = 64;
+var int PendingApplyAcks[64];
+var int PendingApplyAckCount;
 
 // Per-drain-tick flag. APGameInfo.MarkGrantAsHighStakes sets it to 1; the
 // drain reads it after ApplyGrant returns to decide whether the current item
@@ -164,62 +181,173 @@ static function APIPCActor GetInstance()
 event PreBeginPlay()
 {
     Super.PreBeginPlay();
-    Log("[Archipelago] APIPCActor.PreBeginPlay - connecting to 127.0.0.1:42779");
-
     default.PersistentInstance = self;
+    if (default.GameSession == 0)
+    {
+        default.GameSession = 100000 + Rand(900000);
+    }
+    GameSession = default.GameSession;
+    Log("[Archipelago] APIPCActor.PreBeginPlay - channel '" $ ChannelDir $ "', session " $ GameSession);
     SetTimer(0.25, true);
-
-    BindPort();
-    ReconnectBackoff = 1.0;
-    bWantsReconnect = True;
-    NextReconnectAttempt = Level.TimeSeconds;
-    TryReconnect();
 }
 
-function TryReconnect()
+// Runs the client's command file. Its lines call APConsole.APIn, which lands in
+// ReceiveInbound. Needs a player viewport to route the console command.
+function PollInbound()
 {
-    local IpAddr Addr;
+    local harry h;
 
-    if (!bWantsReconnect)
+    h = class'APGameInfo'.static.FindGrantReadyHarry(self);
+    if (h == None)
     {
         return;
     }
-    if (LinkState == STATE_Connected || LinkState == STATE_Connecting)
-    {
-        return;
-    }
-    if (Level.TimeSeconds < NextReconnectAttempt)
-    {
-        return;
-    }
-
-    Log("[Archipelago] APIPCActor: attempting connect (backoff=" $ string(ReconnectBackoff) $ "s)");
-
-    if (!StringToIpAddr("127.0.0.1", Addr))
-    {
-        Log("[Archipelago] APIPCActor: StringToIpAddr failed");
-        ScheduleNextReconnect();
-        return;
-    }
-    // Off the Archipelago server default (38281) so a local AP server can't hold
-    // the port and strand the game. Must match Client.py GAME_TCP_PORT.
-    Addr.Port = 42779;
-    if (!Open(Addr))
-    {
-        Log("[Archipelago] APIPCActor: Open() returned false");
-        ScheduleNextReconnect();
-        return;
-    }
-    // Open succeeded. Either Opened() fires (success path, resets backoff)
-    // or Closed() fires (failure, bumps backoff). Pre-schedule the next
-    // attempt so a stuck STATE_Connecting still eventually retries.
-    ScheduleNextReconnect();
+    bInboundStalled = False;
+    h.ConsoleCommand("exec \"" $ ChannelDir $ "\\in.txt\"");
 }
 
-function ScheduleNextReconnect()
+// One inbound line: `<clientSession> <seq> <+|=><fragment>`.
+static function ReceiveInbound(string Rest)
 {
-    NextReconnectAttempt = Level.TimeSeconds + ReconnectBackoff;
-    ReconnectBackoff = FMin(ReconnectBackoff * 2.0, 16.0);
+    local APIPCActor link;
+
+    link = GetInstance();
+    if (link != None)
+    {
+        link.HandleInbound(Rest);
+    }
+}
+
+function HandleInbound(string Rest)
+{
+    local int sp, seq;
+    local string session, fragment, line;
+
+    if (bInboundStalled)
+    {
+        return;
+    }
+    sp = InStr(Rest, " ");
+    if (sp <= 0)
+    {
+        return;
+    }
+    session = Left(Rest, sp);
+    Rest = Mid(Rest, sp + 1);
+    sp = InStr(Rest, " ");
+    if (sp <= 0)
+    {
+        return;
+    }
+    seq = int(Left(Rest, sp));
+    fragment = Mid(Rest, sp + 1);
+
+    if (session != ClientSession)
+    {
+        Log("[Archipelago] APIPCActor: new client session " $ session);
+        ClientSession = session;
+        LastInSeq = 0;
+        LastAckedInSeq = 0;
+        InPartial = "";
+        bConnected = False;
+    }
+    if (seq <= LastInSeq)
+    {
+        return;
+    }
+
+    TicksSinceInbound = 0;
+    if (!bConnected)
+    {
+        bConnected = True;
+        Opened();
+    }
+
+    if (Left(fragment, 1) == "+")
+    {
+        InPartial = InPartial $ Mid(fragment, 1);
+        LastInSeq = seq;
+        return;
+    }
+    line = InPartial $ Mid(fragment, 1);
+    if (Left(line, 6) == "GRANT " && PendingGrantCount >= MAX_PENDING_GRANTS)
+    {
+        // Leave this line unacknowledged; the client re-sends it next poll.
+        bInboundStalled = True;
+        return;
+    }
+    InPartial = "";
+    LastInSeq = seq;
+    if (line != "PING")
+    {
+        HandleLine(line);
+    }
+}
+
+// Writes the buffered outbound lines as one closed batch file. A batch only
+// becomes visible to the client under its final .log name.
+function FlushOutbound()
+{
+    local StatLogFile batch;
+
+    // While the link is down the buffer waits for the next connect, so no batch
+    // piles up unread.
+    if (!bConnected)
+    {
+        return;
+    }
+    if (LastInSeq != LastAckedInSeq)
+    {
+        LastAckedInSeq = LastInSeq;
+        OutBuffer = OutBuffer $ "INACK " $ ClientSession $ " " $ LastInSeq $ Chr(10);
+    }
+    if (OutBuffer == "")
+    {
+        return;
+    }
+    default.OutBatchIndex = default.OutBatchIndex + 1;
+    batch = Spawn(class'StatLogFile');
+    if (batch == None)
+    {
+        return;
+    }
+    batch.StatLogFile = ChannelDir $ "\\out_" $ GameSession $ "_" $ default.OutBatchIndex $ ".tmp";
+    batch.StatLogFinal = ChannelDir $ "\\out_" $ GameSession $ "_" $ default.OutBatchIndex $ ".log";
+    batch.OpenLog();
+    batch.FileLog(OutBuffer);
+    batch.CloseLog();
+    batch.Destroy();
+    OutBuffer = "";
+}
+
+function TickLink()
+{
+    if (ChannelDir == "")
+    {
+        if (!bLoggedNoChannel)
+        {
+            Log("[Archipelago] APIPCActor: no ChannelDir in Game.ini - the client sets it on install");
+            bLoggedNoChannel = True;
+        }
+        return;
+    }
+    PollInbound();
+    if (bConnected)
+    {
+        TicksSinceInbound++;
+        if (TicksSinceInbound > LINK_TIMEOUT_TICKS)
+        {
+            bConnected = False;
+            Closed();
+        }
+        TicksSinceAlive++;
+        if (TicksSinceAlive >= ALIVE_INTERVAL_TICKS)
+        {
+            TicksSinceAlive = 0;
+            SendLine("ALIVE" $ Chr(10));
+        }
+    }
+    FlushOutbound();
 }
 
 event Destroyed()
@@ -232,11 +360,10 @@ event Destroyed()
     Super.Destroyed();
 }
 
-event Opened()
+// The client link came up (first line from a new or returning client session).
+function Opened()
 {
     Log("[Archipelago] APIPCActor: Opened - sending hello");
-    bWantsReconnect = False;
-    ReconnectBackoff = 1.0;
     // RingLink: a (re)connect is a boundary. Re-snapshot the baseline on
     // the next playable tick and drop any deferred remote delta so it can't
     // apply against a count that moved while the link was down.
@@ -262,47 +389,11 @@ event Opened()
     }
 }
 
-// True only while the TcpLink to the client is established. Used to gate the
-// one-shot NEWGAME signal so a fire into a down link does not consume the latch.
+// True only while the client link is up. Used to gate the one-shot NEWGAME
+// signal so a fire into a down link does not consume the latch.
 function bool IsLinkConnected()
 {
-    return LinkState == STATE_Connected;
-}
-
-event ReceivedText(string Text)
-{
-    local int idx, crIdx;
-    local string line;
-
-    // Append the new chunk to whatever partial line was carried over from the
-    // previous ReceivedText call. Then drain every complete \n-terminated line;
-    // leave any trailing tail in RecvBuffer for the next chunk to complete.
-    RecvBuffer = RecvBuffer $ Text;
-
-    while (True)
-    {
-        idx = InStr(RecvBuffer, Chr(10));
-        if (idx < 0)
-        {
-            break;
-        }
-        line = Left(RecvBuffer, idx);
-        RecvBuffer = Mid(RecvBuffer, idx + 1);
-
-        // Strip a trailing \r if the sender used CRLF.
-        crIdx = InStr(line, Chr(13));
-        if (crIdx >= 0)
-        {
-            line = Left(line, crIdx);
-        }
-
-        if (line == "")
-        {
-            continue;
-        }
-
-        HandleLine(line);
-    }
+    return bConnected;
 }
 
 // Match a command prefix on an IPC line. The prefix carries its own trailing
@@ -328,7 +419,7 @@ function HandleLine(string line)
     // PEER arrives ten times a second per ghost; logging it would bury the log.
     if (Left(line, 5) != "PEER ")
     {
-        Log("[Archipelago] APIPCActor: ReceivedText: " $ line);
+        Log("[Archipelago] APIPCActor: received: " $ class'APCsvCodec'.static.LogClip(line));
     }
 
     if (MatchCmd(line, "GRANT ", rest))
@@ -340,7 +431,7 @@ function HandleLine(string line)
         sp = InStr(rest, " ");
         if (sp < 0)
         {
-            Log("[Archipelago] APIPCActor: malformed GRANT (no index) - " $ rest);
+            Log("[Archipelago] APIPCActor: malformed GRANT (no index) - " $ class'APCsvCodec'.static.LogClip(rest));
             QueueGrant(rest, -1);
         }
         else
@@ -579,6 +670,12 @@ function HandleLine(string line)
         PendingRingDelta += int(rest);
         Log("[Archipelago] APIPCActor: RINGIN " $ rest $ " (PendingRingDelta=" $ string(PendingRingDelta) $ ")");
     }
+    else if (line == "HELLOREQ")
+    {
+        // The client lost and regained this game without a new session on
+        // either side; replay the connect handshake it missed.
+        Opened();
+    }
     else if (line == "DEATHLINK")
     {
         // A linked player died. The IPC actor has no Harry ref or state
@@ -651,7 +748,7 @@ function HandleHint(string Body)
     spaceIdx = InStr(Body, " ");
     if (spaceIdx <= 0)
     {
-        Log("[Archipelago] APIPCActor.HandleHint: malformed body '" $ Body $ "'");
+        Log("[Archipelago] APIPCActor.HandleHint: malformed body '" $ class'APCsvCodec'.static.LogClip(Body) $ "'");
         return;
     }
     locId = int(Left(Body, spaceIdx));
@@ -706,7 +803,7 @@ function HandleSent(string Body)
 
 event Timer()
 {
-    TryReconnect();
+    TickLink();
     TryDrainPendingGrants();
     TickRingLink();
     TickGhostRegistry();
@@ -714,7 +811,7 @@ event Timer()
 }
 
 // Recurring reminder while the IPC link to the client is down. Hop-1 only: keyed
-// on this actor's own TcpLink state, not on the client's link to the AP server,
+// on this actor's own link state, not on the client's link to the AP server,
 // so it stops the moment the mod reaches the client even if AP itself is down
 // (the client pushes its own one-shot "Disconnected from AP server" toast for
 // that case). GetInstance() is None before a toast actor exists and EnqueueToast
@@ -724,7 +821,7 @@ function TickNotConnectedToast()
 {
     local APHUDToast toast;
 
-    if (LinkState == STATE_Connected)
+    if (bConnected)
     {
         NotConnectedToastTicks = 0;
         return;
@@ -861,24 +958,17 @@ function SendRingOut(int Delta)
     Log("[Archipelago] APIPCActor: sent RINGOUT " $ Delta);
 }
 
-event Closed()
+// The client stopped sending, so the link is down. A half-reassembled line and
+// the outbound buffer both wait for the same client session to resume.
+function Closed()
 {
-    Log("[Archipelago] APIPCActor: Closed - scheduling reconnect");
-    // RecvBuffer may hold a partial line from before the disconnect. A
-    // reconnected client starts fresh, so any half-line we held is now
-    // garbage, drop it.
-    RecvBuffer = "";
-    bWantsReconnect = True;
-    // First retry after Closed: short delay so a graceful client restart
-    // reconnects fast. Subsequent failures back off via ScheduleNextReconnect.
-    NextReconnectAttempt = Level.TimeSeconds + 1.0;
+    Log("[Archipelago] APIPCActor: Closed - no client line for " $ LINK_TIMEOUT_TICKS $ " ticks");
 }
 
 function SendCheck(int CardId)
 {
-    // SendText is a silent no-op on a non-Connected link, so a fire into a down
-    // or mid-connect link would log a false "sent". Log it as deferred instead;
-    // the caller still latches the dedup, so the next (re)connect SendCheckedOut
+    // A CHECK while the link is down is skipped and logged as deferred; the
+    // caller still latches the dedup, so the next connect's SendCheckedOut
     // replays it to AP.
     if (!IsLinkConnected())
     {
@@ -889,16 +979,17 @@ function SendCheck(int CardId)
     Log("[Archipelago] APIPCActor: sent CHECK " $ CardId);
 }
 
-// Single choke point for every outbound IPC frame, with two guarantees. First,
-// any frame past the safe transmit ceiling is refused and logged rather than
-// silently corrupting the stream: large payloads must ship as a reassembled
-// chunk envelope (a blind split would produce lines the client cannot parse as
-// commands). Second, `frame` (which already carries its trailing newline) is led
-// with one more newline, so that if a preceding frame ever lost its terminator
-// to the per-line TcpLink transmit cap, this frame still begins on its own line
-// and cannot be swallowed. The client skips the resulting empty lines.
+// Single choke point for every outbound frame. `frame` carries its trailing
+// newline. While the link is down frames wait in the buffer (an APPLIED ack
+// must still reach the client), except ghost position samples, which are stale
+// by then, and anything past MAX_HELD_OUTBOUND_CHARS. A frame past
+// IPC_MAX_FRAME_CHARS is refused and logged.
 function SendLine(string frame)
 {
+    if (!bConnected && (Left(frame, 4) == "POS " || Len(OutBuffer) > MAX_HELD_OUTBOUND_CHARS))
+    {
+        return;
+    }
     if (Len(frame) > IPC_MAX_FRAME_CHARS)
     {
         Log("[Archipelago] APIPCActor: REFUSED over-length IPC frame ("
@@ -906,7 +997,7 @@ function SendLine(string frame)
             $ Left(frame, 40) $ " ... - must ship as a chunk envelope");
         return;
     }
-    SendText(Chr(10) $ frame);
+    OutBuffer = OutBuffer $ frame;
 }
 
 // CHECK_LOCID carries a raw AP location id (e.g. 5760318) instead of a game-side
@@ -916,8 +1007,7 @@ function SendLine(string frame)
 // passes it straight to LocationChecks without a card-table lookup.
 function SendCheckLocationId(int LocationId)
 {
-    // See SendCheck: a down-link SendText silently drops, so log deferred (not
-    // "sent"). The caller's NonCardLocationChecked latch keeps the id in the
+    // See SendCheck: skipped while the link is down and logged as deferred. The caller's NonCardLocationChecked latch keeps the id in the
     // checked-out ledger, so the next (re)connect SendCheckedOut replays it.
     if (!IsLinkConnected())
     {
@@ -1017,8 +1107,8 @@ function SendBeanRoomState(string payload)
     local int chunks;
 
     // Ship as a BEANSTATE_BEGIN / BEANSTATE <chunk> ... / BEANSTATE_END envelope.
-    // The full ledger outgrows the per-line TcpLink transmit cap, so it goes in
-    // length-bounded pieces the client concatenates verbatim. Splitting on raw
+    // The full ledger outgrows the frame ceiling, so it goes in length-bounded
+    // pieces the client concatenates verbatim. Splitting on raw
     // character count (not commas) is safe because the client rejoins byte for
     // byte between the markers.
     SendLine("BEANSTATE_BEGIN" $ Chr(10));
@@ -1068,7 +1158,7 @@ function QueueGrant(string ItemName, int ApIndex)
     // those against each other.
     if (ApIndex >= 0)
     {
-        for (i = 0; i < PendingGrantIndex.Length; i++)
+        for (i = 0; i < PendingGrantCount; i++)
         {
             if (PendingGrantIndex[i] == ApIndex)
             {
@@ -1077,11 +1167,43 @@ function QueueGrant(string ItemName, int ApIndex)
             }
         }
     }
+    // HandleInbound holds a GRANT back while the queue is full, so this only
+    // drops an index-less TRAPLINK grant.
+    if (PendingGrantCount >= MAX_PENDING_GRANTS)
+    {
+        Log("[Archipelago] APIPCActor: grant queue full - dropping " $ ItemName);
+        return;
+    }
 
-    PendingGrants[PendingGrants.Length] = ItemName;
-    PendingGrantIndex[PendingGrantIndex.Length] = ApIndex;
-    Log("[Archipelago] APIPCActor: queued grant " $ ItemName $ " (apIndex=" $ string(ApIndex) $ " pending=" $ string(PendingGrants.Length) $ ")");
+    PendingGrants[PendingGrantCount] = ItemName;
+    PendingGrantIndex[PendingGrantCount] = ApIndex;
+    PendingGrantCount++;
+    Log("[Archipelago] APIPCActor: queued grant " $ ItemName $ " (apIndex=" $ string(ApIndex) $ " pending=" $ string(PendingGrantCount) $ ")");
     TryDrainPendingGrants();
+}
+
+// Removes the head of the grant queue.
+function PopPendingGrant()
+{
+    local int i;
+
+    for (i = 1; i < PendingGrantCount; i++)
+    {
+        PendingGrants[i - 1] = PendingGrants[i];
+        PendingGrantIndex[i - 1] = PendingGrantIndex[i];
+    }
+    PendingGrantCount--;
+    PendingGrants[PendingGrantCount] = "";
+}
+
+// Drops every buffered APPLIED ack and returns how many there were.
+function int DiscardApplyAcks()
+{
+    local int n;
+
+    n = PendingApplyAckCount;
+    PendingApplyAckCount = 0;
+    return n;
 }
 
 // Tell the client an item was applied to the live game so it records the AP
@@ -1104,18 +1226,14 @@ function FlushApplyAcks()
 {
     local int i, n;
 
-    n = PendingApplyAcks.Length;
+    n = PendingApplyAckCount;
     if (n == 0) return;
     Log("[Archipelago] APIPCActor.FlushApplyAcks: flushing " $ string(n) $ " ack(s) after SaveGame");
     for (i = 0; i < n; i++)
     {
         SendApplied(PendingApplyAcks[i]);
     }
-    // Use Remove (canonical UScript clear) instead of `.Length = 0`. The
-    // property-setter form works on most UScript variants but is not used
-    // anywhere else in vanilla or this mod, and a buggy resize would leave
-    // a subsequent `arr[arr.Length] = x` append accessing a freed buffer.
-    PendingApplyAcks.Remove(0, n);
+    PendingApplyAckCount = 0;
 }
 
 // One-shot-per-new-game NEWGAME signal. Called by APCardWatcher when it
@@ -1144,9 +1262,8 @@ function SendCheckedOut()
     local string chunk;
     local int cursor, nLines;
 
-    // One line per chunk. The full id list outgrows the per-line TcpLink
-    // transmit limit, and an over-length SendText truncates mid-id and corrupts
-    // the next IPC line, so NextCheckedOutChunk hands back sub-limit pieces. The
+    // One line per chunk. The full id list outgrows the frame ceiling, so
+    // NextCheckedOutChunk hands back sub-limit pieces. The
     // client treats each CHECKEDOUT line as additive, so N lines = one snapshot.
     cursor = 1;
     nLines = 0;
@@ -1188,7 +1305,7 @@ function TryDrainPendingGrants()
     local string deferReason;
     local int apIdx;
 
-    if (PendingGrants.Length == 0)
+    if (PendingGrantCount == 0)
     {
         bLoggedGrantDeferral = False;
         return;
@@ -1231,7 +1348,7 @@ function TryDrainPendingGrants()
     {
         if (!bLoggedGrantDeferral)
         {
-            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrantCount)
                 $ " grant(s) - Level.Pauser=" $ Level.Pauser $ " (menu/loading/cutscene)");
             bLoggedGrantDeferral = True;
         }
@@ -1244,7 +1361,7 @@ function TryDrainPendingGrants()
     {
         if (!bLoggedGrantDeferral)
         {
-            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length) $ " grant(s) - no ready gameplay harry yet");
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrantCount) $ " grant(s) - no ready gameplay harry yet");
             bLoggedGrantDeferral = True;
         }
         PushDrainStability(POST_DEFER_STABILITY_SECS);
@@ -1256,7 +1373,7 @@ function TryDrainPendingGrants()
     {
         if (!bLoggedGrantDeferral)
         {
-            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrantCount)
                 $ " grant(s) - watcher not snapshotted yet");
             bLoggedGrantDeferral = True;
         }
@@ -1268,7 +1385,7 @@ function TryDrainPendingGrants()
     {
         if (!bLoggedGrantDeferral)
         {
-            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrants.Length)
+            Log("[Archipelago] APIPCActor: deferring " $ string(PendingGrantCount)
                 $ " grant(s) - " $ deferReason);
             bLoggedGrantDeferral = True;
         }
@@ -1297,8 +1414,7 @@ function TryDrainPendingGrants()
 
     ItemName = PendingGrants[0];
     apIdx = PendingGrantIndex[0];
-    PendingGrants.Remove(0, 1);
-    PendingGrantIndex.Remove(0, 1);
+    PopPendingGrant();
     Log("[Archipelago] APIPCActor: draining queued grant " $ ItemName $ " (apIndex=" $ string(apIdx) $ ") to " $ string(readyHarry));
     bLastGrantWasHighStakes = 0;
     gi.ApplyGrant(ItemName);
@@ -1321,7 +1437,13 @@ function TryDrainPendingGrants()
     {
         if (bLastGrantWasHighStakes == 1)
         {
-            PendingApplyAcks[PendingApplyAcks.Length] = apIdx;
+            if (PendingApplyAckCount >= MAX_PENDING_APPLY_ACKS)
+            {
+                readyHarry.SaveGame();
+                FlushApplyAcks();
+            }
+            PendingApplyAcks[PendingApplyAckCount] = apIdx;
+            PendingApplyAckCount++;
         }
         else
         {
@@ -1333,7 +1455,7 @@ function TryDrainPendingGrants()
     // more than one item OR included any high-stakes grant. A 1-item filler
     // pass intentionally skips the save (no durability contract). Resets
     // the counters either way so the next pass starts fresh.
-    if (PendingGrants.Length == 0)
+    if (PendingGrantCount == 0)
     {
         if (DrainPassItemCount > 1 || bDrainPassHadHighStakes == 1)
         {
@@ -1351,8 +1473,6 @@ function TryDrainPendingGrants()
 
 defaultproperties
 {
-    LinkMode=MODE_Text
-    ReceiveMode=RMODE_Event
     bGameRelevant=True
     bAlwaysRelevant=True
 }

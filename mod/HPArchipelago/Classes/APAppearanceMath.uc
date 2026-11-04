@@ -82,7 +82,7 @@ static function Texture RandomBeanTexture()
 // (async-safe). 3-skin filler meshes pass bSetSkin=False (baked materials).
 // bLogoStyle = the foreign AP-logo: STY_Masked for the magenta chroma-key
 // transparency (see APLogoMesh.uc), unlit + full glow for constant brightness.
-static function ApplyMeshSkin(Actor a, Mesh m, Material tex, bool bSetSkin, float scale, bool bLogoStyle)
+static function ApplyMeshSkin(Actor a, Mesh m, Texture tex, bool bSetSkin, float scale, bool bLogoStyle)
 {
     if (a == None || m == None) return;
     a.Mesh = m;
@@ -116,10 +116,7 @@ static function ApplyMeshSkin(Actor a, Mesh m, Material tex, bool bSetSkin, floa
 static function ApplyAppearanceTo(Actor a, int code)
 {
     local Mesh m;
-    // Actor.Skin / MultiSkins[] and WizardCardIcon.default.Skin are typed
-    // Material in this engine (Texture extends Material), so the skin handle
-    // must be Material; a Texture from DynamicLoadObject up-casts cleanly.
-    local Material tex;
+    local Texture tex;
     local class<WizardCardIcon> cc;
     local string cn;
     local float sc;          // resolved per-prop vanilla DrawScale
