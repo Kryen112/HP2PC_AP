@@ -1,8 +1,8 @@
-"""Per-seed dialogue randomizer: binary patch of AllDialog.uax + the caption .ints.
+"""Per-seed dialogue randomizer: binary patch of the dialogue package + its captions.
 
-The client applies this on Connected. The audio package and every caption .int
+The client applies this on Connected. The audio package and every caption file
 are patched with one shared permutation so the on-screen caption matches the
-voice that plays:
+voice that plays (file names below are the English ones; see the language note):
 
   - AllDialog.uax: each dialogue USound export's serial pointer is repointed at a
     shuffled target's (the same mechanic the SFX patcher uses): no audio bytes
@@ -20,6 +20,11 @@ keeps voice and caption in sync. In all_actors mode a line can be shuffled onto
 one whose text lives in the other caption file, so a target's text is resolved
 across all caption files. A line whose voiced target has no caption in the game
 (match commentary, ambient bumps, alternate takes) shows none, as unmodified.
+
+A non-English disc install plays its own language's files: the audio from
+``AllDialog.<lang>_uax`` (the engine prefers it over ``AllDialog.uax``) and the
+captions from ``hpdialog.<lang>`` / ``BumpDialog.<lang>``, with ``<lang>`` the
+install's ``Language=``. Those are the files patched.
 
 Two modes: 'within_actor' shuffles each speaker's lines among themselves (the
 character keeps their own voice), 'all_actors' shuffles across every speaker. The
@@ -41,9 +46,11 @@ from collections import namedtuple
 
 try:
     from .dialogue_pool import ACTORS, BLACKLIST
+    from .installer import _user_ini_dir
     from .ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 except ImportError:  # standalone CLI use from the apworld directory
     from dialogue_pool import ACTORS, BLACKLIST
+    from installer import _user_ini_dir
     from ue1_package import Package, PatchError, atomic_write, read_file, restore_one
 
 
@@ -174,21 +181,90 @@ def _rebuild_text(pristine: bytes, perm: dict[str, str],
 
 # --- file operations ---
 
+ENGLISH = "int"
+
+
+def _ini_language(path: "str | None") -> "str | None":
+    """``Language=`` under [Engine.Engine] in one ini file, lower case, or None."""
+    if path is None or not os.path.isfile(path):
+        return None
+    section = ""
+    with open(path, encoding="latin-1") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if line.startswith("[") and line.endswith("]"):
+                section = line.lower()
+                continue
+            key, _, value = line.partition("=")
+            if section == "[engine.engine]" and key.strip().lower() == "language" and value.strip():
+                return value.strip().lower()
+    return None
+
+
+def _user_game_ini(install_path: str) -> "str | None":
+    """The per-user Game.ini that overrides the install's Default.ini, or None
+    when its folder cannot be found."""
+    try:
+        return str(_user_ini_dir(install_path) / "Game.ini")
+    except (OSError, ValueError):
+        return None
+
+
+def install_language(install_path: str) -> str:
+    """The language the install plays in: ``Language=`` under [Engine.Engine],
+    from the per-user Game.ini when it sets one (it overrides the install's
+    Default.ini, as in the engine), else from system\\Default.ini (``dut`` on a
+    Dutch disc), lower case. English (``int``) when neither sets it."""
+    return (_ini_language(_user_game_ini(install_path))
+            or _ini_language(_find_file(os.path.join(install_path, "system"), "Default.ini"))
+            or ENGLISH)
+
+
+def _find_file(directory: str, name: str) -> "str | None":
+    """The file called ``name`` in ``directory``, matched without regard to case
+    (a disc install ships ``HpDialog.dut``, a Linux file system tells the cases
+    apart), or None. The path carries the name as it is on disk."""
+    try:
+        entries = os.listdir(directory)
+    except OSError:
+        return None
+    matches = [entry for entry in entries
+               if entry.lower() == name.lower() and os.path.isfile(os.path.join(directory, entry))]
+    if not matches:
+        return None
+    return os.path.join(directory, name if name in matches else matches[0])
+
+
 def package_path(install_path: str) -> str:
-    return os.path.join(install_path, "Sounds", "AllDialog.uax")
+    """The dialogue audio the game loads: the engine prefers the language's own
+    package (``AllDialog.<lang>_uax``) over ``AllDialog.uax``."""
+    sounds = os.path.join(install_path, "Sounds")
+    language = install_language(install_path)
+    if language != ENGLISH:
+        localized = _find_file(sounds, f"AllDialog.{language}_uax")
+        if localized is not None:
+            return localized
+    return _find_file(sounds, "AllDialog.uax") or os.path.join(sounds, "AllDialog.uax")
 
 
 def caption_paths(install_path: str) -> list[str]:
-    """The .int files carrying dialogue captions, each patched with the same
-    permutation. hpdialog.int holds story and emote lines (baseDialog.uc localizes
-    from "HPdialog"); BumpDialog.int holds the generic student bump lines (HChar.uc
+    """The files carrying dialogue captions, each patched with the same
+    permutation: for each caption source the language's own file
+    (``hpdialog.<lang>``) when the install has one, else the English ``.int``.
+    hpdialog holds story and emote lines (baseDialog.uc localizes from
+    "HPdialog"); BumpDialog holds the generic student bump lines (HChar.uc
     localizes those from "BumpDialog"). Both share the [All] section + key=value
     format. Order matters only for the few keys present in both files: a later
     file's text wins as the shuffle source.
     """
     system = os.path.join(install_path, "system")
-    return [os.path.join(system, "hpdialog.int"),
-            os.path.join(system, "BumpDialog.int")]
+    language = install_language(install_path)
+    paths = []
+    for base in ("hpdialog", "BumpDialog"):
+        localized = _find_file(system, f"{base}.{language}") if language != ENGLISH else None
+        paths.append(localized or _find_file(system, f"{base}.{ENGLISH}")
+                     or os.path.join(system, f"{base}.{ENGLISH}"))
+    return paths
 
 
 def _apply_audio(install_path: str, dialogue_seed: int, mode: str) -> str:
@@ -213,13 +289,14 @@ def _apply_audio(install_path: str, dialogue_seed: int, mode: str) -> str:
         pristine = current
     else:
         if not os.path.exists(orig_path):
+            name = os.path.basename(pkg_path)
             raise PatchError(
-                "AllDialog.uax is patched but AllDialog.uax.orig backup is missing. "
+                f"{name} is patched but its {name}.orig backup is missing. "
                 "Reinstall the game's dialogue package to recover the original."
             )
         pristine = read_file(orig_path)
         if parse_trailer(pristine) is not None:
-            raise PatchError("AllDialog.uax.orig is not a pristine backup.")
+            raise PatchError(f"{os.path.basename(pkg_path)}.orig is not a pristine backup.")
 
     atomic_write(pkg_path, _build_patched(pristine, dialogue_seed, mode), _TMP_PREFIX)
     return "patched"
@@ -270,8 +347,8 @@ def _apply_captions(install_path: str, dialogue_seed: int, mode: str) -> str:
 
 
 def apply_patch(install_path: str, dialogue_seed: int, mode: str) -> str:
-    """Patch the voice (AllDialog.uax) and the captions (hpdialog.int +
-    BumpDialog.int) for (dialogue_seed, mode) with one shared permutation. Returns
+    """Patch the voice (the dialogue package) and the captions (the caption
+    files) for (dialogue_seed, mode) with one shared permutation. Returns
     'patched' if any file changed, else 'unchanged'.
     """
     if mode not in _MODE_CODE:
@@ -281,13 +358,38 @@ def apply_patch(install_path: str, dialogue_seed: int, mode: str) -> str:
     return "patched" if "patched" in (audio, captions) else "unchanged"
 
 
+def _backed_up_dialogue_files(install_path: str) -> list[str]:
+    """Every dialogue package or caption file with a .orig backup beside it, in
+    any language, so a restore also undoes a patch made before the install's
+    language changed."""
+    found = []
+    for folder, prefixes in ((os.path.join(install_path, "Sounds"), ("alldialog.",)),
+                             (os.path.join(install_path, "system"), ("hpdialog.", "bumpdialog."))):
+        try:
+            entries = os.listdir(folder)
+        except OSError:
+            continue
+        for entry in entries:
+            lower = entry.lower()
+            if lower.endswith(".orig") and lower.startswith(prefixes):
+                found.append(os.path.join(folder, entry[:-len(".orig")]))
+    return found
+
+
 def restore_original(install_path: str) -> str:
-    """Restore AllDialog.uax and every caption .int (hpdialog.int, BumpDialog.int)
-    from their .orig backups. Returns 'restored' if any changed, 'no-backup' if
-    none was ever patched, else 'unchanged'.
+    """Restore the dialogue package and every caption file from their .orig
+    backups, in every language that has one. Returns 'restored' if any changed,
+    'no-backup' if none was ever patched, else 'unchanged'.
     """
-    results = [restore_one(package_path(install_path), _TMP_PREFIX)]
-    results += [restore_one(p, _TMP_PREFIX) for p in caption_paths(install_path)]
+    targets = [package_path(install_path), *caption_paths(install_path),
+               *_backed_up_dialogue_files(install_path)]
+    seen = set()
+    results = []
+    for path in targets:
+        key = os.path.normcase(os.path.normpath(path))
+        if key not in seen:
+            seen.add(key)
+            results.append(restore_one(path, _TMP_PREFIX))
     if "restored" in results:
         return "restored"
     if all(r == "no-backup" for r in results):

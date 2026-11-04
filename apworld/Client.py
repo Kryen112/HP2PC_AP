@@ -412,7 +412,7 @@ _AUDIO_KINDS = {
         "Music randomizer", "music", "Music backup", "/reroll_music",
         music_patch, lambda p: os.path.isdir(music_patch.music_dir(p))),
     "dialogue": _AudioKind(
-        "Dialogue randomizer", "dialogue", "AllDialog.uax.orig backup", "/reroll_dialogue",
+        "Dialogue randomizer", "dialogue", "dialogue .orig backup", "/reroll_dialogue",
         dialogue_patch, lambda p: os.path.exists(dialogue_patch.package_path(p)),
         mode_aware=True),
 }
@@ -1116,12 +1116,13 @@ class HP2Context(CommonContext):
         self.vendor_hint_key: Optional[str] = None
         self.hinted_vendor_locs: set[int] = set()
         # Sound, music, and dialogue randomizers. Each is a client-side file patch
-        # of the install (HPSounds.u for sound, Music/*.ogg for music, AllDialog.uax
-        # for dialogue), applied on Connected and loaded by the game on next launch,
-        # rather than IPC to the mod. Parsed from slot_data; off (key absent) for
-        # seeds that did not enable it. The seed is the effective seed (a /reroll
-        # override wins over the slot_data seed). Dialogue also carries a shuffle
-        # mode ("within_actor" / "all_actors"); sound and music are plain on/off.
+        # of the install (HPSounds.u for sound, Music/*.ogg for music, the
+        # dialogue package and its captions for dialogue), applied on Connected
+        # and loaded by the game on next launch, rather than IPC to the mod.
+        # Parsed from slot_data; off (key absent) for seeds that did not enable
+        # it. The seed is the effective seed (a /reroll override wins over the
+        # slot_data seed). Dialogue also carries a shuffle mode ("within_actor" /
+        # "all_actors"); sound and music are plain on/off.
         self.audio_enabled: dict[str, bool] = {kind: False for kind in _AUDIO_KINDS}
         self.audio_seed: dict[str, Optional[int]] = {kind: None for kind in _AUDIO_KINDS}
         # Per-seed shuffle mode for the mode_aware kinds (sound: on / no_footsteps;
