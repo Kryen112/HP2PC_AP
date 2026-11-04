@@ -159,18 +159,24 @@ def _auto_install_enabled() -> bool:
 
 
 # What the game probe found. Only GAME_NONE lets the installer write and the
-# auto-launch start a game; the other three differ only in how the player is
-# told, since a Game.exe parked at its launcher page never bridges.
+# auto-launch start a game; /play blocks only on a game known to be up, so it
+# still launches when the probe could not look. A Game.exe at its main menu has
+# not bridged yet.
 GAME_NONE = "none"
+GAME_STARTING = "starting"
 GAME_LAUNCHER = "launcher"
 GAME_RUNNING = "running"
 GAME_UNKNOWN = "unknown"
 
-# Window classes Game.exe registers (prefixed by its package name): the
-# pre-engine New Game / Load Game page, and the engine viewport that replaces
-# it once a slot is picked.
-LAUNCHER_WINDOW_CLASS = "M212FrontEnd"
+# Windows Game.exe shows. The pre-engine main menu (New Game / Load Game) is a
+# plain dialog with a localized title; the disc check shows untitled dialogs
+# of the same class while it boots. The engine viewport class is prefixed by
+# the package name.
+LAUNCHER_WINDOW_CLASS = "#32770"
 ENGINE_WINDOW_CLASS = "WWindowsViewportWindow"
+
+# How long the disc check keeps the game from appearing after a launch.
+DISC_CHECK_WORDING = "the disc check can take about half a minute"
 
 
 def _game_process_ids() -> Optional[set]:
@@ -194,16 +200,17 @@ def _game_process_ids() -> Optional[set]:
     return pids
 
 
-def _visible_window_classes(pids: set) -> Optional[list]:
-    """Class names of the visible top-level windows those processes own, or
-    None when the window walk failed. A private user32 handle keeps the
+def _visible_windows(pids: set) -> Optional[list]:
+    """(class name, title) of the visible top-level windows those processes
+    own, or None when the window walk failed. A private user32 handle keeps the
     argument types set here from leaking into other ctypes users."""
-    classes = []
+    windows = []
     try:
         user32 = ctypes.WinDLL("user32")
         user32.GetWindowThreadProcessId.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_ulong)]
         user32.IsWindowVisible.argtypes = [ctypes.c_void_p]
         user32.GetClassNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
+        user32.GetWindowTextW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_int]
         callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
 
         def visit(hwnd, _):
@@ -212,25 +219,27 @@ def _visible_window_classes(pids: set) -> Optional[list]:
             if owner.value in pids and user32.IsWindowVisible(hwnd):
                 name = ctypes.create_unicode_buffer(256)
                 user32.GetClassNameW(hwnd, name, 256)
-                classes.append(name.value)
+                title = ctypes.create_unicode_buffer(256)
+                user32.GetWindowTextW(hwnd, title, 256)
+                windows.append((name.value, title.value))
             return True
 
         user32.EnumWindows.argtypes = [callback_type, ctypes.c_void_p]
         user32.EnumWindows(callback_type(visit), None)
     except (AttributeError, OSError):
         return None
-    return classes
+    return windows
 
 
 def _game_process_state() -> str:
     """What the process list says about Harry Potter: GAME_NONE when no Game.exe
-    is up, GAME_LAUNCHER when its only window is the pre-engine New Game / Load
-    Game page, GAME_RUNNING when the engine viewport exists, GAME_UNKNOWN when a
-    Game.exe is up but shows neither (still booting) or the probe could not
-    look. Any doubt counts as a game being up: the installer must not rewrite
-    files a running game has loaded. Off Windows there is no tasklist; an
-    overwrite there only lands on the next launch, so it does not block the
-    install."""
+    is up, GAME_RUNNING when the engine viewport exists, GAME_LAUNCHER when the
+    titled main menu dialog is showing, GAME_STARTING when a Game.exe is up but
+    shows neither (the disc check is still booting it), GAME_UNKNOWN when the
+    probe could not look. Any doubt counts as a game being up: the installer
+    must not rewrite files a running game has loaded. Off Windows there is no
+    tasklist; an overwrite there only lands on the next launch, so it does not
+    block the install."""
     if not sys.platform.startswith("win"):
         return GAME_NONE
     pids = _game_process_ids()
@@ -238,12 +247,12 @@ def _game_process_state() -> str:
         return GAME_UNKNOWN
     if not pids:
         return GAME_NONE
-    classes = _visible_window_classes(pids) or []
-    if any(name.endswith(ENGINE_WINDOW_CLASS) for name in classes):
+    windows = _visible_windows(pids) or []
+    if any(name.endswith(ENGINE_WINDOW_CLASS) for name, _ in windows):
         return GAME_RUNNING
-    if any(name.endswith(LAUNCHER_WINDOW_CLASS) for name in classes):
+    if any(name == LAUNCHER_WINDOW_CLASS and title.strip() for name, title in windows):
         return GAME_LAUNCHER
-    return GAME_UNKNOWN
+    return GAME_STARTING
 
 
 def _game_up_wording(state: str) -> tuple:
@@ -255,8 +264,22 @@ def _game_up_wording(state: str) -> tuple:
                 "Close that window")
     if state == GAME_RUNNING:
         return "Harry Potter is running", "Close it"
+    if state == GAME_STARTING:
+        return (f"Harry Potter is still starting ({DISC_CHECK_WORDING})",
+                "Wait for its window to open and close it")
     return ("a Game.exe process looks to be running",
             "Close Harry Potter (check Task Manager if no window is open)")
+
+
+def _relaunch_advice(state: str) -> str:
+    """What a launch skipped because a game is up tells the player to do."""
+    if state == GAME_LAUNCHER:
+        return "Use that window, or close it and type /play."
+    if state == GAME_RUNNING:
+        return "Close it and type /play to relaunch."
+    if state == GAME_STARTING:
+        return "Wait for its window to open (check Task Manager if nothing opens)."
+    return "If Harry Potter is not open, type /play."
 
 
 # Why the seed's install is not running this apworld's mod package. Set by the
@@ -2119,13 +2142,7 @@ class HP2Context(CommonContext):
         state = await self._game_state()
         if state != GAME_NONE:
             what, _ = _game_up_wording(state)
-            if state == GAME_LAUNCHER:
-                advice = "Close that window and type /play."
-            elif state == GAME_RUNNING:
-                advice = "Close it and type /play to relaunch."
-            else:
-                advice = "If Harry Potter is not open, type /play."
-            ui_logger.info(f"Not auto-launching: {what} already. {advice}")
+            ui_logger.info(f"Not auto-launching: {what} already. {_relaunch_advice(state)}")
             return
         if not safe:
             ui_logger.warning(
@@ -2162,13 +2179,22 @@ class HP2Context(CommonContext):
     async def _launch_game_manual(self) -> None:
         """Back the /play command. Waits for any in-flight randomizer patch so a
         manual launch never races a file write either, then launches without the
-        auto-launch checks: the player asked for it."""
+        auto-launch checks (the player asked for it), except that a game known
+        to be up is never duplicated: two copies would share the save folder and
+        the client channel. A probe that could not look does not block it."""
         if self._audio_task is not None and not self._audio_task.done():
             ui_logger.info("Waiting for the audio randomizers to finish before launching.")
             try:
                 await self._audio_task
             except Exception:
                 pass
+        state = await self._game_state()
+        if state == GAME_UNKNOWN:
+            ui_logger.warning("Could not check for a running Harry Potter; launching anyway.")
+        elif state != GAME_NONE:
+            what, _ = _game_up_wording(state)
+            ui_logger.info(f"Not launching: {what} already. {_relaunch_advice(state)}")
+            return
         install = await self._resolve_launch_folder()
         if install:
             if _auto_install_enabled():
@@ -2317,7 +2343,8 @@ class HP2Context(CommonContext):
         except OSError as exc:
             ui_logger.error(f"Could not launch Harry Potter ({mode}): {exc}")
             return
-        ui_logger.info(f"Launching Harry Potter ({mode}).")
+        ui_logger.info(f"Launching Harry Potter ({mode}). {DISC_CHECK_WORDING[0].upper()}"
+                       f"{DISC_CHECK_WORDING[1:]} before its window opens.")
 
     async def _prompt_install_folder(self, open_castle: bool) -> Optional[str]:
         """Pop a folder picker for the seed's game mode and persist the choice to

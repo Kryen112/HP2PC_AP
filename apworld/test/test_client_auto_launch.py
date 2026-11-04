@@ -19,11 +19,11 @@ from unittest import mock
 from CommonClient import CommonContext
 
 from .. import Client
-from ..Client import (GAME_LAUNCHER, GAME_NONE, GAME_RUNNING, GAME_UNKNOWN,
+from ..Client import (DISC_CHECK_WORDING, GAME_LAUNCHER, GAME_NONE, GAME_RUNNING, GAME_STARTING, GAME_UNKNOWN,
                       MOD_BLOCKED_DENIED, MOD_BLOCKED_FAILED, MOD_BLOCKED_GAME_UP,
                       HP2CommandProcessor, HP2Context)
 
-UP_STATES = (GAME_LAUNCHER, GAME_RUNNING, GAME_UNKNOWN)
+UP_STATES = (GAME_STARTING, GAME_LAUNCHER, GAME_RUNNING, GAME_UNKNOWN)
 LAUNCHER_WORDING = "New Game / Load Game"
 
 
@@ -38,6 +38,7 @@ class _Ctx(HP2Context):
         self.mod_install_blocked = None
         self._blocked_toast_task = None
         self.exit_event = asyncio.Event()
+        self._audio_task = None
         self.game_state = game_state
         self.safe = safe
         self.mod_ready = mod_ready
@@ -55,6 +56,9 @@ class _Ctx(HP2Context):
 
     async def _auto_launch(self, install_hint) -> None:
         self.launched.append(install_hint)
+
+    def _launch_game(self, install: str) -> None:
+        self.launched.append(install)
 
     async def _resolve_launch_folder(self):
         return "install"
@@ -103,6 +107,7 @@ class TestAutoLaunchDecision(unittest.TestCase):
             GAME_LAUNCHER: (LAUNCHER_WORDING, "/play"),
             GAME_RUNNING: ("Harry Potter is running", "/play"),
             GAME_UNKNOWN: ("Game.exe process", "/play"),
+            GAME_STARTING: ("still starting", DISC_CHECK_WORDING, "Wait"),
         }
         for state, words in expected.items():
             with self.subTest(state=state):
@@ -213,6 +218,58 @@ class TestAutoplayCommand(unittest.TestCase):
         with mock.patch.object(Client, "_auto_launch_enabled", return_value=False):
             _run(ctx._connect_audio_then_launch({}))
         self.assertEqual(ctx.launched, ["install"])
+
+
+@mock.patch.object(Client, "_auto_install_enabled", return_value=False)
+class TestPlayCommandNeverDuplicates(unittest.TestCase):
+    """/play skips the auto-launch checks but never starts a second copy: a game
+    still in its disc check, at its main menu or running is named instead, with
+    advice that never points back at /play alone. A probe that could not look
+    warns and launches, so /play stays the override."""
+
+    def test_up_game_is_not_duplicated(self, *_) -> None:
+        expected = {
+            GAME_STARTING: ("still starting", "Wait", "Task Manager"),
+            GAME_LAUNCHER: (LAUNCHER_WORDING, "Use that window"),
+            GAME_RUNNING: ("Harry Potter is running", "Close it"),
+        }
+        for state, words in expected.items():
+            with self.subTest(state=state):
+                ctx = _Ctx(game_state=state)
+                with self.assertLogs("Client", level="INFO") as captured:
+                    _run(ctx._launch_game_manual())
+                self.assertEqual(ctx.launched, [])
+                line = "\n".join(captured.output)
+                self.assertIn("Not launching", line)
+                for word in words:
+                    self.assertIn(word, line)
+
+    def test_failed_probe_warns_and_launches(self, *_) -> None:
+        ctx = _Ctx(game_state=GAME_UNKNOWN)
+        with self.assertLogs("Client", level="WARNING") as captured:
+            _run(ctx._launch_game_manual())
+        self.assertEqual(ctx.launched, ["install"])
+        self.assertIn("launching anyway", "\n".join(captured.output))
+
+    def test_no_game_up_launches(self, *_) -> None:
+        ctx = _Ctx(game_state=GAME_NONE)
+        _run(ctx._launch_game_manual())
+        self.assertEqual(ctx.launched, ["install"])
+
+
+class TestLaunchMessage(unittest.TestCase):
+    """The launch line warns that the disc check delays the game window."""
+
+    def test_launch_line_names_the_disc_check_delay(self) -> None:
+        ctx = HP2Context.__new__(HP2Context)
+        ctx.is_open_castle = False
+        with mock.patch.object(Client.os.path, "exists", return_value=True), \
+                mock.patch.object(Client.subprocess, "Popen") as popen:
+            with self.assertLogs("Client", level="INFO") as captured:
+                ctx._launch_game("install")
+        popen.assert_called_once()
+        self.assertIn("disc check can take about half a minute before its window opens",
+                      "\n".join(captured.output))
 
 
 class TestConnectArmsTheLaunch(unittest.TestCase):
@@ -457,7 +514,7 @@ class TestGameState(unittest.TestCase):
             self.assertEqual(_run(self._ctx(writer)._game_state()), GAME_RUNNING)
 
     def test_unbridged_game_is_read_from_the_process_probe(self) -> None:
-        for state in (GAME_NONE, GAME_LAUNCHER, GAME_RUNNING, GAME_UNKNOWN):
+        for state in (GAME_NONE, GAME_STARTING, GAME_LAUNCHER, GAME_RUNNING, GAME_UNKNOWN):
             with self.subTest(state=state), \
                     mock.patch.object(Client, "_game_process_state", return_value=state):
                 self.assertEqual(_run(self._ctx(None)._game_state()), state)
@@ -465,16 +522,18 @@ class TestGameState(unittest.TestCase):
 
 @mock.patch.object(Client.sys, "platform", "win32")
 class TestGameProcessState(unittest.TestCase):
-    """The process probe classifies by the window classes Game.exe shows: the
-    pre-engine front end at the launcher page, the engine viewport once a slot
-    is picked. Doubt of any kind reads as a game being up."""
+    """The process probe classifies by the windows Game.exe shows: the disc
+    check's untitled boot windows, the titled main menu dialog (title
+    localized), then the engine viewport once a slot is picked. Doubt of any
+    kind reads as a game being up."""
 
-    FRONT_END = ["GameUnrealM212FrontEnd", "GameUnrealWM212ToolTip"]
-    VIEWPORT = ["GameUnrealWWindowsViewportWindow"]
+    BOOT = [("SAFEDISC", ""), ("Button", ""), ("#32770", "")]
+    FRONT_END = [("#32770", "Hoofdmenu")]
+    VIEWPORT = [("GameWWindowsViewportWindow", "Harry Potter")]
 
-    def _state(self, pids, classes) -> str:
+    def _state(self, pids, windows) -> str:
         with mock.patch.object(Client, "_game_process_ids", return_value=pids), \
-                mock.patch.object(Client, "_visible_window_classes", return_value=classes) as walk:
+                mock.patch.object(Client, "_visible_windows", return_value=windows) as walk:
             state = Client._game_process_state()
             if pids:
                 walk.assert_called_once_with(pids)
@@ -492,9 +551,16 @@ class TestGameProcessState(unittest.TestCase):
         self.assertEqual(self._state({15148}, self.VIEWPORT), GAME_RUNNING)
         self.assertEqual(self._state({15148}, self.FRONT_END + self.VIEWPORT), GAME_RUNNING)
 
-    def test_process_without_either_window_is_unknown(self, *_) -> None:
-        self.assertEqual(self._state({15148}, []), GAME_UNKNOWN)
-        self.assertEqual(self._state({15148}, None), GAME_UNKNOWN)
+    def test_disc_check_boot_windows_are_starting(self, *_) -> None:
+        self.assertEqual(self._state({15148}, self.BOOT), GAME_STARTING)
+        self.assertEqual(self._state({15148}, [("#32770", "  ")]), GAME_STARTING)
+
+    def test_titled_menu_beside_boot_windows_is_the_launcher_page(self, *_) -> None:
+        self.assertEqual(self._state({15148}, self.BOOT + self.FRONT_END), GAME_LAUNCHER)
+
+    def test_process_without_either_window_is_starting(self, *_) -> None:
+        self.assertEqual(self._state({15148}, []), GAME_STARTING)
+        self.assertEqual(self._state({15148}, None), GAME_STARTING)
 
     def test_tasklist_failure_is_unknown(self, *_) -> None:
         self.assertEqual(self._state(None, None), GAME_UNKNOWN)
