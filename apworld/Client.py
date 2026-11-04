@@ -2142,7 +2142,7 @@ class HP2Context(CommonContext):
         state = await self._game_state()
         if state != GAME_NONE:
             what, _ = _game_up_wording(state)
-            ui_logger.info(f"Not auto-launching: {what} already. {_relaunch_advice(state)}")
+            ui_logger.info(f"Not auto-launching: {what}. {_relaunch_advice(state)}")
             return
         if not safe:
             ui_logger.warning(
@@ -2193,7 +2193,7 @@ class HP2Context(CommonContext):
             ui_logger.warning("Could not check for a running Harry Potter; launching anyway.")
         elif state != GAME_NONE:
             what, _ = _game_up_wording(state)
-            ui_logger.info(f"Not launching: {what} already. {_relaunch_advice(state)}")
+            ui_logger.info(f"Not launching: {what}. {_relaunch_advice(state)}")
             return
         install = await self._resolve_launch_folder()
         if install:
