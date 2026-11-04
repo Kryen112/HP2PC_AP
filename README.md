@@ -16,9 +16,9 @@ Complete and playable end to end. Up to **~579 checks** across 10 categories: 4 
 | **Archipelago** | <https://github.com/ArchipelagoMW/Archipelago/releases>, latest stable Windows installer. |
 | **HP2PC_AP** | `harry_potter_2_pc.apworld` from this repo's releases. Carries the client and the compiled mod. |
 
-**Platforms:** Windows 10 or 11. Linux is not supported in this version: the game and the client talk through a folder under your Windows Documents, which a Linux client cannot find inside a Wine prefix yet.
+**Platforms:** Windows 10 or 11. **Linux is experimental**: the client finds the game's Wine or Proton prefix by itself, but nobody has confirmed yet that the disc check passes under Wine. See [`docs/PLAYER_SETUP.md`](docs/PLAYER_SETUP.md#linux-experimental).
 
-**Open castle** (`game_mode: open_castle`) needs the HP2 Bingo maps, and the only Bingo distribution today is a full game copy with a modified executable, which this project cannot use. It stays unavailable on the retail setup until the Bingo map changes can be shipped as a patch to your own install.
+**Open castle** (`game_mode: open_castle`) needs the HP2 Bingo maps, and the only Bingo distribution today is a full game copy with a modified executable, which this project cannot use. It stays unavailable until the Bingo map changes can be shipped as a patch to your own install.
 
 Step-by-step walkthrough in [`docs/PLAYER_SETUP.md`](docs/PLAYER_SETUP.md).
 

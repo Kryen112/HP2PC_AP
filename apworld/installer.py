@@ -17,6 +17,11 @@ copies into the per-user ``Documents\\Harry Potter II\\Game.ini``, and into that
 Game.ini when it already exists. Game.ini carries the player's own settings, so
 it is patched in place, never replaced.
 
+On Linux the game runs inside a Wine or Proton prefix, so its Documents folder
+is the prefix's ``drive_c/users/<user>/Documents``, found from the install
+path, and ``ChannelDir=`` carries the Windows form of that path (``C:\\users\\...``)
+while the client reads the same folder through the prefix.
+
 The ini files are ANSI. Reads detect a BOM anyway so an unexpectedly
 re-encoded config stays editable. Idempotent: a second deploy writes nothing.
 
@@ -28,7 +33,9 @@ from __future__ import annotations
 import os
 import re
 import shutil
-from pathlib import Path
+import sys
+from pathlib import Path, PureWindowsPath
+from typing import Optional, Union
 
 MOD_PACKAGE = "HPArchipelago"
 MOD_PACKAGE_DATA = Path(__file__).parent / "data" / "mod" / f"{MOD_PACKAGE}.u"
@@ -156,11 +163,65 @@ def _ini_is_wired(path: Path, channel: str) -> bool:
     return _wired_lines(lines, channel) == lines
 
 
-def _user_ini_dir() -> Path:
+def _on_windows() -> bool:
+    return sys.platform.startswith("win")
+
+
+def wine_prefix(install_dir: Union[str, Path]) -> Optional[Path]:
+    """The Wine or Proton prefix an install lives in (the folder holding
+    ``drive_c``), or None when it is not inside one."""
+    install_dir = Path(install_dir)
+    drive_c = next((parent for parent in [install_dir, *install_dir.parents]
+                    if parent.name.lower() == "drive_c"), None)
+    return drive_c.parent if drive_c is not None else None
+
+
+def _prefix_documents(install_dir: Union[str, Path]) -> Path:
+    """The Documents folder of the Wine or Proton prefix the install lives in:
+    ``drive_c/users/<user>/Documents`` (``My Documents`` in older prefixes).
+    The user that already has a Harry Potter II folder wins, then the only
+    user, then Proton's ``steamuser``. Raises ValueError when the install is
+    not inside a prefix or the prefix has no user to pick."""
+    prefix = wine_prefix(install_dir)
+    if prefix is None:
+        raise ValueError(
+            f"{install_dir} is not inside a Wine or Proton prefix (no drive_c folder above it)")
+    drive_c = next((entry for entry in prefix.iterdir() if entry.name.lower() == "drive_c"), None)
+    if drive_c is None:
+        raise ValueError(f"{prefix} has no drive_c folder")
+    users_dir = drive_c / "users"
+    users = sorted(entry for entry in users_dir.iterdir()
+                   if entry.is_dir() and entry.name.lower() != "public") if users_dir.is_dir() else []
+
+    def documents_of(user: Path) -> Path:
+        for name in ("Documents", "My Documents"):
+            if (user / name).is_dir():
+                return user / name
+        return user / "Documents"
+
+    for user in users:
+        if (documents_of(user) / USER_INI_DIR_NAME).is_dir():
+            return documents_of(user)
+    if len(users) == 1:
+        return documents_of(users[0])
+    for user in users:
+        if user.name == "steamuser":
+            return documents_of(user)
+    raise ValueError(
+        f"cannot tell which user in {users_dir} runs the game; launch the game once "
+        f"so it creates its Documents\\{USER_INI_DIR_NAME} folder, then try again")
+
+
+def _user_ini_dir(install_dir: Optional[Union[str, Path]] = None) -> Path:
     """The per-user config dir holding Game.ini and the saves. The engine
     resolves it through the Windows Documents folder, so honor a relocated
     (e.g. OneDrive) Documents via the shell folders registry key, with a
-    plain home Documents fallback."""
+    plain home Documents fallback. Off Windows it is inside the install's
+    prefix, so the install is required there."""
+    if not _on_windows():
+        if install_dir is None:
+            raise ValueError("the game's Documents folder is found from its install folder")
+        return _prefix_documents(install_dir) / USER_INI_DIR_NAME
     try:
         import winreg
         with winreg.OpenKey(
@@ -173,9 +234,19 @@ def _user_ini_dir() -> Path:
     return documents / USER_INI_DIR_NAME
 
 
-def channel_dir() -> Path:
-    """The folder the game and the client share."""
-    return _user_ini_dir() / CHANNEL_DIR_NAME
+def channel_dir(install_dir: Optional[Union[str, Path]] = None) -> Path:
+    """The folder the game and the client share, as the client reaches it."""
+    return _user_ini_dir(install_dir) / CHANNEL_DIR_NAME
+
+
+def _game_side_path(channel: Path) -> str:
+    """The channel folder as the game is handed it: on Windows the path itself
+    (shortened when too long); inside a prefix the Windows form under C:."""
+    if _on_windows():
+        return _short_path(channel)
+    parts = channel.parts
+    drive_c_at = max(index for index, part in enumerate(parts) if part.lower() == "drive_c")
+    return str(PureWindowsPath("C:\\", *parts[drive_c_at + 1:]))
 
 
 def _short_path(path: Path) -> str:
@@ -209,15 +280,18 @@ def deploy(install_dir: Path) -> "list[str]":
         raise FileNotFoundError(
             "no compiled mod package in the apworld; it was packaged without data/mod")
 
+    # Resolved first: a prefix the folder cannot be found in fails before
+    # anything is written.
+    channel = channel_dir(install_dir)
+
     log: "list[str]" = []
     target = system_dir / f"{MOD_PACKAGE}.u"
     if not target.is_file() or target.read_bytes() != module_bytes:
         target.write_bytes(module_bytes)
         log.append("Copied the compiled mod package.")
 
-    channel = channel_dir()
     channel.mkdir(parents=True, exist_ok=True)
-    channel_text = _short_path(channel)
+    channel_text = _game_side_path(channel)
     if len(channel_text) > MAX_CHANNEL_PATH_CHARS:
         log.append(
             f"WARNING: the game link folder {channel_text} is longer than the game "
@@ -228,7 +302,7 @@ def deploy(install_dir: Path) -> "list[str]":
     if _wire_ini(default_ini, channel_text):
         log.append("Pointed Default.ini at the mod.")
 
-    game_ini = _user_ini_dir() / "Game.ini"
+    game_ini = _user_ini_dir(install_dir) / "Game.ini"
     if game_ini.is_file():
         _backup_once(game_ini.parent / BACKUP_DIR_NAME, game_ini)
         if _wire_ini(game_ini, channel_text):
@@ -245,13 +319,13 @@ def mod_is_current(install_dir: Path) -> bool:
     if module_bytes is None:
         return True
     system_dir = Path(install_dir) / "system"
-    channel = _short_path(channel_dir())
     try:
+        channel = _game_side_path(channel_dir(install_dir))
         if (system_dir / f"{MOD_PACKAGE}.u").read_bytes() != module_bytes:
             return False
         if not _ini_is_wired(system_dir / "Default.ini", channel):
             return False
-        game_ini = _user_ini_dir() / "Game.ini"
+        game_ini = _user_ini_dir(install_dir) / "Game.ini"
         return not game_ini.is_file() or _ini_is_wired(game_ini, channel)
     except (OSError, ValueError):
         return False

@@ -90,12 +90,14 @@ import json
 import logging
 import os
 import random
+import shutil
 import subprocess
 import sys
 import time
 import urllib.parse
 import warnings
 from collections import Counter
+from pathlib import Path
 from typing import Optional, TYPE_CHECKING
 
 # Silence the upstream setuptools deprecation that fires every time AP imports
@@ -271,6 +273,25 @@ def _game_up_wording(state: str) -> tuple:
             "Close Harry Potter (check Task Manager if no window is open)")
 
 
+def _launch_command(install: str, exe: str) -> "tuple[Optional[list], Optional[dict], str]":
+    """How to start Game.exe: directly on Windows, through ``wine`` with the
+    install's prefix as WINEPREFIX elsewhere. Returns (argv, env, problem); a
+    non-empty problem means there is no way to launch and says why."""
+    if sys.platform.startswith("win"):
+        return [exe], None, ""
+    prefix = installer.wine_prefix(install)
+    if prefix is None:
+        return None, None, "the install is not inside a Wine or Proton prefix"
+    # A Proton prefix (compatdata/<id>/pfx, with Proton's version file beside
+    # it) belongs to Steam: the system wine would migrate it.
+    if prefix.name == "pfx" and (prefix.parent / "version").is_file():
+        return None, None, "the install is in a Proton prefix, which Steam has to start"
+    wine = shutil.which("wine")
+    if wine is None:
+        return None, None, "wine is not on the PATH"
+    return [wine, exe], {**os.environ, "WINEPREFIX": str(prefix)}, ""
+
+
 def _relaunch_advice(state: str) -> str:
     """What a launch skipped because a game is up tells the player to do."""
     if state == GAME_LAUNCHER:
@@ -292,6 +313,10 @@ MOD_BLOCKED_FAILED = "failed"
 # Seconds between in-game reminders while the mod install stays blocked, the
 # cadence of the mod's own "Not connected" reminder.
 BLOCKED_TOAST_INTERVAL = 10.0
+
+# Seconds between looks for the game link folder while it cannot be known yet
+# (off Windows, until the seed's install folder is set).
+LINK_CHANNEL_RETRY_SECONDS = 2.0
 
 
 def _client_is_elevated() -> bool:
@@ -1124,6 +1149,8 @@ class HP2Context(CommonContext):
         # survives a cold load into a sentinel-less level. The open-castle flag
         # itself (bOpenCastleMode) is one-way sticky and never cleared.
         self.is_open_castle: bool = False
+        # Whether the "cannot find the game link folder yet" warning was shown.
+        self._link_channel_warned = False
         # The seed's declared game_mode ("vanilla" / "open_castle"), or None
         # until Connected. Sent verbatim as the "MODE <mode>" IPC line on
         # Connected and re-armed every game HELLO. Unlike is_open_castle this is
@@ -2338,8 +2365,13 @@ class HP2Context(CommonContext):
             )
             return
         mode = "open castle" if self.is_open_castle else "vanilla"
+        argv, env, problem = _launch_command(install, exe)
+        if argv is None:
+            ui_logger.error(f"Cannot launch Harry Potter ({mode}): {problem}. Start the game "
+                            f"yourself and set auto_launch_game: false in host.yaml.")
+            return
         try:
-            subprocess.Popen([exe], cwd=system_dir)
+            subprocess.Popen(argv, cwd=system_dir, env=env)
         except OSError as exc:
             ui_logger.error(f"Could not launch Harry Potter ({mode}): {exc}")
             return
@@ -3448,8 +3480,33 @@ class HP2Context(CommonContext):
         # own checked_locations universe (different ids, different progress).
         self.checked_csv = None
 
+    def _link_channel(self) -> Optional[str]:
+        """The game link folder, or None while it cannot be known yet: off
+        Windows it lives in the prefix of the install for the seed's mode, so
+        it waits for the seed and for that install folder to be set."""
+        if sys.platform.startswith("win"):
+            return str(installer.channel_dir())
+        if self.seed_mode is None:
+            return None
+        install = _hp2_install_path(self.is_open_castle)
+        if not install:
+            return None
+        try:
+            return str(installer.channel_dir(install))
+        except (OSError, ValueError) as exc:
+            if not self._link_channel_warned:
+                ui_logger.warning(f"Cannot find the game link folder yet: {exc}.")
+                self._link_channel_warned = True
+            return None
+
     async def run_game_link(self) -> None:
-        channel = installer.channel_dir()
+        found = self._link_channel()
+        while found is None:
+            if self.exit_event.is_set():
+                return
+            await asyncio.sleep(LINK_CHANNEL_RETRY_SECONDS)
+            found = self._link_channel()
+        channel = Path(found)
         try:
             channel.mkdir(parents=True, exist_ok=True)
         except OSError as exc:

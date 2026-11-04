@@ -266,6 +266,7 @@ class TestLaunchMessage(unittest.TestCase):
         ctx = HP2Context.__new__(HP2Context)
         ctx.is_open_castle = False
         with mock.patch.object(Client.os.path, "exists", return_value=True), \
+                mock.patch.object(Client.sys, "platform", "win32"), \
                 mock.patch.object(Client.subprocess, "Popen") as popen:
             with self.assertLogs("Client", level="INFO") as captured:
                 ctx._launch_game("install")

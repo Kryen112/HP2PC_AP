@@ -62,7 +62,17 @@ In open castle, the pause menu draws a live goal-progress panel (cards / spells 
 
 OS: Windows 10 or Windows 11.
 
-**Linux is not supported in this version.** The game and the client talk through a folder under your Windows Documents folder (see [Logs](#logs)), and a Linux client cannot locate that folder inside a Wine or Proton prefix yet.
+### Linux (experimental)
+
+The client supports Linux, but whether the game's SafeDisc disc check passes under Wine or Proton is **not confirmed yet**. If you try it, please report back either way.
+
+- Install the game from the disc into a **Wine or Proton prefix**. Run Archipelago and the HP2 PC Client natively on Linux.
+- SafeDiscShim stands in for a driver that modern Windows dropped. Wine is reported to handle SafeDisc by itself ([unconfirmed](https://github.com/RibShark/SafeDiscShim/issues/5)), so the disc check may work without it. Try the game without it first; if the disc check fails, install SafeDiscShim into the same prefix.
+- Point the client at the install's real location inside the prefix (under `drive_c/`). After you connect to a seed, the client finds the prefix from that path and uses its `drive_c/users/<user>/Documents/Harry Potter II/` folder for `Game.ini`, the saves and the game link folder. If the prefix has several users, launch the game once first so it creates that folder.
+- **Auto-launch** runs `wine` from your `PATH` with that prefix as `WINEPREFIX`. For a Proton prefix the client does not launch the game (the system `wine` would convert Steam's prefix): set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml and start the game through Steam once the client is connected.
+- The client picks the game link folder once per session. After switching to a seed of the other game mode, or changing the install folder, restart the client.
+- No administrator step: a prefix under your home folder is writable.
+- Paths this guide writes as `Documents\Harry Potter II\` are inside the prefix, for example `drive_c/users/steamuser/Documents/Harry Potter II/` under Proton.
 
 ## Install
 
