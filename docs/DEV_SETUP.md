@@ -7,7 +7,7 @@ How this dev machine is configured and the daily build/run loop. Update whenever
 ## System requirements
 
 - **OS:** Windows 10 or 11.
-- **An optical drive and the retail disc.** The game's SafeDisc check reads the disc on every launch, dev launches included.
+- **An optical drive and the game disc.** The game's SafeDisc check reads the disc on every launch, dev launches included.
 - **SafeDiscShim** (<https://github.com/RibShark/SafeDiscShim/releases>), so the disc check works on modern Windows. Windows 11 Smart App Control can block it; turn Smart App Control off if the game will not start.
 
 ## Pinned versions
@@ -16,8 +16,8 @@ How this dev machine is configured and the daily build/run loop. Update whenever
 | --- | --- | --- |
 | **Python** | **3.12.x** (currently 3.12.10) | AP 0.6.4 dropped 3.10. 3.12 is the safe middle of AP's supported range (3.11 / 3.12 / 3.13). |
 | **Archipelago framework** | **0.6.7** (release tag) | Released 2026-04-01. Pinned to a tag, **not `main`**. `main` breaks. Bump deliberately, not by drift. |
-| **Retail HP2** | engine build 433, script packages v79 | The KnowWonder 2002 disc release. Language does not matter (this machine's disc installed in Dutch). |
-| **Retail UScript kit (AdamJD)** | 2023 build | `UCC.exe` plus a kit `Editor.dll`. The retail game ships neither. Download from the Google Drive folder linked on the [HarryPotterUnrealWiki Main-Resources page](https://github.com/metallicafan212/HarryPotterUnrealWiki). Dev machine only, never shipped. |
+| **HP2** | engine build 433, script packages v79 | The KnowWonder 2002 disc release. Language does not matter (this machine's disc installed in Dutch). |
+| **UScript kit (AdamJD)** | 2023 build | `UCC.exe` plus a kit `Editor.dll`. The game ships neither. Download it from the Google Drive folder listed on the HarryPotterUnrealWiki's Main-Resources page. Dev machine only, never shipped. |
 | **SafeDiscShim** | 0.9.0 | Beta builds log next to `Game.exe`; set `SAFEDISCSHIM_LOGLEVEL=none` to silence them. |
 
 ## Installed paths (this PC)
@@ -27,17 +27,17 @@ How this dev machine is configured and the daily build/run loop. Update whenever
 | Reference install (installed from the disc, never modified) | `D:\HP2\` |
 | Dev install (a copy of the reference; build and play target) | `C:\Games\HP2-Dev\` |
 | `UCC.exe` (from the kit) | `C:\Games\HP2-Dev\system\UCC.exe` |
-| Kit and stock editor DLLs | `C:\Games\HP2-Dev\system\Editor.dll.kit`, `Editor.dll.retail` (the build swaps them) |
+| Kit and stock editor DLLs | `C:\Games\HP2-Dev\system\Editor.dll.kit`, `Editor.dll.stock` (the build swaps them) |
 | Mod source mirror the compiler reads | `C:\Games\HP2-Dev\HPArchipelago\` |
 | Build log | `C:\Games\HP2-Dev\build\ucc_make.txt` |
-| Exported retail class defaults (reference only) | `C:\Games\HP2-Dev\RetailExport\` |
+| Exported stock class defaults (reference only) | `C:\Games\HP2-Dev\StockExport\` |
 | Per-user game data (`Game.ini`, `Game.log`, saves) | `C:\Users\<you>\Documents\Harry Potter II\` |
 | Game-to-client link folder | `C:\Users\<you>\Documents\Harry Potter II\AP\` |
 | Python 3.12 | `C:\Users\<you>\AppData\Local\Programs\Python\Python312\python.exe` (use `py -3.12` to invoke) |
 | HP2PC_AP repo | `C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2PC_AP\` |
-| Decompiled stock UScript (reference) | `C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2UScriptDecompile\` (based on the M212 edition; retail differs in places, for example `HPHud.propArray` is a fixed `[20]` array on retail) |
+| Decompiled stock UScript (reference) | `C:\Users\<you>\Documents\Archipelago-play\Harry Potter 2 PC\HP2UScriptDecompile\` (a community decompile that differs from the shipped game in places, for example `HPHud.propArray` is a fixed `[20]` array in the game) |
 
-Every retail install on the machine shares `Documents\Harry Potter II\` (one `Game.ini`, one save folder). Back up a save slot before a test that might overwrite it.
+Every install of the game on the machine shares `Documents\Harry Potter II\` (one `Game.ini`, one save folder). Back up a save slot before a test that might overwrite it.
 
 The frozen Archipelago install's `host.yaml` points `vanilla_install_folder` at the dev install, so the client deploys there and auto-launch starts it.
 
@@ -102,24 +102,24 @@ Why each entry:
 
 For "everything-unlocked" playtest mode (skip cataloguing, prove the AP solver), use `start_inventory_from_pool` for the 4 non-starter spells + 3 special progression items and drop the classroom plandos.
 
-## One-time retail toolchain prep
+## One-time toolchain prep
 
 1. Install the game from the disc into the reference folder (`D:\HP2\`) and install SafeDiscShim. Launch it once from the disc to confirm it starts, then never modify that folder again.
 2. Copy the whole reference folder to the dev install (`C:\Games\HP2-Dev\`). A folder outside `Program Files` means no build or deploy step needs elevation.
-3. From the AdamJD kit, put `UCC.exe` into `C:\Games\HP2-Dev\system\`. Rename the stock `Editor.dll` there to `Editor.dll.retail` and put the kit's `Editor.dll` beside it as `Editor.dll.kit`. The build swaps the kit DLL in for `UCC make` and the stock one back afterwards, so the game always runs the stock DLL.
+3. From the AdamJD kit, put `UCC.exe` into `C:\Games\HP2-Dev\system\`. Rename the stock `Editor.dll` there to `Editor.dll.stock` and put the kit's `Editor.dll` beside it as `Editor.dll.kit`. The build swaps the kit DLL in for `UCC make` and the stock one back afterwards, so the game always runs the stock DLL.
 4. If the game crashes when a level starts in fullscreen (`DDERR_SURFACELOST` on this machine, stock game too), set `StartupFullscreen=False` under `[WinDrv.WindowsClient]` in `Documents\Harry Potter II\Game.ini`.
 
 No `EditPackages` editing by hand: the build script writes a private `System.ini` for UCC (the stock `default.ini` plus `EditPackages=HPArchipelago` after `HGame`), and the client's installer writes the runtime wiring (`DefaultGame=`, `Console=`, `ChannelDir=`).
 
 ## Build loop (UScript mod)
 
-The machine-local `..\scripts\rebuild_mod_retail.ps1` (outside the repo; holds this machine's absolute paths, no elevation needed) runs the compile:
+The machine-local `..\scripts\build_mod.ps1` (outside the repo; holds this machine's absolute paths, no elevation needed) runs the compile:
 
 1. Edit UScript source under `mod/HPArchipelago/Classes/*.uc` in the repo.
 2. Run the build:
 
    ```powershell
-   powershell -ExecutionPolicy Bypass -File "..\scripts\rebuild_mod_retail.ps1"
+   powershell -ExecutionPolicy Bypass -File "..\scripts\build_mod.ps1"
    ```
 
    It mirrors `mod\HPArchipelago` to `C:\Games\HP2-Dev\HPArchipelago`, writes `System.ini`, deletes the old `HPArchipelago.u` (an incremental make keeps classes whose `.uc` was removed), swaps in the kit `Editor.dll`, runs `UCC.exe make ini=System.ini`, then restores the stock `Editor.dll` and every stock `.u` that `make` resaved (it rewrites `Core.u` among others) from the reference install. It ends with `BUILT HPArchipelago.u version=79 size=...` or `NOT BUILT`; the full log is `C:\Games\HP2-Dev\build\ucc_make.txt`.
@@ -173,7 +173,7 @@ Alternative: `ArchipelagoLauncher.exe "HP2 PC Client"` runs the launcher entry p
 
 ### The game link
 
-The retail engine has no networking (no `IpDrv`), so the game and the client talk through files in `Documents\Harry Potter II\AP\` (`apworld/game_link.py`, `mod/HPArchipelago/Classes/APIPCActor.uc`):
+The game's engine has no networking, so the game and the client talk through files in `Documents\Harry Potter II\AP\` (`apworld/game_link.py`, `mod/HPArchipelago/Classes/APIPCActor.uc`):
 
 - **Game to client:** the mod buffers lines and writes each batch as one closed `out_<session>_<n>.log` (a `StatLogFile` opened, written and closed in one go; UTF-16). The client reads only finished `.log` files.
 - **Client to game:** the client rewrites `in.txt` (atomically, latin-1) with every `APIn <session> <seq> <+|=><fragment>` line the game has not acknowledged yet (200-character fragments), and the mod runs `exec "<ChannelDir>\in.txt"` every tick, which dispatches each line to `APConsole.APIn` and skips sequence numbers it already handled. The game acknowledges with `INACK <session> <seq>`, which lets the client drop those lines from the file.
@@ -185,21 +185,21 @@ If you clone this repo on a new Windows machine, do these in order:
 
 1. Install Python 3.12 from python.org (or `winget install Python.Python.3.12`). The pinned 3.12 must be present even if a newer Python is installed. AP 0.6.7 supports 3.11/3.12/3.13, and 3.14+ is too new.
 2. Clone HP2PC_AP and `Archipelago` (at the pinned tag) side by side.
-3. Run the **One-time retail toolchain prep** section above.
+3. Run the **One-time toolchain prep** section above.
 4. Create the apworld junction (**Archipelago framework** section above).
 5. Create the AP player files (**Player files** section above).
 6. Read `../README.md` for the project overview and feature set.
 
 ## Known gotchas
 
-Retail compiler (the AdamJD kit `UCC`, v79):
+Compiler (the AdamJD kit `UCC`, v79):
 
 - **`var` declarations must come before every function** in a class; a `var` after a function fails with "'Var' is not allowed here".
 - **No dynamic arrays** ("Array mismatch in array index"). Use fixed arrays.
 - **A context expression cannot read a variable larger than 255 bytes** ("Variable is too large"), for example `class'X'.default.BigArray[i]` from another class. Add a static accessor on the owning class instead.
-- **The M212-only API is missing:** no `harry.iGameState` (use `ConvertGameStateToNumber()`), no `HGameButton`, `M212HScale`, `Material`, `AT_Center` or `CreateAlignedControl`. `menuBook` lives on `HPConsole`, not on the HUD.
+- **Some APIs seen in community examples do not exist in the game:** no `harry.iGameState` (use `ConvertGameStateToNumber()`), no `HGameButton`, `Material`, `AT_Center` or `CreateAlignedControl`. `menuBook` lives on `HPConsole`, not on the HUD.
 
-Retail runtime:
+Runtime:
 
 - **A very long `Log()` line crashes the game** (an access violation jumping to `0x7f7f7f7f`; seen at about 2300 characters). Clip every payload you log with `APCsvCodec.LogClip` (200 characters).
 - **A save refuses to write if a saved actor points outside the level** ("Graph is linked to external private object ..."): a reference into the Transient package (the console, UWindow pages) or into the Entry map. Mark such fields `transient`; the mod's console class is declared `transient` because stock actors keep a reference to the console.
@@ -207,6 +207,6 @@ Retail runtime:
 - **Never hold a `StatLogFile` open.** An open one locks the file against readers and leaks across level travel (its `Destroyed` never fires). Open, write, close per batch.
 - **`ucc make` resaves stock packages** (`Core.u` and others). The build script restores them from the reference install; never run a build that skips that step against an install you play from.
 - **`[Engine.GameEngine] ServerActors=` and `?Mutator=` are ignored.** Runtime hooks go through the `GameInfo` subclass named by `DefaultGame=HPArchipelago.APGameInfo`.
-- **File encodings:** `Game.ini`, `User.ini` and `Default.ini` are ANSI with no BOM, and so is the retail `Game.log`. The link's `out_*.log` batches are UTF-16 (written by `StatLogFile`).
+- **File encodings:** `Game.ini`, `User.ini` and `Default.ini` are ANSI with no BOM, and so is `Game.log`. The link's `out_*.log` batches are UTF-16 (written by `StatLogFile`).
 - **The game runs as `Game.exe`** in the install's `system` folder; SafeDisc adds a short-lived `~e*.tmp` helper in `%TEMP%`. The main menu is a plain dialog (class `#32770`, localized title), and the engine window class ends in `WWindowsViewportWindow`.
 - **Third-party renderers and overlays** (texture upscalers, FPS overlays) can crash the engine. Disable them when chasing a crash.

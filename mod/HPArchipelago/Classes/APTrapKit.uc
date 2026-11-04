@@ -5,11 +5,11 @@
 // only persistence is the self-identifying raw-axis key binding in User.ini.
 class APTrapKit extends Object;
 
-// Swap the held wand's retail LumosLight for an APLumosLight, which re-places the
+// Swap the held wand's stock LumosLight for an APLumosLight, which re-places the
 // Lumos light (and the spell-charge glow) at the giant wand's tip via its
 // UpdateLocation override. Idempotent: a re-activation that already swapped is a
 // no-op. The old light is left orphaned and inert (turned off first if it was lit)
-// rather than destroyed, since retail LumosLight.Destroyed emits player-visible
+// rather than destroyed, since stock LumosLight.Destroyed emits player-visible
 // debug text; the orphan dies at level unload. APLumosLight gates its rescale on
 // bWandSizeTrapActive, so the trap's level-change revert needs no swap-back.
 static function SwapInWandTipLumosLight(baseWand wand)
@@ -41,13 +41,13 @@ static function SwapInWandTipLumosLight(baseWand wand)
     apLight = wand.Spawn(class'APLumosLight', wand, , wand.Location);
     if (apLight == None)
     {
-        // Spawn failed: keep the retail light, restoring its lit state if any.
+        // Spawn failed: keep the stock light, restoring its lit state if any.
         if (old != None && wasOn)
         {
             old.bInfiniteLumos = wasInfinite;
             old.TurnOn();
         }
-        Log("[Archipelago] APTrapKit.SwapInWandTipLumosLight: APLumosLight spawn failed - kept retail light");
+        Log("[Archipelago] APTrapKit.SwapInWandTipLumosLight: APLumosLight spawn failed - kept stock light");
         return;
     }
     wand.TheLumosLight = apLight;

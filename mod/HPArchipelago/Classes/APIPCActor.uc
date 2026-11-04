@@ -1342,7 +1342,7 @@ function TryDrainPendingGrants()
     // briefly during e.g. exec-script sleeps; load screens; dev `pause`).
     // HP2's in-game menu does NOT flip Level.Pauser. That case is caught
     // further down by IsPlayerInPlayableState's `menuBook.bIsOpen` check.
-    // Level.Pauser is a string in HP2 (UE1 retail), not an object ref,
+    // Level.Pauser is a string in HP2, not an object ref,
     // compare to "" not None. See HPConsole.uc:752.
     if (Level.Pauser != "")
     {

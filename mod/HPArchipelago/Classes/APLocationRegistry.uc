@@ -4,8 +4,7 @@ class APLocationRegistry extends Object;
 // non-card-location dedupe window. Single source of truth for the slot math
 // every non-card check shares. The per-location 2048-wide arrays
 // (NonCardLocationChecked, TraderPurchased, AppearanceCode, ...) keep a literal
-// dimension because M212 array dims need an integer literal, not a const; their
-// comments point back here.
+// dimension equal to NONCARD_LOC_WINDOW; their comments point back here.
 const LOC_BASE = 5760000;
 const NONCARD_LOC_WINDOW = 2048;
 

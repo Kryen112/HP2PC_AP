@@ -51,11 +51,11 @@ In open castle, the pause menu draws a live goal-progress panel (cards / spells 
 ## Prerequisites
 
 > [!IMPORTANT]
-> **You need the original disc.** The randomizer runs on the retail game installed from your own disc, and the disc has to be in the drive every time you play. On Windows 10 and 11 the disc's SafeDisc copy protection also needs **SafeDiscShim** (free, open source) before the game will start. The randomizer never patches the game executable and ships no game files.
+> **You need the original disc.** The randomizer runs on the game installed from your own disc, and the disc has to be in the drive every time you play. On Windows 10 and 11 the disc's SafeDisc copy protection also needs **SafeDiscShim** (free, open source) before the game will start. The randomizer never patches the game executable and ships no game files.
 
 | Thing                                            | Where to get it                                                                                                                                                                                               |
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Harry Potter and the Chamber of Secrets (PC)** | Your retail disc, KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                                                         |
+| **Harry Potter and the Chamber of Secrets (PC)** | Your own disc, KnowWonder 2002 build. The randomizer **does not include the game**.                                                                                                                         |
 | **SafeDiscShim**                                 | <https://github.com/RibShark/SafeDiscShim/releases>, latest release, run its installer. Windows 10 and 11 no longer ship the driver SafeDisc talks to; SafeDiscShim answers in its place. It does not remove the protection, so the disc is still required. |
 | **Archipelago framework**                        | <https://github.com/ArchipelagoMW/Archipelago/releases>, pick the latest stable Windows installer. Used for seed generation and hosting.                                                                      |
 | **HP2PC_AP release files**                       | Downloaded from the GitHub release: `harry_potter_2_pc.apworld` and this `PLAYER_SETUP.md`. The compiled mod, its config wiring, and the Python client are all bundled inside the apworld; no separate files. |
@@ -78,7 +78,7 @@ Install the game from the disc. A folder you can write to without administrator 
 
 If the game does not start, or SafeDisc complains about the disc, see [Troubleshooting](#troubleshooting). Get this working before going further: nothing later in this guide can fix a game that does not start.
 
-**Fullscreen problems?** On some systems the retail game crashes or shows a black screen when a level starts in fullscreen. Run it in a window instead: open `Documents\Harry Potter II\Game.ini` (created by the first launch), find `[WinDrv.WindowsClient]`, and set `StartupFullscreen=False`.
+**Fullscreen problems?** On some systems the game crashes or shows a black screen when a level starts in fullscreen. Run it in a window instead: open `Documents\Harry Potter II\Game.ini` (created by the first launch), find `[WinDrv.WindowsClient]`, and set `StartupFullscreen=False`.
 
 ### 3. Install Archipelago and the apworld
 
@@ -108,7 +108,7 @@ Every later connect re-checks the installed mod against the apworld's copy byte 
 
 > Prefer to manage the files yourself? Set `auto_install_mod: false` under `harry_potter_2_pc_options` in host.yaml; `/installmod` still deploys on demand.
 
-> **Coming from an M212 release?** Earlier releases ran on Metallicafan212's engine patch. That setup is no longer supported. Install the game fresh from your disc into its own folder (step 1), point the client at that folder, and leave the old install alone or remove it. Saves do not carry over: the retail game keeps them in `Documents\Harry Potter II\`, M212 in `Documents\Harry - Coding Evolved\`.
+> **Coming from an earlier release?** Earlier releases needed a different setup, which is no longer supported. Install the game fresh from your disc into its own folder (step 1), point the client at that folder, and leave the old install alone or remove it. Saves from that setup do not carry over.
 
 ### Open castle (not available yet)
 
@@ -138,7 +138,7 @@ If you're playing solo (just you, no other AP slots):
 
    ```yaml
    Harry Potter 2 PC:
-     game_mode: vanilla # default, the retail game; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
+     game_mode: vanilla # default, the original game; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
      # game_mode: open_castle   # HP2 Bingo install (not available yet), NO spells precollected, all 7 land as AP items
    ```
 
@@ -313,7 +313,7 @@ Quick checklist after first launch:
 **Toast says "AP: WRONG INSTALL …"**:
 
 - This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning repeats every ten seconds until you fix it.
-- Fix it by launching the matching install: `game_mode: vanilla` → your retail install. Open castle is not available yet (see [Open castle](#open-castle-not-available-yet)), so an `open_castle` seed cannot be played on the retail setup; generate a `vanilla` seed instead.
+- Fix it by launching the matching install: `game_mode: vanilla` → your install. Open castle is not available yet (see [Open castle](#open-castle-not-available-yet)), so an `open_castle` seed cannot be played yet; generate a `vanilla` seed instead.
 - The warning is informational; the game won't stop you from continuing into a broken seed, so don't ignore it.
 
 **"HP2 PC Client" button missing from Archipelago Launcher**:

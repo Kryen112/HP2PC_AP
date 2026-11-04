@@ -65,8 +65,7 @@ const TRADER_PRICE_RAND_HI    = 250;
 // seeded RNG and shipped via the TRADERPRICES IPC line. Class-default and sticky
 // for the seed: survives level transitions (class-default carries cross-level in
 // a session) and save/exit (re-armed from slot_data on the next HELLO).
-// Dimension MUST be the integer literal 2048; M212 array dims take an integer
-// literal, not a const.
+// Dimension MUST be the integer literal 2048, equal to NONCARD_LOC_WINDOW.
 var byte TraderRolledFactor[2048];
 
 // --- per-level registry (instance: holds actor refs) -------------------------
@@ -118,7 +117,7 @@ var int  TraderSavedIngr[16];
 // last poll. 0 = no engagement. Rising-edge discriminator for the VENDOR_OPENED
 // IPC so a held-open dialogue fires the hint exactly once per engagement.
 var int TraderHintLastEngagedLocId;
-// Characters.ESells ordinal values (stable in the decompiled retail enum). Used
+// Characters.ESells ordinal values (stable in the stock enum). Used
 // only to record/branch a vendor's ORIGINAL sell type from the registry; live
 // vendor comparisons still use the c.ESells.Sells_* idiom.
 const SELLS_WBARK  = 2;
@@ -620,8 +619,7 @@ function TradersanityMarkPurchasedPass()
 // Mirror of the strOutOfStockId values vanilla VendorInit assigns per
 // VendorDialogSet enum. Used to RESTORE strOutOfStockId after the engagement-
 // gated mute. Duel vendors and unmapped sets get "" (vanilla also leaves them
-// empty). M212 const-cross-class limits mean we can't reuse the vanilla
-// literals; they're spelled out here.
+// empty). The vanilla literals are spelled out here.
 function string VanillaOutOfStockIdForVendor(Characters c)
 {
     if (c == None) return "";

@@ -1,4 +1,4 @@
-"""Installs the HPArchipelago mod into a retail game install, from the client.
+"""Installs the HPArchipelago mod into a game install, from the client.
 
 The packaged apworld carries one canonical compiled ``HPArchipelago.u`` under
 ``data/mod`` (staged and verified against its source-hash manifest by

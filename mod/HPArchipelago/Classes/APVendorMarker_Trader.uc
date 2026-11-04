@@ -57,7 +57,7 @@ begin:
 }
 
 // `function` (not `event`) to match WizardCardIcon.Touch's declaration, the
-// same as APCardMarker; overriding with a mismatched keyword is an M212
+// same as APCardMarker; overriding with a mismatched keyword is a compiler
 // hazard. No Super call: the vanilla card-grant path never runs.
 function Touch(Actor Other)
 {

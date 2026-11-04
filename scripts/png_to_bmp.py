@@ -1,5 +1,5 @@
-"""Convert the mod's PNG textures to the 8-bit palettized BMPs the retail
-importer reads.
+"""Convert the mod's PNG textures to the 8-bit palettized BMPs the game's
+texture importer reads.
 
     py -3.12 scripts/png_to_bmp.py
 

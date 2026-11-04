@@ -6,8 +6,8 @@
 // evaluates lives there); the watcher's Timer drives the unlock latch.
 class APGoalTracker extends Object;
 
-// Mirror APCardWatcher's ledger/id constants (M212 forbids a const array
-// dimension, and these index its class-default ledgers cross-class).
+// Mirror APCardWatcher's ledger/id constants; these index its class-default
+// ledgers cross-class, so keep them equal.
 const NUM_SPELLS = 7;
 const NUM_BLOCKER_KEYS = 14;
 

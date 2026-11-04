@@ -31,7 +31,7 @@ const FAKE_PEER_OFFSET     = 120.0;
 const FAKE_PEER_SLOT       = 9999;
 
 // Ghosts on this map, parallel to the slot each one draws. Dimension literals
-// mirror MAX_GHOSTS (M212 array dims take an integer literal).
+// mirror MAX_GHOSTS.
 var APGhostPawn Ghosts[16];
 var int         GhostSlots[16];
 var int         GhostCount;

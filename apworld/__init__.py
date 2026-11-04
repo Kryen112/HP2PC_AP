@@ -134,7 +134,7 @@ class HP2Location(Location):
 class GameMode(Choice):
     """Which install layout this seed targets.
 
-    `vanilla` (default): retail HP2 + M212 patch, the normal story flow.
+    `vanilla` (default): the original game, the normal story flow.
     Whether the 7 story regions gate behind bookcases (the Progressive Level
     Key chain plus the Duelling / Quidditch keys) or open immediately is
     governed by `vanilla_gate_levels`. The other 7 keys are always

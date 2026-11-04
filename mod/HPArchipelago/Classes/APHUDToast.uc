@@ -61,9 +61,9 @@ struct ToastSeg
 };
 
 // Flat segment pool: toast i owns segments [i*STRIDE .. i*STRIDE+ToastSegN[i]).
-// 80 = MAX_QUEUE * STRIDE (the array dim must be an integer literal in M212).
+// 80 = MAX_QUEUE * STRIDE, written as a literal.
 // transient: per-session UI, never part of the .usa save. All value types with
-// no actor refs, so the save graph stays clean even where M212 ignores transient.
+// no actor refs, so the save graph stays clean.
 var transient ToastSeg ToastSegs[80];
 var transient int ToastSegN[8];
 var transient float ToastRemaining[8];
@@ -118,8 +118,6 @@ var Sound ToastSound;
 // the .usa is never written, and the player's progress silently rolls back on
 // the next load. PreBeginPlay clears it for fresh spawns; Timer clears it
 // defensively every tick for deserialized toasts (which skip PreBeginPlay).
-// `transient` is intentionally omitted. M212 does not honor it, so the explicit
-// clear is the load-bearing piece.
 var APHUDToast LatestInstance;
 
 // Level.TimeSeconds of the last RenderHud, so a second draw in the same frame is skipped.
@@ -197,9 +195,9 @@ event Destroyed()
 // rebuilt it), re-register with the new instance.
 //
 // Cross-package guard: refuse if this toast's package (self.Level) doesn't match
-// the live harry's package (h.Level). In M212 `Level.PlayerHarryActor` resolves
-// to the *current* player pawn even from a stale-package actor's perspective,
-// so Entry.APHUDToast0 (alive forever in the title-screen map's package) would
+// the live harry's package (h.Level). `Level.PlayerHarryActor` does not check
+// packages (it can name a pawn outside this actor's level), so
+// Entry.APHUDToast0 (alive forever in the title-screen map's package) would
 // otherwise reach the live Entryhall_hub harry and register itself into
 // Entryhall_hub.HPHud.propArray. That cross-package ref is exactly what the
 // SaveGame conform aborts on ("Graph is linked to external private object
@@ -404,7 +402,7 @@ static function int BeginCarryEntry()
 }
 
 // Append one segment to carry entry `carryIdx`. Whole-struct assignment (not a
-// member write on a default array element) keeps it to lvalue forms M212 is
+// member write on a default array element) keeps it to lvalue forms the compiler is
 // known to accept. Silently drops overflow past STRIDE, like AddSeg.
 static function AddCarrySeg(int carryIdx, string text, byte code)
 {

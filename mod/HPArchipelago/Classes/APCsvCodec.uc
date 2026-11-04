@@ -5,7 +5,7 @@
 // it is empty. All four helpers build on NextTokenUpTo.
 class APCsvCodec extends Object;
 
-// Characters of a payload a log line may carry. The retail engine formats each
+// Characters of a payload a log line may carry. The engine formats each
 // log line into a fixed buffer, and a line far past it overruns that buffer.
 const LOG_PAYLOAD_CHARS = 200;
 

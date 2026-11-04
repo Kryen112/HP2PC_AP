@@ -31,8 +31,8 @@ var byte BeanPresentLastTick[512];
 var byte bFloorBeansTagged;
 
 // Bean-ledger and drop-snapshot sizes. The arrays are dimensioned with the
-// literal value (M212 forbids a const in an array dimension); the loop bounds
-// and range checks below use the const so the two stay in step.
+// literal value; the loop bounds and range checks below use the const so the
+// two stay in step.
 const BEAN_LEDGER_SIZE = 512;
 const MAX_DROP_BEANS = 64;
 
@@ -265,7 +265,7 @@ function ManageBeanDrops()
 }
 
 // Serialize the whole bean-room ledger to one flat comma-list for the client to
-// persist in AP data storage (the .usa cannot hold mod data on M212, so AP
+// persist in AP data storage (the .usa save does not carry mod data, so AP
 // storage is the only thing that survives a restart). Layout: 8 dispenser flags,
 // then floor-collected count + each collected index, then drop count + each
 // drop's int x,y,z. Parsed back by ApplyResyncBeanRoom.

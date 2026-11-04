@@ -2,13 +2,13 @@
 // APLumosLight.
 //
 // Drop-in LumosLight for the Overcompensation Trap. The trap enlarges the held
-// wand to the 3x APWandGiant mesh, but retail baseWand pins the Lumos light and
+// wand to the 3x APWandGiant mesh, but stock baseWand pins the Lumos light and
 // the spell-charge glow at WeaponLoc - 20 along the wand axis (the 1x wand length)
 // and re-asserts it every frame. That offset is uncontrollable from the mod, so
 // this light re-places both at the 3x tip. The rescale is gated on
-// bWandSizeTrapActive, so with no trap live this behaves exactly like the retail
+// bWandSizeTrapActive, so with no trap live this behaves exactly like the stock
 // light and no swap-back is needed. APTrapController.MarkWandSizeTrapActive swaps
-// this in for the retail LumosLight when the trap fires.
+// this in for the stock LumosLight when the trap fires.
 //
 // baseWand positions the light by calling TheLumosLight.UpdateLocation, so the
 // override there re-places the light (and the glow, which baseWand sets to the same
@@ -17,7 +17,7 @@
 // Lumos is off the glow is still pinned to the 1x tip and UpdateLocation is never
 // reached, so Tick realigns the glow instead. This actor is spawned when the trap
 // fires, after baseWand, so it ticks after baseWand and its write lands last.
-// Retail LumosLight disables Tick while Lumos is off, so PreBeginPlay and TurnOff
+// Stock LumosLight disables Tick while Lumos is off, so PreBeginPlay and TurnOff
 // re-enable it to keep that realignment running.
 //
 // Extends HGame.LumosLight: HGame precedes HPArchipelago in Default.ini EditPackages.
@@ -25,17 +25,17 @@
 
 class APLumosLight extends LumosLight;
 
-const RETAIL_TIP_OFFSET = 20.0;     // baseWand.GetWandEndPoint() hardcoded 1x offset
+const STOCK_TIP_OFFSET  = 20.0;     // baseWand.GetWandEndPoint() hardcoded 1x offset
 const GIANT_SCALE       = 3.0;      // APWandGiant MeshMap scale (APWandMesh.uc)
 
-// The APWandGiant tip in world space: the retail 1x offset scaled by the mesh bake.
+// The APWandGiant tip in world space: the stock 1x offset scaled by the mesh bake.
 // The unit wand axis is rotated first so the * and >> precedence is plain.
 function vector GiantWandTip()
 {
     local vector axis;
 
     axis = vect(0,0,1) >> PlayerHarry.WeaponRot;
-    return PlayerHarry.WeaponLoc - axis * (RETAIL_TIP_OFFSET * GIANT_SCALE);
+    return PlayerHarry.WeaponLoc - axis * (STOCK_TIP_OFFSET * GIANT_SCALE);
 }
 
 // Drag the spell-charge glow from the 1x tip baseWand pins it to back onto the giant
@@ -81,7 +81,7 @@ function Tick(float fTimeDelta)
     }
 }
 
-// Retail LumosLight disables Tick while Lumos is off; keep it live so the Lumos-off
+// Stock LumosLight disables Tick while Lumos is off; keep it live so the Lumos-off
 // glow realignment in Tick runs. It early-returns cheaply when no trap is active.
 function PreBeginPlay()
 {
@@ -89,7 +89,7 @@ function PreBeginPlay()
     Enable('Tick');
 }
 
-// Retail TurnOff disables Tick; re-enable it so the glow realignment keeps running
+// Stock TurnOff disables Tick; re-enable it so the glow realignment keeps running
 // after Lumos ends while the trap is still live.
 function TurnOff()
 {
@@ -97,7 +97,7 @@ function TurnOff()
     Enable('Tick');
 }
 
-// Retail LumosLight.Destroyed emits an unconditional debug ClientMessage; drop it
+// Stock LumosLight.Destroyed emits an unconditional debug ClientMessage; drop it
 // while keeping the teardown (turn the light off, free the particles).
 event Destroyed()
 {

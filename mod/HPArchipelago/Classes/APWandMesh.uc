@@ -3,7 +3,7 @@
 //
 // An enlarged copy of the vanilla wand (HPModels.WandMesh) for the
 // Overcompensation Trap. The held wand is attached to Harry's WeaponRight bone,
-// and this M212 renderer ignores a bone-attached actor's own DrawScale
+// and the renderer ignores a bone-attached actor's own DrawScale
 // (verified: setting baseWand.DrawScale changed nothing on screen), so the only
 // way to enlarge the held wand is to swap baseWand.Mesh/ThirdPersonMesh to a
 // variant whose scale is baked into its MeshMap. The trap applies APWandGiant;

@@ -9,7 +9,7 @@ class APMorphRegistry extends Info;
 
 // AppearanceCode is indexed by the same window slot as NonCardLocationChecked
 // (APLocationRegistry.SlotForApId). The window const stays for the table-clear
-// loop and the array dimension (M212 array dims take an integer literal).
+// loop, and the array dimension is the same value written as a literal.
 const NONCARD_LOC_WINDOW = 2048;
 const MORPH_REGISTRY_SIZE = 256;
 
@@ -26,7 +26,7 @@ const MORPH_REGISTRY_SIZE = 256;
 // Quidditch Armour); 3003 = HP2 open castle level/challenge key (the vanilla
 // silver-key FX sprite); 9000 = foreign filler/useful (AP-logo plain); 9001 =
 // foreign progression/trap (AP-logo arrow). Dimension literal MUST equal
-// NONCARD_LOC_WINDOW (M212 array dims take an integer literal, not a const).
+// NONCARD_LOC_WINDOW.
 var int AppearanceCode[2048];
 // Set once SetAppearanceCSV has ingested a table this process. The sweep and
 // every marker self-apply early-return until then so a pre-table marker keeps
@@ -46,7 +46,7 @@ var byte bAppearanceRestampedThisLevel;
 // check marker opts in with the same one call.
 //
 // INSTANCE state, NOT class-default. A class-default array of Actor refs is a
-// fatal M212 hazard: the class default object outlives every level, so on level
+// fatal hazard: the class default object outlives every level, so on level
 // cleanup ULevel::CleanupDestroyed walks the persistent ObjectProperty array and
 // asserts (Obj->IsValid) on a freed marker from a torn-down level (the chest
 // FancySpawn + pickup-Destroy pattern guarantees stale slots). Instance storage
@@ -67,7 +67,7 @@ var int   MorphApId[256];
 // paints normally. If a slot's reference has drifted to a different actor (a real
 // world decoration, which never registers here), the class differs and the sweep
 // skips it, so a non-marker is never overwritten with an AP item look. Dimension
-// literal mirrors MorphActor[] (M212 array dims take an integer literal).
+// literal mirrors MorphActor[].
 var name  MorphClassName[256];
 
 // Found-or-spawned singleton accessor. Lazily spawns one via the caller's context

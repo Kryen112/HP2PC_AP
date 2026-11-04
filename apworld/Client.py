@@ -61,7 +61,7 @@ Mod-side protocol (newline-delimited text):
 
 Durable-grant ledger: the set of applied AP indices is persisted in AP server
 Data Storage (key HP2PC_AP:{team}:{slot}), loaded on Connected, written on each
-APPLIED, wiped on NEWGAME. The mod's .usa cannot persist mod data (M212), so AP
+APPLIED, wiped on NEWGAME. The game's .usa save does not carry mod data, so AP
 storage is the source of truth for which indices have already been forwarded.
 
 Durable AP-grant resyncs (spells, bookcase-blocker keys, potion key items,
@@ -954,7 +954,7 @@ class HP2Context(CommonContext):
         # --- Durable-grant ledger ------------------------------------------
         # The single source of truth for "which AP items has this slot's
         # playthrough already had applied" is an Archipelago server-side Data
-        # Storage record (NOT the M212 .usa, which cannot persist mod data).
+        # Storage record (NOT the .usa save, which does not carry mod data).
         # consumed_indices = the set of absolute AP ReceivedItems indices the
         # mod has confirmed-applied (via the APPLIED ack). It is loaded from AP
         # storage on Connected and written back on every APPLIED. On (re)connect
@@ -973,8 +973,8 @@ class HP2Context(CommonContext):
         self.current_level: Optional[str] = None
         # Open-castle bean-room ledger, persisted in AP Data Storage under
         # beanroom_key (HP2PC_AP_beanroom:{team}:{slot}) so the room's collected /
-        # opened state survives a game restart (the .usa can't hold mod data on
-        # M212). The mod sends BEANSTATE on leaving the room; we Get + replay it
+        # opened state survives a game restart (the .usa save does not carry
+        # mod data). The mod sends BEANSTATE on leaving the room; we Get + replay it
         # to the mod (RESYNC_BEANROOM) on every connect / HELLO.
         self.beanroom_key: Optional[str] = None
         self.beanroom_state: str = ""

@@ -26,10 +26,7 @@ const CHECKEDOUT_CHUNK_CHARS = 550;
 // Class-default dedup for non-card AP locations (secrets, stars, vendors,
 // duels, matches, level completions). Indexed by `apId - LOC_BASE`.
 // Class-default so it persists across level transitions in a session, like
-// LocationChecked[]. The dimension literal MUST equal NONCARD_LOC_WINDOW:
-// M212 UnrealScript array dimensions take an integer literal, not a const
-// (no vanilla array in the decompiled retail source uses a const/enum dim),
-// so the constant cannot be referenced here directly.
+// LocationChecked[]. The dimension literal MUST equal NONCARD_LOC_WINDOW.
 var byte NonCardLocationChecked[2048];
 
 var harry HarryRef;
@@ -62,8 +59,8 @@ var bool bFolioEmptyAtSnapshot;
 // which StatusItem to set ownership on without re-resolving the class. Mirrors
 // default.APGrantedSpell[] / default.APGrantedBlockerKey[]; written by every card
 // grant (APGameInfo.TryApplyCard) and by the RESYNC_CARDS client ledger
-// (ApplyResyncCards). Dimension literal MUST be 102 (M212 array dims take an
-// integer literal, not a const). Matches WasOwnedByHarry[] / LocationChecked[].
+// (ApplyResyncCards). Dimension literal MUST be 102, matching WasOwnedByHarry[] /
+// LocationChecked[].
 const CARD_TIER_BRONZE = 1;
 const CARD_TIER_SILVER = 2;
 const CARD_TIER_GOLD   = 3;
@@ -115,8 +112,8 @@ var byte APGrantedKeyItem[3];
 // Default keep the flag sticky across save/load and across the per-level watcher
 // instance lifecycle. Index → name mapping in BlockerKeyNames[] below; new
 // entries here must mirror items.yaml blocker_keys.
-// Dimension literal MUST be the integer 14, not NUM_BLOCKER_KEYS (M212 array
-// dims take an integer literal, not a const). Keep in sync with the const.
+// Dimension literal MUST be the integer 14, equal to NUM_BLOCKER_KEYS. Keep the
+// two in sync.
 var string BlockerKeyNames[14];
 var byte APGrantedBlockerKey[14];
 
@@ -2070,7 +2067,7 @@ function Snapshot()
         }
     }
 
-    // Restore AP-granted spells the .usa save dropped (M212's per-level package
+    // Restore AP-granted spells the .usa save dropped (the per-level save package
     // does not always preserve travel class refs for spells the level's import
     // table didn't natively need, exactly the spell-loss reload bug). The
     // durable resync ledger is the source of truth; re-add anything it marked.

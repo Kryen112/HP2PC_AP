@@ -1,6 +1,6 @@
 """The client's end of the file channel shared with the game.
 
-The retail engine has no sockets, so the game and the client talk through a
+The game's engine has no sockets, so the game and the client talk through a
 folder (the channel directory, set in the game's Game.ini by the installer):
 
 - Client to game: ``in.txt`` holds the client's unacknowledged lines, rewritten

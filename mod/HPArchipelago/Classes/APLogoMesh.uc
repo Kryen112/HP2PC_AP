@@ -26,7 +26,7 @@
 //
 // UE1 re-import gotcha: editing the .psk/.bmp alone does not re-import. UCC
 // only re-runs the #exec lines below when this .uc recompiles.
-// scripts/rebuild_mod_retail.ps1 deletes HPArchipelago.u before `ucc make` to force
+// The build script deletes HPArchipelago.u before `ucc make` to force
 // it; the asset-rev tag also dirties this file, so bump it on every asset
 // change for non-clean builds.
 // asset-rev: 13

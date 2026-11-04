@@ -553,8 +553,8 @@ function TeleportToHub()
     // Bailing from stateDead via R2EH enters the hub still dead; suppress
     // the first post-travel stateDead so it is treated as the bail-out,
     // not an organic death. 40 ticks ~ 10s at 0.25s/tick mirrors
-    // APCardWatcher.DEATH_SUPPRESS_TIMEOUT_TICKS (M212 consts are not
-    // accessible cross-class, so the literal is used).
+    // APCardWatcher.DEATH_SUPPRESS_TIMEOUT_TICKS (the literal is repeated
+    // here; keep the two equal).
     class'APCardWatcher'.default.bSuppressNextDeathBroadcast = 1;
     class'APCardWatcher'.default.DeathSuppressTicksLeft = 40;
     // Leave through harry.LoadLevel (the path TriggerChangeLevel volumes use)

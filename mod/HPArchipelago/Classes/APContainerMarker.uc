@@ -72,7 +72,7 @@ auto state BounceIntoPlace
 }
 
 // `event` (not `function`) to match HProp.Touch's declaration; overriding with a
-// mismatched keyword is an M212 hazard. No Super: the vanilla pickup/grant path
+// mismatched keyword is a compiler hazard. No Super: the vanilla pickup/grant path
 // never runs -- this fires the AP check instead.
 event Touch(Actor Other)
 {

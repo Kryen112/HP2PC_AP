@@ -291,7 +291,7 @@ static function MarkWandSizeTrapActive(harry h)
     }
     wand.Mesh = giant;
     wand.ThirdPersonMesh = giant;
-    // The giant tip lands at 3x the retail 20-unit light offset, so the Lumos light
+    // The giant tip lands at 3x the stock 20-unit light offset, so the Lumos light
     // and spell-charge glow would otherwise float a third of the way up the shaft.
     // Swap in an APLumosLight that re-places them at the giant tip from inside
     // baseWand's own per-frame UpdateLocation call (race-free).
