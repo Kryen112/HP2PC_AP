@@ -2,7 +2,7 @@
 
 An Archipelago multiworld randomizer for _Harry Potter and the Chamber of Secrets_ (PC, 2002 EA / KnowWonder release).
 
-Complete and playable end to end. Up to **~579 checks** across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards (50 Bronze / 40 Silver / 11 Gold), 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases (Nimbus 2001 + Quidditch Armour), ~283 containersanity containers, and up to 13 Tradersanity vendor checks, gated per-category by yaml toggles. Item pool: 7 spells (vanilla precollects Lumos/Flipendo/Alohomora; open castle precollects none), 101 tier-prefixed cards, 2 equipment items, and 8 filler types. Two game modes via `game_mode`: `vanilla` (the original story flow) and `open_castle` (HP2 Bingo distribution, every level open from spawn; not available yet, see [Requirements](#requirements)). Goal: in vanilla, the post-Basilisk Great-Hall walk-in fires the credits cutscene which marks the slot complete; in open castle, opening the Great Hall via the configurable `open_castle_goal_*` clauses. Boomslang / Bicorn / BitOGoyle still flow through vanilla story progression.
+Complete and playable end to end. Up to **~579 checks** across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards (50 Bronze / 40 Silver / 11 Gold), 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases (Nimbus 2001 + Quidditch Armour), ~283 containersanity containers, and up to 13 Tradersanity vendor checks, gated per-category by yaml toggles. Item pool: 7 spells (vanilla precollects Lumos/Flipendo/Alohomora; open castle precollects none), 101 tier-prefixed cards, 2 equipment items, and 8 filler types. Two game modes via `game_mode`: `vanilla` (the original story flow) and `open_castle` (every level reachable from the Entry Hall after the flying car, on the same install). Goal: in vanilla, the post-Basilisk Great-Hall walk-in fires the credits cutscene which marks the slot complete; in open castle, opening the Great Hall via the configurable `open_castle_goal_*` clauses. Boomslang / Bicorn / BitOGoyle still flow through vanilla story progression.
 
 ## Requirements
 
@@ -18,7 +18,7 @@ Complete and playable end to end. Up to **~579 checks** across 10 categories: 4 
 
 **Platforms:** Windows 10 or 11. **Linux is experimental**: the client finds the game's Wine or Proton prefix by itself, but nobody has confirmed yet that the disc check passes under Wine. See [`docs/PLAYER_SETUP.md`](docs/PLAYER_SETUP.md#linux-experimental).
 
-**Open castle** (`game_mode: open_castle`) needs the HP2 Bingo maps, and the only Bingo distribution today is a full game copy with a modified executable, which this project cannot use. It stays unavailable until the Bingo map changes can be shipped as a patch to your own install.
+**Open castle** (`game_mode: open_castle`) plays on the same disc install. The mod opens the castle while the game runs, and the client hides one piece of level geometry by patching your own map file, keeping a backup. No game files ship with this project.
 
 Step-by-step walkthrough in [`docs/PLAYER_SETUP.md`](docs/PLAYER_SETUP.md).
 
@@ -65,7 +65,7 @@ No C++. No memory hooking. All game-side logic is UnrealScript compiled for the 
 ## Features
 
 - **Item shuffle** (no entrance shuffle).
-- **Two game modes** via `game_mode`: `vanilla` (linear story flow, open hub once keys are collected) and `open_castle` (HP2 Bingo distribution; every level open from spawn, no spells precollected; not available yet). The mod auto-detects the HP2 Bingo install at runtime; the apworld selects mode from the yaml.
+- **Two game modes** via `game_mode`: `vanilla` (linear story flow, open hub once keys are collected) and `open_castle` (every level reachable from the Entry Hall after the flying car, no spells precollected). Both play on the same install; the apworld selects the mode from the yaml.
 - **Open hub** start; all level doors unlocked from spawn; player can enter any level.
 - **Non-filler items:** 7 spells + 101 wizard cards + (optional) 2 equipment items (Nimbus 2001 / Quidditch Armour). The `starting_spells` yaml option (default Flipendo/Lumos/Alohomora) picks which spells are precollected starters; any spell not listed enters the AP item pool. Cards are AP item names prefixed by tier (e.g. `Silver Card - Duke`).
 - **Locations** (~579 max with all toggles on): 4 spell-tutorial classrooms + 101 wizard cards + 109 secret areas + 44 challenge stars + 10 ranked duels (Duelling Club) + 6 Quidditch matches + 4 spell-challenge par times + 2 Weasley-twin vendor purchases + ~283 containersanity containers + up to 13 Tradersanity vendor checks.

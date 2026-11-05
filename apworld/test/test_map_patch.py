@@ -209,7 +209,7 @@ class TestClientMapPatch(_InstallCase):
         with mock.patch.object(Client, "_hp2_install_path", return_value=self.install) as configured, \
                 mock.patch.object(map_patch, "apply_patch", return_value="unchanged") as apply:
             self.run_client({"game_mode": "open_castle"}, None)
-            configured.assert_called_once_with(True)
+            configured.assert_called_once_with()
             apply.assert_called_once_with(self.install)
 
     def test_folder_without_maps_touches_nothing(self) -> None:

@@ -70,7 +70,7 @@ The client supports Linux, but whether the game's SafeDisc disc check passes und
 - SafeDiscShim stands in for a driver that modern Windows dropped. Wine is reported to handle SafeDisc by itself ([unconfirmed](https://github.com/RibShark/SafeDiscShim/issues/5)), so the disc check may work without it. Try the game without it first; if the disc check fails, install SafeDiscShim into the same prefix.
 - Point the client at the install's real location inside the prefix (under `drive_c/`). After you connect to a seed, the client finds the prefix from that path and uses its `drive_c/users/<user>/Documents/Harry Potter II/` folder for `Game.ini`, the saves and the game link folder. If the prefix has several users, launch the game once first so it creates that folder.
 - **Auto-launch** runs `wine` from your `PATH` with that prefix as `WINEPREFIX`. For a Proton prefix the client does not launch the game (the system `wine` would convert Steam's prefix): set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml and start the game through Steam once the client is connected.
-- The client picks the game link folder once per session. After switching to a seed of the other game mode, or changing the install folder, restart the client.
+- The client picks the game link folder once per session. After changing the install folder, restart the client.
 - No administrator step: a prefix under your home folder is writable.
 - Paths this guide writes as `Documents\Harry Potter II\` are inside the prefix, for example `drive_c/users/steamuser/Documents/Harry Potter II/` under Proton.
 
@@ -104,7 +104,7 @@ That's it. Archipelago discovers it automatically next time you launch, and `HP2
 
 ### 4. The mod: the client installs it for you
 
-There are no mod files to copy by hand. The first time you connect the client to a seed, it pops a folder picker asking for your HP2 install (the folder containing `system\Game.exe`; saved to `host.yaml`, so you are asked once per mode) and then sets that install up:
+There are no mod files to copy by hand. The first time you connect the client to a seed, it pops a folder picker asking for your HP2 install (the folder containing `system\Game.exe`; saved to `host.yaml`, so you are asked only once) and then sets that install up:
 
 - copies the compiled `HPArchipelago.u` (carried inside the apworld) into `<HP2 install>\system\`
 - patches `<HP2 install>\system\Default.ini` in place: `DefaultGame=HPArchipelago.APGameInfo` and `Console=HPArchipelago.APConsole` under `[Engine.Engine]`, plus the folder the game and the client share (`ChannelDir=`, under `[HPArchipelago.APIPCActor]`)
@@ -120,9 +120,9 @@ Every later connect re-checks the installed mod against the apworld's copy byte 
 
 > **Coming from an earlier release?** Earlier releases needed a different setup, which is no longer supported. Install the game fresh from your disc into its own folder (step 1), point the client at that folder, and leave the old install alone or remove it. Saves from that setup do not carry over.
 
-### Open castle (not available yet)
+### Open castle
 
-The `open_castle` game mode plays on the **HP2 Bingo** maps (every level open from spawn). The only Bingo distribution today is a full copy of the game with a modified executable, which this randomizer cannot build on. Open castle stays unavailable until the Bingo map changes can be applied as a patch to your own disc install. Use `game_mode: vanilla` for now.
+The `open_castle` game mode plays on the same disc install as `vanilla`; there is nothing extra to install. After the flying car, Harry lands in the Entry Hall with every level reachable, gated by the bookcase keys. The mod opens doors and links while the game runs. One change, hiding the vine over the Forbidden Forest gate, lives in the level geometry, so the client patches your own `Maps\Grounds_hub.unr` when you connect to an open castle seed. It keeps a `Grounds_hub.unr.orig` backup and puts the original back when you connect to a `vanilla` seed.
 
 ## Generate a seed (solo play)
 
@@ -144,15 +144,15 @@ If you're playing solo (just you, no other AP slots):
 
    The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_missable_progression` (default off) controls whether progression items may be placed at missable locations in un-replayable levels (missable secrets, plus `containersanity` containers in those levels); safe default keeps those filler-only.
 
-   **Game mode**: one extra setting selects the install layout your seed targets:
+   **Game mode**: one extra setting selects the way through the game:
 
    ```yaml
    Harry Potter 2 PC:
      game_mode: vanilla # default, the original game; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
-     # game_mode: open_castle   # HP2 Bingo install (not available yet), NO spells precollected, all 7 land as AP items
+     # game_mode: open_castle   # every level open after the flying car, NO spells precollected, all 7 land as AP items
    ```
 
-   The mod side handles the runtime difference itself (auto-detects the HP2 Bingo install via the `MGBingoLearnAllSpells` actor and reverts the HP2 Bingo client's PostBeginPlay spell grants). You can confirm it kicked in by checking `Game.log` for `DetectOpenCastleMode - found MGBingoLearnAllSpells - entering open castle mode (sticky)` shortly after launching. Match this setting to the install you launch; if they disagree the game pops a "WRONG INSTALL" warning toast every level (see Troubleshooting), because a mismatched seed can't be completed.
+   Both modes play on the same install. The client tells the mod which mode the seed uses when it connects; you can confirm open castle kicked in by checking `Game.log` for `entering open castle mode (sticky)`.
 
    **Open castle goal**: in `open_castle` mode the slot completes by opening the Great Hall, not by the Basilisk fight. Five options set the unlock requirement; they're AND'd together, and any clause left at `0`/off drops out. If all five resolve to `0`/off it falls back to "all 7 spells" so there's always a gate. All five are ignored in vanilla.
 
@@ -212,9 +212,9 @@ The client connects to the AP server as soon as you `/connect` and reads your se
 
 ### Launch the game
 
-With **auto-launch on** (the default), the client starts the right `Game.exe` for the seed's mode by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything. Keep the disc in the drive: the disc check takes about half a minute before the main menu appears, so give it time (typing `/play` meanwhile does not start a second copy; the client tells you the game is still starting). Then pick New Game or Load Game. Every connect you make yourself (the Connect button or `/connect`) launches it again if the game is not running (a launcher window left open counts as running) and the mod is current, so closing the game and reconnecting brings it back. A dropped connection that the client repairs by itself never launches the game.
+With **auto-launch on** (the default), the client starts `Game.exe` by itself, a moment after you connect (and right after any randomizers finish writing, so the game never boots mid-patch). You don't have to launch anything. Keep the disc in the drive: the disc check takes about half a minute before the main menu appears, so give it time (typing `/play` meanwhile does not start a second copy; the client tells you the game is still starting). Then pick New Game or Load Game. Every connect you make yourself (the Connect button or `/connect`) launches it again if the game is not running (a launcher window left open counts as running) and the mod is current, so closing the game and reconnecting brings it back. A dropped connection that the client repairs by itself never launches the game.
 
-**First connect only:** the client needs to know where your install is, so it pops a folder picker asking for the install that matches the seed's mode (the folder that contains the `system` folder with `Game.exe`). Your choice is saved to `host.yaml`, so you're asked only once per mode. You can also set it ahead of time by editing host.yaml (see the install-path block under Sound randomizer below).
+**First connect only:** the client needs to know where your install is, so it pops a folder picker asking for your install (the folder that contains the `system` folder with `Game.exe`). Your choice is saved to `host.yaml`, so you're asked only once. You can also set it ahead of time by editing host.yaml (see the install-path block under Sound randomizer below).
 
 A few seconds after you pick New Game or Load Game you should see in the client log:
 
@@ -236,12 +236,11 @@ Set `sound_randomizer` in your player yaml to shuffle the sound effects, determi
 
 It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u` when you connect, keeping a one-time `HPSounds.u.orig` backup.
 
-- **Install path (one per mode, you pick it).** There is no default. The first time you connect to a sound-randomizer seed, the client pops a folder picker and asks for the install that matches the seed's game mode (the folder that contains `system\HPSounds.u`). Your choice is saved to `host.yaml`, so you are asked only once per mode. You can also set it ahead of time (or change it later) by editing host.yaml directly; if you run a single install for both modes, point both fields at it:
+- **Install path (you pick it once).** There is no default. The first time you connect, the client pops a folder picker and asks for your install (the folder that contains `system\HPSounds.u`). Your choice is saved to `host.yaml`, so you are asked only once; both game modes use it. You can also set it ahead of time (or change it later) by editing host.yaml directly:
 
   ```yaml
   harry_potter_2_pc_options:
-    vanilla_install_folder: "<path to your vanilla-mode install>"
-    open_castle_install_folder: "<path to your open-castle-mode install>"
+    install_folder: "<path to your install>"
     auto_launch_game: true   # default; set false to launch the game yourself
     auto_install_mod: true   # default; set false to manage the mod files yourself
   ```
@@ -255,7 +254,7 @@ It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u`
 
 Set `music_randomizer: true` in your player yaml to shuffle every music track, deterministically per seed (background tracks swap with background tracks, short jingles with jingles). It works the same way as the sound randomizer: the client swaps the `Music\*.ogg` files in your install on connect, keeping a one-time backup. Because it swaps files rather than rewriting triggers, it covers cutscene, menu, and spell-lesson music too.
 
-- **Same install path, permissions, and timing** as the sound randomizer above (it uses the same per-mode `install_folder`, picks it once, needs write access / admin under `Program Files`, and takes effect on the next launch).
+- **Same install path, permissions, and timing** as the sound randomizer above (it uses the same `install_folder`, picks it once, needs write access / admin under `Program Files`, and takes effect on the next launch).
 - **Reshuffle**: `/reroll_music`. **Revert**: `/restore_music`, or connect to a seed with the option off. Restart once to hear the change.
 
 ### Dialogue randomizer (optional)
@@ -268,7 +267,7 @@ Set `dialogue_randomizer` in your player yaml to shuffle the spoken voice lines,
 
 It works the same way as the sound randomizer: the client binary-patches `<install>\Sounds\AllDialog.uax` (the voices) and the subtitle files `<install>\system\hpdialog.int` and `<install>\system\BumpDialog.int` (the latter holds the student bump lines) on connect, keeping one-time `.orig` backups of each. A game installed in another language uses that language's files instead (for example `AllDialog.DUT_uax`, `HpDialog.dut` and `BumpDialog.dut` on a Dutch disc), and those are the ones patched. All are shuffled with the same permutation, so the caption you read matches the line you hear. A few clips have no subtitle in the game to begin with (Quidditch/duel commentary, ambient mutters, alternate takes); when one of those plays it shows no caption, exactly as in the unmodified game.
 
-- **Same install path, permissions, and timing** as the sound randomizer above (same per-mode `install_folder`, picks it once, needs write access / admin under `Program Files`, takes effect on the next launch).
+- **Same install path, permissions, and timing** as the sound randomizer above (same `install_folder`, picks it once, needs write access / admin under `Program Files`, takes effect on the next launch).
 - **Reshuffle**: `/reroll_dialogue` (keeps the seed's mode). **Revert**: `/restore_dialogue`, or connect to a seed with the option off, or manually copy each `.orig` backup (for example `AllDialog.uax.orig`) back over its file. Restart once to hear the change.
 
 ### PopTracker map tracker (optional)
@@ -306,7 +305,7 @@ Quick checklist after first launch:
 
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
-- Make sure you launch the install the client set up: the one saved as `vanilla_install_folder` under `harry_potter_2_pc_options` in `host.yaml`.
+- Make sure you launch the install the client set up: the one saved as `install_folder` under `harry_potter_2_pc_options` in `host.yaml`.
 - Close the game, including its main menu window, and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires both inis, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
 - Manual checks, if you want to see for yourself: `<HP2 install>\system\HPArchipelago.u` exists; `Documents\Harry Potter II\Game.ini` (if present) has `DefaultGame=HPArchipelago.APGameInfo` and `Console=HPArchipelago.APConsole` under `[Engine.Engine]`, and a `[HPArchipelago.APIPCActor]` section with `ChannelDir=`.
 - Read `C:\Users\<you>\Documents\Harry Potter II\Game.log`, search for `[Archipelago]` lines.
@@ -319,12 +318,6 @@ Quick checklist after first launch:
 
 - Leave `Language=` under `[Engine.Engine]` in `Default.ini` and `Game.ini` as the disc installed it. It names the language files the game loads (`dut` loads `AllDialog.DUT_uax` and the `.dut` subtitles), so a different value points at files your install does not have.
 - If the dialogue randomizer is on, type `/restore_dialogue`, restart the game, and check whether the voices come back. If they do, report it with your `Game.log`.
-
-**Toast says "AP: WRONG INSTALL …"**:
-
-- This means your seed's `game_mode` doesn't match the maps you launched: a `vanilla` seed on the HP2 Bingo install, or an `open_castle` seed on the vanilla install. A mismatched seed can't be completed (some checks become unreachable and the goal never unlocks), so the warning repeats every ten seconds until you fix it.
-- Fix it by launching the matching install: `game_mode: vanilla` → your install. Open castle is not available yet (see [Open castle](#open-castle-not-available-yet)), so an `open_castle` seed cannot be played yet; generate a `vanilla` seed instead.
-- The warning is informational; the game won't stop you from continuing into a broken seed, so don't ignore it.
 
 **"HP2 PC Client" button missing from Archipelago Launcher**:
 

@@ -39,7 +39,7 @@ How this dev machine is configured and the daily build/run loop. Update whenever
 
 Every install of the game on the machine shares `Documents\Harry Potter II\` (one `Game.ini`, one save folder). Back up a save slot before a test that might overwrite it.
 
-The frozen Archipelago install's `host.yaml` points `vanilla_install_folder` at the dev install, so the client deploys there and auto-launch starts it.
+The frozen Archipelago install's `host.yaml` points `install_folder` at the dev install, so the client deploys there and auto-launch starts it.
 
 ## Python environment
 
@@ -136,7 +136,7 @@ Textures are imported from 8-bit palettized BMP (the kit's `Editor.dll` has no P
 
 ## Run loop
 
-Connect the HP2 PC Client to a seed; with `vanilla_install_folder` pointing at the dev install it deploys the mod and launches `C:\Games\HP2-Dev\system\Game.exe`. The disc check takes about half a minute, then pick New Game or Load Game in the main menu. Or start `Game.exe` yourself once the client is connected.
+Connect the HP2 PC Client to a seed; with `install_folder` pointing at the dev install it deploys the mod and launches `C:\Games\HP2-Dev\system\Game.exe`. The disc check takes about half a minute, then pick New Game or Load Game in the main menu. Or start `Game.exe` yourself once the client is connected.
 
 Logs:
 

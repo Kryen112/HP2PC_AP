@@ -128,13 +128,15 @@ if TYPE_CHECKING:
 ITEM_NAME_TO_CARD_CLASS = {item_name: ucls for ucls, item_name in CARD_CLASS_TO_ITEM_NAME.items()}
 
 
-def _hp2_install_path(open_castle: bool) -> Optional[str]:
-    """Configured install folder for the seed's game mode (open castle vs
-    vanilla), or None. Read at call time so a host.yaml edit needs no client
-    change. An unset folder is filtered by the caller's HPSounds.u existence check."""
-    field = "open_castle_install_folder" if open_castle else "vanilla_install_folder"
+def _hp2_install_path() -> Optional[str]:
+    """Configured install folder, or None. Read at call time so a host.yaml
+    edit needs no client change. A blank entry is unset: reading it through the
+    settings group would resolve it to the Archipelago folder."""
     try:
-        path = str(getattr(HP2World.settings, field)).strip()
+        group = HP2World.settings
+        if not str(object.__getattribute__(group, "install_folder")).strip():
+            return None
+        path = str(group.install_folder).strip()
     except Exception:
         return None
     return path or None
@@ -602,27 +604,22 @@ def _log_safe(text: str, limit: int = 180) -> str:
 class HP2CommandProcessor(ClientCommandProcessor):
     def _restore_audio(self, kind: str) -> None:
         spec = _AUDIO_KINDS[kind]
-        installs = []
-        for mode, open_castle in (("vanilla", False), ("open castle", True)):
-            path = _hp2_install_path(open_castle)
-            if path and spec.present(path):
-                installs.append((mode, path))
-        if not installs:
+        path = _hp2_install_path()
+        if not path or not spec.present(path):
             self.output("No install is configured. Set 'harry_potter_2_pc_options' -> "
-                        "vanilla_install_folder / open_castle_install_folder in host.yaml.")
+                        "install_folder in host.yaml.")
             return
-        for mode, path in installs:
-            try:
-                result = spec.patch.restore_original(path)
-            except _PATCH_ERRORS as exc:
-                self.output(f"{mode}: restore failed: {exc}")
-                continue
-            if result == "restored":
-                self.output(f"{mode}: original {spec.thing} restored. Restart Harry Potter if it is running.")
-            elif result == "unchanged":
-                self.output(f"{mode}: already original.")
-            else:
-                self.output(f"{mode}: no {spec.backup} found; nothing to restore.")
+        try:
+            result = spec.patch.restore_original(path)
+        except _PATCH_ERRORS as exc:
+            self.output(f"Restore failed: {exc}")
+            return
+        if result == "restored":
+            self.output(f"Original {spec.thing} restored. Restart Harry Potter if it is running.")
+        elif result == "unchanged":
+            self.output("Already original.")
+        else:
+            self.output(f"No {spec.backup} found; nothing to restore.")
 
     def _reroll_audio(self, kind: str) -> None:
         ctx: "HP2Context" = self.ctx
@@ -630,9 +627,9 @@ class HP2CommandProcessor(ClientCommandProcessor):
         if not ctx.audio_enabled[kind]:
             self.output(f"Reroll needs a connected seed with the {kind} randomizer on.")
             return
-        install = _hp2_install_path(ctx.is_open_castle)
+        install = _hp2_install_path()
         if not install or not spec.present(install):
-            self.output("No valid install folder for this seed's mode yet. Reconnect "
+            self.output("No valid install folder yet. Reconnect "
                         "and pick it first.")
             return
         self.output(f"Reshuffling {spec.thing}. Restart Harry Potter once it finishes.")
@@ -677,8 +674,7 @@ class HP2CommandProcessor(ClientCommandProcessor):
         return True
 
     def _cmd_play(self) -> bool:
-        """Launch Harry Potter for the connected seed's mode (vanilla or open
-        castle). The client already auto-launches on connect; use /play if you
+        """Launch Harry Potter. The client already auto-launches on connect; use /play if you
         turned that off (auto_launch_game or /autoplay), or to relaunch after
         closing the game.
         Waits for any in-flight randomizer patch first."""
@@ -1154,12 +1150,8 @@ class HP2Context(CommonContext):
         self._link_channel_warned = False
         # The seed's declared game_mode ("vanilla" / "open_castle"), or None
         # until Connected. Sent verbatim as the "MODE <mode>" IPC line on
-        # Connected and re-armed every game HELLO. Unlike is_open_castle this is
-        # a POSITIVE signal in both modes: the mod compares it against its own
-        # install probe (the MGBingo package) to warn when a seed is played on
-        # the wrong maps. "MODE open_castle" additionally latches bOpenCastleMode
-        # mod-side; "MODE vanilla" only records the declared mode (never clears
-        # bOpenCastleMode, preserving that invariant).
+        # Connected and re-armed every game HELLO. "MODE open_castle" latches
+        # bOpenCastleMode mod-side; "MODE vanilla" never clears it.
         self.seed_mode: Optional[str] = None
         # #3: last "apId:code,…" appearance payload pushed to the mod, or None
         # if not yet built. Resent on every game HELLO (sticky + idempotent
@@ -2074,7 +2066,7 @@ class HP2Context(CommonContext):
                 self._effective_seed(sd, "dialogue", "dialogue_seed") if dialogue_mode else None)
             any_on = bool(sound_mode) or music_on or bool(dialogue_mode)
 
-            install = _hp2_install_path(open_castle)
+            install = _hp2_install_path()
             valid = bool(install) and os.path.exists(sound_patch.package_path(install))
             logger.info(
                 f"Audio randomizer: sound={sound_mode or 'off'} music={music_on} "
@@ -2089,7 +2081,7 @@ class HP2Context(CommonContext):
                 return True, install
 
             if not valid:
-                install = await self._prompt_install_folder(open_castle)
+                install = await self._prompt_install_folder()
                 valid = bool(install)
             if not valid:
                 # A randomizer is on but the install is unknown, so nothing was
@@ -2192,7 +2184,7 @@ class HP2Context(CommonContext):
         install, or put the original maps back for a vanilla seed. The change is
         visual only, so a failure is reported but never holds back the launch."""
         open_castle = sd.get("game_mode") == "open_castle"
-        install = install or _hp2_install_path(open_castle)
+        install = install or _hp2_install_path()
         if not install or not os.path.isdir(os.path.join(install, "Maps")):
             return
         work = map_patch.apply_patch if open_castle else map_patch.restore_original
@@ -2214,15 +2206,15 @@ class HP2Context(CommonContext):
             ui_logger.info("Maps: restored the original maps for this vanilla seed.")
 
     async def _resolve_launch_folder(self) -> Optional[str]:
-        """The install folder to launch for this seed's mode: the configured one if
-        valid, else a one-time folder picker. None if it cannot be resolved."""
-        install = _hp2_install_path(self.is_open_castle)
+        """The install folder to launch: the configured one if valid, else a
+        one-time folder picker. None if it cannot be resolved."""
+        install = _hp2_install_path()
         if install and os.path.exists(sound_patch.package_path(install)):
             return install
-        return await self._prompt_install_folder(self.is_open_castle)
+        return await self._prompt_install_folder()
 
     async def _auto_launch(self, install_hint: Optional[str]) -> None:
-        """Launch Game.exe for this seed's mode. Reuses the folder the audio step
+        """Launch Game.exe. Reuses the folder the audio step
         resolved when it is valid, else resolves (and prompts once for) it."""
         if install_hint and os.path.exists(sound_patch.package_path(install_hint)):
             install = install_hint
@@ -2388,8 +2380,7 @@ class HP2Context(CommonContext):
         exe = os.path.join(system_dir, "Game.exe")
         if not os.path.exists(exe):
             ui_logger.error(
-                f"Cannot launch: '{exe}' not found. Check the install folder for this "
-                f"seed's mode in host.yaml."
+                f"Cannot launch: '{exe}' not found. Check install_folder in host.yaml."
             )
             return
         mode = "open castle" if self.is_open_castle else "vanilla"
@@ -2406,35 +2397,33 @@ class HP2Context(CommonContext):
         ui_logger.info(f"Launching Harry Potter ({mode}). {DISC_CHECK_WORDING[0].upper()}"
                        f"{DISC_CHECK_WORDING[1:]} before its window opens.")
 
-    async def _prompt_install_folder(self, open_castle: bool) -> Optional[str]:
-        """Pop a folder picker for the seed's game mode and persist the choice to
-        host.yaml, so the player picks their install once. The client needs it to
-        launch the game and to apply any randomizers. Returns the chosen folder
-        (which contains system/Game.exe and system/HPSounds.u) or None if cancelled
-        / no GUI."""
-        mode = "open castle" if open_castle else "vanilla"
-        field = "open_castle_install_folder" if open_castle else "vanilla_install_folder"
+    async def _prompt_install_folder(self) -> Optional[str]:
+        """Pop a folder picker and persist the choice to host.yaml, so the player
+        picks their install once. The client needs it to launch the game and to
+        apply any randomizers. Returns the chosen folder (which contains
+        system/Game.exe and system/HPSounds.u) or None if cancelled / no GUI."""
+        field = "install_folder"
         ui_logger.info(
-            f"First connect: pick your Harry Potter 2 {mode} install folder so the "
-            f"client can keep the mod installed, launch the game, and apply any "
-            f"randomizers. It is the folder that contains the 'system' folder with "
-            f"Game.exe. Saved to host.yaml, so you are asked only once per mode."
+            "First connect: pick your Harry Potter 2 install folder so the client "
+            "can keep the mod installed, launch the game, and apply any randomizers. "
+            "It is the folder that contains the 'system' folder with Game.exe. Saved "
+            "to host.yaml, so you are asked only once."
         )
         try:
             from Utils import open_directory
         except Exception:
             ui_logger.warning(
-                f"The client needs your {mode} install folder, but no folder picker is "
+                f"The client needs your install folder, but no folder picker is "
                 f"available here. Set 'harry_potter_2_pc_options' -> '{field}' in "
                 f"host.yaml."
             )
             return None
-        title = f"Select your Harry Potter 2 {mode} install folder (contains system\\Game.exe)"
+        title = "Select your Harry Potter 2 install folder (contains system\\Game.exe)"
         loop = asyncio.get_event_loop()
         chosen = await loop.run_in_executor(None, open_directory, title)
         if not chosen:
             ui_logger.warning(
-                f"No {mode} install folder chosen. Reconnect to pick it, or set "
+                f"No install folder chosen. Reconnect to pick it, or set "
                 f"'harry_potter_2_pc_options' -> '{field}' in host.yaml."
             )
             return None
@@ -2449,7 +2438,7 @@ class HP2Context(CommonContext):
 
     def _save_install_folder(self, field: str, path: str) -> None:
         """Persist a picked install folder into host.yaml so the player is asked
-        only once per mode."""
+        only once."""
         try:
             import settings as ap_settings
             current = getattr(HP2World.settings, field)
@@ -2675,8 +2664,7 @@ class HP2Context(CommonContext):
         self.ghosts.reset_visible()
         # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
         # every HELLO (fresh launch / reconnect / cold load into a
-        # sentinel-less level) re-asserts it. Sent in BOTH modes so the mod
-        # can flag a seed/install mismatch; "open_castle" also re-latches
+        # sentinel-less level) re-asserts it. "open_castle" re-latches
         # bOpenCastleMode.
         if self.seed_mode is not None:
             self._send_to_game("MODE " + self.seed_mode)
@@ -3510,13 +3498,13 @@ class HP2Context(CommonContext):
 
     def _link_channel(self) -> Optional[str]:
         """The game link folder, or None while it cannot be known yet: off
-        Windows it lives in the prefix of the install for the seed's mode, so
-        it waits for the seed and for that install folder to be set."""
+        Windows it lives in the install's prefix, so it waits for the seed and
+        for the install folder to be set."""
         if sys.platform.startswith("win"):
             return str(installer.channel_dir())
         if self.seed_mode is None:
             return None
-        install = _hp2_install_path(self.is_open_castle)
+        install = _hp2_install_path()
         if not install:
             return None
         try:

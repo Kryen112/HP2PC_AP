@@ -132,7 +132,7 @@ class HP2Location(Location):
 
 
 class GameMode(Choice):
-    """Which install layout this seed targets.
+    """Which way through the game this seed plays.
 
     `vanilla` (default): the original game, the normal story flow.
     Whether the 7 story regions gate behind bookcases (the Progressive Level
@@ -140,9 +140,9 @@ class GameMode(Choice):
     governed by `vanilla_gate_levels`. The other 7 keys are always
     precollected here.
 
-    `open_castle`: the HP2 Bingo community pack's distribution maps (every
-    door unlocked from spawn). All 14 bookcase-blocker keys are AP items
-    gating each level transition.
+    `open_castle`: every level reachable from the Entry Hall after the flying
+    car, on the same install. All 14 bookcase-blocker keys are AP items gating
+    each level transition.
 
     Harry's starting spells are set by `starting_spells`, not by this option.
     """
@@ -593,26 +593,16 @@ class HP2WebWorld(WebWorld):
 
 
 class HP2Settings(settings.Group):
-    # One install folder per game mode: a vanilla seed uses the vanilla install,
-    # an open castle seed uses the open castle install. Both blank by default and
-    # not framework-required. With auto_launch_game on (the default) the client
-    # pops a one-time folder picker on first connect to learn the folder it
-    # launches (and patches), saving the choice here so it asks once per mode.
-    # Read by the mod installer, the sound / music / dialogue randomizers, and the
-    # auto-launcher. Each is the install root, containing system\ (Game.exe,
-    # HPSounds.u) and Music\.
-    class VanillaInstallFolder(settings.UserFolderPath):
-        """Install folder for vanilla-mode seeds: the install root, containing the
-        'system' folder (with Game.exe and HPSounds.u) and the 'Music' folder. Used
-        to launch the game and by the randomizers. Use forward slashes."""
-        description = "Harry Potter 2 vanilla install folder"
-        required = False
-
-    class OpenCastleInstallFolder(settings.UserFolderPath):
-        """Install folder for open-castle-mode seeds: the install root, containing
-        the 'system' folder (with Game.exe and HPSounds.u) and the 'Music' folder.
-        Used to launch the game and by the randomizers. Use forward slashes."""
-        description = "Harry Potter 2 open castle install folder"
+    # The client launches and patches this install. Blank by default; on first
+    # connect the client pops a one-time folder picker and saves the choice here.
+    # Read by the mod installer, the map patch, the sound / music / dialogue
+    # randomizers, and the auto-launcher.
+    class InstallFolder(settings.UserFolderPath):
+        """Harry Potter 2 install folder, used for both game modes: the install
+        root, containing the 'system' folder (with Game.exe and HPSounds.u), the
+        'Maps' folder and the 'Music' folder. Used to launch the game and by the
+        randomizers. Use forward slashes."""
+        description = "Harry Potter 2 install folder"
         required = False
 
     class AutoLaunchGame(settings.Bool):
@@ -630,10 +620,23 @@ class HP2Settings(settings.Group):
         the game launches. On by default. Set to false to manage the mod files
         yourself; /installmod deploys on demand."""
 
-    vanilla_install_folder: VanillaInstallFolder = VanillaInstallFolder("")
-    open_castle_install_folder: OpenCastleInstallFolder = OpenCastleInstallFolder("")
+    install_folder: InstallFolder = InstallFolder("")
     auto_launch_game: Union[AutoLaunchGame, bool] = True
     auto_install_mod: Union[AutoInstallMod, bool] = True
+
+    # Per-mode install folder keys, moved into install_folder on load.
+    LEGACY_INSTALL_FOLDER_KEYS = ("vanilla_install_folder", "open_castle_install_folder")
+
+    def update(self, dct: dict) -> None:
+        """Load host.yaml, moving a per-mode install folder into install_folder."""
+        super().update(dct)
+        for key in self.LEGACY_INSTALL_FOLDER_KEYS:
+            if key not in self.__dict__:
+                continue
+            legacy = str(self.__dict__.pop(key) or "").strip()
+            if legacy and not str(self.__dict__.get("install_folder", "")).strip():
+                self.install_folder = self.InstallFolder(legacy)
+            self._changed = True
 
 
 class HP2World(World):
