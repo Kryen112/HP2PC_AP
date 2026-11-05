@@ -145,10 +145,6 @@ event InitGame(string Options, out string Error)
 
     ReplaceCardChests();
     DestroyUnobtainableSecretMarkers();
-    // Durable open castle detection runs pre-Harry so DestroyGryffindorSpellGiver's
-    // bOpenCastleMode gate is reliable even on a cold load into a sentinel-less
-    // level (no MGBingo actor in Ch7Gryffindor).
-    class'APModeDetector'.static.EnsureOpenCastleModeDetected();
     DestroyGryffindorSpellGiver();
     ForceCutScenesSkippable();
     BlockRictaClassroomIfMissing();
@@ -215,7 +211,7 @@ function SpawnAPHUDToastIfMissing()
 
 // Minimal-touch cutscene skip policy:
 //   1. WHITELIST (force bSkipAllowed=True): a handful of intro cutscenes
-//      that the HP2 Bingo distribution ships as non-skippable but we want
+//      that the stock game ships as non-skippable but we want
 //      skippable (Privet/Dobby opening etc.). Matched by FileName substring
 //      via IsCutSceneAllowedToSkip.
 //   2. BLACKLIST (force bSkipAllowed=False): specific cutscenes that
@@ -278,8 +274,8 @@ function bool IsCutSceneAllowedToSkip(string FileName)
 
 // Per-(level, cutscene-name) blacklist of cutscenes that softlock the game
 // when their fastforward path runs. Names are stable per map-save. Level
-// name comparison is uppercase (caller already Caps()'d it) so casing drift
-// between HP2 Bingo versions doesn't matter. Add entries as more
+// name comparison is uppercase (caller already Caps()'d it) so map name
+// casing doesn't matter. Add entries as more
 // softlock-prone cutscenes are identified from gameplay.
 function bool IsCutSceneBlocked(string LevelNameUpper, string CutSceneName)
 {
@@ -943,8 +939,8 @@ function RemoveSpongifyBlocker()
 // bOpenCastleMode internally).
 //
 // Shared utilities below dedupe the per-helper boilerplate. The actual
-// Location/Rotation literals were captured via the dev console PlaceBookcase
-// exec (APConsole.uc) in the HP2 Bingo install and transcribed here.
+// Location/Rotation literals were captured in-game via the dev console
+// PlaceBookcase exec (APConsole.uc) and transcribed here.
 //=============================================================================
 
 function bool OpenCastleLevelIs(string CapsName)

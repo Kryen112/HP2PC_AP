@@ -415,6 +415,7 @@ function HandleLine(string line)
     local APMorphRegistry mr;
     local string rest;
     local int sp;
+    local bool bWasOpenCastle;
 
     // PEER arrives ten times a second per ghost; logging it would bury the log.
     if (Left(line, 5) != "PEER ")
@@ -545,23 +546,28 @@ function HandleLine(string line)
     }
     else if (MatchCmd(line, "MODE ", rest))
     {
-        // The seed's declared game_mode from apworld slot_data (sticky
-        // class-default on the watcher; resent every HELLO). Recorded in BOTH
-        // modes as a positive signal so the watcher can compare it against its
-        // own install probe (the MGBingo package) and warn on a mismatch.
-        // "open_castle" additionally latches bOpenCastleMode (a late belt
-        // alongside the durable DLO probe); "MODE vanilla" only records the
-        // declared mode, it never clears bOpenCastleMode (one-way invariant).
-        class'APModeDetector'.static.SetSeedDeclaredMode(rest);
+        // The seed's declared game_mode from apworld slot_data, resent every
+        // HELLO. "open_castle" latches bOpenCastleMode; "vanilla" never clears
+        // it (one-way invariant).
         if (rest == "open_castle")
         {
+            bWasOpenCastle = class'APModeDetector'.default.bOpenCastleMode == 1;
             class'APModeDetector'.static.EnterOpenCastleMode("IPC MODE open_castle");
             // A level loaded before the mode arrived (a save loaded at launch)
-            // gets its open castle edits now.
+            // gets its open castle edits now. On the first transition the live
+            // watcher drops grant flags copied from the previous seed.
             w = class'APCardWatcher'.static.GetLatest();
             if (w != None)
             {
+                if (!bWasOpenCastle)
+                {
+                    for (sp = 0; sp < 7; sp++)
+                    {
+                        w.APGrantedSpell[sp] = 0;
+                    }
+                }
                 class'APOpenCastle'.static.ApplyAtSnapshot(w, w.HarryRef);
+                class'APLevelSetup'.static.NeutralizeGryffindorSpellGiver(w, w.HarryRef);
             }
         }
     }

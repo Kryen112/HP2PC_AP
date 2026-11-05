@@ -532,12 +532,6 @@ event PreBeginPlay()
     default.LatestInstance = self;
     SetTimer(0.25, true);
 
-    // Durable open castle detection BEFORE the default->instance copy loops below,
-    // so on the HP2 Bingo install they see the wiped default.APGrantedSpell[].
-    // Works on the save-load path (ProcessServerTravel skips InitGame) since
-    // it needs no instance/level/IPC.
-    class'APModeDetector'.static.EnsureOpenCastleModeDetected();
-
     SpellClasses[0] = class'spellAlohomora';   SpellNames[0] = "Alohomora";
     SpellClasses[1] = class'spellDiffindo';    SpellNames[1] = "Diffindo";
     SpellClasses[2] = class'spellFlipendo';    SpellNames[2] = "Flipendo";
@@ -1978,35 +1972,6 @@ function EnsureLatestRegistration()
     }
 }
 
-// Per-level call from Snapshot. Durable probe first (covers cold-load into
-// sentinel-less levels), then an in-level MGBingoLearnAllSpells actor scan
-// as a secondary fallback. IPC `MODE open_castle` is the late authoritative
-// belt (APIPCActor). Mirrors the class-default flag/wipe onto this instance.
-function DetectOpenCastleMode()
-{
-    local Actor a;
-    local int i;
-
-    if (class'APModeDetector'.default.bOpenCastleMode == 1) return;
-
-    class'APModeDetector'.static.EnsureOpenCastleModeDetected();
-    if (class'APModeDetector'.default.bOpenCastleMode == 1)
-    {
-        for (i = 0; i < NUM_SPELLS; i++) APGrantedSpell[i] = 0;
-        return;
-    }
-
-    foreach AllActors(class'Actor', a)
-    {
-        if (string(a.Class.Name) == "MGBingoLearnAllSpells")
-        {
-            class'APModeDetector'.static.EnterOpenCastleMode("found MGBingoLearnAllSpells actor in level");
-            for (i = 0; i < NUM_SPELLS; i++) APGrantedSpell[i] = 0;
-            return;
-        }
-    }
-}
-
 function Snapshot()
 {
     local int id, i, ownedCardCount, ownedSpellCount;
@@ -2053,8 +2018,6 @@ function Snapshot()
         ReconcileCardMilestones();
     }
 
-    DetectOpenCastleMode();
-
     // Re-pull AP-grant flags from the class default in case ApplyResyncSpells
     // (or an ApplyGrant) fired between this watcher's PreBeginPlay copy and
     // Snapshot. That one-shot copy would otherwise leave instance stale and
@@ -2092,13 +2055,13 @@ function Snapshot()
         if (HarryRef.IsInSpellBook(SpellClasses[i].default.SpellType))
         {
             // harry.PreBeginPlay (harry.uc:335-337) unconditionally adds
-            // Flipendo/Lumos/Alohomora to every fresh Harry actor, and
-            // open castle's MGBingo grants all 7. Neither is a player action,
-            // so set WasSpellOwned[i] to suppress the "new vanilla spell learned"
-            // CHECK_SPELL transition in the revert loop. APGrantedSpell stays
-            // 0. Only true AP grants (ApplyGrant via IPC) set it. Spells the
-            // user marked in starting_spells flow back over the durable resync;
-            // anything else gets reverted on the next tick.
+            // Flipendo/Lumos/Alohomora to every fresh Harry actor. That is
+            // not a player action, so set WasSpellOwned[i] to suppress the
+            // "new vanilla spell learned" CHECK_SPELL transition in the revert
+            // loop. APGrantedSpell stays 0. Only true AP grants (ApplyGrant
+            // via IPC) set it. Spells the user marked in starting_spells flow
+            // back over the durable resync; anything else gets reverted on the
+            // next tick.
             WasSpellOwned[i] = 1;
             ownedSpellCount++;
         }
@@ -2129,8 +2092,7 @@ function Snapshot()
     AssignMarkersToVendors();
     // Open-castle-only: destroy Ch7Gryffindor's give-all-spells actor at the source
     // so Harry has only AP-granted spells inside the room (no-op elsewhere).
-    // After DetectOpenCastleMode (bOpenCastleMode stuck) and the spell baseline above,
-    // before the stars are replaced.
+    // After the spell baseline above, before the stars are replaced.
     class'APLevelSetup'.static.NeutralizeGryffindorSpellGiver(self, HarryRef);
     // Subclass-replace each unchecked vanilla challenge star with an
     // APChallengeStarMarker so pickup fires CHECK_LOCID alongside vanilla

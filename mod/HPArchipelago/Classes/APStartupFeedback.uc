@@ -1,8 +1,7 @@
 // Per-session / per-level startup AP feedback, driven from the watcher's tick:
 // the durable-ledger NEWGAME signal + one-time safety save, and the connection /
-// seed-mismatch / goal-unlock toasts. Per-level singleton (GetInstance) so the
-// goal-unlock "once per level" latch and the seed-mismatch repeat countdown
-// reset with the fresh per-level instance; the connection-toast latch + the
+// goal-unlock toasts. Per-level singleton (GetInstance) so the goal-unlock
+// "once per level" latch resets with the fresh per-level instance; the connection-toast latch + the
 // server address are class-default and persist for the process. The watcher
 // passes the few inputs it owns (live harry, the at-Snapshot folio-empty
 // sample, WasGoalUnlocked / WasInEndGame) as args, so no watcher state is
@@ -16,9 +15,6 @@ const STARTUP_SAFETY_SAVE_GAMESTATE = 180;
 // known and the connection toast firing, so it does not pop the instant control
 // returns.
 const CONN_TOAST_DELAY_TICKS = 4;
-// ~10s (in 0.25s ticks) between repeats of the seed/install mismatch warning,
-// the cadence of the IPC actor's "Not connected" reminder.
-const MODE_MISMATCH_TOAST_TICKS = 40;
 
 // Process-wide singleton pointer (class-default). Instance copy kept None for
 // save-graph hygiene.
@@ -33,14 +29,9 @@ var string ConnectedAddress;
 var byte bConnToastShown;
 var byte bConnToastScheduled;
 var int ConnToastTicksLeft;
-// Seed/install mismatch warning countdown, in ticks until the next repeat.
-// INSTANCE (compiled-0 on each fresh per-level instance) so the warning fires
-// on the first playable tick of every level, then every
-// MODE_MISMATCH_TOAST_TICKS until the player runs the matching install.
-var int ModeMismatchToastTicksLeft;
-// Open-castle goal-unlock pointer latch. INSTANCE like the mismatch countdown, so it
-// re-shows once per level until the player reaches the Great Hall and the credits
-// fire (WasInEndGame).
+// Open-castle goal-unlock pointer latch. INSTANCE (compiled-0 on each fresh
+// per-level instance), so it re-shows once per level until the player reaches
+// the Great Hall and the credits fire (WasInEndGame).
 var byte bGoalUnlockToastShown;
 
 // Found-or-spawned singleton accessor. Logic-only (no mesh) so runtime spawn is
@@ -76,7 +67,7 @@ static function SetConnectedAddress(string addr)
 
 // The local Harry when it exists, is alive, and is in a playable state (not
 // mid-cutscene/menu); None otherwise. Shared gate for the startup safety save
-// and the connection / mismatch / goal-unlock toasts.
+// and the connection / goal-unlock toasts.
 function harry PlayableHarry()
 {
     local harry h;
@@ -178,9 +169,8 @@ function EnsureFreshToast()
     default.bConnToastScheduled = 0;
 }
 
-// The three startup toasts: the delayed "Connected to host:port" (class-default
-// fire latch, once per process), the seed/install mismatch warning (INSTANCE
-// countdown, repeats every ~10s), and the open-castle goal-unlock pointer
+// The two startup toasts: the delayed "Connected to host:port" (class-default
+// fire latch, once per process) and the open-castle goal-unlock pointer
 // (INSTANCE latch, re-shows once per level).
 // The connection toast schedules a short countdown on the first playable tick the
 // address is known. wasGoalUnlocked / wasInEndGame are the watcher's goal latches.
@@ -188,7 +178,6 @@ function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
 {
     local harry saveHarry;
     local APHUDToast connToast;
-    local bool seedIsOpenCastle;
 
     if (default.bConnToastShown == 0 && default.ConnectedAddress != "")
     {
@@ -214,40 +203,6 @@ function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
                     default.bConnToastScheduled = 0;
                     Log("[Archipelago] APStartupFeedback: connection toast shown ('"
                         $ default.ConnectedAddress $ "')");
-                }
-            }
-        }
-    }
-
-    // Seed/install mismatch warning: the seed's declared mode disagrees with what
-    // the install physically is. A mismatched seed is at best un-completable, so
-    // the warning is loud and repeats every ~10s for as long as it holds. Same
-    // playable guard as the connection toast.
-    if (class'APModeDetector'.default.bInstallProbed == 1 && class'APModeDetector'.default.SeedDeclaredMode != 0)
-    {
-        // An open castle seed plays on any install (APOpenCastle edits a stock
-        // one at runtime); only a vanilla seed on the open castle maps cannot.
-        seedIsOpenCastle = (class'APModeDetector'.default.SeedDeclaredMode == 2);
-        if (!seedIsOpenCastle && class'APModeDetector'.default.bInstallIsOpenCastle == 1)
-        {
-            if (ModeMismatchToastTicksLeft > 0)
-            {
-                ModeMismatchToastTicksLeft -= 1;
-            }
-            else
-            {
-                saveHarry = PlayableHarry();
-                if (saveHarry != None)
-                {
-                    connToast = class'APHUDToast'.static.GetInstance();
-                    if (connToast != None)
-                    {
-                        connToast.EnqueueToast("AP: WRONG INSTALL - vanilla seed on open castle maps!");
-                        ModeMismatchToastTicksLeft = MODE_MISMATCH_TOAST_TICKS;
-                        Log("[Archipelago] APStartupFeedback: mode mismatch toast shown (seed="
-                            $ class'APModeDetector'.default.SeedDeclaredMode $ " installOpenCastle="
-                            $ class'APModeDetector'.default.bInstallIsOpenCastle $ ")");
-                    }
                 }
             }
         }

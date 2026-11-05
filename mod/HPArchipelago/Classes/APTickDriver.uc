@@ -132,7 +132,7 @@ static function DriveTick(APCardWatcher w)
     w.DriveStoryProgression();
 
     // Startup AP feedback: NEWGAME ledger wipe + safety save, a guaranteed fresh
-    // toast actor, then the connection / mismatch / goal-unlock toasts. The
+    // toast actor, then the connection / goal-unlock toasts. The
     // watcher owns the few inputs (live harry, the at-Snapshot folio sample, the
     // goal latches), passed in.
     sf = class'APStartupFeedback'.static.GetInstance(w);

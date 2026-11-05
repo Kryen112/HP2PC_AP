@@ -15,13 +15,10 @@ const OPEN_CASTLE_GAME_STATE_NUMBER = 180;
 const MAX_CUTSCENE_THREADS = 20;
 const MAX_CUTSCENE_LINES = 400;
 
-// Whether the runtime edits apply: an open castle seed on an install that does
-// not ship the open castle maps.
+// Whether the runtime edits apply: an open castle seed.
 static function bool Needed()
 {
-    return class'APModeDetector'.default.bOpenCastleMode == 1
-        && class'APModeDetector'.default.bInstallProbed == 1
-        && class'APModeDetector'.default.bInstallIsOpenCastle == 0;
+    return class'APModeDetector'.default.bOpenCastleMode == 1;
 }
 
 // Edits that must land before any cutscene starts. Runs from
@@ -206,22 +203,22 @@ static function ApplyEntryHall(Actor ctx)
         }
     }
 
-    SpawnTrigger(ctx, vect(-4864, -1328, -432), 64, 8, 80, 'Bingo_Bicorn');
-    dispatch = SpawnDispatcher(ctx, vect(-4843, -1233, -358), 'Bingo_Bicorn');
+    SpawnTrigger(ctx, vect(-4864, -1328, -432), 64, 8, 80, 'OpenCastle_Bicorn');
+    dispatch = SpawnDispatcher(ctx, vect(-4843, -1233, -358), 'OpenCastle_Bicorn');
     if (dispatch != None)
     {
         dispatch.OutEvents[0] = 'OpenADV3DungIng';
         dispatch.OutEvents[1] = 'Open_Adv3Bars';
     }
 
-    SpawnTrigger(ctx, vect(-5128, -2368, -184), 8, 64, 80, 'Bingo_Goyle');
-    dispatch = SpawnDispatcher(ctx, vect(-5217, -2323, -91), 'Bingo_Goyle');
+    SpawnTrigger(ctx, vect(-5128, -2368, -184), 8, 64, 80, 'OpenCastle_Goyle');
+    dispatch = SpawnDispatcher(ctx, vect(-5217, -2323, -91), 'OpenCastle_Goyle');
     if (dispatch != None)
     {
         dispatch.OutEvents[0] = 'Adv6_Bars';
-        dispatch.OutEvents[1] = 'Bingo_Adv6_Door';
+        dispatch.OutEvents[1] = 'OpenCastle_Adv6_Door';
     }
-    lift = ctx.Spawn(class'ElevatorTrigger', None, 'Bingo_Adv6_Door', vect(-5240, -2299, -100));
+    lift = ctx.Spawn(class'ElevatorTrigger', None, 'OpenCastle_Adv6_Door', vect(-5240, -2299, -100));
     if (lift != None)
     {
         lift.Event = 'Adv6_Door';
@@ -270,8 +267,8 @@ static function ApplyGrounds(Actor ctx)
     }
     SpawnChangeLevel(ctx, vect(4015.7, 3426.1, -115.2), 32, 256, 128, "Adv8Forest");
 
-    SpawnTrigger(ctx, vect(-4504, 1104, 80), 8, 64, 64, 'Bingo_Boomslang');
-    dispatch = SpawnDispatcher(ctx, vect(-4520, 1128, 104), 'Bingo_Boomslang');
+    SpawnTrigger(ctx, vect(-4504, 1104, 80), 8, 64, 64, 'OpenCastle_Boomslang');
+    dispatch = SpawnDispatcher(ctx, vect(-4520, 1128, 104), 'OpenCastle_Boomslang');
     if (dispatch != None)
     {
         dispatch.OutEvents[0] = 'Adv4_BarsOpen';
