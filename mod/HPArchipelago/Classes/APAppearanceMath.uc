@@ -37,20 +37,58 @@ static function float BeanScale(int code, float base)
     return base * 1.25;                    // 2004 Massive
 }
 
+// Loads a mesh by path. An object not yet in memory is found only under its
+// exact class, and the props are skeletal meshes, so that class is asked first.
+static function Mesh LoadMesh(string path)
+{
+    local class<Object> skeletal;
+    local Object found;
+
+    skeletal = class<Object>(DynamicLoadObject("Engine.SkeletalMesh", class'Class', true));
+    if (skeletal != None)
+    {
+        found = DynamicLoadObject(path, skeletal, true);
+    }
+    if (found == None)
+    {
+        found = DynamicLoadObject(path, class'Mesh');
+    }
+    return Mesh(found);
+}
+
+// Loads a texture by path, as a plain texture or as a wet (animated) texture,
+// for the same exact-class reason as LoadMesh.
+static function Texture LoadTexture(string path)
+{
+    local class<Object> wet;
+    local Object found;
+
+    found = DynamicLoadObject(path, class'Texture', true);
+    if (found == None)
+    {
+        wet = class<Object>(DynamicLoadObject("Fire.WetTexture", class'Class', true));
+        if (wet != None)
+        {
+            found = DynamicLoadObject(path, wet);
+        }
+    }
+    return Texture(found);
+}
+
 // The per-spell wand-target gesture sprite (the shape SpellCursor draws on a
 // locked target, SpellCursor.uc:84-108) by spell index (0 Alohomora,
 // 1 Diffindo, 2 Flipendo, 3 Lumos, 4 Rictusempra, 5 Skurge, 6 Spongify, same
-// order as SpellNames[]). WetTexture is-a Texture, so it loads cleanly as
-// class'Texture'. None for an unknown index keeps the marker's native look.
+// order as SpellNames[]). They are wet textures, loaded through LoadTexture.
+// None for an unknown index keeps the marker's native look.
 static function Texture SpellGestureTextureForIndex(int idx)
 {
-    if (idx == 0) return Texture(DynamicLoadObject("SpellShapes.SpellFX.AlohomoraWet1", class'Texture'));
-    if (idx == 1) return Texture(DynamicLoadObject("SpellShapes.SpellFX.DiffindoWet1", class'Texture'));
-    if (idx == 2) return Texture(DynamicLoadObject("SpellShapes.SpellFX.FlipendoWet1", class'Texture'));
-    if (idx == 3) return Texture(DynamicLoadObject("SpellShapes.SpellFX.LumosWet1", class'Texture'));
-    if (idx == 4) return Texture(DynamicLoadObject("SpellShapes.SpellFX.RictusWet1", class'Texture'));
-    if (idx == 5) return Texture(DynamicLoadObject("SpellShapes.SpellFX.SkurgeWet1", class'Texture'));
-    if (idx == 6) return Texture(DynamicLoadObject("SpellShapes.SpellFX.SpongifyWet1", class'Texture'));
+    if (idx == 0) return LoadTexture("SpellShapes.SpellFX.AlohomoraWet1");
+    if (idx == 1) return LoadTexture("SpellShapes.SpellFX.DiffindoWet1");
+    if (idx == 2) return LoadTexture("SpellShapes.SpellFX.FlipendoWet1");
+    if (idx == 3) return LoadTexture("SpellShapes.SpellFX.LumosWet1");
+    if (idx == 4) return LoadTexture("SpellShapes.SpellFX.RictusWet1");
+    if (idx == 5) return LoadTexture("SpellShapes.SpellFX.SkurgeWet1");
+    if (idx == 6) return LoadTexture("SpellShapes.SpellFX.SpongifyWet1");
     return None;
 }
 
@@ -126,7 +164,7 @@ static function ApplyAppearanceTo(Actor a, int code)
 
     if (code >= 1 && code <= 101)
     {
-        m = Mesh(DynamicLoadObject("HProps.skWizardCardIconMesh", class'Mesh'));
+        m = LoadMesh("HProps.skWizardCardIconMesh");
         sc = 2.0; // WizardCardIcon.defaultproperties DrawScale (fallback)
         cn = class'APCardAppearance'.static.CardClassNameForId(code);
         if (cn != "")
@@ -149,20 +187,24 @@ static function ApplyAppearanceTo(Actor a, int code)
         // own Tick drives the Yaw spin). DrawScale 3.0 is deliberately above
         // the WizardCardIcon default of 2.0 so the gesture glyph reads at a
         // glance.
-        m = Mesh(DynamicLoadObject("HProps.skWizardCardIconMesh", class'Mesh'));
+        m = LoadMesh("HProps.skWizardCardIconMesh");
         tex = SpellGestureTextureForIndex(code - 1000);
         ApplyMeshSkin(a, m, tex, True, 3.0, False);
+        // The gesture art is a glow on black, drawn additively like the spell
+        // cursor draws it, so the black falls away.
+        a.Style = STY_Translucent;
+        a.bUnlit = True;
     }
     else if (code >= 2001 && code <= 2004)
     {
-        m = Mesh(DynamicLoadObject("HProps.skJarBeansMesh", class'Mesh'));
+        m = LoadMesh("HProps.skJarBeansMesh");
         tex = Texture(DynamicLoadObject("HProps.skJarBeansTex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True,
             BeanScale(code, VanillaDrawScale("JarBeans", 2.5)), False);
     }
     else if (code == 2005)
     {
-        m = Mesh(DynamicLoadObject("HProps.skBottlePotionGreen1Mesh", class'Mesh'));
+        m = LoadMesh("HProps.skBottlePotionGreen1Mesh");
         tex = Texture(DynamicLoadObject("HProps.skBottlePotionGreen1Tex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True,
             VanillaDrawScale("BottlePotionGreen1", 1.0), False);
@@ -170,20 +212,20 @@ static function ApplyAppearanceTo(Actor a, int code)
     else if (code == 2006)
     {
         // 3-skin mesh, set Mesh only so the baked materials render.
-        m = Mesh(DynamicLoadObject("HProps.skJarWiggentreeBarkMesh", class'Mesh'));
+        m = LoadMesh("HProps.skJarWiggentreeBarkMesh");
         ApplyMeshSkin(a, m, None, False,
             VanillaDrawScale("JarWiggentreeBark", 1.2), False);
     }
     else if (code == 2007)
     {
         // 3-skin mesh, set Mesh only.
-        m = Mesh(DynamicLoadObject("HProps.skJarFlobberwormMucusMesh", class'Mesh'));
+        m = LoadMesh("HProps.skJarFlobberwormMucusMesh");
         ApplyMeshSkin(a, m, None, False,
             VanillaDrawScale("JarFlobberwormMucus", 1.2), False);
     }
     else if (code == 2008)
     {
-        m = Mesh(DynamicLoadObject("HProps.skChocolateFrogMesh", class'Mesh'));
+        m = LoadMesh("HProps.skChocolateFrogMesh");
         tex = Texture(DynamicLoadObject("HProps.skChocolateFrogTex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True,
             VanillaDrawScale("ChocolateFrog", 0.5), False);
@@ -193,7 +235,7 @@ static function ApplyAppearanceTo(Actor a, int code)
         // 1 Bean, the vanilla jellybean prop, random colour per stamp.
         // Smallest of the bean ladder so a single bean reads as the lowest
         // reward.
-        m = Mesh(DynamicLoadObject("HProps.skJellybeanMesh", class'Mesh'));
+        m = LoadMesh("HProps.skJellybeanMesh");
         tex = RandomBeanTexture();
         ApplyMeshSkin(a, m, tex, True, 1.5, False);
     }
@@ -201,7 +243,7 @@ static function ApplyAppearanceTo(Actor a, int code)
     {
         // 5 Beans, same bean mesh, random colour per stamp, larger than
         // 1 Bean so the two read apart by size.
-        m = Mesh(DynamicLoadObject("HProps.skJellybeanMesh", class'Mesh'));
+        m = LoadMesh("HProps.skJellybeanMesh");
         tex = RandomBeanTexture();
         ApplyMeshSkin(a, m, tex, True, 2.0, False);
     }
@@ -209,7 +251,7 @@ static function ApplyAppearanceTo(Actor a, int code)
     {
         // 10 Beans, the bean jar, below the Small Pile (0.60) so the size
         // ladder reads loose bean -> small jar -> the Piles.
-        m = Mesh(DynamicLoadObject("HProps.skJarBeansMesh", class'Mesh'));
+        m = LoadMesh("HProps.skJarBeansMesh");
         tex = Texture(DynamicLoadObject("HProps.skJarBeansTex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True,
             VanillaDrawScale("JarBeans", 2.5) * 0.45, False);
@@ -218,14 +260,14 @@ static function ApplyAppearanceTo(Actor a, int code)
     {
         // Nimbus 2001, vanilla VendorNimbusBroom look (single baked skin,
         // set Mesh only).
-        m = Mesh(DynamicLoadObject("HProps.skBroomQudditchMesh", class'Mesh'));
+        m = LoadMesh("HProps.skBroomQudditchMesh");
         ApplyMeshSkin(a, m, None, False,
             VanillaDrawScale("VendorNimbusBroom", 1.0), False);
     }
     else if (code == 3002)
     {
         // Quidditch Armour, vanilla QArmor look.
-        m = Mesh(DynamicLoadObject("HProps.skQuidArmorMesh", class'Mesh'));
+        m = LoadMesh("HProps.skQuidArmorMesh");
         ApplyMeshSkin(a, m, None, False,
             VanillaDrawScale("QArmor", 1.0), False);
     }
@@ -237,7 +279,7 @@ static function ApplyAppearanceTo(Actor a, int code)
         // particle texture: the masked chroma-key (bLogoStyle) cannot key
         // black, so override to STY_Translucent. Black drops to transparent
         // and the key glows. Card-sized on the flat card quad (DrawScale 2.0).
-        m   = Mesh(DynamicLoadObject("HProps.skWizardCardIconMesh", class'Mesh'));
+        m   = LoadMesh("HProps.skWizardCardIconMesh");
         tex = Texture(DynamicLoadObject("HPParticle.hp_fx.Particles.Key3", class'Texture'));
         ApplyMeshSkin(a, m, tex, True, 2.0, True);
         a.Style = STY_Translucent;
@@ -255,13 +297,13 @@ static function ApplyAppearanceTo(Actor a, int code)
         // group so they MUST be loaded group-qualified (group-less DLO returns
         // None, which would drop 9001 back to the baked plain skin). DrawScale
         // 1.65 ≈ card-sized (tunable).
-        m = Mesh(DynamicLoadObject("HPArchipelago.APLogoMesh", class'Mesh'));
+        m = LoadMesh("HPArchipelago.APLogoMesh");
         tex = Texture(DynamicLoadObject("HPArchipelago.Skins.APLogoTex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True, 1.65, True);
     }
     else if (code == 9001)
     {
-        m = Mesh(DynamicLoadObject("HPArchipelago.APLogoMesh", class'Mesh'));
+        m = LoadMesh("HPArchipelago.APLogoMesh");
         tex = Texture(DynamicLoadObject("HPArchipelago.Skins.APLogoArrowTex0", class'Texture'));
         ApplyMeshSkin(a, m, tex, True, 1.65, True);
     }

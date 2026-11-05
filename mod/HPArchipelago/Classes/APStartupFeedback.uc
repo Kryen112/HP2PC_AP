@@ -225,8 +225,10 @@ function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
     // playable guard as the connection toast.
     if (class'APModeDetector'.default.bInstallProbed == 1 && class'APModeDetector'.default.SeedDeclaredMode != 0)
     {
+        // An open castle seed plays on any install (APOpenCastle edits a stock
+        // one at runtime); only a vanilla seed on the open castle maps cannot.
         seedIsOpenCastle = (class'APModeDetector'.default.SeedDeclaredMode == 2);
-        if (seedIsOpenCastle != (class'APModeDetector'.default.bInstallIsOpenCastle == 1))
+        if (!seedIsOpenCastle && class'APModeDetector'.default.bInstallIsOpenCastle == 1)
         {
             if (ModeMismatchToastTicksLeft > 0)
             {
@@ -240,14 +242,7 @@ function DriveStartupToasts(byte wasGoalUnlocked, byte wasInEndGame)
                     connToast = class'APHUDToast'.static.GetInstance();
                     if (connToast != None)
                     {
-                        if (seedIsOpenCastle)
-                        {
-                            connToast.EnqueueToast("AP: WRONG INSTALL - open castle seed on vanilla maps!");
-                        }
-                        else
-                        {
-                            connToast.EnqueueToast("AP: WRONG INSTALL - vanilla seed on open castle maps!");
-                        }
+                        connToast.EnqueueToast("AP: WRONG INSTALL - vanilla seed on open castle maps!");
                         ModeMismatchToastTicksLeft = MODE_MISMATCH_TOAST_TICKS;
                         Log("[Archipelago] APStartupFeedback: mode mismatch toast shown (seed="
                             $ class'APModeDetector'.default.SeedDeclaredMode $ " installOpenCastle="

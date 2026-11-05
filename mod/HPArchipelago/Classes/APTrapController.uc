@@ -283,7 +283,7 @@ static function MarkWandSizeTrapActive(harry h)
         Log("[Archipelago] APTrapController.MarkWandSizeTrapActive: no wand equipped - no-op");
         return;
     }
-    giant = Mesh(DynamicLoadObject("HPArchipelago.APWandGiant", class'Mesh'));
+    giant = class'APAppearanceMath'.static.LoadMesh("HPArchipelago.APWandGiant");
     if (giant == None)
     {
         Log("[Archipelago] APTrapController.MarkWandSizeTrapActive: APWandGiant failed to load - no-op");
@@ -730,7 +730,7 @@ static function TrapTick(harry h)
         // WandMesh is reassigned harmlessly.
         if (baseWand(h.Weapon) != None)
         {
-            baseWand(h.Weapon).Mesh = Mesh(DynamicLoadObject("HPModels.WandMesh", class'Mesh'));
+            baseWand(h.Weapon).Mesh = class'APAppearanceMath'.static.LoadMesh("HPModels.WandMesh");
             baseWand(h.Weapon).ThirdPersonMesh = baseWand(h.Weapon).Mesh;
         }
         default.bWandSizeTrapActive = 0;

@@ -2166,9 +2166,13 @@ function Snapshot()
         // Bean room exit star (open castle): same post-Bind reasoning as the
         // Slytherin star. Level-gated to BeanRewardRoom internally.
         APGameInfo(Level.Game).SpawnBeanRoomExitStarIfMissing();
+        Log("[Archipelago] APCardWatcher.Snapshot: map " $ APGameInfo(Level.Game).MapName
+            $ " (level package " $ string(Level.Outer.Name) $ ")");
     }
     else
         Log("[Archipelago] APCardWatcher.Snapshot: Level.Game not APGameInfo - cannot spawn Slytherin / bean room end star");
+    // Open castle level edits on an install without the open castle maps.
+    class'APOpenCastle'.static.ApplyAtSnapshot(self, HarryRef);
     // Prune already-collected beans + restore chest/gargoyle drops immediately on
     // a bean-room bind so they do not flash before the per-tick sweep in Timer.
     br = class'APBeanRoom'.static.GetInstance(self);

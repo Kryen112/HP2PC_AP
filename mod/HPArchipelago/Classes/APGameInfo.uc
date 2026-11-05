@@ -3,6 +3,20 @@ class APGameInfo extends GameInfo;
 // Transient: the link actor lives in the Entry map, which a level save cannot reference.
 var transient APIPCActor IPCActor;
 
+// The map this level was loaded from, upper case. A level restored from a save
+// lives in a package named after the save file, so the map name is recorded at
+// InitGame and kept in the save with this GameInfo.
+var string MapName;
+
+// True from InitGame until the open castle arrival check runs, so only level
+// travel (not a save-load, which skips InitGame and resets transient state)
+// moves Harry to an arrival point.
+var transient bool bEnteredByTravel;
+// The level travelled from, upper case, as the link last reported it before
+// this one. Harry's own PreviousLevelName is already rewritten by the time the
+// arrival check runs.
+var transient string ArrivedFrom;
+
 // Per-classroom offset applied to the cutscene's Location when spawning the
 // blocker, so the bookshelf can be nudged without touching the cutscene
 // lookup.
@@ -82,6 +96,8 @@ event InitGame(string Options, out string Error)
 
     Super.InitGame(Options, Error);
     Log("[Archipelago] APGameInfo.InitGame - subclass active");
+    MapName = Caps(string(Level.Outer.Name));
+    bEnteredByTravel = True;
 
     IPCActor = class'APIPCActor'.static.GetInstance();
     if (IPCActor != None)
@@ -107,6 +123,7 @@ event InitGame(string Options, out string Error)
     // form the watcher's level checks already use.
     if (IPCActor != None)
     {
+        ArrivedFrom = IPCActor.CurrentLevelName;
         IPCActor.SendLevel(Caps(string(Level.Outer.Name)));
     }
 
@@ -138,8 +155,21 @@ event InitGame(string Options, out string Error)
     BlockSkurgeClassroomIfMissing();
     BlockDiffindoClassroomIfMissing();
     BlockSpongifyClassroomIfMissing();
+    class'APOpenCastle'.static.ApplyAtInitGame(self);
     SpawnAllOpenCastleBlockers();
     EnsureGhostRegistry();
+}
+
+// The map the level was loaded from, upper case: the recorded MapName, else the
+// level package's name.
+static function string CurrentMapName(Actor ctx)
+{
+    local APGameInfo gi;
+
+    if (ctx == None) return "";
+    gi = APGameInfo(ctx.Level.Game);
+    if (gi != None && gi.MapName != "") return gi.MapName;
+    return Caps(string(ctx.Level.Outer.Name));
 }
 
 // Ghost players: bring the per-level registry up on the level bring-up path so

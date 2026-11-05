@@ -556,6 +556,13 @@ function HandleLine(string line)
         if (rest == "open_castle")
         {
             class'APModeDetector'.static.EnterOpenCastleMode("IPC MODE open_castle");
+            // A level loaded before the mode arrived (a save loaded at launch)
+            // gets its open castle edits now.
+            w = class'APCardWatcher'.static.GetLatest();
+            if (w != None)
+            {
+                class'APOpenCastle'.static.ApplyAtSnapshot(w, w.HarryRef);
+            }
         }
     }
     else if (MatchCmd(line, "RESYNC_SPELLS ", rest))

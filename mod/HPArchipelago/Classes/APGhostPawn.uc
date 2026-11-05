@@ -124,7 +124,7 @@ function ApplyMeshes(string meshName, string wandMeshName)
 
     if (meshName != "" && meshName != "None" && string(Mesh) != meshName)
     {
-        loaded = Mesh(DynamicLoadObject(meshName, class'Mesh'));
+        loaded = class'APAppearanceMath'.static.LoadMesh(meshName);
         if (loaded != None)
         {
             Mesh = loaded;
@@ -147,7 +147,7 @@ function ApplyMeshes(string meshName, string wandMeshName)
     Wand.bHidden = bHidden;
     if (string(Wand.Mesh) != wandMeshName)
     {
-        loaded = Mesh(DynamicLoadObject(wandMeshName, class'Mesh'));
+        loaded = class'APAppearanceMath'.static.LoadMesh(wandMeshName);
         if (loaded != None) Wand.Mesh = loaded;
     }
 }
