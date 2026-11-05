@@ -44,12 +44,16 @@ class _Ctx(HP2Context):
         self.mod_ready = mod_ready
         self.launched: list = []
         self.popups: list = []
+        self.map_patched: list = []
 
     async def _apply_audio_randomizers(self, sd: dict):
         return self.safe, "install"
 
     async def _ensure_mod_current(self, install):
         return install, self.mod_ready
+
+    async def _apply_map_patch(self, sd: dict, install) -> None:
+        self.map_patched.append(install)
 
     async def _game_state(self) -> str:
         return self.game_state
@@ -96,6 +100,12 @@ class TestAutoLaunchDecision(unittest.TestCase):
         _run(ctx._connect_audio_then_launch({}))
         self.assertEqual(ctx.launched, ["install"])
         self.assertFalse(ctx._player_connect_pending)
+
+    def test_map_patch_runs_even_when_nothing_launches(self, *_) -> None:
+        ctx = _Ctx()
+        _run(ctx._connect_audio_then_launch({}))
+        self.assertEqual(ctx.map_patched, ["install"])
+        self.assertEqual(ctx.launched, [])
 
     def test_automatic_reconnect_never_launches(self, *_) -> None:
         ctx = _Ctx()

@@ -111,7 +111,7 @@ from CommonClient import (ClientCommandProcessor, CommonContext,
 from MultiServer import mark_raw
 from NetUtils import ClientStatus, SlotType
 
-from . import HP2World, dialogue_patch, installer, music_patch, sound_patch
+from . import HP2World, dialogue_patch, installer, map_patch, music_patch, sound_patch
 from .game_link import FileGameLink
 from .ghost_link import GHOST_TAG, GhostLink, interval_for_players
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
@@ -2163,6 +2163,7 @@ class HP2Context(CommonContext):
         if _auto_install_enabled():
             resolved, mod_ready = await self._ensure_mod_current(install)
             install = resolved or install
+        await self._apply_map_patch(sd, install)
         if not self.auto_launch_wanted() or not player_asked:
             return
         # A game that is up must not get a duplicate. That includes one parked at
@@ -2185,6 +2186,32 @@ class HP2Context(CommonContext):
             )
             return
         await self._auto_launch(install)
+
+    async def _apply_map_patch(self, sd: dict, install: Optional[str]) -> None:
+        """Hide the level geometry the open castle game removes on this seed's
+        install, or put the original maps back for a vanilla seed. The change is
+        visual only, so a failure is reported but never holds back the launch."""
+        open_castle = sd.get("game_mode") == "open_castle"
+        install = install or _hp2_install_path(open_castle)
+        if not install or not os.path.isdir(os.path.join(install, "Maps")):
+            return
+        work = map_patch.apply_patch if open_castle else map_patch.restore_original
+        try:
+            result = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(None, work, install), timeout=20)
+        except asyncio.TimeoutError:
+            ui_logger.error("Maps: writing the install did not finish (the write looks blocked).")
+            return
+        except _PATCH_ERRORS as exc:
+            ui_logger.error(f"Maps: {exc}")
+            return
+        except Exception:
+            ui_logger.exception("Maps: the map patch crashed")
+            return
+        if result == "patched":
+            ui_logger.info("Maps: hid the vine over the Forbidden Forest gate.")
+        elif result == "restored":
+            ui_logger.info("Maps: restored the original maps for this vanilla seed.")
 
     async def _resolve_launch_folder(self) -> Optional[str]:
         """The install folder to launch for this seed's mode: the configured one if
