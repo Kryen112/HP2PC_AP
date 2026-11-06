@@ -272,17 +272,36 @@ class TestPlayCommandNeverDuplicates(unittest.TestCase):
 class TestLaunchMessage(unittest.TestCase):
     """The launch line warns that the disc check delays the game window."""
 
-    def test_launch_line_names_the_disc_check_delay(self) -> None:
+    def launch(self, borderless: bool) -> "tuple[mock.Mock, mock.Mock, list]":
+        """Launch with the borderless setting on or off. Returns the Popen and
+        window sizing mocks and the log lines."""
         ctx = HP2Context.__new__(HP2Context)
         ctx.is_open_castle = False
+        order = []
         with mock.patch.object(Client.os.path, "exists", return_value=True), \
                 mock.patch.object(Client.sys, "platform", "win32"), \
-                mock.patch.object(Client.subprocess, "Popen") as popen:
+                mock.patch.object(Client, "_borderless_enabled", return_value=borderless), \
+                mock.patch.object(Client, "_size_window_for_borderless",
+                                  side_effect=lambda _install: order.append("size")) as size, \
+                mock.patch.object(Client.subprocess, "Popen",
+                                  side_effect=lambda *_args, **_kwargs: order.append("launch")) as popen:
             with self.assertLogs("Client", level="INFO") as captured:
                 ctx._launch_game("install")
+        return popen, size, order + captured.output
+
+    def test_launch_line_names_the_disc_check_delay(self) -> None:
+        popen, _, output = self.launch(borderless=False)
         popen.assert_called_once()
-        self.assertIn("disc check can take about half a minute before its window opens",
-                      "\n".join(captured.output))
+        self.assertIn("disc check can take about half a minute before its window opens", "\n".join(output))
+
+    def test_borderless_sizes_the_window_before_the_launch(self) -> None:
+        _, size, output = self.launch(borderless=True)
+        size.assert_called_once_with("install")
+        self.assertEqual(output[:2], ["size", "launch"])
+
+    def test_normal_window_is_left_at_its_size(self) -> None:
+        _, size, _ = self.launch(borderless=False)
+        size.assert_not_called()
 
 
 class TestConnectArmsTheLaunch(unittest.TestCase):

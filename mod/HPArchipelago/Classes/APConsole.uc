@@ -77,26 +77,89 @@ var float FreeCamBaseSpeed;
 // already-boosted speed on a repeated press.
 var byte bFreeCamBoosted;
 
+// Widescreen view: the game's 4:3 field of view widens to the window's shape
+// while the world draws and goes back after, so game logic never sees it.
+// The game's value and the widened one, as class defaults for static readers.
+var float WidescreenGameFOV;
+var float WidescreenDrawnFOV;
+// 1 between PreRender widening the view and PostRender putting it back.
+var byte bWidescreenApplied;
+// 1 while the client's widescreen_view setting is off (the WIDESCREEN line).
+var byte bWidescreenOff;
+
 exec function APIn(string Line)
 {
     class'APIPCActor'.static.ReceiveInbound(Line);
+}
+
+event PreRender(Canvas C)
+{
+    Super.PreRender(C);
+    WidenFieldOfView(C);
 }
 
 event PostRender(Canvas C)
 {
     Super.PostRender(C);
     class'APHUDToast'.static.RenderFromConsole(C, self);
+    RestoreFieldOfView();
 }
 
-// The UWindow state carries its own PostRender, which replaces the global one
-// while the console sits in that state.
+// The UWindow state carries its own render events, which replace the global
+// ones while the console sits in that state.
 state UWindow
 {
+    event PreRender(Canvas C)
+    {
+        Super.PreRender(C);
+        WidenFieldOfView(C);
+    }
+
     event PostRender(Canvas C)
     {
         Super.PostRender(C);
         class'APHUDToast'.static.RenderFromConsole(C, self);
+        RestoreFieldOfView();
     }
+}
+
+// Widens the player's field of view from 4:3 to the canvas shape, keeping the
+// vertical view the game intends. A 4:3 or narrower screen is left alone.
+function WidenFieldOfView(Canvas C)
+{
+    local PlayerPawn p;
+    local float aspect, halfWidth;
+
+    // A frame whose PostRender never ran must not widen an already widened view.
+    RestoreFieldOfView();
+    if (default.bWidescreenOff == 1) return;
+    if (Viewport == None || C == None || C.ClipY <= 0) return;
+    p = Viewport.Actor;
+    if (p == None) return;
+    aspect = C.ClipX / C.ClipY;
+    if (aspect <= 4.0 / 3.0 + 0.01) return;
+    halfWidth = Tan(p.FOVAngle * Pi / 360.0) * aspect * 0.75;
+    default.WidescreenGameFOV = p.FOVAngle;
+    default.WidescreenDrawnFOV = FClamp(Atan(halfWidth) * 360.0 / Pi, 1.0, 170.0);
+    default.bWidescreenApplied = 1;
+    p.FOVAngle = default.WidescreenDrawnFOV;
+}
+
+// Puts the game's field of view back, unless the game changed it since.
+function RestoreFieldOfView()
+{
+    if (default.bWidescreenApplied == 0) return;
+    default.bWidescreenApplied = 0;
+    if (Viewport != None && Viewport.Actor != None && Viewport.Actor.FOVAngle == default.WidescreenDrawnFOV)
+        Viewport.Actor.FOVAngle = default.WidescreenGameFOV;
+}
+
+// The field of view the game set, also while the world draws widened.
+static function float GameFieldOfView(PlayerPawn p)
+{
+    if (default.bWidescreenApplied == 1 && p.FOVAngle == default.WidescreenDrawnFOV)
+        return default.WidescreenGameFOV;
+    return p.FOVAngle;
 }
 
 // Print a string to both Game.log AND the in-game chat overlay. Without the

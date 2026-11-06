@@ -47,6 +47,7 @@ Mod-side protocol (newline-delimited text):
                                 the mod draws and moves that slot's ghost)
     PEERGONE <slot>             (client → game, that slot left this map or went silent; drop its ghost)
     CONNECTED <host:port>       (client → game, AP server address for startup toast; sticky, every HELLO)
+    WIDESCREEN <0|1>            (client → game, the widescreen_view setting; every HELLO)
     CHECKED <id_csv>            (client → game, comma-separated AP location ids the server
                                 already has as checked; sticky, every HELLO)
     RESYNC_CARDS <class_csv>    (client → game, wizard-card UScript class names ever received;
@@ -111,7 +112,8 @@ from CommonClient import (ClientCommandProcessor, CommonContext,
 from MultiServer import mark_raw
 from NetUtils import ClientStatus, SlotType
 
-from . import HP2World, dialogue_patch, installer, map_patch, music_patch, sound_patch
+from . import (HP2World, borderless, dialogue_patch, frame_cap, installer, map_patch, music_patch,
+               sound_patch)
 from .game_link import FileGameLink
 from .ghost_link import GHOST_TAG, GhostLink, interval_for_players
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
@@ -150,6 +152,36 @@ def _auto_launch_enabled() -> bool:
         return bool(HP2World.settings.auto_launch_game)
     except Exception:
         return False
+
+
+def _borderless_enabled() -> bool:
+    """Whether the client keeps the game's window borderless and centered on
+    its monitor. Read at call time so a host.yaml edit needs no client restart. On
+    read error, default to off so a misread never reshapes the window."""
+    try:
+        return bool(HP2World.settings.borderless_window)
+    except Exception:
+        return False
+
+
+def _frame_cap_enabled() -> bool:
+    """Whether the client holds the game at 60 frames per second. Read at call
+    time so a host.yaml edit needs no client restart. On read error, default to
+    on, the setting's default, so a misread keeps the game at its right speed."""
+    try:
+        return bool(HP2World.settings.frame_rate_cap)
+    except Exception:
+        return True
+
+
+def _widescreen_enabled() -> bool:
+    """Whether the mod widens the view on a wide screen. Read at call time so a
+    host.yaml edit needs no client restart. On read error, default to on, the
+    setting's default."""
+    try:
+        return bool(HP2World.settings.widescreen_view)
+    except Exception:
+        return True
 
 
 def _auto_install_enabled() -> bool:
@@ -206,8 +238,26 @@ def _game_process_ids() -> Optional[set]:
 
 def _visible_windows(pids: set) -> Optional[list]:
     """(class name, title) of the visible top-level windows those processes
-    own, or None when the window walk failed. A private user32 handle keeps the
-    argument types set here from leaking into other ctypes users."""
+    own, or None when the window walk failed."""
+    windows = _visible_window_handles(pids)
+    return None if windows is None else [(name, title) for _, name, title in windows]
+
+
+def _engine_window() -> Optional[int]:
+    """The handle of a running game's engine viewport window, or None."""
+    pids = _game_process_ids()
+    if not pids:
+        return None
+    for hwnd, name, _ in _visible_window_handles(pids) or []:
+        if name.endswith(ENGINE_WINDOW_CLASS):
+            return hwnd
+    return None
+
+
+def _visible_window_handles(pids: set) -> Optional[list]:
+    """(handle, class name, title) of the visible top-level windows those
+    processes own, or None when the window walk failed. A private user32 handle
+    keeps the argument types set here from leaking into other ctypes users."""
     windows = []
     try:
         user32 = ctypes.WinDLL("user32")
@@ -225,7 +275,7 @@ def _visible_windows(pids: set) -> Optional[list]:
                 user32.GetClassNameW(hwnd, name, 256)
                 title = ctypes.create_unicode_buffer(256)
                 user32.GetWindowTextW(hwnd, title, 256)
-                windows.append((name.value, title.value))
+                windows.append((hwnd, name.value, title.value))
             return True
 
         user32.EnumWindows.argtypes = [callback_type, ctypes.c_void_p]
@@ -315,6 +365,35 @@ MOD_BLOCKED_FAILED = "failed"
 # Seconds between in-game reminders while the mod install stays blocked, the
 # cadence of the mod's own "Not connected" reminder.
 BLOCKED_TOAST_INTERVAL = 10.0
+
+# Seconds between looks at the game's window while it is kept borderless, and
+# how many times within BORDERLESS_FLICKER_SECONDS the frame may come back
+# before the client stops taking it off (the game redrawing its frame on every
+# change would make the window flicker).
+BORDERLESS_CHECK_SECONDS = 1.0
+BORDERLESS_MAX_REAPPLIES = 3
+BORDERLESS_FLICKER_SECONDS = 10.0
+
+
+def _size_window_for_borderless(install: str) -> None:
+    """Set the game's windowed resolution to the primary monitor's size before
+    launch, so the borderless window fills the screen without being resized
+    while the game runs. A failure only leaves the game's own size in place."""
+    try:
+        monitor = borderless.primary_monitor_size()
+        if monitor is None:
+            return
+        width, height = borderless.windowed_size(*monitor)
+        if installer.set_windowed_size(Path(install), width, height):
+            ui_logger.info(f"Window: the game opens at {width}x{height} to fill the screen.")
+    except Exception as exc:
+        ui_logger.warning(f"Window: could not set the game's window size: {exc}")
+
+
+def _now() -> float:
+    """Seconds on a clock that only moves forward."""
+    return time.monotonic()
+
 
 # Seconds between looks for the game link folder while it cannot be known yet
 # (off Windows, until the seed's install folder is set).
@@ -1140,6 +1219,8 @@ class HP2Context(CommonContext):
         # reason holds the auto-launch and keeps the reminder loop alive.
         self.mod_install_blocked: Optional[str] = None
         self._blocked_toast_task: Optional[asyncio.Task] = None
+        # Keeps the game's window borderless while a game is connected.
+        self._borderless_task: Optional[asyncio.Task] = None
         # True when slot_data game_mode == "open_castle". Drives the one-way
         # "MODE open_castle" IPC line (sticky + idempotent mod-side; resent
         # every game HELLO). A durable, authoritative open castle signal that
@@ -2156,6 +2237,7 @@ class HP2Context(CommonContext):
             resolved, mod_ready = await self._ensure_mod_current(install)
             install = resolved or install
         await self._apply_map_patch(sd, install)
+        await self._apply_frame_cap(install)
         if not self.auto_launch_wanted() or not player_asked:
             return
         # A game that is up must not get a duplicate. That includes one parked at
@@ -2205,6 +2287,49 @@ class HP2Context(CommonContext):
         elif result == "restored":
             ui_logger.info("Maps: restored the original maps for this vanilla seed.")
 
+    async def _apply_frame_cap(self, install: Optional[str]) -> None:
+        """Cap the install's engine at 60 frames per second, or put the original
+        engine back when the setting is off. The game holds the engine open, so
+        a running game keeps what it started with until its next launch."""
+        install = install or _hp2_install_path()
+        if not install or not os.path.isfile(frame_cap.engine_path(install)):
+            return
+        wanted = _frame_cap_enabled()
+        if await self._game_state() != GAME_NONE:
+            try:
+                pending = await asyncio.get_event_loop().run_in_executor(
+                    None, frame_cap.change_pending, install, wanted)
+            except OSError:
+                pending = False
+            if pending:
+                state = "on" if wanted else "off"
+                ui_logger.info(f"Frame rate: the cap turns {state} the next time the game starts "
+                               f"(a running game keeps its engine open).")
+            return
+        work = frame_cap.apply_cap if wanted else frame_cap.remove_cap
+        try:
+            result = await asyncio.wait_for(
+                asyncio.get_event_loop().run_in_executor(None, work, install), timeout=20)
+        except asyncio.TimeoutError:
+            ui_logger.error("Frame rate: writing the engine did not finish (the write looks blocked).")
+            return
+        except _PATCH_ERRORS as exc:
+            ui_logger.error(f"Frame rate: {exc}")
+            return
+        except Exception:
+            ui_logger.exception("Frame rate: the frame rate cap crashed")
+            return
+        if result == "patched":
+            ui_logger.info(f"Frame rate: the game now runs at up to {frame_cap.FRAME_RATE} frames per second.")
+        elif result == "restored":
+            ui_logger.info("Frame rate: restored the original engine (no frame rate cap).")
+        elif result == "unknown":
+            ui_logger.warning("Frame rate: this install's Engine.dll is not the one the frame rate cap is "
+                              "for, or was replaced, so it is left as it is.")
+        elif result == "no-backup":
+            ui_logger.warning("Frame rate: this install's Engine.dll was capped outside this client and "
+                              "there is no Engine.dll.orig to put back, so the game stays capped.")
+
     async def _resolve_launch_folder(self) -> Optional[str]:
         """The install folder to launch: the configured one if valid, else a
         one-time folder picker. None if it cannot be resolved."""
@@ -2246,6 +2371,7 @@ class HP2Context(CommonContext):
         if install:
             if _auto_install_enabled():
                 await self._ensure_mod_current(install)
+            await self._apply_frame_cap(install)
             self._launch_game(install)
 
     def auto_launch_wanted(self) -> bool:
@@ -2389,6 +2515,8 @@ class HP2Context(CommonContext):
             ui_logger.error(f"Cannot launch Harry Potter ({mode}): {problem}. Start the game "
                             f"yourself and set auto_launch_game: false in host.yaml.")
             return
+        if _borderless_enabled() and sys.platform.startswith("win"):
+            _size_window_for_borderless(install)
         try:
             subprocess.Popen(argv, cwd=system_dir, env=env)
         except OSError as exc:
@@ -2510,6 +2638,9 @@ class HP2Context(CommonContext):
         # Fresh game session. Clear the per-session sent-index guard so the
         # HELLO re-forward / drain below repopulate it from scratch.
         self.sent_this_session = set()
+        if _borderless_enabled() and sys.platform.startswith("win") \
+                and (self._borderless_task is None or self._borderless_task.done()):
+            self._borderless_task = asyncio.create_task(self._borderless_loop(link))
 
         # Drain anything queued while the game wasn't connected (start
         # inventory grants delivered before game boot, items received during
@@ -2520,6 +2651,46 @@ class HP2Context(CommonContext):
             for line in queued:
                 link.queue_line(line)
                 self._note_sent(line)
+
+    async def _borderless_loop(self, link: FileGameLink) -> None:
+        """Keep the connected game's window borderless and centered on its
+        monitor until that game disconnects. Gives up when the frame keeps coming back."""
+        loop = asyncio.get_event_loop()
+        hwnd: Optional[int] = None
+        reported = False
+        recent_changes: "list[float]" = []
+        while self.game_writer is link and not self.exit_event.is_set():
+            try:
+                if hwnd is None:
+                    hwnd = await loop.run_in_executor(None, _engine_window)
+                if hwnd is not None:
+                    result = await loop.run_in_executor(
+                        None, borderless.make_borderless, hwnd, ENGINE_WINDOW_CLASS)
+                    if result == borderless.GONE:
+                        # A new window is a new game: report it and count afresh.
+                        hwnd = None
+                        reported = False
+                        recent_changes = []
+                    elif result == borderless.REFUSED:
+                        ui_logger.warning("Window: Windows would not let the client change the game's "
+                                          "window. If the game runs as administrator, run the "
+                                          "Archipelago Launcher as administrator too.")
+                        return
+                    elif result == borderless.CHANGED:
+                        if not reported:
+                            ui_logger.info("Window: the game now fills the screen without a border.")
+                            reported = True
+                        now = _now()
+                        recent_changes = [at for at in recent_changes
+                                          if now - at < BORDERLESS_FLICKER_SECONDS] + [now]
+                        if len(recent_changes) > BORDERLESS_MAX_REAPPLIES:
+                            ui_logger.warning("Window: the game keeps putting its border back, so the "
+                                              "client leaves the window as it is.")
+                            return
+            except Exception:
+                ui_logger.exception("Window: making the game borderless crashed")
+                return
+            await asyncio.sleep(BORDERLESS_CHECK_SECONDS)
 
     async def _on_game_line(self, line: str) -> None:
         # POS arrives ten times a second; logging it would bury the log.
@@ -2668,6 +2839,9 @@ class HP2Context(CommonContext):
         # bOpenCastleMode.
         if self.seed_mode is not None:
             self._send_to_game("MODE " + self.seed_mode)
+        # The widescreen view follows host.yaml, so an edit lands on the next
+        # game connect without a seed or mod change.
+        self._send_to_game("WIDESCREEN " + ("1" if _widescreen_enabled() else "0"))
         # Re-arm the open castle Great Hall key thresholds. Sticky +
         # idempotent mod-side, so resending every HELLO covers fresh game
         # launches and reconnects without harm. No-op for vanilla /

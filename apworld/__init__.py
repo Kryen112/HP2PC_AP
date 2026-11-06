@@ -620,9 +620,34 @@ class HP2Settings(settings.Group):
         the game launches. On by default. Set to false to manage the mod files
         yourself; /installmod deploys on demand."""
 
+    class BorderlessWindow(settings.Bool):
+        """Make the game fill the screen without a border: before launch the
+        client sets the game to start windowed at your primary monitor's size,
+        and once the game connects it takes the frame off the window and
+        centers it. There is no display mode switch. The game cannot open a
+        window wider than 2048 pixels, so on a wider monitor it shows centered
+        at the largest size of the same shape. On by default. Set to false to
+        keep the normal window."""
+
+    class FrameRateCap(settings.Bool):
+        """Hold the game at 60 frames per second. Uncapped, the game runs as
+        fast as your graphics card allows and its speed changes with the frame
+        rate. The client changes four bytes in the install's system\\Engine.dll
+        before the game starts, keeping an Engine.dll.orig backup, and puts the
+        original back when this is false. On by default. Takes effect the next
+        time the game starts."""
+
+    class WidescreenView(settings.Bool):
+        """Show more of the world at the sides on a wide screen, instead of
+        cutting off the top and bottom of the game's 4:3 view. On by default.
+        Takes effect when the game next connects to the client."""
+
     install_folder: InstallFolder = InstallFolder("")
     auto_launch_game: Union[AutoLaunchGame, bool] = True
     auto_install_mod: Union[AutoInstallMod, bool] = True
+    borderless_window: Union[BorderlessWindow, bool] = True
+    frame_rate_cap: Union[FrameRateCap, bool] = True
+    widescreen_view: Union[WidescreenView, bool] = True
 
     # Per-mode install folder keys, moved into install_folder on load.
     LEGACY_INSTALL_FOLDER_KEYS = ("vanilla_install_folder", "open_castle_install_folder")

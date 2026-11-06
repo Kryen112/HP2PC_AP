@@ -571,6 +571,12 @@ function HandleLine(string line)
             }
         }
     }
+    else if (MatchCmd(line, "WIDESCREEN ", rest))
+    {
+        // The client's widescreen_view setting, resent every HELLO.
+        if (rest == "0") class'APConsole'.default.bWidescreenOff = 1;
+        else class'APConsole'.default.bWidescreenOff = 0;
+    }
     else if (MatchCmd(line, "RESYNC_SPELLS ", rest))
     {
         // Durable spell-grant resync from the apworld client, as a comma-

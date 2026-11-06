@@ -88,7 +88,7 @@ Install the game from the disc. A folder you can write to without administrator 
 
 If the game does not start, or SafeDisc complains about the disc, see [Troubleshooting](#troubleshooting). Get this working before going further: nothing later in this guide can fix a game that does not start.
 
-**Fullscreen problems?** On some systems the game crashes or shows a black screen when a level starts in fullscreen. Run it in a window instead: open `Documents\Harry Potter II\Game.ini` (created by the first launch), find `[WinDrv.WindowsClient]`, and set `StartupFullscreen=False`.
+**Fullscreen problems?** On some systems the game crashes or shows a black screen when a level starts in fullscreen. Run it in a window instead: open `Documents\Harry Potter II\Game.ini` (created by the first launch), find `[WinDrv.WindowsClient]`, and set `StartupFullscreen=False`. Once the Archipelago client launches the game, it does this for you and still gives you a full screen: it opens the game windowed at your monitor's size, then takes the border off the window and centers it (see `borderless_window` below). The game cannot open a window wider than 2048 pixels, so on a wider monitor it shows centered at the largest size of the same shape.
 
 ### 3. Install Archipelago and the apworld
 
@@ -243,7 +243,12 @@ It needs no mod changes: the client binary-patches `<install>\system\HPSounds.u`
     install_folder: "<path to your install>"
     auto_launch_game: true   # default; set false to launch the game yourself
     auto_install_mod: true   # default; set false to manage the mod files yourself
+    borderless_window: true  # default; set false to keep the game's normal window
+    frame_rate_cap: true     # default; holds the game at 60 fps so it runs at the right speed
+    widescreen_view: true    # default; set false for the game's original 4:3 view
   ```
+
+  These are client settings, not seed options: change them any time and they apply the next time the game starts (`widescreen_view` on the next connect).
 
 - **When it applies.** Patching runs a moment after you connect (it rewrites a large file in the background). With auto-launch on (the default), the client finishes patching before it starts the game, so the first launch already has the shuffled sounds and you don't have to time anything. If you launch the game yourself, wait for the client window to show `Sound randomizer applied ...` first (and if the game was already running, restart it once, since the package is read at launch). If you instead see a "could not write / run as administrator" line, see Permissions below.
 - **Permissions.** The client patches a file inside your install, so it must be able to write there. If your install is under `Program Files` (the default location for the Harry Potter installation), Windows blocks writes unless the program is elevated, so you **must run ArchipelagoLauncher as administrator** (right-click it, "Run as administrator"). Otherwise the patch fails and the client log says so. Alternatively, use an install in a folder you can write to without elevation.
@@ -301,7 +306,7 @@ Quick checklist after first launch:
 
 **The game crashes or goes black when a level starts**:
 
-- Run it windowed: in `Documents\Harry Potter II\Game.ini`, under `[WinDrv.WindowsClient]`, set `StartupFullscreen=False`.
+- Run it windowed: in `Documents\Harry Potter II\Game.ini`, under `[WinDrv.WindowsClient]`, set `StartupFullscreen=False`. When the client launches the game, it still makes the window fill the screen.
 
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 

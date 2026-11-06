@@ -310,6 +310,33 @@ def deploy(install_dir: Path) -> "list[str]":
     return log
 
 
+WINDOW_SECTION = "[WinDrv.WindowsClient]"
+
+
+def set_windowed_size(install_dir: Path, width: int, height: int) -> bool:
+    """Make the game start windowed at width by height: in the per-user
+    Game.ini, or in Default.ini before the first launch creates Game.ini.
+    Returns whether a file changed."""
+    install_dir = Path(install_dir)
+    game_ini = _user_ini_dir(install_dir) / "Game.ini"
+    if game_ini.is_file():
+        target, backup_dir = game_ini, game_ini.parent / BACKUP_DIR_NAME
+    else:
+        target, backup_dir = install_dir / "system" / "Default.ini", install_dir / BACKUP_DIR_NAME
+    if not target.is_file():
+        raise FileNotFoundError(f"{target} not found; is this a Harry Potter 2 install?")
+    lines = _read_ini_lines(target)
+    out = lines
+    for key, value in (("WindowedViewportX=", width), ("WindowedViewportY=", height),
+                       ("StartupFullscreen=", "False")):
+        out = _set_in_section(out, WINDOW_SECTION, key, f"{key}{value}")
+    if out == lines:
+        return False
+    _backup_once(backup_dir, target)
+    _write_ini_lines(target, out)
+    return True
+
+
 def mod_is_current(install_dir: Path) -> bool:
     """Whether the install already runs this apworld's package, byte for byte,
     with Default.ini and an existing per-user Game.ini wired to it. An apworld

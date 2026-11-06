@@ -252,9 +252,16 @@ class _WiringCtx(HP2Context):
         self.game_writer = None
         self.sent_this_session = {99}
         self.pending_grants = ["GRANT 4 Lumos", "GRANT 5 Flipendo"]
+        self._borderless_task = None
 
 
 class TestClientWiring(LinkCase):
+    def setUp(self) -> None:
+        super().setUp()
+        patcher = mock.patch.object(Client, "_borderless_enabled", return_value=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_connect_resets_the_session_and_drains_queued_grants(self) -> None:
         ctx = _WiringCtx()
         asyncio.run(ctx._on_game_connected(self.link))

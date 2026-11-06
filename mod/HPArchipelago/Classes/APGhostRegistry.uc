@@ -424,7 +424,7 @@ static function bool ProjectToScreen(Canvas C, harry h, Vector world, out float 
     rel = world - view.Location;
     depth = rel dot camX;
     if (depth < 16.0) return False;
-    pixelsPerUnit = (C.SizeY * 2.0 / 3.0) / Tan(h.FOVAngle * Pi / 360.0);
+    pixelsPerUnit = (C.SizeY * 2.0 / 3.0) / Tan(class'APConsole'.static.GameFieldOfView(h) * Pi / 360.0);
     sx = C.SizeX * 0.5 + (rel dot camY) * pixelsPerUnit / depth;
     sy = C.SizeY * 0.5 - (rel dot camZ) * pixelsPerUnit / depth;
     return sx >= 0.0 && sx <= C.SizeX && sy >= 0.0 && sy <= C.SizeY;
