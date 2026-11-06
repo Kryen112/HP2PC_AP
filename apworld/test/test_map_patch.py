@@ -192,12 +192,15 @@ class TestClientMapPatch(_InstallCase):
 
     def test_open_castle_seed_applies_and_vanilla_seed_restores(self) -> None:
         with mock.patch.object(map_patch, "apply_patch", return_value="patched") as apply, \
-                mock.patch.object(map_patch, "restore_original", return_value="restored") as restore:
+                mock.patch.object(map_patch, "restore_original", return_value="restored") as restore, \
+                self.assertNoLogs("Client", level="INFO"), \
+                self.assertLogs("HP2Client", level="INFO") as logs:
             self.run_client({"game_mode": "open_castle"}, self.install)
             apply.assert_called_once_with(self.install)
             restore.assert_not_called()
             self.run_client({"game_mode": "vanilla"}, self.install)
             restore.assert_called_once_with(self.install)
+        self.assertEqual(len(logs.output), 2)
 
     def test_unset_install_touches_nothing(self) -> None:
         with mock.patch.object(Client, "_hp2_install_path", return_value=None), \

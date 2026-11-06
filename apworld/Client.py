@@ -385,7 +385,7 @@ def _size_window_for_borderless(install: str) -> None:
             return
         width, height = borderless.windowed_size(*monitor)
         if installer.set_windowed_size(Path(install), width, height):
-            ui_logger.info(f"Window: the game opens at {width}x{height} to fill the screen.")
+            logger.info(f"Window: the game opens at {width}x{height} to fill the screen.")
     except Exception as exc:
         ui_logger.warning(f"Window: could not set the game's window size: {exc}")
 
@@ -2158,7 +2158,7 @@ class HP2Context(CommonContext):
             if not any_on:
                 # No files to touch, so the game is safe to boot now. The launcher
                 # resolves (and prompts once for) the folder itself if it is unset.
-                ui_logger.info("All audio randomizers are off for this seed; leaving audio as-is.")
+                logger.info("All audio randomizers are off for this seed; leaving audio as-is.")
                 return True, install
 
             if not valid:
@@ -2283,9 +2283,9 @@ class HP2Context(CommonContext):
             ui_logger.exception("Maps: the map patch crashed")
             return
         if result == "patched":
-            ui_logger.info("Maps: hid the vine over the Forbidden Forest gate.")
+            logger.info("Maps: hid the vine over the Forbidden Forest gate.")
         elif result == "restored":
-            ui_logger.info("Maps: restored the original maps for this vanilla seed.")
+            logger.info("Maps: restored the original maps for this vanilla seed.")
 
     async def _apply_frame_cap(self, install: Optional[str]) -> None:
         """Cap the install's engine at 60 frames per second, or put the original
@@ -2320,9 +2320,9 @@ class HP2Context(CommonContext):
             ui_logger.exception("Frame rate: the frame rate cap crashed")
             return
         if result == "patched":
-            ui_logger.info(f"Frame rate: the game now runs at up to {frame_cap.FRAME_RATE} frames per second.")
+            logger.info(f"Frame rate: the game now runs at up to {frame_cap.FRAME_RATE} frames per second.")
         elif result == "restored":
-            ui_logger.info("Frame rate: restored the original engine (no frame rate cap).")
+            logger.info("Frame rate: restored the original engine (no frame rate cap).")
         elif result == "unknown":
             ui_logger.warning("Frame rate: this install's Engine.dll is not the one the frame rate cap is "
                               "for, or was replaced, so it is left as it is.")
@@ -2421,9 +2421,8 @@ class HP2Context(CommonContext):
             )
             self._set_mod_blocked(MOD_BLOCKED_GAME_UP)
             return install, False
-        ui_logger.info(
-            "The install is not running this apworld's mod (package or config out of "
-            "date); updating it.")
+        logger.info("The install is not running this apworld's mod (package or config out of "
+                    "date); updating it.")
         return install, await self._install_mod(install)
 
     def _set_mod_blocked(self, reason: Optional[str]) -> None:
@@ -2489,12 +2488,17 @@ class HP2Context(CommonContext):
             ui_logger.error(f"Mod install failed: {exc}")
             self._set_mod_blocked(MOD_BLOCKED_FAILED)
             return False
+        changes = []
         for line in log_lines:
-            ui_logger.info(f"Mod install: {line}")
-        if log_lines:
-            ui_logger.info("Mod installed. It loads when Harry Potter starts.")
+            if line.startswith(installer.WARNING_PREFIX):
+                ui_logger.warning(f"Mod install: {line[len(installer.WARNING_PREFIX):]}")
+            else:
+                logger.info(f"Mod install: {line}")
+                changes.append(line)
+        if changes:
+            ui_logger.info("Mod: updated to this version. It loads the next time Harry Potter starts.")
         else:
-            ui_logger.info("Mod install: the install is already up to date.")
+            ui_logger.info("Mod: already up to date.")
         self._set_mod_blocked(None)
         return True
 
@@ -2678,7 +2682,7 @@ class HP2Context(CommonContext):
                         return
                     elif result == borderless.CHANGED:
                         if not reported:
-                            ui_logger.info("Window: the game now fills the screen without a border.")
+                            logger.info("Window: the game now fills the screen without a border.")
                             reported = True
                         now = _now()
                         recent_changes = [at for at in recent_changes

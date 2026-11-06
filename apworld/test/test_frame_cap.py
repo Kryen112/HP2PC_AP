@@ -127,7 +127,8 @@ class TestClientFrameCap(_InstallCase):
         self.write(_engine())
         with mock.patch.object(frame_cap, "apply_cap", return_value="patched") as apply, \
                 mock.patch.object(frame_cap, "remove_cap", return_value="restored") as remove:
-            with self.assertLogs("Client", level="INFO") as logs:
+            with self.assertNoLogs("Client", level="INFO"), \
+                    self.assertLogs("HP2Client", level="INFO") as logs:
                 self.run_client(True)
                 self.run_client(False)
         apply.assert_called_once_with(self.install)

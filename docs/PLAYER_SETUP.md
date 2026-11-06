@@ -322,7 +322,7 @@ Quick checklist after first launch:
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
 - Make sure you launch the install the client set up: the one saved as `install_folder` under `harry_potter_2_pc_options` in `host.yaml`.
-- Close the game, including its main menu window, and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires both inis, and its log lines say exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
+- Close the game, including its main menu window, and type `/installmod` in the connected client (or simply reconnect). It re-deploys the mod and re-wires both inis, then says `Mod: updated to this version.` or `Mod: already up to date.` (on a reconnect a current mod stays silent). The client log file under `<Archipelago install>\logs\` lists exactly what changed. If it reports a permissions error, run ArchipelagoLauncher as administrator.
 - Manual checks, if you want to see for yourself: `<HP2 install>\system\HPArchipelago.u` exists; `Documents\Harry Potter II\Game.ini` (if present) has `DefaultGame=HPArchipelago.APGameInfo` and `Console=HPArchipelago.APConsole` under `[Engine.Engine]`, and a `[HPArchipelago.APIPCActor]` section with `ChannelDir=`.
 - Read `C:\Users\<you>\Documents\Harry Potter II\Game.log`, search for `[Archipelago]` lines.
 

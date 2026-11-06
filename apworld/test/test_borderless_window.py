@@ -105,7 +105,8 @@ class TestWindowedSizeSetting(unittest.TestCase):
     def test_client_sizes_the_window_from_the_monitor(self) -> None:
         with mock.patch.object(borderless, "primary_monitor_size", return_value=(2560, 1440)), \
                 mock.patch.object(installer, "set_windowed_size", return_value=True) as setter:
-            with self.assertLogs("Client", level="INFO") as logs:
+            with self.assertNoLogs("Client", level="INFO"), \
+                    self.assertLogs("HP2Client", level="INFO") as logs:
                 Client._size_window_for_borderless(str(self.install))
         setter.assert_called_once_with(self.install, 2048, 1152)
         self.assertIn("2048x1152", logs.output[0])
@@ -335,8 +336,9 @@ class TestBorderlessLoop(unittest.TestCase):
             asyncio.run(HP2Context._borderless_loop(context, link))
         return maker, lookup
 
-    def test_window_made_borderless_once_and_reported_once(self) -> None:
-        with self.assertLogs("Client", level="INFO") as logs:
+    def test_window_made_borderless_once_and_logged_once(self) -> None:
+        with self.assertNoLogs("Client", level="INFO"), \
+                self.assertLogs("HP2Client", level="INFO") as logs:
             maker, lookup = self.run_loop([CHANGED, UNCHANGED, UNCHANGED], rounds=3)
         self.assertEqual(maker.call_count, 3)
         lookup.assert_called_once_with()

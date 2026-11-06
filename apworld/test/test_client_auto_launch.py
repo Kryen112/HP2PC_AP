@@ -339,8 +339,9 @@ class TestInstallerRefusesWhileGameIsUp(unittest.TestCase):
         ctx.mod_install_blocked = MOD_BLOCKED_GAME_UP
         with mock.patch.object(Client.installer, "mod_is_current", return_value=False), \
                 mock.patch.object(Client.installer, "deploy", return_value=[]) as deploy:
-            with self.assertLogs("Client", level="INFO"):
+            with self.assertLogs("Client", level="INFO") as shown:
                 self.assertEqual(_run(ctx._ensure_mod_current("install")), ("install", True))
+        self.assertEqual(shown.output, ["INFO:Client:Mod: already up to date."])
         deploy.assert_called_once_with("install")
         self.assertIsNone(ctx.mod_install_blocked)
 
@@ -366,10 +367,30 @@ class TestInstallerRefusesWhileGameIsUp(unittest.TestCase):
     def test_install_mod_deploys_when_no_game_is_up(self) -> None:
         ctx = _Ctx(game_state=GAME_NONE)
         with mock.patch.object(Client.installer, "deploy", return_value=[]) as deploy:
-            with self.assertLogs("Client", level="INFO"):
+            with self.assertLogs("Client", level="INFO") as shown:
                 self.assertTrue(_run(ctx._install_mod("install")))
+        self.assertEqual(shown.output, ["INFO:Client:Mod: already up to date."])
         deploy.assert_called_once_with("install")
         self.assertIsNone(ctx.mod_install_blocked)
+
+    def test_an_update_shows_one_line_and_logs_the_details(self) -> None:
+        ctx = _Ctx(game_state=GAME_NONE)
+        with mock.patch.object(Client.installer, "deploy", return_value=["Copied the compiled mod package."]):
+            with self.assertLogs("HP2Client", level="INFO") as details, \
+                    self.assertLogs("Client", level="INFO") as shown:
+                self.assertTrue(_run(ctx._install_mod("install")))
+        self.assertEqual(shown.output,
+                         ["INFO:Client:Mod: updated to this version. It loads the next time Harry Potter starts."])
+        self.assertTrue(any("Copied the compiled mod package." in line for line in details.output))
+
+    def test_a_deploy_warning_shows_in_the_window_and_counts_as_no_update(self) -> None:
+        ctx = _Ctx(game_state=GAME_NONE)
+        warning = Client.installer.WARNING_PREFIX + "the game link folder is too long."
+        with mock.patch.object(Client.installer, "deploy", return_value=[warning]):
+            with self.assertLogs("Client", level="INFO") as shown:
+                self.assertTrue(_run(ctx._install_mod("install")))
+        self.assertEqual(shown.output, ["WARNING:Client:Mod install: the game link folder is too long.",
+                                        "INFO:Client:Mod: already up to date."])
 
 
 @mock.patch.object(Client, "_client_is_elevated", return_value=False)

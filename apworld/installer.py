@@ -65,6 +65,8 @@ RENDER_SETTINGS = (
 # The game runs `exec "<ChannelDir>\in.txt"`, and the engine reads that file
 # name into a short fixed buffer, so a long folder path is shortened.
 MAX_CHANNEL_PATH_CHARS = 52
+# Marks a deploy log line the player must see, as opposed to a routine detail.
+WARNING_PREFIX = "WARNING: "
 
 
 def _packaged_module_bytes() -> "bytes | None":
@@ -306,7 +308,7 @@ def deploy(install_dir: Path) -> "list[str]":
     channel_text = _game_side_path(channel)
     if len(channel_text) > MAX_CHANNEL_PATH_CHARS:
         log.append(
-            f"WARNING: the game link folder {channel_text} is longer than the game "
+            f"{WARNING_PREFIX}the game link folder {channel_text} is longer than the game "
             f"can open ({MAX_CHANNEL_PATH_CHARS} characters) and this drive has no "
             f"short names for it, so the game may not hear the client.")
 

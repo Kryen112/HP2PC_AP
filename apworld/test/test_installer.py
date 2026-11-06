@@ -248,11 +248,11 @@ class TestLongChannelPath(InstallerCase):
         long_path = "C:\\" + "x" * installer.MAX_CHANNEL_PATH_CHARS
         with mock.patch.object(installer, "_short_path", return_value=long_path):
             log = installer.deploy(self.install)
-        self.assertTrue(any(line.startswith("WARNING: the game link folder") for line in log))
+        self.assertTrue(any(line.startswith(installer.WARNING_PREFIX + "the game link folder") for line in log))
 
     def test_short_channel_path_does_not_warn(self) -> None:
         log = installer.deploy(self.install)
-        self.assertFalse(any(line.startswith("WARNING") for line in log))
+        self.assertFalse(any(line.startswith(installer.WARNING_PREFIX) for line in log))
 
 
 class TestShortPath(unittest.TestCase):
