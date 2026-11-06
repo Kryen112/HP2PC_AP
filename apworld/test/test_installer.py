@@ -94,6 +94,17 @@ class TestDeploy(InstallerCase):
         self.assertTrue(Path(self.channel).is_dir())
         self.assertEqual(log, ["Copied the compiled mod package.", "Pointed Default.ini at the mod."])
 
+    def test_texture_precache_is_turned_off(self) -> None:
+        installer.deploy(self.install)
+        self.assertEqual(self.section(self.default_ini, "[D3DDrv.D3DRenderDevice]"), ["UsePrecache=False"])
+
+    def test_texture_precache_is_replaced_in_place(self) -> None:
+        self.default_ini.write_text(DEFAULT_INI + "\n[D3DDrv.D3DRenderDevice]\nUseTrilinear=False\n"
+                                    "UsePrecache=True\nUseVSync=False\n", encoding="ascii")
+        installer.deploy(self.install)
+        self.assertEqual(self.section(self.default_ini, "[D3DDrv.D3DRenderDevice]"),
+                         ["UseTrilinear=False", "UsePrecache=False", "UseVSync=False"])
+
     def test_engine_keys_are_replaced_in_place(self) -> None:
         installer.deploy(self.install)
         engine = self.section(self.default_ini, "[Engine.Engine]")
@@ -166,6 +177,7 @@ class TestUserGameIni(InstallerCase):
                           "DefaultGame=HPArchipelago.APGameInfo"])
         self.assertEqual(self.section(self.game_ini, "[HPArchipelago.APIPCActor]"),
                          ["ChannelDir=" + self.channel])
+        self.assertEqual(self.section(self.game_ini, "[D3DDrv.D3DRenderDevice]"), ["UsePrecache=False"])
 
     def test_player_settings_survive(self) -> None:
         installer.deploy(self.install)
@@ -201,6 +213,12 @@ class TestModIsCurrent(InstallerCase):
     def test_matching_package_with_unwired_game_ini_is_stale(self) -> None:
         installer.deploy(self.install)
         (self.user_dir / "Game.ini").write_text(GAME_INI, encoding="ascii")
+        self.assertFalse(installer.mod_is_current(self.install))
+
+    def test_texture_precache_left_on_is_stale(self) -> None:
+        installer.deploy(self.install)
+        text = self.default_ini.read_text(encoding="latin-1")
+        self.default_ini.write_text(text.replace("UsePrecache=False", "UsePrecache=True"), encoding="latin-1")
         self.assertFalse(installer.mod_is_current(self.install))
 
     def test_wired_game_ini_is_current(self) -> None:

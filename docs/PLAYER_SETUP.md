@@ -108,6 +108,7 @@ There are no mod files to copy by hand. The first time you connect the client to
 
 - copies the compiled `HPArchipelago.u` (carried inside the apworld) into `<HP2 install>\system\`
 - patches `<HP2 install>\system\Default.ini` in place: `DefaultGame=HPArchipelago.APGameInfo` and `Console=HPArchipelago.APConsole` under `[Engine.Engine]`, plus the folder the game and the client share (`ChannelDir=`, under `[HPArchipelago.APIPCActor]`)
+- turns off the renderer's texture precache (`UsePrecache=False` under `[D3DDrv.D3DRenderDevice]`): with it on, see-through textures such as torch cages, fences and Harry's glasses draw solid, especially after you minimize or Alt+Tab
 - applies the same settings to your per-user `Documents\Harry Potter II\Game.ini` if you launched HP2 before, since that file would otherwise shadow `Default.ini` back to the original game; your own settings (resolution, windowed mode, volume) survive, nothing is deleted
 - creates the shared folder `Documents\Harry Potter II\AP\`
 - keeps one-time backups of every file it touches, under `<HP2 install>\_archipelago_backup\` and `Documents\Harry Potter II\_archipelago_backup\`

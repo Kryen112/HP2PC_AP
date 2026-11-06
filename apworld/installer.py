@@ -11,8 +11,10 @@ build_apworld.py). ``deploy`` copies that package into the install's
   inbound entry point.
 - ``[HPArchipelago.APIPCActor]``: ``ChannelDir=`` names the folder the game
   and the client share (see game_link.py).
+- ``[D3DDrv.D3DRenderDevice]``: ``UsePrecache=False`` keeps cut-out textures
+  see-through (see RENDER_SETTINGS).
 
-Both go into the install's ``system\\Default.ini``, which the first game launch
+All three go into the install's ``system\\Default.ini``, which the first game launch
 copies into the per-user ``Documents\\Harry Potter II\\Game.ini``, and into that
 Game.ini when it already exists. Game.ini carries the player's own settings, so
 it is patched in place, never replaced.
@@ -52,6 +54,13 @@ ENGINE_SETTINGS = (
 )
 LINK_SECTION = f"[{MOD_PACKAGE}.APIPCActor]"
 CHANNEL_DIR_KEY = "ChannelDir="
+# The texture precache drops cut-out transparency and reruns on every renderer
+# rebuild (minimize, Alt+Tab). Off, each texture uploads on first draw with its
+# own flags.
+RENDER_SECTION = "[D3DDrv.D3DRenderDevice]"
+RENDER_SETTINGS = (
+    ("UsePrecache=", "UsePrecache=False"),
+)
 
 # The game runs `exec "<ChannelDir>\in.txt"`, and the engine reads that file
 # name into a short fixed buffer, so a long folder path is shortened.
@@ -140,10 +149,13 @@ def _set_in_section(lines: "list[str]", section: str, key: str,
 
 
 def _wired_lines(lines: "list[str]", channel: str) -> "list[str]":
-    """The ini lines pointed at the mod and the channel folder."""
+    """The ini lines pointed at the mod and the channel folder, with the
+    renderer settings the mod needs."""
     out = lines
     for key, replacement in ENGINE_SETTINGS:
         out = _set_in_section(out, ENGINE_SECTION, key, replacement)
+    for key, replacement in RENDER_SETTINGS:
+        out = _set_in_section(out, RENDER_SECTION, key, replacement)
     return _set_in_section(out, LINK_SECTION, CHANNEL_DIR_KEY, CHANNEL_DIR_KEY + channel)
 
 
