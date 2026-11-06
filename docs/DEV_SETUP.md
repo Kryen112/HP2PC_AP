@@ -78,29 +78,20 @@ To bump the AP framework version, do a controlled `git fetch && git checkout <ta
 
 ## Player files (AP slot YAMLs)
 
-`gen_seed.ps1` invokes `Generate.py --player_files_path "$ap\Players"`, reading every `.yaml` in the AP install's standard `Players/` directory. Drop your slot YAMLs there.
-
-For solo HP2 testing, one slot suffices. A typical `HP2_Test.yaml` for full playthrough:
+Generate from the AP checkout (`py -3.12 Generate.py --player_files_path <folder>`) or with the frozen install's `ArchipelagoGenerate.exe`, pointing at a folder of slot YAMLs. A minimal solo test slot:
 
 ```yaml
 name: HP2_Test
-description: HP2 full-playthrough seed for logic cataloguing
 game: Harry Potter 2 PC
 Harry Potter 2 PC:
-  plando_items:
-    - { item: Rictusempra, location: "Learned Rictusempra", from_pool: true, force: silent }
-    - { item: Skurge,      location: "Learned Skurge",      from_pool: true, force: silent }
-    - { item: Diffindo,    location: "Learned Diffindo",    from_pool: true, force: silent }
-    - { item: Spongify,    location: "Learned Spongify",    from_pool: true, force: silent }
+  game_mode: vanilla
+  start_inventory:
+    Overcompensation Trap: 1
 ```
 
-Why each entry:
+`start_inventory` is the quickest way to see an item or trap in game: it arrives as soon as the game connects. Each classroom check (`Learned <spell>`) requires its own spell in logic, so no plando is needed to avoid the classroom softlock.
 
-- **Lumos/Flipendo/Alohomora are not listed here.** They're the default `starting_spells`, so the world precollects them and they need no plando entry. In vanilla, Lumos and Flipendo are force-precollected regardless, since clearing the Whomping Willow physically needs both.
-- **`plando_items` 4 classroom locks.** Walking into a classroom auto-teleports to the spell challenge with the exit locked behind. If the player doesn't already own the spell, they softlock. The proper fix unlocks the door via UScript; the workaround (used in the sample YAML above) is to plando each spell at its own classroom so picking it up at the challenge end grants the spell that opens the exit.
-- **`from_pool: true`** removes the plando'd copy from the random pool (no duplicates). **`force: silent`** suppresses the noisy "plando applied" stdout per entry.
-
-For "everything-unlocked" playtest mode (skip cataloguing, prove the AP solver), use `start_inventory_from_pool` for the 4 non-starter spells + 3 special progression items and drop the classroom plandos.
+Host the seed with `ArchipelagoServer.exe <seed zip>` (or `MultiServer.py` in the checkout) and connect the client to `localhost:38281`.
 
 ## One-time toolchain prep
 
@@ -133,6 +124,8 @@ The machine-local `..\scripts\build_mod.ps1` (outside the repo; holds this machi
 4. Rebuild the apworld (`py -3.12 build_apworld.py`): it re-verifies the manifest, stages the package into `apworld/data/mod/`, zips, and installs to `custom_worlds`. The client deploys the staged package into player installs on connect (`apworld/installer.py`). Skipping capture + rebuild after a build leaves a stale apworld whose auto-install overwrites the fresh build on the next client connect.
 
 Textures are imported from 8-bit palettized BMP (the kit's `Editor.dll` has no PNG importer). `scripts/png_to_bmp.py` converts the PNG sources, putting magenta at palette index 0 for chroma-keyed textures.
+
+Every model and texture in `mod/HPArchipelago` is the project's own: none is extracted from the game. `tools/gen_wand_mesh.py` and `tools/gen_ghost_glasses.py` draw the giant wand and the ghost glasses from plain shapes; rerun them (then `png_to_bmp.py`) after changing either. Anything the mod shows from the game itself (card skins, spell glyphs, the silver key icon) is loaded by name from the player's install at runtime.
 
 ## Run loop
 
@@ -167,7 +160,7 @@ try {
 }
 ```
 
-This is what `scripts/run_client.ps1` does. Requires the apworld junction (see **Archipelago framework** section) so `worlds.harry_potter_2_pc` resolves to the repo's `apworld/` directory.
+This requires the apworld junction (see **Archipelago framework** section) so `worlds.harry_potter_2_pc` resolves to the repo's `apworld/` directory.
 
 Alternative: `ArchipelagoLauncher.exe "HP2 PC Client"` runs the launcher entry point directly (Kivy GUI), same path users take.
 
@@ -209,4 +202,6 @@ Runtime:
 - **`[Engine.GameEngine] ServerActors=` and `?Mutator=` are ignored.** Runtime hooks go through the `GameInfo` subclass named by `DefaultGame=HPArchipelago.APGameInfo`.
 - **File encodings:** `Game.ini`, `User.ini` and `Default.ini` are ANSI with no BOM, and so is `Game.log`. The link's `out_*.log` batches are UTF-16 (written by `StatLogFile`).
 - **The game runs as `Game.exe`** in the install's `system` folder; SafeDisc adds a short-lived `~e*.tmp` helper in `%TEMP%`. The main menu is a plain dialog (class `#32770`, localized title), and the engine window class ends in `WWindowsViewportWindow`.
+- **The renderer does not survive a window resize.** Resizing past 2048 pixels wide crashes it, and smaller resizes break occlusion. The client sets the window size in `Game.ini` before launch and only clips and moves the window afterwards (`apworld/borderless.py`).
+- **A force-closed game leaves `Documents\Harry Potter II\Running.ini` behind.** On the next start the engine treats the last run as a crash, runs its render-device detection (`Detected.log`) and can come up fullscreen at 640x480, where a level load can crash. Close the game normally, or delete `Running.ini` after killing it.
 - **Third-party renderers and overlays** (texture upscalers, FPS overlays) can crash the engine. Disable them when chasing a crash.

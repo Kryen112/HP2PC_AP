@@ -9,7 +9,7 @@ If you're a developer wanting to _modify_ the mod or apworld, skip this and read
 ## What you're getting
 
 - An Archipelago multiworld randomizer for HP2 (PC, KnowWonder 2002 release).
-- Up to ~579 checks across 10 categories: 4 spell-tutorial classrooms, 101 wizard cards, 109 secret areas, 44 challenge stars, 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George vendor purchases, ~283 containersanity containers, and up to 13 Tradersanity vendor checks. Each category is gated by a yaml toggle so you can dial difficulty (see "Configure your slot" below).
+- Up to 560 checks in vanilla and 601 in open castle: 101 wizard cards, 109 secret areas (118 in open castle), 44 challenge stars (54), 12 level completions (13), 4 spell-tutorial classrooms (vanilla only), 10 ranked duels, 6 Quidditch matches, 4 spell-challenge par times, 2 Fred & George purchases, 255 containers (280), and 13 Tradersanity vendors. Most categories have a yaml toggle so you can dial the size of the seed (see "Configure your slot" below).
 - Goal: in vanilla, defeat the Basilisk; in open castle, satisfy your configured goal clauses to unlock the Great Hall (see "Game mode" below).
 - Plays solo or as a slot in a larger AP multiworld.
 
@@ -141,17 +141,19 @@ If you're playing solo (just you, no other AP slots):
    | `enable_quidditch_matches`     | off     | 6 Quidditch matches (3 regular + 3 final-tournament).                                                      |
    | `enable_spell_challenge_times` | off     | Beating the replay par time ("Mastered") on each of the 4 spell challenges becomes a check.                |
    | `enable_quidditch_upgrades`    | off     | Buying Nimbus 2001 and Quidditch Armour from Fred & George becomes 2 checks AND the gear enters the pool.  |
-   | `containersanity`              | off     | ~283 in-world containers (chests without cards, cauldrons, cigar / jewel / music boxes, decanters, oil cans, plant pots, knights, ingredient jars, statues) each become a check. Opening one with its spell (Alohomora or Flipendo) ejects an AP token; walk over it to send the check. A big check-count increase, so off by default. |
+   | `containersanity`              | off     | 255 in-world containers (280 in open castle) (chests without cards, cauldrons, cigar / jewel / music boxes, decanters, oil cans, plant pots, knights, ingredient jars, statues) each become a check. Opening one with its spell (Alohomora or Flipendo) ejects an AP token; walk over it to send the check. A big check-count increase, so off by default. |
 
-   The 4 spell-tutorial classrooms are always on, since randomized spells are the core experience. `allow_missable_progression` (default off) controls whether progression items may be placed at missable locations in un-replayable levels (missable secrets, plus `containersanity` containers in those levels); safe default keeps those filler-only.
+   The wizard cards and the level completions (finishing a level; 12 in vanilla, 13 in open castle with the Gold Card Room) are always checks, and so are the 4 spell-tutorial classrooms in vanilla. `allow_missable_progression` (default off) controls whether progression items may be placed at missable locations in un-replayable levels (missable secrets, plus `containersanity` containers in those levels); safe default keeps those filler-only.
 
    **Game mode**: one extra setting selects the way through the game:
 
    ```yaml
    Harry Potter 2 PC:
-     game_mode: vanilla # default, the original game; Lumos / Flipendo / Alohomora precollected, other 4 spells in pool
-     # game_mode: open_castle   # every level open after the flying car, NO spells precollected, all 7 land as AP items
+     game_mode: vanilla # default, the original game
+     # game_mode: open_castle   # every level open after the flying car
    ```
+
+   `starting_spells` (below) sets the spells Harry starts with in both modes; the rest are AP items.
 
    Both modes play on the same install. The client tells the mod which mode the seed uses when it connects; you can confirm open castle kicked in by checking `Game.log` for `entering open castle mode (sticky)`.
 
@@ -226,6 +228,14 @@ The Harry Potter 2 game connected to this client. It can now send and receive it
 The game window pops a toast top-right when your items arrive ("Received Alohomora from <YourSlotName>" etc). Items are handed over while Harry is walking around, not during cutscenes or the opening of a level, so the first ones may take a moment. You're playing.
 
 **Prefer to launch it yourself?** Set `auto_launch_game: false` under `harry_potter_2_pc_options` in host.yaml, then run `<HP2 install>\system\Game.exe` (or the game's Start Menu shortcut) once the client is connected. The `/play` command in the client launches it too, handy if you closed the game and want it back, or if an auto-launch was skipped. To turn auto-launch off for just this client session, type `/autoplay off` (bare `/autoplay` flips it, `/autoplay on` turns it back on).
+
+### Display
+
+Three client settings in host.yaml (shown in the block under Sound randomizer below), all on by default. They belong to your client, not the seed, so change them whenever you like:
+
+- `borderless_window`: the game fills your screen without a window frame. Before launch the client sets the game's window to your monitor's size, then hides the frame and centers it. The game cannot open a window wider than 2048 pixels, so on a wider monitor it shows centered at the largest size of the same shape.
+- `frame_rate_cap`: holds the game at 60 frames per second. Uncapped, the game runs too fast and its speed changes as you look around. The client edits one instruction in `<install>\system\Engine.dll` and keeps `Engine.dll.orig`; turning the setting off puts the original back. A change applies the next time the game starts.
+- `widescreen_view`: on a wide screen you see more of the world at the sides instead of a stretched or cropped picture, and the menus stay 4:3 in the middle with black bars. Applies on the next connect.
 
 ### Sound randomizer (optional)
 

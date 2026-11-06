@@ -1,8 +1,8 @@
 """Record a freshly built HPArchipelago.u as the canonical compiled package.
 
-Run from the repo root after an elevated UCC rebuild (scripts\\rebuild_mod.ps1,
-kept outside the repo), passing the built package:
-    py -3.12 scripts/capture_mod.py "C:\\...\\Modded\\System\\HPArchipelago.u"
+Run from the repo root after a UCC build (build_mod.ps1, kept outside the
+repo), passing the built package:
+    py -3.12 scripts/capture_mod.py "<dev install>\\System\\HPArchipelago.u"
 
 Copies the package into mod/Compiled and writes the source-hash manifest that
 build_apworld.py verifies before every packaging run. UCC compiles the source

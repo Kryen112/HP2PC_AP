@@ -33,25 +33,18 @@ output/
 dist-temp/
 *.archipelago
 tmp_seed_check*/
-
-# PyInstaller client-exe build artifacts.
-# The 85 MB onefile exe ships in the release zip, not in git.
 dist/
 
-# Reference checkouts (kept outside repo)
-/uscript/
-/wiki-clone/
-
-# Asset generators kept out of the repo (the logo SVG is committed as the
-# source of record; the PSK/PSA + texture generator scripts and their raster
-# work files are not -- the baked outputs under mod/HPArchipelago are).
+# Local dev tools stay out of the repo. The wand and ghost glasses generators
+# are committed as the record that those assets are drawn from plain shapes;
+# the baked outputs live under mod/HPArchipelago.
 tools/*.py
+!tools/gen_wand_mesh.py
+!tools/gen_ghost_glasses.py
 tools/*.png
 
 # Local configs
 .env
 *.local.yaml
 
-# containersanity census draft (intermediate; folded into data/locations.yaml)
-tools/containers_census_out.yaml
 /plans/

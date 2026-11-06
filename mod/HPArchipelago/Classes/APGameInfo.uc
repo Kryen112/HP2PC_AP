@@ -2019,8 +2019,8 @@ function PlayCardRewardFX(harry h, class<WizardCardIcon> cardClass, int nOldCard
 // Quidditch equipment grants: Nimbus 2001 (Fred) and Quidditch Armour (George).
 // Inventory only; bHaveNimbus2001 / bHaveQArmor stay False so Fred/George keep
 // offering, and the AP check at them stays reachable. Vanilla MakePurchase
-// sets the flag on actual sale; APVendorMarker_* has classStatusItem=None so
-// the sale doesn't double-increment. Quidditch reads StatusItem*.nCount, not
+// sets the flag on actual sale; APWeasleyBroomToken and APWeasleyArmorToken
+// have classStatusItem=None so the sale doesn't double-increment. Quidditch reads StatusItem*.nCount, not
 // the flag.
 function bool TryApplyEquipment(string Name, harry h)
 {

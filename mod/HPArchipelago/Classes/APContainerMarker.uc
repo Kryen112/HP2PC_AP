@@ -13,7 +13,7 @@
 //   appearance-applies it right after Spawn.
 //
 // Either way Touch fires CHECK_LOCID (a non-card AP location) and dedupes via
-// APCardWatcher.NonCardLocationChecked[], exactly like APVendorMarker_Trader.
+// APCardWatcher.NonCardLocationChecked[].
 //
 // Extends HProp (the prop/pickup base), NOT WizardCardIcon: vanilla card-
 // management sweeps only touch WizardCardIcon, so as a plain HProp this marker is

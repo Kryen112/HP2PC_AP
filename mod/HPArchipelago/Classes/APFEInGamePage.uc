@@ -22,11 +22,12 @@
 // Unlocked panel: a right-gutter grid of icons for the spells and level keys
 // the player has received (column 1 spells, columns 2-3 keys), shown in all AP
 // modes. Received items pack top-down in acquisition order with no gaps, so the
-// newest spell or key appears at the bottom of its group. All 14 keys share one
-// downscaled key sprite (APKeyIcon) that the hover tooltip disambiguates. Glyphs
-// are scaled small and centered inside a larger UWindowButton, so the icon reads
-// small while the whole cell stays hoverable; the FE framework renders each
-// button's ToolTipString in the bottom strip.
+// newest spell or key appears at the bottom of its group. The icons come from
+// the player's own game: each spell's wand-gesture glyph, and the silver key
+// sprite shared by all 14 keys, which the hover tooltip disambiguates. The page
+// draws them small and centered in each cell, so the icon reads small while the
+// whole cell stays hoverable; the FE framework renders each cell's
+// ToolTipString in the bottom strip.
 //
 // Button suppression: the button is hidden while a cutscene is active (the HUD
 // cutscene/popup flags plus any CutScene actor still bPlaying, which covers the
@@ -40,21 +41,6 @@
 //=============================================================================
 
 class APFEInGamePage extends FEInGamePage;
-
-// Icon textures for the "Unlocked" panel, imported as masked 8-bit BMPs via the
-// same magenta chroma-key recipe as APLogoMesh's skins. The source PNGs are
-// pre-flattened onto magenta 255,0,255 with the glyph scaled down and centered
-// inside a transparent margin, so each icon reads small inside a larger hover
-// cell. APKeyIcon is a downscaled copy of HP2_Menu.Icons.HP2SilverCardKey,
-// shared by all 14 keys.
-#exec Texture Import File=Textures\APSpellAlohomora.bmp   Name=APSpellAlohomora   Mips=1 Flags=2 Group=Icons
-#exec Texture Import File=Textures\APSpellDiffindo.bmp    Name=APSpellDiffindo    Mips=1 Flags=2 Group=Icons
-#exec Texture Import File=Textures\APSpellFlipendo.bmp    Name=APSpellFlipendo    Mips=1 Flags=2 Group=Icons
-#exec Texture Import File=Textures\APSpellLumos.bmp       Name=APSpellLumos       Mips=1 Flags=2 Group=Icons
-#exec Texture Import File=Textures\APSpellRictusempra.bmp Name=APSpellRictusempra Mips=1 Flags=2 Group=Icons
-#exec Texture Import File=Textures\APSpellSkurge.bmp      Name=APSpellSkurge      Mips=1 Flags=2 Group=Icons
-#exec Texture Import File=Textures\APSpellSpongify.bmp    Name=APSpellSpongify    Mips=1 Flags=2 Group=Icons
-#exec Texture Import File=Textures\APKeyIcon.bmp         Name=APKeyIcon         Mips=1 Flags=2 Group=Icons
 
 var UWindowButton HomeButton;
 var Texture textureHomeNorm;
@@ -81,6 +67,9 @@ var int UnlockedOrderCounter;
 var int LastSpellShownCount;
 var int LastKeyShownCount;
 var bool bUnlockedIconsBuilt;
+// The icon each visible slot draws, set with its tooltip in AssignSlot.
+var Texture SpellSlotIcon[7];
+var Texture KeySlotIcon[14];
 
 function Created()
 {
@@ -246,7 +235,7 @@ function BuildUnlockedPanel()
     if (bUnlockedIconsBuilt) return;
     bUnlockedIconsBuilt = True;
 
-    textureKeyIcon = Texture(DynamicLoadObject("HPArchipelago.Icons.APKeyIcon", Class'Texture'));
+    textureKeyIcon = class'APAppearanceMath'.static.LoadTexture("HP2_Menu.Icons.HP2SilverCardKey");
     w = class'APCardWatcher'.static.GetLatest();
 
     for (i = 0; i < 7; i++)
@@ -270,39 +259,55 @@ function BuildUnlockedPanel()
     }
 }
 
-// Skins a slot with an item's icon and name and shows it.
-function AssignSlot(UWindowButton btn, Texture tex, string nm)
+// Names a slot and shows it. The slot is an invisible hover cell; the page
+// draws its icon (DrawUnlockedIcons).
+function AssignSlot(UWindowButton btn, string nm)
 {
     if (btn == None) return;
-    btn.UpTexture     = tex;
-    btn.OverTexture   = tex;
-    btn.DownTexture   = tex;
+    btn.UpTexture     = None;
+    btn.OverTexture   = None;
+    btn.DownTexture   = None;
     btn.DownSound     = None;
     btn.ToolTipString = nm;
     btn.ShowWindow();
 }
 
-// Imported per-spell icon (HPArchipelago.Icons.APSpell*). The stock packages
-// have no clean per-spell icon, only procedural wet gesture textures, so the
-// poptracker art is imported instead.
+// A spell's wand-gesture glyph from the player's own game, the same art the
+// item markers show.
 function Texture SpellIconTexture(int i)
 {
-    return Texture(DynamicLoadObject("HPArchipelago.Icons." $ SpellPngName(i), Class'Texture'));
+    return class'APAppearanceMath'.static.SpellGestureTextureForIndex(i);
 }
 
-function string SpellPngName(int i)
+// Draws each visible slot's icon at 70% of its cell, centered. Spell glyphs are
+// a glow on black and draw additively; the key sprite is masked.
+function DrawUnlockedIcons(Canvas C, float fScaleFactor)
 {
-    switch (i)
-    {
-        case 0: return "APSpellAlohomora";
-        case 1: return "APSpellDiffindo";
-        case 2: return "APSpellFlipendo";
-        case 3: return "APSpellLumos";
-        case 4: return "APSpellRictusempra";
-        case 5: return "APSpellSkurge";
-        case 6: return "APSpellSpongify";
-    }
-    return "";
+    local int i;
+
+    for (i = 0; i < 7; i++)
+        if (SpellSlot[i] != None && SpellSlot[i].bWindowVisible)
+            DrawSlotIcon(C, SpellSlot[i], SpellSlotIcon[i], 3, fScaleFactor);
+    for (i = 0; i < 14; i++)
+        if (KeySlot[i] != None && KeySlot[i].bWindowVisible)
+            DrawSlotIcon(C, KeySlot[i], KeySlotIcon[i], 2, fScaleFactor);
+}
+
+function DrawSlotIcon(Canvas C, UWindowButton cell, Texture tex, byte style, float fScaleFactor)
+{
+    local float size;
+    local bool smoothSave;
+
+    if (tex == None) return;
+    smoothSave = C.bNoSmooth;
+    C.bNoSmooth = False;
+    size = cell.WinWidth * 0.7;
+    C.Style = style;
+    C.DrawColor = class'APHUDToast'.static.APWhite();
+    C.SetPos((cell.WinLeft + (cell.WinWidth - size) * 0.5) * fScaleFactor,
+             (cell.WinTop + (cell.WinHeight - size) * 0.5) * fScaleFactor);
+    C.DrawTile(tex, size * fScaleFactor, size * fScaleFactor, 0, 0, tex.USize, tex.VSize);
+    C.bNoSmooth = smoothSave;
 }
 
 // Stamps acquisition order onto each newly received item (class-default, so the
@@ -347,7 +352,8 @@ function ApplyUnlockedIconVisibility()
         for (j = 0; j < 7; j++)
             if (j != i && class'APGoalTracker'.static.IsSpellGranted(j)
                 && default.SpellOrderSeq[j] < default.SpellOrderSeq[i]) rank++;
-        AssignSlot(SpellSlot[rank], spellTexCache[i], spellNameCache[i]);
+        AssignSlot(SpellSlot[rank], spellNameCache[i]);
+        SpellSlotIcon[rank] = spellTexCache[i];
     }
     for (i = sCount; i < 7; i++)
         if (SpellSlot[i] != None) SpellSlot[i].HideWindow();
@@ -359,7 +365,8 @@ function ApplyUnlockedIconVisibility()
         for (j = 0; j < 14; j++)
             if (j != i && class'APGoalTracker'.static.IsBlockerKeyGranted(j)
                 && default.KeyOrderSeq[j] < default.KeyOrderSeq[i]) rank++;
-        AssignSlot(KeySlot[rank], textureKeyIcon, keyNameCache[i]);
+        AssignSlot(KeySlot[rank], keyNameCache[i]);
+        KeySlotIcon[rank] = textureKeyIcon;
     }
     for (i = kCount; i < 14; i++)
         if (KeySlot[i] != None) KeySlot[i].HideWindow();
@@ -415,6 +422,8 @@ function DrawUnlockedPanel(Canvas C)
         unlockedC = 564.0;
     }
 
+    DrawUnlockedIcons(C, fScaleFactor);
+    C.Style = styleSave;
     C.Font = bigFont;
     DrawCenteredShadowText(C, "Unlocked", unlockedC,  96.0, fScaleFactor, hScale, colorWhite, colorShadow);
     DrawCenteredShadowText(C, "Spells",   spellC,    120.0, fScaleFactor, hScale, colorWhite, colorShadow);

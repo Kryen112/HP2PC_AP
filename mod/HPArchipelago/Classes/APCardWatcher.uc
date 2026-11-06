@@ -10,8 +10,8 @@ const NUM_BLOCKER_KEYS = 14;
 // Mirrors `BASE_ID` in apworld/locations.py.
 const LOC_BASE = 5760000;
 // Window size for the non-card-location dedupe array and every `slot` guard
-// below. APContainerMarker.uc and APVendorMarker_Trader.uc carry the same
-// const and all MUST hold the same value. A non-card location id_offset >=
+// below. APLocationRegistry.uc, APMorphRegistry.uc and APVendorController.uc
+// carry the same const and all MUST hold the same value. A non-card location id_offset >=
 // this falls outside the array, so its dedupe is skipped. Sized to cover
 // every band with headroom.
 const NONCARD_LOC_WINDOW = 2048;
@@ -1751,13 +1751,6 @@ function ReplaceVendorSpawnedCards()
     foreach AllActors(class'WizardCardIcon', wci)
     {
         if (ClassIsChildOf(wci.Class, class'APCardMarker'))
-        {
-            continue;
-        }
-        // A Tradersanity marker is a WizardCardIcon child but not a card
-        // check; Id=200 already makes the range guard below skip it, this is
-        // the explicit belt so intent is local to this loop.
-        if (ClassIsChildOf(wci.Class, class'APVendorMarker_Trader'))
         {
             continue;
         }
