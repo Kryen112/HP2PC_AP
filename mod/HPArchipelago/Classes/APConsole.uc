@@ -154,6 +154,145 @@ function RestoreFieldOfView()
         Viewport.Actor.FOVAngle = default.WidescreenGameFOV;
 }
 
+// The menus are laid out for 4:3 and scale with the width, so a wider screen
+// runs them off the bottom. There they draw in a centered 4:3 area instead.
+function RenderUWindow(Canvas C)
+{
+    local float menuWidth, bar, gameOriginX, gameClipX;
+
+    menuWidth = C.ClipY * 4.0 / 3.0;
+    if (C.ClipX <= menuWidth + 1.0)
+    {
+        // Undoes a wide layout left from an earlier resolution.
+        WidenMenuPages(640.0, 0.0);
+        Super.RenderUWindow(C);
+        return;
+    }
+    bar = float(int((C.ClipX - menuWidth) / 2.0));
+    // Black bars first, so the menus and the cursor draw over their edges.
+    if (menuBook != None && menuBook.bIsOpen)
+    {
+        C.Style = 1;
+        C.SetPos(0, 0);
+        C.DrawTile(Texture'UWindow.BlackTexture', bar, C.ClipY, 0, 0, 1, 1);
+        C.SetPos(bar + menuWidth, 0);
+        C.DrawTile(Texture'UWindow.BlackTexture', C.ClipX - bar - menuWidth, C.ClipY, 0, 0, 1, 1);
+    }
+    gameOriginX = C.OrgX;
+    gameClipX = C.ClipX;
+    C.OrgX = gameOriginX + bar;
+    C.ClipX = menuWidth;
+    RenderMenusAt(C, bar);
+    C.OrgX = gameOriginX;
+    C.ClipX = gameClipX;
+}
+
+// The stock menu render, on a canvas narrowed to the 4:3 area that starts bar
+// pixels in from the left, with the mouse read in that area's coordinates.
+function RenderMenusAt(Canvas C, float bar)
+{
+    local UWindowWindow NewFocusWindow;
+
+    C.bNoSmooth = True;
+    C.Z = 1.0;
+    C.Style = 1;
+    C.DrawColor.R = 255;
+    C.DrawColor.G = 255;
+    C.DrawColor.B = 255;
+    if (Viewport.bWindowsMouseAvailable && Root != None)
+    {
+        MouseX = (Viewport.WindowsMouseX - bar) / Root.GUIScale;
+        MouseY = Viewport.WindowsMouseY / Root.GUIScale;
+    }
+    if (!bCreatedRoot)
+    {
+        CreateRootWindow(C);
+        Root.SetScale(Root.RealWidth / 640);
+        Root.NormalCursor.tex2 = Texture(DynamicLoadObject("HP2_Menu.Icons.WandSpark", class'FireTexture'));
+        Root.NormalCursor.Tex2XOffset = -32;
+        Root.NormalCursor.Tex2YOffset = -32;
+        Root.Cursor = Root.NormalCursor;
+        SetupLanguage();
+        menuBook = FEBook(Root.CreateWindow(class'FEBook', 0.0, 0.0, 640.0, 480.0, Root));
+        menuBook.bGamePlaying = True;
+        menuBook.CloseBook();
+        HideConsole();
+    }
+    Root.bWindowVisible = True;
+    Root.bUWindowActive = bUWindowActive;
+    Root.bQuickKeyEnable = bQuickKeyEnable;
+    if (C.ClipX != OldClipX || C.ClipY != OldClipY)
+    {
+        OldClipX = C.ClipX;
+        OldClipY = C.ClipY;
+        Root.WinTop = 0.0;
+        Root.WinLeft = 0.0;
+        Root.WinWidth = C.ClipX / Root.GUIScale;
+        Root.WinHeight = C.ClipY / Root.GUIScale;
+        Root.RealWidth = C.ClipX;
+        Root.RealHeight = C.ClipY;
+        Root.ClippingRegion.X = 0;
+        Root.ClippingRegion.Y = 0;
+        Root.ClippingRegion.W = Root.WinWidth;
+        Root.ClippingRegion.H = Root.WinHeight;
+        Root.Resized();
+    }
+    WidenMenuPages(C.SizeX / Root.GUIScale, bar / Root.GUIScale);
+    MouseX = FClamp(MouseX, 0.0, Root.WinWidth);
+    MouseY = FClamp(MouseY, 0.0, Root.WinHeight);
+    NewFocusWindow = Root.CheckKeyFocusWindow();
+    if (NewFocusWindow != Root.KeyFocusWindow)
+    {
+        Root.KeyFocusWindow.KeyFocusExit();
+        Root.KeyFocusWindow = NewFocusWindow;
+        Root.KeyFocusWindow.KeyFocusEnter();
+    }
+    Root.MoveMouse(MouseX, MouseY);
+    Root.WindowEvent(WM_Paint, C, MouseX, MouseY, 0);
+    if (bUWindowActive || bQuickKeyEnable)
+    {
+        Root.DrawMouse(C);
+    }
+}
+
+// Pages scale by the full canvas width, which scripts cannot narrow, over their
+// own width, so widened pages get the 4:3 area's scale. A mode 1 page also
+// starts barWidth left of the area, its controls moved back to stay put.
+function WidenMenuPages(float pageWidth, float barWidth)
+{
+    local UWindowWindow page, control;
+    local float shift, targetLeft;
+    local int mode;
+
+    if (menuBook == None) return;
+    for (page = menuBook.FirstChildWindow; page != None; page = page.NextSiblingWindow)
+    {
+        if (baseFEPage(page) == None) continue;
+        mode = MenuPageModeFor(page.Class.Name);
+        targetLeft = 0.0;
+        page.WinWidth = pageWidth;
+        if (mode == 0) page.WinWidth = 640.0;
+        if (mode == 1) targetLeft = -barWidth;
+        // Moving the page by shift moves its controls back by the same amount.
+        shift = page.WinLeft - targetLeft;
+        if (shift == 0.0) continue;
+        page.WinLeft = targetLeft;
+        for (control = page.FirstChildWindow; control != None; control = control.NextSiblingWindow)
+        {
+            control.WinLeft += shift;
+        }
+    }
+}
+
+// How each menu page draws on a wide screen: 0 plain in the 4:3 area, 1 widened
+// and shifted, 2 widened in place.
+function int MenuPageModeFor(name pageClass)
+{
+    if (pageClass == 'FEMapPage') return 0;
+    if (pageClass == 'FEFolioPage') return 2;
+    return 1;
+}
+
 // The field of view the game set, also while the world draws widened.
 static function float GameFieldOfView(PlayerPawn p)
 {
