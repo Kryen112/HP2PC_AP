@@ -154,30 +154,29 @@ function RestoreFieldOfView()
         Viewport.Actor.FOVAngle = default.WidescreenGameFOV;
 }
 
-// The menus are laid out for 4:3 and scale with the width, so a wider screen
-// runs them off the bottom. There they draw in a centered 4:3 area instead.
+// The book's pages are laid out for 4:3 and scale with the width, so a wider
+// screen runs them off the bottom. There they draw in a centered 4:3 area.
 function RenderUWindow(Canvas C)
 {
     local float menuWidth, bar, gameOriginX, gameClipX;
 
     menuWidth = C.ClipY * 4.0 / 3.0;
-    if (C.ClipX <= menuWidth + 1.0)
+    // Only the book's pages use the 4:3 area. Anything else in this state, such
+    // as the vendor trade bar, draws and hit-tests on the full screen.
+    if (C.ClipX <= menuWidth + 1.0 || menuBook == None || !menuBook.bIsOpen)
     {
-        // Undoes a wide layout left from an earlier resolution.
+        // Undoes a wide layout left from an earlier resolution or a closed book.
         WidenMenuPages(640.0, 0.0);
         Super.RenderUWindow(C);
         return;
     }
     bar = float(int((C.ClipX - menuWidth) / 2.0));
     // Black bars first, so the menus and the cursor draw over their edges.
-    if (menuBook != None && menuBook.bIsOpen)
-    {
-        C.Style = 1;
-        C.SetPos(0, 0);
-        C.DrawTile(Texture'UWindow.BlackTexture', bar, C.ClipY, 0, 0, 1, 1);
-        C.SetPos(bar + menuWidth, 0);
-        C.DrawTile(Texture'UWindow.BlackTexture', C.ClipX - bar - menuWidth, C.ClipY, 0, 0, 1, 1);
-    }
+    C.Style = 1;
+    C.SetPos(0, 0);
+    C.DrawTile(Texture'UWindow.BlackTexture', bar, C.ClipY, 0, 0, 1, 1);
+    C.SetPos(bar + menuWidth, 0);
+    C.DrawTile(Texture'UWindow.BlackTexture', C.ClipX - bar - menuWidth, C.ClipY, 0, 0, 1, 1);
     gameOriginX = C.OrgX;
     gameClipX = C.ClipX;
     C.OrgX = gameOriginX + bar;
@@ -199,11 +198,6 @@ function RenderMenusAt(Canvas C, float bar)
     C.DrawColor.R = 255;
     C.DrawColor.G = 255;
     C.DrawColor.B = 255;
-    if (Viewport.bWindowsMouseAvailable && Root != None)
-    {
-        MouseX = (Viewport.WindowsMouseX - bar) / Root.GUIScale;
-        MouseY = Viewport.WindowsMouseY / Root.GUIScale;
-    }
     if (!bCreatedRoot)
     {
         CreateRootWindow(C);
@@ -225,6 +219,8 @@ function RenderMenusAt(Canvas C, float bar)
     {
         OldClipX = C.ClipX;
         OldClipY = C.ClipY;
+        // The full-screen render can have sized the root for a wider canvas.
+        Root.SetScale(C.ClipX / 640);
         Root.WinTop = 0.0;
         Root.WinLeft = 0.0;
         Root.WinWidth = C.ClipX / Root.GUIScale;
@@ -236,6 +232,12 @@ function RenderMenusAt(Canvas C, float bar)
         Root.ClippingRegion.W = Root.WinWidth;
         Root.ClippingRegion.H = Root.WinHeight;
         Root.Resized();
+    }
+    // Read after the resize, which can change the scale.
+    if (Viewport.bWindowsMouseAvailable)
+    {
+        MouseX = (Viewport.WindowsMouseX - bar) / Root.GUIScale;
+        MouseY = Viewport.WindowsMouseY / Root.GUIScale;
     }
     WidenMenuPages(C.SizeX / Root.GUIScale, bar / Root.GUIScale);
     MouseX = FClamp(MouseX, 0.0, Root.WinWidth);
