@@ -125,7 +125,7 @@ The machine-local `..\scripts\build_mod.ps1` (outside the repo; holds this machi
 
 Textures are imported from 8-bit palettized BMP (the kit's `Editor.dll` has no PNG importer). `scripts/png_to_bmp.py` converts the PNG sources, putting magenta at palette index 0 for chroma-keyed textures.
 
-Every model and texture in `mod/HPArchipelago` is the project's own: none is extracted from the game. `tools/gen_wand_mesh.py` and `tools/gen_ghost_glasses.py` draw the giant wand and the ghost glasses from plain shapes; rerun them (then `png_to_bmp.py`) after changing either. Anything the mod shows from the game itself (card skins, spell glyphs, the silver key icon) is loaded by name from the player's install at runtime.
+Every model and texture in `mod/HPArchipelago` is the project's own: none is extracted from the game. `tools/gen_wand_mesh.py` and `tools/gen_ghost_glasses.py` draw the giant wand and the ghost players' glasses from plain shapes; rerun them (then `png_to_bmp.py`) after changing either. Anything the mod shows from the game itself (card skins, spell glyphs, the silver key icon) is loaded by name from the player's install at runtime.
 
 ## Run loop
 
@@ -142,7 +142,7 @@ To search the game log from PowerShell:
 Select-String -LiteralPath "$env:USERPROFILE\Documents\Harry Potter II\Game.log" -Pattern 'Archipelago'
 ```
 
-Debug mode (the stock developer console keys, including the free camera on Delete) is `bDebugMode=True` under `[HPArchipelago.APConsole]` in `Game.ini`; the console class is the mod's, so the stock `[HGame.HPConsole]` entry does not apply.
+Debug mode (the stock developer console keys, including the free camera on Delete) is `bDebugMode=True` under `[HGame.baseConsole]` in `Game.ini`. It is a global setting of the base console class, so the copies under `[HGame.HPConsole]` and `[HPArchipelago.APConsole]` do not apply.
 
 ## Running the client (dev)
 

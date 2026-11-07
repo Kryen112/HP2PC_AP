@@ -15,11 +15,10 @@
 class APGhostPawn extends HPawn;
 
 // Harry's glasses live on the mesh's fourth texture slot as a masked texture
-// with dark frames. The translucent style blends additively, so dark pixels
-// vanish and the ghost loses its glasses. This texture is light frames drawn by
-// tools/gen_ghost_glasses.py for that slot's layout, laid over it while the
-// ghost wears Harry's mesh.
-#exec Texture Import File=Textures\APGhostGlasses.bmp Name=APGhostGlasses Mips=1 Flags=2 Group=Skins
+// with dark frames. The translucent style blends additively, so they fade to a
+// pale outline. While the ghost wears Harry's mesh that slot gets a near-black
+// texture, which adds nothing, and APGhostGlasses draws a solid dark pair on
+// the head instead.
 
 var int    PeerSlot;
 var string PeerName;
@@ -30,8 +29,9 @@ var byte    bHasTarget;
 var float   LastSeenTime;
 var APGhostAnimChannel Channel;
 var Weapon  Wand;
-// The lightened glasses texture, loaded once per ghost.
+// The near-black texture that hides the faded glasses, loaded once per ghost.
 var Texture GlassesSkin;
+var APGhostGlasses Glasses;
 
 const HARRY_MESH_NAME  = "HPModels.skharryMesh";
 const GLASSES_SKIN_SLOT = 3;
@@ -79,15 +79,35 @@ function SetupPeer(int slot, string displayName)
         Wand.GiveAmmo(self);
         Wand.Style = STY_Translucent;
     }
-    GlassesSkin = Texture(DynamicLoadObject("HPArchipelago.Skins.APGhostGlasses", class'Texture'));
+    GlassesSkin = Texture(DynamicLoadObject("HPArchipelago.Skins.APGhostNoGlasses", class'Texture'));
     ApplyGlassesSkin();
+    Glasses = Spawn(class'APGhostGlasses', self);
+    if (Glasses != None)
+    {
+        Glasses.AttachToGhost(self);
+    }
 }
 
-// The lightened glasses go on Harry's mesh only; any other mesh keeps its own
+function Destroyed()
+{
+    if (Glasses != None)
+    {
+        Glasses.Destroy();
+        Glasses = None;
+    }
+    Super.Destroyed();
+}
+
+function bool WearsHarryMesh()
+{
+    return string(Mesh) ~= HARRY_MESH_NAME;
+}
+
+// The hiding texture goes on Harry's mesh only; any other mesh keeps its own
 // fourth slot.
 function ApplyGlassesSkin()
 {
-    if (GlassesSkin != None && string(Mesh) ~= HARRY_MESH_NAME)
+    if (GlassesSkin != None && WearsHarryMesh())
     {
         MultiSkins[GLASSES_SKIN_SLOT] = GlassesSkin;
     }
@@ -146,11 +166,28 @@ function ApplyMeshes(string meshName, string wandMeshName)
         return;
     }
     Wand.bHidden = bHidden;
-    if (string(Wand.Mesh) != wandMeshName)
+    if (string(Wand.Mesh) != wandMeshName || string(Wand.ThirdPersonMesh) != wandMeshName)
     {
         loaded = class'APAppearanceMath'.static.LoadMesh(wandMeshName);
-        if (loaded != None) Wand.Mesh = loaded;
+        if (loaded != None)
+        {
+            Wand.Mesh = loaded;
+            Wand.ThirdPersonMesh = loaded;
+        }
+        else
+        {
+            Log("[Archipelago] Ghosts: wand mesh " $ wandMeshName $ " failed to load for " $ PeerName);
+        }
     }
+}
+
+// The wand's state, for GhostList.
+function string DescribeWand()
+{
+    if (Wand == None) return "wand=None";
+    return "wand mesh=" $ string(Wand.Mesh) $ " thirdperson=" $ string(Wand.ThirdPersonMesh)
+        $ " hidden=" $ string(Wand.bHidden) $ " held=" $ string(Weapon == Wand)
+        $ " drawtype=" $ string(Wand.DrawType);
 }
 
 function SetGhostHidden(bool bHide)

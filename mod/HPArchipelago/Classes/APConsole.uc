@@ -48,6 +48,13 @@
 //                     channel and its wand can be checked without a second
 //                     player. 0 removes it. Bare GhostFake flips it.
 //
+//   GhostGlasses [field value]  tunes where the ghosts' dark glasses sit, live.
+//                     Fields: X Y Z (offset in the bone's axes), Pitch Yaw
+//                     Roll (turn from the bone's axes), Scale, Bone (1 the
+//                     glasses bone, 0 the head bone). Prints the
+//                     current values and logs the head bone's frame. The settled
+//                     values go in APGhostGlasses' defaults.
+//
 //   GhostList         logs which slots have a ghost on this map, with each
 //                     ghost's location next to the local Harry's.
 //
@@ -685,8 +692,8 @@ exec function PlaceBookcase(optional float Forward)
     fwd = Vector(rot);
     loc = Viewport.Actor.Location + Forward * fwd;
     // Bookcase model's "front" sits along its local +Y, but we want it facing
-    // Harry along his +X (the direction he's looking). 90° yaw twist aligns the
-    // doors with the doorway. UE1 yaw units: 16384 = 90°.
+    // Harry along his +X (the direction he's looking). 90?? yaw twist aligns the
+    // doors with the doorway. UE1 yaw units: 16384 = 90??.
     rot.Yaw += 16384;
     blocker = Viewport.Actor.Spawn(class'BookcaseGlassDoors', None, 'APDebugBookcase', loc, rot);
     if (blocker != None)
@@ -824,6 +831,47 @@ exec function GhostZOffset(optional string Units)
     }
     DevPrint("GhostZOffset: " $ class'APGhostPawn'.default.ZOffset
         $ " (added to every ghost's height; applies from the next sample)");
+}
+
+exec function GhostGlasses(optional string Line)
+{
+    local APGhostGlasses glasses;
+    local string Field;
+    local float Value;
+    local int space;
+
+    // The console passes the whole rest of the line as one string.
+    while (Left(Line, 1) == " ") Line = Mid(Line, 1);
+    space = InStr(Line, " ");
+    Field = Line;
+    if (space >= 0)
+    {
+        Field = Left(Line, space);
+        Value = float(Mid(Line, space + 1));
+    }
+    if (Field ~= "X")          class'APGhostGlasses'.default.OffsetX = Value;
+    else if (Field ~= "Y")     class'APGhostGlasses'.default.OffsetY = Value;
+    else if (Field ~= "Z")     class'APGhostGlasses'.default.OffsetZ = Value;
+    else if (Field ~= "Pitch") class'APGhostGlasses'.default.TurnPitch = int(Value);
+    else if (Field ~= "Yaw")   class'APGhostGlasses'.default.TurnYaw = int(Value);
+    else if (Field ~= "Roll")  class'APGhostGlasses'.default.TurnRoll = int(Value);
+    else if (Field ~= "Scale") class'APGhostGlasses'.default.GlassesScale = Value;
+    else if (Field ~= "Bone")  class'APGhostGlasses'.default.bFollowGlassesBone = byte(Value);
+    DevPrint("GhostGlasses: X=" $ class'APGhostGlasses'.default.OffsetX
+        $ " Y=" $ class'APGhostGlasses'.default.OffsetY
+        $ " Z=" $ class'APGhostGlasses'.default.OffsetZ
+        $ " Pitch=" $ class'APGhostGlasses'.default.TurnPitch
+        $ " Yaw=" $ class'APGhostGlasses'.default.TurnYaw
+        $ " Roll=" $ class'APGhostGlasses'.default.TurnRoll
+        $ " Scale=" $ class'APGhostGlasses'.default.GlassesScale
+        $ " Bone=" $ class'APGhostGlasses'.default.bFollowGlassesBone);
+    if (Viewport == None || Viewport.Actor == None) return;
+    foreach Viewport.Actor.AllActors(class'APGhostGlasses', glasses)
+    {
+        Log("[Archipelago] GhostGlasses: " $ glasses.DescribeBone('bip01 Head'));
+        Log("[Archipelago] GhostGlasses: " $ glasses.DescribeBone('glasses'));
+        break;
+    }
 }
 
 exec function GhostList()

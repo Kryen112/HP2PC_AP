@@ -181,11 +181,17 @@ function Sample(harry h)
     }
 }
 
-// The mesh the held wand wears, or "None" for an empty hand.
+// The mesh the held wand wears, or "None" for an empty hand. The held wand
+// draws its third-person mesh, which is also the one set while Mesh is empty.
 static function string WandMeshToken(harry h)
 {
-    if (baseWand(h.Weapon) == None || baseWand(h.Weapon).Mesh == None) return "None";
-    return string(baseWand(h.Weapon).Mesh);
+    local baseWand wand;
+
+    wand = baseWand(h.Weapon);
+    if (wand == None) return "None";
+    if (wand.ThirdPersonMesh != None) return string(wand.ThirdPersonMesh);
+    if (wand.Mesh != None) return string(wand.Mesh);
+    return "None";
 }
 
 // The sixteen sample fields for Harry's state at a given place.
@@ -443,7 +449,8 @@ function LogPeers()
     if (h != None)
     {
         Log("[Archipelago] Ghosts:   local Harry loc=" $ string(h.Location)
-            $ " colheight=" $ h.CollisionHeight $ " physics=" $ string(h.Physics));
+            $ " colheight=" $ h.CollisionHeight $ " physics=" $ string(h.Physics)
+            $ " wand token=" $ WandMeshToken(h));
     }
     for (i = 0; i < GhostCount; i++)
     {
@@ -453,6 +460,7 @@ function LogPeers()
             $ " target=" $ string(Ghosts[i].TargetLocation)
             $ " colheight=" $ Ghosts[i].CollisionHeight $ " physics=" $ string(Ghosts[i].Physics)
             $ " body=" $ string(Ghosts[i].AnimSequence)
+            $ " " $ Ghosts[i].DescribeWand()
             $ " seen " $ (Level.TimeSeconds - Ghosts[i].LastSeenTime) $ "s ago");
     }
 }
