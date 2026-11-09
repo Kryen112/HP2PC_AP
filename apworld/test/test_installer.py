@@ -201,6 +201,27 @@ class TestUserGameIni(InstallerCase):
         self.assertFalse(self.game_ini.exists())
 
 
+class TestCrashMarker(InstallerCase):
+    """A Running.ini left by a force-closed game is removed before a launch, so
+    the engine does not rerun its renderer detection; the player's settings in
+    the same folder are left alone."""
+
+    def test_a_left_marker_is_removed(self) -> None:
+        marker = self.user_dir / installer.CRASH_MARKER_NAME
+        marker.write_text("[Running]", encoding="ascii")
+        (self.user_dir / "Game.ini").write_text(GAME_INI, encoding="ascii")
+        self.assertTrue(installer.clear_crash_marker(self.install))
+        self.assertFalse(marker.exists())
+        self.assertTrue((self.user_dir / "Game.ini").is_file())
+
+    def test_no_marker_is_a_no_op(self) -> None:
+        self.assertFalse(installer.clear_crash_marker(self.install))
+
+    def test_an_unknown_documents_folder_is_a_no_op(self) -> None:
+        with mock.patch.object(installer, "_user_ini_dir", side_effect=ValueError("no prefix")):
+            self.assertFalse(installer.clear_crash_marker(self.install))
+
+
 class TestModIsCurrent(InstallerCase):
     def test_matching_install_is_current(self) -> None:
         installer.deploy(self.install)

@@ -43,6 +43,8 @@ MOD_PACKAGE = "HPArchipelago"
 MOD_PACKAGE_DATA = Path(__file__).parent / "data" / "mod" / f"{MOD_PACKAGE}.u"
 BACKUP_DIR_NAME = "_archipelago_backup"
 USER_INI_DIR_NAME = "Harry Potter II"
+# Written by the engine while it runs and removed on a clean exit.
+CRASH_MARKER_NAME = "Running.ini"
 CHANNEL_DIR_NAME = "AP"
 
 SECTION_HEADER = re.compile(r"^\s*\[.+\]\s*$")
@@ -348,6 +350,22 @@ def set_windowed_size(install_dir: Path, width: int, height: int) -> bool:
         return False
     _backup_once(backup_dir, target)
     _write_ini_lines(target, out)
+    return True
+
+
+def clear_crash_marker(install_dir: Union[str, Path]) -> bool:
+    """Remove the Running.ini a force-closed game leaves in its per-user folder.
+    The engine treats it as a crash on the next start and reruns its renderer
+    detection, which can bring the game up fullscreen at 640x480. Called before
+    a launch; a game still running holds its marker open or writes it again.
+    True when a marker was removed."""
+    try:
+        marker = _user_ini_dir(install_dir) / CRASH_MARKER_NAME
+        if not marker.is_file():
+            return False
+        marker.unlink()
+    except (OSError, ValueError):
+        return False
     return True
 
 

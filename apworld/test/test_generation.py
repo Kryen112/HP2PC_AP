@@ -125,6 +125,73 @@ class TestOpenCastleCardsShuffledOnlyRejected(HP2TestBase):
             self.world_setup()
 
 
+class TestOpenCastleEmptyStartRejected(HP2TestBase):
+    """No starting spells, secrets and card shuffle off, containers on: every
+    hub container wants a spell, and every vendor wants spells and keys or the
+    Duelling Club, whose key is a found item while duelling is on. No location
+    is open at the start, so generation must reject with a clear OptionError,
+    not a FillError."""
+    options = {"game_mode": "open_castle", **MINIMAL_CHECKS, "containersanity": True,
+               "enable_duelling": True, "tradersanity": "price_random", "starting_spells": []}
+    run_default_tests = False
+
+    def setUp(self) -> None:
+        pass
+
+    def test_empty_start_rejected(self) -> None:
+        with self.assertRaisesRegex(OptionError, "nothing is reachable at the start"):
+            self.world_setup()
+
+
+class TestOpenCastleEmptyStartInMultiworldGenerates(HP2TestBase):
+    """The empty-start seed alongside a second slot with open locations: the
+    guard accepts it because the other slot gives fill a place to start."""
+    options = TestOpenCastleEmptyStartRejected.options
+    run_default_tests = False
+
+    def setUp(self) -> None:
+        pass
+
+    def test_another_slot_gives_the_start(self) -> None:
+        from argparse import Namespace
+
+        from BaseClasses import CollectionState, LocationProgressType, MultiWorld
+        from test.general import gen_steps
+        from worlds import AutoWorld
+
+        multiworld = MultiWorld(2)
+        multiworld.game = {1: self.game, 2: self.game}
+        multiworld.player_name = {1: "Empty", 2: "Open"}
+        multiworld.set_seed(1)
+        world_type = AutoWorld.AutoWorldRegister.world_types[self.game]
+        args = Namespace()
+        for name, option in world_type.options_dataclass.type_hints.items():
+            empty = self.options.get(name, option.default)
+            setattr(args, name, {1: option.from_any(empty), 2: option.from_any(option.default)})
+        multiworld.set_options(args)
+        multiworld.state = CollectionState(multiworld)
+        for step in gen_steps:
+            AutoWorld.call_all(multiworld, step)
+        state = CollectionState(multiworld)
+        state.sweep_for_advancements()
+
+        def open_at_start(player: int) -> int:
+            return sum(1 for loc in multiworld.get_locations(player)
+                       if loc.item is None and loc.progress_type != LocationProgressType.EXCLUDED
+                       and loc.can_reach(state))
+
+        self.assertEqual(open_at_start(1), 0)
+        self.assertGreater(open_at_start(2), 0)
+
+
+class TestOpenCastleOneSpellStartGenerates(HP2TestBase):
+    """The same seed with Alohomora to start has open hub containers, so the
+    empty-start guard lets it through. A start this small passes the guard but
+    can still fail fill on an unlucky seed."""
+    options = {"game_mode": "open_castle", **MINIMAL_CHECKS, "containersanity": True,
+               "enable_duelling": True, "tradersanity": "price_random", "starting_spells": ["Alohomora"]}
+
+
 class TestOpenCastleSecretsOnlyGenerates(HP2TestBase):
     """Secrets live in pre-key hub regions, so enabling them alone gives the
     level keys reachable homes and a low-check open-castle seed still generates

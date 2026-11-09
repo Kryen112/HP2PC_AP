@@ -15,8 +15,8 @@ from dataclasses import dataclass
 from typing import ClassVar, Union
 
 import settings
-from BaseClasses import (Item, ItemClassification, Location,
-                         LocationProgressType, Region)
+from BaseClasses import (CollectionState, Item, ItemClassification, Location,
+                         LocationProgressType, MultiWorld, Region)
 from Options import (Choice, DeathLink, DefaultOnToggle, NamedRange,
                      OptionError, OptionGroup, OptionSet, PerGameCommonOptions,
                      Range, StartInventoryPool, Toggle, Visibility)
@@ -173,7 +173,9 @@ class StartingSpells(OptionSet):
     The `vanilla` game mode physically requires Lumos and Flipendo to finish
     the Whomping Willow level. If either is missing here in vanilla, they are
     added automatically, since the seed would otherwise have nowhere reachable
-    to place them. Open castle leaves the set untouched.
+    to place them. Open castle leaves the set untouched, but rejects a seed
+    where nothing is reachable at the start on its own: with few starting spells, turn on
+    secrets or add Alohomora or Flipendo.
 
     Valid spells: Lumos, Flipendo, Alohomora, Rictusempra, Skurge, Diffindo, Spongify.
     """
@@ -1063,6 +1065,22 @@ class HP2World(World):
             self._set_open_castle_completion()
         else:
             self._set_vanilla_completion()
+
+    @classmethod
+    def stage_pre_fill(cls, multiworld: MultiWorld) -> None:
+        # Fill needs an open location reachable from the start, in any slot.
+        # Runs once, after every world's rules, exclusions and locked items.
+        state = CollectionState(multiworld)
+        state.sweep_for_advancements()
+        for loc in multiworld.get_locations():
+            if (loc.item is None and loc.progress_type != LocationProgressType.EXCLUDED
+                    and loc.can_reach(state)):
+                return
+        raise OptionError(
+            f"{cls.game}: nothing is reachable at the start of this seed, so "
+            "there is nowhere to place the first item. Add starting spells "
+            "(Alohomora and Flipendo open the most) or enable secrets."
+        )
 
     def _apply_location_rules(self) -> None:
         from worlds.generic.Rules import set_rule

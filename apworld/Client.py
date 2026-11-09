@@ -2519,6 +2519,8 @@ class HP2Context(CommonContext):
             ui_logger.error(f"Cannot launch Harry Potter ({mode}): {problem}. Start the game "
                             f"yourself and set auto_launch_game: false in host.yaml.")
             return
+        if installer.clear_crash_marker(install):
+            logger.info("Removed the crash marker a force-closed game left, so it starts normally.")
         if _borderless_enabled() and sys.platform.startswith("win"):
             _size_window_for_borderless(install)
         try:

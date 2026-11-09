@@ -280,6 +280,8 @@ class TestLaunchMessage(unittest.TestCase):
         order = []
         with mock.patch.object(Client.os.path, "exists", return_value=True), \
                 mock.patch.object(Client.sys, "platform", "win32"), \
+                mock.patch.object(Client.installer, "clear_crash_marker",
+                                  side_effect=lambda _install: order.append("clear")), \
                 mock.patch.object(Client, "_borderless_enabled", return_value=borderless), \
                 mock.patch.object(Client, "_size_window_for_borderless",
                                   side_effect=lambda _install: order.append("size")) as size, \
@@ -297,7 +299,11 @@ class TestLaunchMessage(unittest.TestCase):
     def test_borderless_sizes_the_window_before_the_launch(self) -> None:
         _, size, output = self.launch(borderless=True)
         size.assert_called_once_with("install")
-        self.assertEqual(output[:2], ["size", "launch"])
+        self.assertEqual(output[:3], ["clear", "size", "launch"])
+
+    def test_the_crash_marker_is_cleared_before_the_launch(self) -> None:
+        _, _, output = self.launch(borderless=False)
+        self.assertEqual(output[:2], ["clear", "launch"])
 
     def test_normal_window_is_left_at_its_size(self) -> None:
         _, size, _ = self.launch(borderless=False)
