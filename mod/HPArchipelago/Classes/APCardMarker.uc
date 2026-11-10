@@ -15,14 +15,13 @@
 class APCardMarker extends WizardCardIcon;
 
 var int CardLocationId;
-// True if this marker was spawned by APGameInfo.ReplaceCardChests for a
-// design-time loose-icon placement (Sweeting, Sykes, Oglethorpe, etc.) as
-// opposed to chest-spawned by chestbronze.generateobject. Loose-spawned
-// markers keep bPersistent=True so they survive level transitions (matching
-// the vanilla wci behaviour they replace, since the cache delta records the
-// vanilla wci as destroyed, without a persistent replacement the spot ends
-// up empty on re-entry). Chest-spawned markers get bPersistent=False via
-// the Timer to avoid the 18-marker-stacking bug.
+// True for a marker that stands in for a stock card lying in the world: a
+// design-time placement (Sweeting, Sykes, Oglethorpe, etc.) or a card a vendor
+// dropped. These keep bPersistent=True so they survive level transitions like
+// the stock card they replace. The level's saved state records the stock card as
+// destroyed, and APMarkerClassTable keeps the marker classes loaded so the saved
+// marker can be rebuilt. Chest-spawned markers get bPersistent=False via the
+// Timer, since the chest re-arms instead.
 var bool bIsLooseSpawn;
 
 // "Bronze" / "Silver" / "Gold", set per generated subclass
@@ -131,19 +130,15 @@ function Spawned()
     GotoState('Wait');
 }
 
-// Called by APGameInfo.ReplaceCardChests right after spawning a loose-icon
-// replacement at a design-time placement. No physics change: PHYS_Falling
-// from Spawned() stays (PHYS_None would stop mover-carried cards, e.g. the
-// Chamber-II descending platform, since PHYS_None actors aren't pushed by
-// mover collision). The Wait state's HitWall override zeroes velocity on
-// contact so the card settles without drifting, and a mover sliding through
-// it still carries it via collision.
+// Called right after spawning a stand-in for a stock card lying in the world.
+// No physics change: PHYS_Falling from Spawned() stays (PHYS_None would stop
+// mover-carried cards, e.g. the Chamber-II descending platform, since PHYS_None
+// actors aren't pushed by mover collision). The Wait state's HitWall override
+// zeroes velocity on contact so the card settles without drifting, and a mover
+// sliding through it still carries it via collision.
 //
 // Sets bIsLooseSpawn so the deferred Timer leaves bPersistent at the default
-// True. Without this flag, the Timer-driven bPersistent=False (intended for
-// chest-spawned markers) would also nuke loose-spawned markers, and since the
-// cache delta records the vanilla wci as destroyed, the spot would be empty
-// on every re-entry.
+// True, keeping the card in the level's saved state across visits.
 function MarkAsLoose()
 {
     bIsLooseSpawn = True;

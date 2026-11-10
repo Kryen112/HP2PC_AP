@@ -432,6 +432,68 @@ exec function LogPos()
     DevPrint("LogPos: Location=" $ string(Viewport.Actor.Location) $ " Rotation=" $ string(Viewport.Actor.Rotation));
 }
 
+// Lays two rows of pickups in front of Harry, one per appearance code, to check how
+// each look renders: the plain and arrow AP logo, the key, a bean jar, a spell and
+// a card. The rows are laid once. Run it again after ClearAppearanceTest. Each
+// pickup's draw state goes to Game.log.
+//   AppearanceTest
+exec function AppearanceTest()
+{
+    local Actor h, a;
+    local Vector fwd, side, base;
+    local int i, code;
+    local bool bLaid;
+
+    if (Viewport == None || Viewport.Actor == None) return;
+    h = Viewport.Actor;
+    foreach h.AllActors(class'Actor', a, 'APAppearanceTest')
+    {
+        bLaid = True;
+        break;
+    }
+    if (bLaid) return;
+    fwd = vector(h.Rotation);
+    fwd.Z = 0.0;
+    fwd = Normal(fwd);
+    side.X = -fwd.Y;
+    side.Y = fwd.X;
+    base = h.Location + fwd * 120.0 + vect(0, 0, 50) - side * 70.0;
+    for (i = 0; i < 6; i++)
+    {
+        if (i == 0) code = 3003;
+        else if (i == 1) code = 9000;
+        else if (i == 2) code = 9001;
+        else if (i == 3) code = 2003;
+        else if (i == 4) code = 1000;
+        else code = 5;
+        a = h.Spawn(class'APContainerMarker', None, 'APAppearanceTest', base + side * (70.0 * (i % 3)) + vect(0, 0, 70) * (i / 3));
+        if (a == None)
+        {
+            DevPrint("AppearanceTest: code " $ code $ " did not spawn");
+            continue;
+        }
+        a.SetPhysics(PHYS_None);
+        a.SetCollision(False, False, False);
+        a.bPersistent = False;
+        class'APAppearanceMath'.static.ApplyAppearanceTo(a, code);
+        Log("[Archipelago] AppearanceTest: code=" $ code $ " Mesh=" $ string(a.Mesh)
+            $ " Skin=" $ string(a.Skin) $ " DrawType=" $ a.DrawType $ " Style=" $ a.Style
+            $ " DrawScale=" $ a.DrawScale $ " bHidden=" $ a.bHidden $ " at " $ string(a.Location));
+    }
+    DevPrint("AppearanceTest: laid 6 pickups, see Game.log");
+}
+
+exec function ClearAppearanceTest()
+{
+    local Actor a;
+
+    if (Viewport == None || Viewport.Actor == None) return;
+    foreach Viewport.Actor.AllActors(class'Actor', a, 'APAppearanceTest')
+    {
+        a.Destroy();
+    }
+}
+
 // Actor identification for Phase 4 auto-detection: find the
 // per-level actors the detector keys off: boss classes for Forbidden Forest /
 // Chamber, and the level-exit / level-change trigger for the challenges +

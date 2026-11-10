@@ -25,6 +25,7 @@ static function ReplaceChallengeStars(Actor ctx)
     local Rotator rot;
     local Actor vanillaBase;
     local Name vanillaTag;
+    local string vanillaCutName;
     local string levelName, markerName;
     local int locId, slot, replaced;
     local APMorphRegistry mr;
@@ -55,6 +56,7 @@ static function ReplaceChallengeStars(Actor ctx)
         rot = star.Rotation;
         vanillaBase = star.Base;
         vanillaTag = star.Tag;
+        vanillaCutName = star.CutName;
         star.Destroy();
         apStar = ctx.Spawn(class'APChallengeStarMarker', , , loc, rot);
         if (apStar == None)
@@ -72,6 +74,11 @@ static function ReplaceChallengeStars(Actor ctx)
         if (vanillaTag != 'None')
         {
             apStar.Tag = vanillaTag;
+        }
+        // Cutscene cameras find the star by its CutName.
+        if (vanillaCutName != "")
+        {
+            apStar.CutName = vanillaCutName;
         }
         if (vanillaBase != None)
         {
@@ -209,6 +216,7 @@ static function ReplaceGryffindorEndStar(Actor ctx)
     local APGryffindorEndStar apStar;
     local Vector loc;
     local Rotator rot;
+    local string vanillaCutName;
     local int replaced;
 
     if (Caps(string(ctx.Level.Outer.Name)) != "CH7GRYFFINDOR") return;
@@ -223,6 +231,7 @@ static function ReplaceGryffindorEndStar(Actor ctx)
 
         loc = fs.Location;
         rot = fs.Rotation;
+        vanillaCutName = fs.CutName;
         fs.Destroy();
         apStar = ctx.Spawn(class'APGryffindorEndStar', None, 'APGryffindorEndStar', loc, rot);
         if (apStar == None)
@@ -230,6 +239,11 @@ static function ReplaceGryffindorEndStar(Actor ctx)
             Log("[Archipelago] APLevelSetup.ReplaceGryffindorEndStar: Spawn returned None at "
                 $ string(loc));
             continue;
+        }
+        // Cutscene cameras find the star by its CutName.
+        if (vanillaCutName != "")
+        {
+            apStar.CutName = vanillaCutName;
         }
         replaced++;
     }
@@ -259,6 +273,7 @@ static function ReplaceSpellChallengeFinalStar(Actor ctx)
     local Rotator rot;
     local Actor vanillaBase;
     local Name vanillaTag, vanillaEvent;
+    local string vanillaCutName;
     local int idx, replaced;
 
     idx = class'APGoalTracker'.static.LevelObjectiveIndexFor(Caps(string(ctx.Level.Outer.Name)));
@@ -276,6 +291,7 @@ static function ReplaceSpellChallengeFinalStar(Actor ctx)
         vanillaBase = fs.Base;
         vanillaTag = fs.Tag;
         vanillaEvent = fs.Event;
+        vanillaCutName = fs.CutName;
         fs.Destroy();
         apStar = ctx.Spawn(class'APSpellChallengeFinalStar', , , loc, rot);
         if (apStar == None)
@@ -291,6 +307,11 @@ static function ReplaceSpellChallengeFinalStar(Actor ctx)
         if (vanillaTag != 'None')
         {
             apStar.Tag = vanillaTag;
+        }
+        // Cutscene cameras find the star by its CutName.
+        if (vanillaCutName != "")
+        {
+            apStar.CutName = vanillaCutName;
         }
         if (vanillaBase != None)
         {

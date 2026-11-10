@@ -22,7 +22,8 @@
 // Transparency uses a magenta chroma key, not alpha (alpha keying does not
 // work in this build): an 8-bit BMP with magenta at palette index 0, Flags=2
 // and STY_Masked (set in APAppearanceMath.ApplyMeshSkin), the vanilla recipe used by
-// skArmorHelmet / skTableVaseKO / Tree* sprites.
+// skArmorHelmet / skTableVaseKO / Tree* sprites. The mesh stays lit (bUnlit
+// False): a masked unlit mesh renders nothing in this build.
 //
 // UE1 re-import gotcha: editing the .psk/.bmp alone does not re-import. UCC
 // only re-runs the #exec lines below when this .uc recompiles.

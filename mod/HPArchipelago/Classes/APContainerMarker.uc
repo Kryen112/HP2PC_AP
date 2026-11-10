@@ -139,10 +139,11 @@ defaultproperties
     Mesh=SkeletalMesh'HProps.skWizardCardIconMesh'
     DrawScale=2.00
     AmbientGlow=250
-    // Small cylinder (bean-sized) so it fits the tight spots spawners sit in
-    // and still touches Harry; bRotateToDesired=False frees the Tick spin.
-    CollisionRadius=8.00
-    CollisionHeight=12.00
+    // The stock bean's cylinder, so the token fits every spot a container
+    // ejects a bean from. A taller cylinder fails the spawn fit check at the
+    // cauldron eject point and lands the token away from the cauldron.
+    CollisionRadius=32.00
+    CollisionHeight=10.00
     // bBlockActors=False is REQUIRED, not cosmetic: HProp/HPawn default it True,
     // and a blocking actor spawned inside the container's own collision cylinder
     // fails the engine encroachment check (Spawn returns None) even with
@@ -159,5 +160,6 @@ defaultproperties
     bBounce=True
     bBounceIntoPlace=True
     soundBounce=Sound'HPSounds.Magic_sfx.bean_bounce'
+    // Frees the Tick spin.
     bRotateToDesired=False
 }

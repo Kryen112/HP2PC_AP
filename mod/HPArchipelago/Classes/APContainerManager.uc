@@ -71,7 +71,8 @@ function ReplaceContainers()
     if (bContainersReplacedThisLevel == 1) return;
     bContainersReplacedThisLevel = 1;
 
-    lvl = Caps(string(Level.Outer.Name));
+    // The recorded map name, so a level loaded from a save still resolves.
+    lvl = class'APGameInfo'.static.CurrentMapName(self);
 
     foreach AllActors(class'chestbronze', chest)
     {
@@ -79,6 +80,10 @@ function ReplaceContainers()
         if (apId > 0)
         {
             InjectContainerMarkerChest(chest, apId);
+            if (chest.bOpened && !IsLocationChecked(apId))
+            {
+                RearmOpenedChest(chest, apId);
+            }
             n++;
         }
     }
@@ -88,14 +93,20 @@ function ReplaceContainers()
         if (apId > 0)
         {
             InjectContainerMarkerCauldron(caul, apId);
+            if (caul.bOpened && !IsLocationChecked(apId))
+            {
+                RearmOpenedCauldron(caul, apId);
+            }
             n++;
         }
     }
     foreach AllActors(class'GenericSpawner', spawner)
     {
-        // Skip our own swapped subclasses so a re-run can't double-swap.
+        // A swap restored from the level's saved state: repair what the save
+        // dropped and re-arm it, never swap it again.
         if (Left(string(spawner.Class.Name), 19) == "APContainerSpawner_")
         {
+            RepairSwappedSpawner(spawner);
             continue;
         }
         apId = class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(spawner.Name));
@@ -128,7 +139,209 @@ function ReplaceContainers()
             n++;
         }
     }
+    EnsureSpawnerTokens(lvl);
     Log("[Archipelago] APContainerManager.ReplaceContainers: " $ lvl $ " - armed " $ n $ " container location(s)");
+}
+
+static function bool IsLocationChecked(int apId)
+{
+    local int slot;
+
+    slot = class'APLocationRegistry'.static.SlotForApId(apId);
+    return slot < 0 || class'APCardWatcher'.static.IsNonCardChecked(slot);
+}
+
+// Destroy every uncollected token of one location still lying in the level.
+function RemoveTokens(int apId)
+{
+    local APContainerMarker token;
+
+    foreach AllActors(class'APContainerMarker', token)
+    {
+        if (token.CheckLocationId == apId)
+        {
+            token.Destroy();
+        }
+    }
+}
+
+// An opened chest whose token was never collected opens again. A token left
+// lying from the earlier opening is cleared first, so the fresh one is the
+// only copy and never sits out of reach.
+function RearmOpenedChest(chestbronze chest, int apId)
+{
+    RemoveTokens(apId);
+    chest.bOpened = False;
+    chest.bProjTarget = class'chestbronze'.default.bProjTarget;
+    chest.eVulnerableToSpell = class'chestbronze'.default.eVulnerableToSpell;
+    chest.GotoState('waitforspell');
+    Log("[Archipelago] APContainerManager.RearmOpenedChest: " $ string(chest.Name) $ " (apId " $ apId $ ") opens again");
+}
+
+// Cauldron variant of RearmOpenedChest. Cauldrons open with Flipendo.
+function RearmOpenedCauldron(bronzecauldron caul, int apId)
+{
+    RemoveTokens(apId);
+    caul.bOpened = False;
+    caul.bProjTarget = class'bronzecauldron'.default.bProjTarget;
+    caul.eVulnerableToSpell = class'bronzecauldron'.default.eVulnerableToSpell;
+    caul.GotoState('waitforspell');
+    Log("[Archipelago] APContainerManager.RearmOpenedCauldron: " $ string(caul.Name) $ " (apId " $ apId $ ") opens again");
+}
+
+// Object references a swapped spawner carries from its map placement, where the
+// placement differs from the leaf class default. The level's saved state keeps no
+// object references, so a restored swap falls back to the class default: a cigar
+// box with nothing to eject, which the stock PostBeginPlay then makes unopenable.
+// A plain GenericSpawner has no default goodies, so an empty first slot is what
+// marks a restored swap. A fresh swap already carries the map's references.
+function RestoreSpawnerObjects(GenericSpawner s, int apId)
+{
+    local Mesh chestMesh;
+
+    if (apId == 5761117 && s.GoodieToSpawn[0] == None)
+    {
+        // Forbidden Forest - Chest 3: a wooden chest with a gnome inside.
+        chestMesh = class'APAppearanceMath'.static.LoadMesh("HPModels.skwoodchestMesh");
+        if (chestMesh != None) s.Mesh = chestMesh;
+        s.GoodieToSpawn[0] = class'GNOME';
+    }
+    else if (apId == 5761126 && s.GoodieToSpawn[0] == None)
+    {
+        // Bean Bonus Room - Gargoyle: a hidden spawner with no mesh.
+        s.Mesh = None;
+        s.GoodieToSpawn[0] = class'Jellybean';
+        s.GoodieToSpawn[1] = class'Jellybean';
+        s.GoodieToSpawn[2] = class'Jellybean';
+    }
+    else if (apId == 5761257 && s.GoodieToSpawn[0] == None)
+    {
+        // Entry Hall - Chest 6: a wooden chest of potion ingredients.
+        chestMesh = class'APAppearanceMath'.static.LoadMesh("HPModels.skwoodchestMesh");
+        if (chestMesh != None) s.Mesh = chestMesh;
+        s.GoodieToSpawn[0] = class'FlobberwormMucus_BAfalse';
+        s.GoodieToSpawn[1] = class'WiggentreeBark_BAfalse';
+    }
+    else if (apId == 5761302)
+    {
+        // Grand Staircase - Dragon Skeleton: spiders.
+        s.GoodieToSpawn[0] = class'SpiderSmall';
+    }
+}
+
+// A swapped spawner rebuilt from the level's saved state. Put back the object
+// references the save dropped, re-derive the cached eject setup the way
+// GenericSpawner.PostBeginPlay does, and re-arm it when its token was ejected but
+// never collected.
+function RepairSwappedSpawner(GenericSpawner s)
+{
+    local int apId, i, howMany;
+    local bool exact, bRearmed;
+
+    apId = class'APContainerStamp'.static.ApIdOf(s);
+    if (apId <= 0) return;
+    RestoreSpawnerObjects(s, apId);
+
+    if (!IsLocationChecked(apId) && class'APContainerStamp'.static.TokenEjected(s))
+    {
+        RemoveTokens(apId);
+        class'APContainerStamp'.static.SetTokenEjected(s, False);
+        // An append leaf's first SpawnObject took one off Limits for the token.
+        // Give it back. A replace leaf never touches Limits.
+        if (!class'APContainerStamp'.static.IsReplaceLeaf(s))
+        {
+            s.Limits.Min += 1;
+            s.Limits.Max += 1;
+        }
+        if (s.Lives <= 0)
+        {
+            s.Lives = 1;
+        }
+        bRearmed = True;
+    }
+
+    howMany = 0;
+    for (i = 0; i < ArrayCount(s.GoodieToSpawn); i++)
+    {
+        if (s.GoodieToSpawn[i] == None) break;
+        howMany++;
+    }
+    if (s.Lives <= 0) howMany = 0;
+    s.HowManyObjectsToSpawn = howMany;
+    exact = False;
+    for (i = 0; i < ArrayCount(s.GoodiesNumber); i++)
+    {
+        if (s.GoodiesNumber[i] != 0) exact = True;
+    }
+    s.bSpawnExactNumbers = exact;
+    if (s.Lives > 0)
+    {
+        s.eVulnerableToSpell = s.eVulnerableToSpellSaved;
+    }
+    if (bRearmed)
+    {
+        s.GotoState('stateStart');
+        Log("[Archipelago] APContainerManager.RepairSwappedSpawner: " $ string(s.Name) $ " (apId " $ apId $ ") opens again");
+    }
+}
+
+// Every catalogued swapped container of this level whose location is unchecked
+// but whose box is gone (a potion jar is used up once opened) gets a fresh
+// token thrown from where the box stood.
+function EnsureSpawnerTokens(string lvl)
+{
+    local int i, apId;
+    local Vector loc;
+    local Rotator rot;
+
+    i = 0;
+    while (class'APContainerCatalog'.static.SpawnerAt(lvl, i, apId, loc, rot))
+    {
+        EnsureSpawnerToken(lvl, apId, loc, rot);
+        i++;
+    }
+}
+
+// One catalogued swapped container. The throw mirrors GenericSpawner.SpawnObject:
+// out of the box's front, 40 units up.
+function EnsureSpawnerToken(string lvl, int apId, Vector loc, Rotator rot)
+{
+    local GenericSpawner s;
+    local class<APContainerMarker> tokenCls;
+    local Actor token;
+    local Vector vThrow;
+    local bool bFound;
+
+    if (IsLocationChecked(apId)) return;
+    foreach AllActors(class'GenericSpawner', s)
+    {
+        if (s.bDeleteMe) continue;
+        if (class'APContainerStamp'.static.ApIdOf(s) == apId
+            || class'APLocationRegistry'.static.GetContainerLocationId(lvl, string(s.Name)) == apId)
+        {
+            bFound = True;
+            break;
+        }
+    }
+    if (bFound) return;
+
+    tokenCls = class'APMarkerClassTable'.static.ContainerTokenClass(
+        class'APLocationRegistry'.static.SlotForApId(apId));
+    if (tokenCls == None) return;
+    RemoveTokens(apId);
+    token = Spawn(tokenCls, , , loc + vect(0, 0, 40), rot);
+    if (token == None)
+    {
+        Log("[Archipelago] APContainerManager.EnsureSpawnerToken: Spawn returned None for apId " $ apId $ " at " $ string(loc));
+        return;
+    }
+    vThrow = vector(rot);
+    vThrow.Z = 0.0;
+    vThrow = Normal(vThrow) * 75.0;
+    vThrow.Z = 150.0;
+    token.Velocity = vThrow;
+    token.SetPhysics(PHYS_Falling);
+    Log("[Archipelago] APContainerManager.EnsureSpawnerToken: box for apId " $ apId $ " is gone, threw a fresh token at " $ string(loc));
 }
 
 // Inject the per-location baked-id marker (APContainerMarker_<offset>) as the
@@ -158,8 +371,7 @@ function InjectContainerMarkerChest(chestbronze chest, int apId)
             return;  // already injected this level (incl. restored hub state)
         }
     }
-    markerCls = class<Actor>(DynamicLoadObject(
-        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
+    markerCls = class'APMarkerClassTable'.static.ContainerTokenClass(slot);
     if (markerCls == None)
     {
         return;
@@ -204,8 +416,7 @@ function InjectContainerMarkerCauldron(bronzecauldron caul, int apId)
             return;
         }
     }
-    markerCls = class<Actor>(DynamicLoadObject(
-        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
+    markerCls = class'APMarkerClassTable'.static.ContainerTokenClass(slot);
     if (markerCls == None)
     {
         return;
@@ -350,8 +561,8 @@ function SwapContainerSpawner(GenericSpawner old, int apId)
     if (spawned == None)
     {
         // The original is already gone, so put a stock clone back rather than
-        // leave the spot empty. This location stays uncheckable, but the level
-        // keeps its container instead of silently losing it.
+        // leave the spot empty. The clone ejects no token, so on the next visit
+        // EnsureSpawnerTokens throws this location's token from the spot.
         bStockFallback = True;
         spawned = PlaceContainerSpawner(savedOriginalCls, savedTag, savedLoc, savedRot);
         Log("[Archipelago] APContainerManager.SwapContainerSpawner: no room for "
@@ -512,8 +723,7 @@ function ArmSpawnThingyDecoration(HProp deco, int apId)
         return;
     }
 
-    markerCls = class<Actor>(DynamicLoadObject(
-        "HPArchipelago.APContainerMarker_" $ string(slot), class'Class'));
+    markerCls = class'APMarkerClassTable'.static.ContainerTokenClass(slot);
     if (markerCls == None) return;
 
     best.SpawnClass = markerCls;

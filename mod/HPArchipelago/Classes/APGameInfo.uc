@@ -144,6 +144,7 @@ event InitGame(string Options, out string Error)
     SpawnAPHUDToastIfMissing();
 
     ReplaceCardChests();
+    EnsureLooseCardMarkers();
     DestroyUnobtainableSecretMarkers();
     DestroyGryffindorSpellGiver();
     ForceCutScenesSkippable();
@@ -1764,7 +1765,11 @@ function ReplaceCardChests()
             continue;
         }
 
-        markerClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(wci.Class.Name), class'Class'));
+        markerClass = None;
+        if (wci.Id > 0 && wci.Id <= 101)
+        {
+            markerClass = class'APMarkerClassTable'.static.CardMarkerClass(wci.Id);
+        }
         if (markerClass != None)
         {
             // Capture location/rotation/tag/base before destroying wci. We must
@@ -1822,6 +1827,66 @@ function ReplaceCardChests()
     }
 }
 
+// Respawn the marker of every unchecked freestanding card in this level whose
+// marker and stock card are both missing. The stock card is deleted for good once
+// replaced, so a marker the level's saved state failed to restore would otherwise
+// leave the spot empty on every later visit.
+function EnsureLooseCardMarkers()
+{
+    local string lvl;
+    local int i, cardId;
+    local Vector loc;
+    local Rotator rot;
+
+    lvl = CurrentMapName(self);
+    i = 0;
+    while (class'APLooseCardCatalog'.static.LooseCardAt(lvl, i, cardId, loc, rot))
+    {
+        EnsureLooseCardMarker(cardId, loc, rot);
+        i++;
+    }
+}
+
+// One catalogued card: spawn its marker unless the location is checked or a
+// marker or stock card for it is already in the level.
+function EnsureLooseCardMarker(int cardId, Vector loc, Rotator rot)
+{
+    local class<APCardMarker> markerCls;
+    local WizardCardIcon wci;
+    local Actor spawned;
+    local bool bPresent;
+
+    if (cardId <= 0 || cardId > 101) return;
+    if (class'APCardWatcher'.default.LocationChecked[cardId] == 1) return;
+    markerCls = class'APMarkerClassTable'.static.CardMarkerClass(cardId);
+    if (markerCls == None) return;
+
+    foreach AllActors(class'WizardCardIcon', wci)
+    {
+        if (wci.bDeleteMe) continue;
+        if (APCardMarker(wci) != None)
+        {
+            bPresent = APCardMarker(wci).CardLocationId == cardId;
+        }
+        else
+        {
+            bPresent = wci.Id == cardId;
+        }
+        if (bPresent) break;
+    }
+    if (bPresent) return;
+
+    spawned = Spawn(markerCls, , , loc, rot);
+    if (spawned == None)
+    {
+        Log("[Archipelago] EnsureLooseCardMarkers: Spawn returned None for " $ string(markerCls.Name) $ " at " $ string(loc));
+        return;
+    }
+    spawned.Tag = name(Mid(string(markerCls.Name), 13));
+    APCardMarker(spawned).MarkAsLoose();
+    Log("[Archipelago] EnsureLooseCardMarkers: respawned missing " $ string(spawned) $ " at " $ string(loc));
+}
+
 // Helper: if `slot` is a WizardCardIcon subclass that isn't already our marker,
 // resolve the corresponding APCardMarker_<ClassName> and write it to outClass.
 // Returns true if a replacement was found.
@@ -1874,7 +1939,7 @@ function bool TryReplaceCardSlot(class<Actor> slot, out class<Actor> outClass)
         return True;
     }
 
-    outClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(slot.Name), class'Class'));
+    outClass = class'APMarkerClassTable'.static.CardMarkerClass(locationId);
     if (outClass == None)
     {
         Log("[Archipelago] ReplaceCardChests: no APCardMarker_" $ string(slot.Name) $ " - leaving slot alone");

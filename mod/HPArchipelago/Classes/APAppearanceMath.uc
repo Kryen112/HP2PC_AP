@@ -118,8 +118,10 @@ static function Texture RandomBeanTexture()
 // Skin/DrawType reassignment is engine-supported, Characters.uc:991-1034). If
 // the mesh can't resolve, nothing is touched → marker keeps its native look
 // (async-safe). 3-skin filler meshes pass bSetSkin=False (baked materials).
-// bLogoStyle = the foreign AP-logo: STY_Masked for the magenta chroma-key
-// transparency (see APLogoMesh.uc), unlit + full glow for constant brightness.
+// bLogoStyle = the AP-logo look: STY_Masked for the magenta chroma-key
+// transparency (see APLogoMesh.uc), lit with full ambient glow and doubled
+// ScaleGlow so it stays bright in dark rooms. Masked drawing of an unlit mesh
+// renders nothing in this build.
 static function ApplyMeshSkin(Actor a, Mesh m, Texture tex, bool bSetSkin, float scale, bool bLogoStyle)
 {
     if (a == None || m == None) return;
@@ -131,16 +133,17 @@ static function ApplyMeshSkin(Actor a, Mesh m, Texture tex, bool bSetSkin, float
         a.Skin = tex;
         a.MultiSkins[0] = tex;
     }
+    a.bUnlit = False;
     if (bLogoStyle)
     {
         a.Style = STY_Masked;
-        a.bUnlit = True;
         a.AmbientGlow = 255;
+        a.ScaleGlow = 2.0;
     }
     else
     {
         a.Style = STY_Normal;
-        a.bUnlit = False;
+        a.ScaleGlow = 1.0;
     }
 }
 
@@ -283,6 +286,8 @@ static function ApplyAppearanceTo(Actor a, int code)
         tex = Texture(DynamicLoadObject("HPParticle.hp_fx.Particles.Key3", class'Texture'));
         ApplyMeshSkin(a, m, tex, True, 2.0, True);
         a.Style = STY_Translucent;
+        a.bUnlit = True;
+        a.ScaleGlow = 1.0;
         // Key3 maps onto the card quad upside down; roll 180° (32768 = 180°
         // in Rotator units). Absolute set, not an increment, so repeated
         // morph passes stay idempotent; the Wait-state spin animates Yaw

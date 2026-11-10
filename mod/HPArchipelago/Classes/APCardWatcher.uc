@@ -1659,8 +1659,7 @@ function int StampUnownedCardsToVendorByIdWalk()
     {
         wcClass = siBronze.GetCardClassFromId(id);
         if (wcClass == None) continue;
-        markerCls = class<APCardMarker>(DynamicLoadObject(
-            "HPArchipelago.APCardMarker_" $ string(wcClass.Name), class'Class'));
+        markerCls = class'APMarkerClassTable'.static.CardMarkerClass(id);
         if (markerCls == None) continue;
         if (TryAssignMarkerClassToVendor(markerCls)) assigned++;
     }
@@ -1766,9 +1765,16 @@ function ReplaceVendorSpawnedCards()
             replacedCount++;
             continue;
         }
-        markerClass = class<Actor>(DynamicLoadObject("HPArchipelago.APCardMarker_" $ string(wci.Class.Name), class'Class'));
+        markerClass = class'APMarkerClassTable'.static.CardMarkerClass(id);
         if (markerClass == None)
         {
+            continue;
+        }
+        // One stand-in per card: a second copy of an already lying card goes.
+        if (HasLooseMarker(id))
+        {
+            wci.Destroy();
+            replacedCount++;
             continue;
         }
         spawnLoc = wci.Location;
@@ -1781,19 +1787,32 @@ function ReplaceVendorSpawnedCards()
             Log("[Archipelago] APCardWatcher.ReplaceVendorSpawnedCards: Spawn returned None for " $ string(markerClass) $ " at " $ string(spawnLoc));
             continue;
         }
-        // Vendor-spawned markers are ephemeral, not design-time placements,
-        // so do NOT call MarkAsLoose (which would keep bPersistent=True and
-        // make the marker survive level exit, leading to ghost-stacking when
-        // the player buys the same card twice). Set bPersistent=False
-        // immediately to close the 0.05s race window before the marker's own
-        // Timer event runs.
-        spawned.bPersistent = False;
+        // A bought card stays where it dropped until picked up, like the stock
+        // card it replaces, so the purchase is never lost to a level change.
+        APCardMarker(spawned).MarkAsLoose();
         replacedCount++;
     }
     if (replacedCount > 0)
     {
         Log("[Archipelago] APCardWatcher.ReplaceVendorSpawnedCards: replaced/destroyed " $ replacedCount $ " loose vanilla card(s) (vendor-spawned)");
     }
+}
+
+// True if a card marker for this location is already in the level.
+function bool HasLooseMarker(int id)
+{
+    local APCardMarker marker;
+    local bool bFound;
+
+    foreach AllActors(class'APCardMarker', marker)
+    {
+        if (!marker.bDeleteMe && marker.CardLocationId == id)
+        {
+            bFound = True;
+            break;
+        }
+    }
+    return bFound;
 }
 
 // Maps a SpellLessonTrigger.LessonShape enum value to our SpellNames[] index.

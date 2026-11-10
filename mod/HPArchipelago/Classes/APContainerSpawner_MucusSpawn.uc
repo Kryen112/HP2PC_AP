@@ -20,8 +20,7 @@ function SpawnObject(int Index)
         bAPTokenEjected = True;
         if (CheckLocationId > 0)
         {
-            markerCls = class<Actor>(DynamicLoadObject(
-                "HPArchipelago.APContainerMarker_" $ string(CheckLocationId - LOC_BASE), class'Class'));
+            markerCls = class'APMarkerClassTable'.static.ContainerTokenClass(CheckLocationId - LOC_BASE);
             if (markerCls != None)
             {
                 useIdx = Index;
