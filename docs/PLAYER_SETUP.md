@@ -65,8 +65,11 @@ Install HP2. A folder you can write to without administrator rights is easiest (
 ### 2. Install SafeDiscShim and check the game starts
 
 1. Download the latest release from <https://github.com/RibShark/SafeDiscShim/releases> and run the installer.
-2. With the disc in the drive, start `<HP2 install>\system\Game.exe`. After a short disc check (about half a minute) the game's main menu appears (New Game / Load Game / Options).
-3. Start a new game and play until Privet Drive has loaded, then quit.
+2. Switch the game to windowed mode before its first start. Fullscreen crashes on modern Windows as soon as a level loads. Open `<HP2 install>\system\Default.ini` in Notepad and change **both** `StartupFullscreen=True` lines to `StartupFullscreen=False`. The game copies this file into `Documents\Harry Potter II\Game.ini` on its first start. If you already started the game once, make the same change in that `Game.ini` too.
+3. With the disc in the drive, start `<HP2 install>\system\Game.exe`. After a short disc check (about half a minute) the game's main menu appears (New Game / Load Game / Options) in a small window.
+4. Start a new game and play until Privet Drive has loaded, then quit.
+
+The small window is only for this check. When the client launches the game later, it sizes the window to fill your screen.
 
 If the game does not start, see [Troubleshooting](#troubleshooting). Get this working before going further: nothing later in this guide can fix a game that does not start.
 
@@ -237,9 +240,10 @@ A [PopTracker](https://github.com/black-sliver/PopTracker/) pack autotracks your
 - Windows 11 **Smart App Control** can block SafeDiscShim. Check Windows Security, App & browser control, Smart App Control.
 - SafeDiscShim writes a log next to `<HP2 install>\system\Game.exe` (`Game.exe_SafeDiscShim.log`); attach it if you ask for help.
 
-**The game crashes or goes black when a level starts** (only when you start the game yourself, outside the client):
+**`Critical Error: BeginScene failed (DDERR_SURFACELOST)`, or the screen goes black, when a level starts** (only when you start the game yourself, outside the client):
 
-- Run it windowed: in `Documents\Harry Potter II\Game.ini`, under `[WinDrv.WindowsClient]`, set `StartupFullscreen=False`. The client does this for you when it launches the game, and still fills the screen.
+- The game is running fullscreen. Run it windowed: in `Documents\Harry Potter II\Game.ini`, set **both** `StartupFullscreen=` lines to `StartupFullscreen=False` (under `[WinDrv.WindowsClient]` and `[XDrv.XClient]`). Do the same in `<HP2 install>\system\Default.ini` so a fresh `Game.ini` starts windowed too. The client sets this for you when it launches the game, and still fills the screen.
+- After a crash, delete `Documents\Harry Potter II\Running.ini` if it is there. The game leaves it behind when it does not exit cleanly, and on the next start it reruns its graphics detection, which can switch it back to fullscreen at 640x480. The client removes it before every launch.
 
 **Mod doesn't load** (no toasts, classrooms aren't blocked):
 
