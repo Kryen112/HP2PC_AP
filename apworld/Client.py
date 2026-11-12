@@ -33,8 +33,8 @@ Mod-side protocol (newline-delimited text):
     BEANSTATE_END               (game → client, end of the snapshot: concatenate the chunks and
                                 persist to AP storage so the room survives a restart)
     POS <level>|<sample>        (game → client, ten times a second while Harry moves or animates:
-                                position, rotation, both animation tracks, scale; batched into
-                                HP2Ghost Bounces for the other slots' ghosts)
+                                position, rotation, both animation tracks, scale; repeats are
+                                dropped and the rest batched once a second to the slots on this map)
     GRANT <index> <payload>\x1f<segrecord>  (client → game, forward item received; index = AP
                                 ReceivedItems index; \x1f splits the apply payload from a
                                 colourised toast segment record)
@@ -115,7 +115,7 @@ from NetUtils import ClientStatus, SlotType
 from . import (HP2World, borderless, dialogue_patch, frame_cap, installer, map_patch, music_patch,
                sound_patch)
 from .game_link import FileGameLink
-from .ghost_link import GHOST_TAG, GhostLink, interval_for_players
+from .ghost_link import GHOST_TAG, GhostLink, is_ghost_bounce
 from .items import (CARD_CLASS_TO_ITEM_NAME, FILLER_APPEARANCE_CODE,
                     ITEM_CLASSIFICATIONS, ITEM_GROUPS,
                     PROGRESSIVE_LEVEL_KEY_NAME, PROGRESSIVE_LEVEL_KEY_ORDER)
@@ -1418,7 +1418,7 @@ class HP2Context(CommonContext):
         self.connected_address = self._format_ap_address(self.server_address)
         if self.connected_address and self.game_writer is not None:
             self._send_to_game("CONNECTED " + self.connected_address)
-        self._tune_ghost_rate()
+        self.ghosts.announce()
         sd = args.get("slot_data") or {}
         self.is_open_castle = sd.get("game_mode") == "open_castle"
         self.seed_mode = "open_castle" if self.is_open_castle else "vanilla"
@@ -1798,6 +1798,10 @@ class HP2Context(CommonContext):
         suppress a never-authed first-launch close (wrong password, bad
         address) from toasting spuriously."""
         was_authed = self.slot is not None
+        # Peers are per room: the next connection may be another one, and its
+        # fresh beacon gets the current peers to greet us again.
+        for gone in self.ghosts.forget_all():
+            self._write_ghost_line(gone)
         await super().connection_closed()
         if was_authed:
             self._toast_to_game("Disconnected from AP server")
@@ -1935,10 +1939,11 @@ class HP2Context(CommonContext):
         logger.info("TrapLink disabled for this slot; TrapLink tag removed")
 
     async def _enable_ghosts(self) -> None:
-        # Register the HP2Ghost tag (mirrors _enable_trap_link). Ghost Bounces
-        # target the tag, so a slot with ghosts off costs the server nothing.
+        # Register the HP2Ghost tag (mirrors _enable_trap_link). Beacons target
+        # the tag and positions target slots, so a slot with ghosts off gets neither.
         self.ghost_players_enabled = True
         self.ghosts.enabled = True
+        self.ghosts.announce()
         newly_tagged = GHOST_TAG not in self.tags
         self.tags = set(self.tags) | {GHOST_TAG}
         if newly_tagged and self.server and not self.server.socket.closed:
@@ -1961,19 +1966,15 @@ class HP2Context(CommonContext):
         self.tags = set(self.tags) - {GHOST_TAG}
         if self.server and not self.server.socket.closed:
             try:
-                await self.send_msgs([{"cmd": "ConnectUpdate", "tags": self.tags}])
+                messages = [{"cmd": "ConnectUpdate", "tags": self.tags}]
+                if self.slot is not None:
+                    name = self.player_names.get(self.slot, str(self.slot))
+                    messages.insert(0, self.ghosts.farewell(self.slot, name))
+                await self.send_msgs(messages)
             except Exception as e:
                 logger.exception(f"Ghosts: ConnectUpdate(tags) untag failed: {e}")
                 return
         logger.info("Ghosts disabled for this slot; HP2Ghost tag removed")
-
-    def _tune_ghost_rate(self) -> None:
-        """Pick the Bounce interval from how many HP2 players share the room:
-        tight in a small room, gentler once the fan-out grows."""
-        players = sum(1 for slot in (self.slot_info or {}).values()
-                      if slot.game == GAME_NAME and slot.type == SlotType.player)
-        self.ghosts.send_interval = interval_for_players(players)
-        logger.info(f"Ghosts: {players} HP2 player(s) in the room, one Bounce per {self.ghosts.send_interval}s")
 
     def _write_ghost_line(self, line: str) -> None:
         """Write a PEER or PEERGONE frame straight to the game. Never queued:
@@ -1988,7 +1989,7 @@ class HP2Context(CommonContext):
     def _handle_ghost_bounce(self, args: dict) -> None:
         """Replay another slot's samples to the mod with the spacing the sender
         recorded, so a batch arrives as motion instead of a jump."""
-        if not self.ghost_players_enabled or GHOST_TAG not in (args.get("tags") or []):
+        if not self.ghost_players_enabled or not is_ghost_bounce(args):
             return
         data = args.get("data")
         lines = self.ghosts.on_bounced(data, self.slot)
@@ -2009,21 +2010,24 @@ class HP2Context(CommonContext):
             self._write_ghost_line(line)
 
     async def ghost_pump(self) -> None:
-        """Five times a second: ship the batched POS samples as one HP2Ghost
-        Bounce and drop the peers that went silent."""
+        """Five times a second: drop the peers that went silent, keep standing
+        ghosts alive in the game, and send whatever beacon, greeting or batch
+        of samples is due."""
         while not self.exit_event.is_set():
             await asyncio.sleep(0.2)
             try:
                 for gone in self.ghosts.sweep():
                     self._write_ghost_line(gone)
+                for line in self.ghosts.keepalive_lines():
+                    self._write_ghost_line(line)
                 if not self.ghost_players_enabled or self.slot is None:
                     continue
                 if not self.server or self.server.socket.closed:
                     continue
                 name = self.player_names.get(self.slot, str(self.slot))
-                data = self.ghosts.bounce_due(self.slot, name)
-                if data is not None:
-                    await self.send_msgs([{"cmd": "Bounce", "tags": [GHOST_TAG], "data": data}])
+                packets = self.ghosts.outbound(self.slot, name)
+                if packets:
+                    await self.send_msgs(packets)
             except Exception as e:
                 logger.warning(f"Ghosts: pump error, continuing: {e}")
 
@@ -2709,6 +2713,8 @@ class HP2Context(CommonContext):
         ui_logger.info("The Harry Potter 2 game disconnected from this client. Relaunch the game to reconnect.")
         if self.game_writer is link:
             self.game_writer = None
+            # The other slots stop drawing us once the leave beacon goes out.
+            self.ghosts.set_level(None)
 
     async def _handle_game_line(self, line: str) -> None:
         # Game lines are "COMMAND" or "COMMAND <args>"; dispatch on the first word.
@@ -2838,7 +2844,7 @@ class HP2Context(CommonContext):
         #
         self._forward_all_received()
         # A fresh game session has no ghosts yet, whatever the last one drew.
-        self.ghosts.reset_visible()
+        self.ghosts.game_restarted()
         # Re-arm the declared seed mode. Sticky + idempotent mod-side, so
         # every HELLO (fresh launch / reconnect / cold load into a
         # sentinel-less level) re-asserts it. "open_castle" re-latches

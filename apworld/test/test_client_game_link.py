@@ -14,6 +14,7 @@ from unittest import mock
 from .. import Client, game_link
 from ..Client import HP2Context
 from ..game_link import FRAGMENT_CHARS, MAX_LINES_PER_FILE, FileGameLink
+from ..ghost_link import GhostLink
 
 
 def write_batch(folder: Path, session: str, index: int, lines: "list[str]") -> None:
@@ -253,6 +254,7 @@ class _WiringCtx(HP2Context):
         self.sent_this_session = {99}
         self.pending_grants = ["GRANT 4 Lumos", "GRANT 5 Flipendo"]
         self._borderless_task = None
+        self.ghosts = GhostLink()
 
 
 class TestClientWiring(LinkCase):
